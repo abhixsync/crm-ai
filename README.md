@@ -59,11 +59,6 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-Default seeded login:
-
-- Email: `admin@crm.local`
-- Password: `Admin@123`
-
 ## Environment Variables
 
 - Core
