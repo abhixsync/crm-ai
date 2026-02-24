@@ -1,0 +1,67 @@
+import { mapTelephonyStatus } from "@/lib/telephony/provider-router";
+import { prisma } from "@/lib/prisma";
+import { logTelephony } from "@/lib/telephony/logger";
+
+async function parsePayload(request) {
+  const contentType = request.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return request.json().catch(() => ({}));
+  }
+
+  if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
+    const form = await request.formData().catch(() => null);
+    if (!form) return {};
+
+    const data = {};
+    for (const [key, value] of form.entries()) {
+      data[key] = String(value || "");
+    }
+    return data;
+  }
+
+  return {};
+}
+
+function shouldSetEndedAt(mappedStatus) {
+  return ["COMPLETED", "FAILED", "NO_ANSWER"].includes(String(mappedStatus || ""));
+}
+
+export async function POST(request) {
+  const body = await parsePayload(request);
+
+  const providerCallId = String(body.uuid || body.call_uuid || body.request_uuid || "").trim();
+  const providerStatus = String(body.status || body.call_status || "").trim();
+  const duration = body.duration || body.duration_secs;
+
+  if (!providerCallId) {
+    logTelephony("warn", "api.vonage.voice.events.ignored", {
+      reason: "missing-provider-call-id",
+      providerStatus,
+    });
+    return Response.json({ ok: true });
+  }
+
+  const mappedStatus = mapTelephonyStatus("VONAGE", providerStatus);
+
+  await prisma.callLog.updateMany({
+    where: { providerCallId },
+    data: {
+      status: mappedStatus,
+      durationSecs: duration ? Number(duration) : undefined,
+      endedAt: shouldSetEndedAt(mappedStatus) ? new Date() : undefined,
+    },
+  });
+
+  logTelephony("info", "api.vonage.voice.events.persisted", {
+    providerCallId,
+    providerStatus,
+    mappedStatus,
+  });
+
+  return Response.json({ ok: true });
+}
+
+export async function GET(request) {
+  return POST(request);
+}
