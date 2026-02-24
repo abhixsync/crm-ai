@@ -36,9 +36,15 @@ export function AutomationSettingsAdminClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [runningBatch, setRunningBatch] = useState(false);
+  const [jobs, setJobs] = useState([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [health, setHealth] = useState(null);
+  const [loadingHealth, setLoadingHealth] = useState(false);
 
   useEffect(() => {
     fetchSettings();
+    fetchRecentJobs();
+    fetchAutomationHealth();
   }, []);
 
   async function fetchSettings() {
@@ -60,6 +66,46 @@ export function AutomationSettingsAdminClient() {
       toast.error(error?.message || "Unable to load automation settings.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchRecentJobs() {
+    setLoadingJobs(true);
+
+    try {
+      const response = await fetch("/api/calls/automation/jobs?page=1&pageSize=25");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to load campaign jobs.");
+      }
+
+      setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+    } catch (error) {
+      toast.error(error?.message || "Unable to load campaign jobs.");
+      setJobs([]);
+    } finally {
+      setLoadingJobs(false);
+    }
+  }
+
+  async function fetchAutomationHealth() {
+    setLoadingHealth(true);
+
+    try {
+      const response = await fetch("/api/calls/automation/health");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to load automation health.");
+      }
+
+      setHealth(data);
+    } catch (error) {
+      toast.error(error?.message || "Unable to load automation health.");
+      setHealth(null);
+    } finally {
+      setLoadingHealth(false);
     }
   }
 
@@ -134,6 +180,8 @@ export function AutomationSettingsAdminClient() {
       }
 
       toast.success(`Batch started. Queued ${data.queued || 0} customers.`);
+      await fetchRecentJobs();
+      await fetchAutomationHealth();
     } catch (error) {
       toast.error(error?.message || "Unable to run campaign batch.");
     } finally {
@@ -278,6 +326,94 @@ export function AutomationSettingsAdminClient() {
           <Button variant="secondary" onClick={fetchSettings} disabled={loading}>
             Refresh
           </Button>
+          <Button variant="secondary" onClick={fetchRecentJobs} disabled={loadingJobs}>
+            {loadingJobs ? "Refreshing Jobs..." : "Refresh Jobs"}
+          </Button>
+          <Button variant="secondary" onClick={fetchAutomationHealth} disabled={loadingHealth}>
+            {loadingHealth ? "Refreshing Health..." : "Refresh Health"}
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-slate-900">Automation Runtime Health</h3>
+          {loadingHealth ? <p className="text-sm text-slate-600">Loading health...</p> : null}
+          {!loadingHealth && health ? (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-md border border-slate-200 bg-white p-3">
+                <p className="text-xs font-medium text-slate-500">Worker</p>
+                <p className={`mt-1 text-sm font-semibold ${health.workerOnline ? "text-emerald-700" : "text-rose-700"}`}>
+                  {health.workerOnline ? "ONLINE" : "OFFLINE"}
+                </p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-white p-3">
+                <p className="text-xs font-medium text-slate-500">Queue Waiting</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{health.queue?.waiting ?? 0}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-white p-3">
+                <p className="text-xs font-medium text-slate-500">Queue Active</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{health.queue?.active ?? 0}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-white p-3">
+                <p className="text-xs font-medium text-slate-500">Queue Failed</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{health.queue?.failed ?? 0}</p>
+              </div>
+            </div>
+          ) : null}
+          {!loadingHealth && health?.heartbeat?.lastHeartbeatAt ? (
+            <p className="text-xs text-slate-600">
+              Last heartbeat: {new Date(health.heartbeat.lastHeartbeatAt).toLocaleString()}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold text-slate-900">Campaign Job Status</h3>
+          {loadingJobs ? <p className="text-sm text-slate-600">Loading jobs...</p> : null}
+          {!loadingJobs && jobs.length === 0 ? (
+            <p className="text-sm text-slate-600">No campaign jobs found yet.</p>
+          ) : null}
+          {!loadingJobs && jobs.length > 0 ? (
+            <div className="overflow-x-auto rounded-md border border-slate-200">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Queue Job ID</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Customer</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Reason</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Status</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Attempts</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Error</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Enqueued</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Updated</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {jobs.map((job) => (
+                    <tr key={job.id}>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">{job.queueJobId}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                        {job.customer
+                          ? `${job.customer.firstName || ""} ${job.customer.lastName || ""}`.trim() || job.customer.id
+                          : "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">{job.reason}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">{job.status}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">{job.attemptsMade ?? 0}</td>
+                      <td className="max-w-[280px] truncate px-3 py-2 text-slate-700" title={job.errorMessage || ""}>
+                        {job.errorMessage || "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                        {job.enqueuedAt ? new Date(job.enqueuedAt).toLocaleString() : "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                        {job.updatedAt ? new Date(job.updatedAt).toLocaleString() : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
       </CardContent>
     </Card>

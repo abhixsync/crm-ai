@@ -59,6 +59,14 @@ enum TelephonyProviderType {
   PLIVO
 }
 
+enum CampaignJobStatus {
+  QUEUED
+  ACTIVE
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
 model User {
   id           String         @id @default(cuid())
   name         String
@@ -109,6 +117,7 @@ model Customer {
   assignedToId    String?
   assignedTo      User?          @relation("CustomerAssignee", fields: [assignedToId], references: [id])
   calls           CallLog[]
+  campaignJobs    CampaignJob[]
   transitions     CustomerTransition[]
   followUps       FollowUpTask[]
   createdAt       DateTime       @default(now())
@@ -216,4 +225,26 @@ model TelephonyProviderConfig {
   updatedAt DateTime              @updatedAt
 
   @@index([enabled, isActive, priority])
+}
+
+model CampaignJob {
+  id           String            @id @default(cuid())
+  queueJobId   String            @unique
+  customerId   String?
+  reason       String
+  status       CampaignJobStatus @default(QUEUED)
+  attemptsMade Int               @default(0)
+  enqueuedAt   DateTime          @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  failedAt     DateTime?
+  errorMessage String?
+  result       Json?
+  metadata     Json?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  customer     Customer?         @relation(fields: [customerId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([customerId, createdAt])
 }

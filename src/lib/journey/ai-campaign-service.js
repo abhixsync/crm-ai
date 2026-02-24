@@ -78,6 +78,8 @@ async function runCall(state) {
   const telephonyOutput = await initiateTelephonyCallWithFailover({
     to: state.customer.phone,
     script,
+    fromNumber: process.env.TWILIO_CALLER_ID || process.env.TWILIO_FROM_NUMBER || undefined,
+    preferredProviderType: "TWILIO",
     callbackUrl,
     statusCallbackUrl: `${baseUrl}/api/calls/status`,
     vonageAnswerUrl: `${baseUrl}/api/vonage/voice/answer?customerId=${state.customer.id}&callLogId=${state.callLogId}`,

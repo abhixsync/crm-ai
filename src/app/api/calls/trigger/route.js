@@ -93,6 +93,8 @@ export async function POST(request) {
     const telephonyOutput = await initiateTelephonyCallWithFailover({
       to: customer.phone,
       script,
+      fromNumber: process.env.TWILIO_CALLER_ID || process.env.TWILIO_FROM_NUMBER || undefined,
+      preferredProviderType: "TWILIO",
       callbackUrl,
       statusCallbackUrl,
       vonageAnswerUrl,

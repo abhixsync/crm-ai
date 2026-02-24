@@ -1,4 +1,6 @@
 import { Worker } from "bullmq";
+import { CampaignJobStatus } from "@prisma/client";
+import os from "node:os";
 import { prisma } from "@/lib/prisma";
 import { AI_CAMPAIGN_QUEUE, queueConnection } from "@/lib/queue/ai-campaign-queue";
 import { getAutomationSettings, isWithinWorkingHours } from "@/lib/journey/automation-settings";
@@ -6,14 +8,49 @@ import { isEligibleForAutomation } from "@/lib/journey/campaign-eligibility";
 import { runAICampaignForCustomer } from "@/lib/journey/ai-campaign-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 
+const WORKER_HEARTBEAT_KEY = "AI_CAMPAIGN_WORKER_HEARTBEAT";
+
+async function updateCampaignJob(job, patch = {}) {
+  const queueJobId = String(job?.id || "");
+  if (!queueJobId) return;
+
+  const customerId = job?.data?.customerId || null;
+  const reason = String(job?.data?.reason || "automation");
+
+  await prisma.campaignJob.upsert({
+    where: { queueJobId },
+    update: patch,
+    create: {
+      queueJobId,
+      customerId,
+      reason,
+      ...patch,
+    },
+  });
+}
+
 const worker = new Worker(
   AI_CAMPAIGN_QUEUE,
   async (job) => {
     const { customerId } = job.data;
 
+    await updateCampaignJob(job, {
+      status: CampaignJobStatus.ACTIVE,
+      startedAt: new Date(),
+      attemptsMade: Number(job.attemptsMade || 0),
+      errorMessage: null,
+      result: null,
+    });
+
     const settings = await getAutomationSettings();
     if (!settings.enabled) {
-      return { skipped: true, reason: "automation_disabled" };
+      const result = { skipped: true, reason: "automation_disabled" };
+      await updateCampaignJob(job, {
+        status: CampaignJobStatus.SKIPPED,
+        completedAt: new Date(),
+        result,
+      });
+      return result;
     }
 
     if (!isWithinWorkingHours(settings)) {
@@ -31,28 +68,64 @@ const worker = new Worker(
     });
 
     if (todayCalls >= settings.dailyCap) {
-      return { skipped: true, reason: "daily_cap_reached" };
+      const result = { skipped: true, reason: "daily_cap_reached" };
+      await updateCampaignJob(job, {
+        status: CampaignJobStatus.SKIPPED,
+        completedAt: new Date(),
+        result,
+      });
+      return result;
     }
 
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
 
     if (!customer) {
-      return { skipped: true, reason: "customer_not_found" };
+      const result = { skipped: true, reason: "customer_not_found" };
+      await updateCampaignJob(job, {
+        status: CampaignJobStatus.SKIPPED,
+        completedAt: new Date(),
+        result,
+      });
+      return result;
     }
 
     if (!isEligibleForAutomation(customer, settings)) {
-      return { skipped: true, reason: "not_eligible" };
+      const result = { skipped: true, reason: "not_eligible" };
+      await updateCampaignJob(job, {
+        status: CampaignJobStatus.SKIPPED,
+        completedAt: new Date(),
+        result,
+      });
+      return result;
     }
 
     try {
       await runAICampaignForCustomer(customer);
-      return { ok: true, customerId };
+      const result = { ok: true, customerId };
+      await updateCampaignJob(job, {
+        status: CampaignJobStatus.COMPLETED,
+        completedAt: new Date(),
+        result,
+      });
+      return result;
     } catch (error) {
       await scheduleRetryForFailure({
         customerId,
         failureCode: "failed",
         errorMessage: error?.message || "worker_failure",
       });
+
+      await updateCampaignJob(job, {
+        status: CampaignJobStatus.FAILED,
+        failedAt: new Date(),
+        errorMessage: String(error?.message || "worker_failure"),
+        result: {
+          ok: false,
+          customerId,
+          reason: "worker_failure",
+        },
+      });
+
       throw error;
     }
   },
@@ -62,12 +135,44 @@ const worker = new Worker(
   }
 );
 
+async function writeWorkerHeartbeat() {
+  await prisma.automationSetting.upsert({
+    where: { key: WORKER_HEARTBEAT_KEY },
+    create: {
+      key: WORKER_HEARTBEAT_KEY,
+      value: {
+        lastHeartbeatAt: new Date().toISOString(),
+        pid: process.pid,
+        host: os.hostname(),
+      },
+    },
+    update: {
+      value: {
+        lastHeartbeatAt: new Date().toISOString(),
+        pid: process.pid,
+        host: os.hostname(),
+      },
+    },
+  });
+}
+
+writeWorkerHeartbeat().catch(() => {});
+const heartbeatInterval = setInterval(() => {
+  writeWorkerHeartbeat().catch(() => {});
+}, 15000);
+
+heartbeatInterval.unref();
+
 worker.on("completed", (job) => {
   console.log(`[ai-campaign-worker] completed job ${job.id}`);
 });
 
 worker.on("failed", (job, err) => {
   console.error(`[ai-campaign-worker] failed job ${job?.id}:`, err?.message || err);
+});
+
+worker.on("closed", () => {
+  clearInterval(heartbeatInterval);
 });
 
 console.log("[ai-campaign-worker] started");

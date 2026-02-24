@@ -9,18 +9,52 @@ export async function DELETE() {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [callResult, followUpResult, customerResult] = await prisma.$transaction([
-    prisma.callLog.deleteMany({}),
-    prisma.followUpTask.deleteMany({}),
-    prisma.customer.deleteMany({}),
-  ]);
+  try {
+    const [
+      callResult,
+      followUpResult,
+      transitionResult,
+      campaignJobResult,
+      customerResult,
+    ] = await prisma.$transaction([
+      prisma.callLog.deleteMany({}),
+      prisma.followUpTask.deleteMany({}),
+      prisma.customerTransition.deleteMany({}),
+      prisma.campaignJob.deleteMany({}),
+      prisma.customer.deleteMany({}),
+    ]);
 
-  return Response.json({
-    message: "All customer data deleted.",
-    deleted: {
-      calls: callResult.count,
-      followUps: followUpResult.count,
-      customers: customerResult.count,
-    },
-  });
+    return Response.json({
+      message: "All customer data deleted.",
+      deleted: {
+        calls: callResult.count,
+        followUps: followUpResult.count,
+        transitions: transitionResult.count,
+        campaignJobs: campaignJobResult.count,
+        customers: customerResult.count,
+      },
+    });
+  } catch (error) {
+    const errorCode =
+      error && typeof error === "object" && "code" in error ? String(error.code) : undefined;
+
+    if (errorCode) {
+      return Response.json(
+        {
+          error: "Unable to delete all customer data due to related records.",
+          code: errorCode,
+        },
+        { status: 400 }
+      );
+    }
+
+    console.error("Delete all customers failed", error);
+
+    return Response.json(
+      {
+        error: "Unable to delete all customer data.",
+      },
+      { status: 500 }
+    );
+  }
 }

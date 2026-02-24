@@ -82,6 +82,8 @@ export function DashboardClient({
   const [aiDialogState, setAiDialogState] = useState({ open: false, mode: "campaign" });
   const [automationEnabled, setAutomationEnabled] = useState(false);
   const [loadingAutomation, setLoadingAutomation] = useState(false);
+  const [automationHealth, setAutomationHealth] = useState(null);
+  const [loadingAutomationHealth, setLoadingAutomationHealth] = useState(false);
   const [activeTelephonyProvider, setActiveTelephonyProvider] = useState(null);
   const [enabledTelephonyProviders, setEnabledTelephonyProviders] = useState([]);
   const [loadingActiveTelephony, setLoadingActiveTelephony] = useState(false);
@@ -220,6 +222,38 @@ export function DashboardClient({
       setLoadingAutomation(false);
     }
   }
+
+  const fetchAutomationHealth = useCallback(async () => {
+    if (!isSuperAdmin) return;
+
+    setLoadingAutomationHealth(true);
+
+    try {
+      const response = await fetch("/api/calls/automation/health");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to load automation health.");
+      }
+
+      setAutomationHealth(data);
+    } catch {
+      setAutomationHealth(null);
+    } finally {
+      setLoadingAutomationHealth(false);
+    }
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+
+    fetchAutomationHealth();
+    const interval = setInterval(() => {
+      fetchAutomationHealth();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [fetchAutomationHealth, isSuperAdmin]);
 
   async function toggleAutomation(enabled) {
     setLoadingAutomation(true);
@@ -751,40 +785,88 @@ export function DashboardClient({
   }
 
   async function deleteCustomer(customer) {
-    const confirmed = window.confirm(`Delete customer ${customer.firstName} ${customer.lastName || ""}?`);
-    if (!confirmed) return;
-
     setDeletingCustomerId(customer.id);
 
-    await fetch(`/api/customers/${customer.id}`, {
-      method: "DELETE",
-    });
+    try {
+      const response = await fetch(`/api/customers/${customer.id}`, {
+        method: "DELETE",
+      });
 
-    setDeletingCustomerId("");
-    if (editingCustomerId === customer.id) {
-      resetCustomerForm();
-    }
-    await fetchMetrics();
-    await fetchCustomers(pagination.page);
+      if (!response.ok) {
+        const data = await response.json();
+        toast.error(data.error || "Unable to delete customer.");
+        return;
+      }
 
-    if (activeCall?.phone === customer.phone) {
-      setActiveCall(null);
+      if (editingCustomerId === customer.id) {
+        resetCustomerForm();
+      }
+
+      await fetchMetrics();
+      await fetchCustomers(pagination.page);
+
+      if (activeCall?.phone === customer.phone) {
+        setActiveCall(null);
+      }
+
+      toast.success("Customer deleted.");
+    } finally {
+      setDeletingCustomerId("");
     }
   }
 
-  async function deleteAllCustomers() {
-    const confirmed = window.confirm(
-      "Delete ALL customers and related call data? This action cannot be undone."
-    );
-    if (!confirmed) return;
+  function confirmDeleteCustomer(customer) {
+    const fullName = `${customer.firstName} ${customer.lastName || ""}`.trim();
 
+    toast.custom((toastId) => (
+      <div className="w-[360px] rounded-xl border border-rose-200 bg-white p-4 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+            <Trash2 className="h-4 w-4" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-slate-900">Delete this customer?</p>
+            <p className="mt-1 text-xs text-slate-600">
+              {fullName || "Selected customer"} will be permanently removed from the CRM.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => toast.dismiss(toastId)}
+            disabled={deletingCustomerId === customer.id}
+          >
+            No
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={async () => {
+              toast.dismiss(toastId);
+              await deleteCustomer(customer);
+            }}
+            disabled={deletingCustomerId === customer.id}
+          >
+            Yes, Delete
+          </Button>
+        </div>
+      </div>
+    ));
+  }
+
+  async function deleteAllCustomers() {
     setDeletingAllCustomers(true);
 
     try {
       const response = await fetch("/api/customers/delete-all", {
         method: "DELETE",
       });
-      const data = await response.json();
+      const raw = await response.text();
+      const data = raw ? JSON.parse(raw) : {};
 
       if (!response.ok) {
         toast.error(data.error || "Unable to delete all customers.");
@@ -795,9 +877,52 @@ export function DashboardClient({
       await fetchMetrics();
       await fetchCustomers(1);
       toast.success("All customer data has been deleted.");
+    } catch {
+      toast.error("Unable to delete all customers.");
     } finally {
       setDeletingAllCustomers(false);
     }
+  }
+
+  function confirmDeleteAllCustomers() {
+    toast.custom((toastId) => (
+      <div className="w-[360px] rounded-xl border border-rose-200 bg-white p-4 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+            <Trash2 className="h-4 w-4" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-slate-900">Delete all customers?</p>
+            <p className="mt-1 text-xs text-slate-600">
+              This will permanently remove all customers, call logs, follow-ups, transitions, and campaign jobs.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => toast.dismiss(toastId)}
+            disabled={deletingAllCustomers}
+          >
+            No
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={async () => {
+              toast.dismiss(toastId);
+              await deleteAllCustomers();
+            }}
+            disabled={deletingAllCustomers}
+          >
+            Yes, Delete All
+          </Button>
+        </div>
+      </div>
+    ));
   }
 
   const hasSoftphoneProvider = enabledTelephonyProviders.some((provider) =>
@@ -814,6 +939,22 @@ export function DashboardClient({
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Loan Enterprise CRM</h1>
           <p className="mt-1 text-sm text-slate-600">Welcome, {user.name} ({user.role})</p>
+          {isSuperAdmin ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${automationHealth?.workerOnline ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-rose-300 bg-rose-50 text-rose-700"}`}>
+                Worker: {loadingAutomationHealth ? "Checking..." : automationHealth?.workerOnline ? "ONLINE" : "OFFLINE"}
+              </span>
+              <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
+                Waiting: {automationHealth?.queue?.waiting ?? 0}
+              </span>
+              <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
+                Active: {automationHealth?.queue?.active ?? 0}
+              </span>
+              <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
+                Failed: {automationHealth?.queue?.failed ?? 0}
+              </span>
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {isSuperAdmin ? (
@@ -1064,7 +1205,11 @@ export function DashboardClient({
                 Add Customer
               </Button>
               {user.role === "SUPER_ADMIN" ? (
-                <Button variant="destructive" onClick={deleteAllCustomers} disabled={deletingAllCustomers}>
+                <Button
+                  variant="destructive"
+                  onClick={confirmDeleteAllCustomers}
+                  disabled={deletingAllCustomers}
+                >
                   {deletingAllCustomers ? "Deleting All..." : "Delete All"}
                 </Button>
               ) : null}
@@ -1176,7 +1321,7 @@ export function DashboardClient({
                         <Button
                           className="h-8 w-full justify-center px-2 sm:w-auto sm:px-3"
                           variant="destructive"
-                          onClick={() => deleteCustomer(customer)}
+                          onClick={() => confirmDeleteCustomer(customer)}
                           disabled={deletingCustomerId === customer.id}
                           aria-label={deletingCustomerId === customer.id ? "Deleting" : "Delete"}
                           title={deletingCustomerId === customer.id ? "Deleting" : "Delete"}

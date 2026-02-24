@@ -3,7 +3,7 @@ import { getAutomationSettings } from "@/lib/journey/automation-settings";
 import { isEligibleForAutomation } from "@/lib/journey/campaign-eligibility";
 import { enqueueAICampaignJob } from "@/lib/queue/ai-campaign-queue";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
-import { CustomerStatus } from "@prisma/client";
+import { CampaignJobStatus, CustomerStatus } from "@prisma/client";
 
 export async function enqueueCustomerIfEligible(customerId, reason = "new_customer") {
   const [settings, customer] = await Promise.all([
@@ -20,6 +20,34 @@ export async function enqueueCustomerIfEligible(customerId, reason = "new_custom
   if (!queueResult?.queued) {
     return { queued: false, reason: queueResult?.reason || "queue_unavailable" };
   }
+
+  await prisma.campaignJob.upsert({
+    where: { queueJobId: String(queueResult.jobId) },
+    update: {
+      customerId,
+      reason,
+      status: CampaignJobStatus.QUEUED,
+      enqueuedAt: new Date(),
+      errorMessage: null,
+      result: null,
+      failedAt: null,
+      completedAt: null,
+      startedAt: null,
+      metadata: {
+        source: "enqueue-service",
+      },
+    },
+    create: {
+      queueJobId: String(queueResult.jobId),
+      customerId,
+      reason,
+      status: CampaignJobStatus.QUEUED,
+      enqueuedAt: new Date(),
+      metadata: {
+        source: "enqueue-service",
+      },
+    },
+  });
 
   await applyCustomerTransition({
     customerId,

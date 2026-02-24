@@ -15,18 +15,19 @@ function mapStatus(providerStatus) {
 }
 
 function resolveCredentials(config) {
-  const metadata = config?.metadata || {};
-
   return {
-    accountSid: String(metadata.accountSid || process.env.TWILIO_ACCOUNT_SID || "").trim(),
-    authToken: String(metadata.authToken || config?.apiKey || process.env.TWILIO_AUTH_TOKEN || "").trim(),
-    fromNumber: String(metadata.fromNumber || process.env.TWILIO_FROM_NUMBER || "").trim(),
+    accountSid: String(process.env.TWILIO_ACCOUNT_SID || "").trim(),
+    authToken: String(process.env.TWILIO_AUTH_TOKEN || "").trim(),
+    fromNumber: String(
+      process.env.TWILIO_CALLER_ID || process.env.TWILIO_FROM_NUMBER || ""
+    ).trim(),
   };
 }
 
 async function initiateCall({ payload, config }) {
   const { to, script, callbackUrl, statusCallbackUrl } = payload || {};
-  const { accountSid, authToken, fromNumber } = resolveCredentials(config);
+  const { accountSid, authToken, fromNumber: resolvedFromNumber } = resolveCredentials(config);
+  const fromNumber = String(payload?.fromNumber || resolvedFromNumber || "").trim();
 
   if (!accountSid || !authToken || !fromNumber) {
     return {

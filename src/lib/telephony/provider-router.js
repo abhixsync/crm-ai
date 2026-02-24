@@ -20,6 +20,22 @@ function sortProviders(providers) {
   });
 }
 
+function prioritizeProviders(providers, preferredType) {
+  if (!preferredType) return providers;
+
+  const normalizedPreferredType = String(preferredType).trim().toUpperCase();
+  if (!normalizedPreferredType) return providers;
+
+  const preferred = providers.filter(
+    (provider) => String(provider.type || "").toUpperCase() === normalizedPreferredType
+  );
+  const others = providers.filter(
+    (provider) => String(provider.type || "").toUpperCase() !== normalizedPreferredType
+  );
+
+  return [...preferred, ...others];
+}
+
 function normalizeProvider(config) {
   return {
     id: config.id,
@@ -82,7 +98,7 @@ export async function getTelephonyFailoverOrder() {
 }
 
 export async function initiateTelephonyCallWithFailover(payload) {
-  const providers = await resolveProviders();
+  const providers = prioritizeProviders(await resolveProviders(), payload?.preferredProviderType);
   const errors = [];
 
   logTelephony("info", "telephony.failover.start", {

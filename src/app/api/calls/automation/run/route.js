@@ -55,14 +55,22 @@ export async function POST() {
   });
 
   let queued = 0;
+  const queuedJobs = [];
 
   for (const customer of customers) {
     const result = await enqueueCustomerIfEligible(customer.id, "bulk_campaign");
-    if (result.queued) queued += 1;
+    if (result.queued) {
+      queued += 1;
+      queuedJobs.push({
+        customerId: customer.id,
+        jobId: result.jobId,
+      });
+    }
   }
 
   return Response.json({
     queued,
+    queuedJobs,
     attempted: customers.length,
     dailyCap: settings.dailyCap,
     usedToday: todayAICalls,
