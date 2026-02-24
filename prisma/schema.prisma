@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  SALES
+}
+
+enum CustomerStatus {
+  NEW
+  INTERESTED
+  NOT_INTERESTED
+  FOLLOW_UP
+  DO_NOT_CALL
+  CONVERTED
+}
+
+enum CallDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum CallStatus {
+  QUEUED
+  INITIATED
+  ANSWERED
+  NO_ANSWER
+  FAILED
+  COMPLETED
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+enum AiProviderType {
+  OPENAI
+  DIALOGFLOW
+  RASA
+  GENERIC_HTTP
+}
+
+enum TelephonyProviderType {
+  TWILIO
+  VONAGE
+  PLIVO
+}
+
+model User {
+  id           String         @id @default(cuid())
+  name         String
+  email        String         @unique
+  passwordHash String
+  role         UserRole       @default(SALES)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  uploads      LeadUpload[]
+  assigned     Customer[]     @relation("CustomerAssignee")
+  followUps    FollowUpTask[]
+}
+
+model LeadUpload {
+  id           String   @id @default(cuid())
+  fileName     String
+  totalRows    Int
+  successRows  Int
+  failedRows   Int
+  uploadedAt   DateTime @default(now())
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+}
+
+model Customer {
+  id              String         @id @default(cuid())
+  firstName       String
+  lastName        String?
+  phone           String         @unique
+  email           String?
+  city            String?
+  state           String?
+  source          String?
+  loanType        String?
+  loanAmount      Float?
+  monthlyIncome   Float?
+  status          CustomerStatus @default(NEW)
+  notes           String?
+  archivedAt      DateTime?
+  lastContactedAt DateTime?
+  assignedToId    String?
+  assignedTo      User?          @relation("CustomerAssignee", fields: [assignedToId], references: [id])
+  calls           CallLog[]
+  followUps       FollowUpTask[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model CallLog {
+  id             String        @id @default(cuid())
+  customerId     String
+  providerCallId String?       @unique
+  aiProviderUsed String?
+  telephonyProviderUsed String?
+  telephonyProviderType TelephonyProviderType?
+  direction      CallDirection @default(OUTBOUND)
+  status         CallStatus    @default(QUEUED)
+  transcript     String?
+  summary        String?
+  intent         String?
+  nextAction     String?
+  durationSecs   Int?
+  recordingUrl   String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  customer       Customer      @relation(fields: [customerId], references: [id])
+}
+
+model AiProviderConfig {
+  id        String         @id @default(cuid())
+  name      String         @unique
+  type      AiProviderType
+  endpoint  String?
+  apiKey    String?
+  model     String?
+  priority  Int            @default(100)
+  enabled   Boolean        @default(true)
+  isActive  Boolean        @default(false)
+  timeoutMs Int            @default(12000)
+  metadata  Json?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([enabled, isActive, priority])
+}
+
+model FollowUpTask {
+  id           String     @id @default(cuid())
+  customerId   String
+  assignedToId String
+  dueDate      DateTime
+  status       TaskStatus @default(OPEN)
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  customer     Customer   @relation(fields: [customerId], references: [id])
+  assignedTo   User       @relation(fields: [assignedToId], references: [id])
+}
+
+model TelephonyProviderConfig {
+  id        String                @id @default(cuid())
+  name      String                @unique
+  type      TelephonyProviderType
+  endpoint  String?
+  apiKey    String?
+  model     String?
+  priority  Int                   @default(100)
+  enabled   Boolean               @default(true)
+  isActive  Boolean               @default(false)
+  timeoutMs Int                   @default(12000)
+  metadata  Json?
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@index([enabled, isActive, priority])
+}
