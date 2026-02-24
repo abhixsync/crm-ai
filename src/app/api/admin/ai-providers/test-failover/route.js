@@ -10,7 +10,7 @@ export async function POST(request) {
 
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session, ["ADMIN"])) {
+  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

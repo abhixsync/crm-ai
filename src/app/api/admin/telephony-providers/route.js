@@ -17,7 +17,7 @@ async function requireAdminSession() {
 
   if (auth.error) return auth;
 
-  if (!hasRole(auth.session, ["ADMIN"])) {
+  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
     return { error: Response.json({ error: "Forbidden" }, { status: 403 }) };
   }
 

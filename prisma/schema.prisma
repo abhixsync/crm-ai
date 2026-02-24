@@ -15,11 +15,15 @@ enum UserRole {
 
 enum CustomerStatus {
   NEW
+  CALL_PENDING
+  CALLING
   INTERESTED
   NOT_INTERESTED
   FOLLOW_UP
   DO_NOT_CALL
   CONVERTED
+  CALL_FAILED
+  RETRY_SCHEDULED
 }
 
 enum CallDirection {
@@ -92,15 +96,26 @@ model Customer {
   loanAmount      Float?
   monthlyIncome   Float?
   status          CustomerStatus @default(NEW)
+  retryCount      Int            @default(0)
+  maxRetries      Int            @default(3)
+  inActiveCall    Boolean        @default(false)
+  nextFollowUpAt  DateTime?
+  manualReview    Boolean        @default(false)
+  aiSummary       String?
+  aiIntent        String?
   notes           String?
   archivedAt      DateTime?
   lastContactedAt DateTime?
   assignedToId    String?
   assignedTo      User?          @relation("CustomerAssignee", fields: [assignedToId], references: [id])
   calls           CallLog[]
+  transitions     CustomerTransition[]
   followUps       FollowUpTask[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  @@index([status, retryCount, inActiveCall])
+  @@index([nextFollowUpAt])
 }
 
 model CallLog {
@@ -112,17 +127,46 @@ model CallLog {
   telephonyProviderType TelephonyProviderType?
   direction      CallDirection @default(OUTBOUND)
   status         CallStatus    @default(QUEUED)
+  mode           String        @default("AI")
+  attemptNumber  Int           @default(1)
   transcript     String?
   summary        String?
   intent         String?
+  intentClassification String?
   nextAction     String?
   durationSecs   Int?
   recordingUrl   String?
+  metadata       Json?
+  errorReason    String?
   startedAt      DateTime?
   endedAt        DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   customer       Customer      @relation(fields: [customerId], references: [id])
+
+  @@index([customerId, createdAt])
+}
+
+model CustomerTransition {
+  id            String         @id @default(cuid())
+  customerId    String
+  fromStatus    CustomerStatus?
+  toStatus      CustomerStatus
+  reason        String?
+  source        String
+  transitionKey String         @unique
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+  customer      Customer       @relation(fields: [customerId], references: [id])
+
+  @@index([customerId, createdAt])
+}
+
+model AutomationSetting {
+  key       String   @id
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model AiProviderConfig {

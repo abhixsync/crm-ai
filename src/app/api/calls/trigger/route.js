@@ -4,6 +4,8 @@ import { requireSession, hasRole } from "@/lib/server/auth-guard";
 import { runAIWithFailover } from "@/lib/ai/provider-router";
 import { initiateTelephonyCallWithFailover } from "@/lib/telephony/provider-router";
 import { logTelephony, redactedPhone } from "@/lib/telephony/logger";
+import { applyCustomerTransition } from "@/lib/journey/transition-service";
+import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 
 function isPublicHttpsUrl(url) {
   if (!url) return false;
@@ -46,8 +48,25 @@ export async function POST(request) {
     data: {
       customerId: customer.id,
       status: CallStatus.INITIATED,
+      mode: "AI",
+      attemptNumber: (customer.retryCount || 0) + 1,
       startedAt: new Date(),
       summary: "Automated outbound loan-interest call initiated.",
+    },
+  });
+
+  await applyCustomerTransition({
+    customerId: customer.id,
+    toStatus: "CALLING",
+    reason: "Direct AI call trigger started",
+    source: "MANUAL",
+    metadata: {
+      inActiveCall: true,
+      lastContactedAt: new Date(),
+    },
+    idempotencyScope: {
+      route: "calls/trigger",
+      callLogId: callLog.id,
     },
   });
 
@@ -96,7 +115,7 @@ export async function POST(request) {
 
     await prisma.customer.update({
       where: { id: customer.id },
-      data: { lastContactedAt: new Date() },
+      data: { lastContactedAt: new Date(), inActiveCall: true },
     });
 
     logTelephony("info", "api.calls.trigger.completed", {
@@ -123,9 +142,32 @@ export async function POST(request) {
       where: { id: callLog.id },
       data: {
         status: CallStatus.FAILED,
+        errorReason: error?.message || "Failed to initiate call",
         endedAt: new Date(),
         nextAction: "Check AI/voice provider configuration and retry.",
       },
+    });
+
+    await applyCustomerTransition({
+      customerId: customer.id,
+      toStatus: "CALL_FAILED",
+      reason: error?.message || "Trigger call failed",
+      source: "MANUAL",
+      metadata: {
+        inActiveCall: false,
+        lastContactedAt: new Date(),
+      },
+      idempotencyScope: {
+        route: "calls/trigger",
+        stage: "failed",
+        callLogId: callLog.id,
+      },
+    });
+
+    await scheduleRetryForFailure({
+      customerId: customer.id,
+      failureCode: "telephony_failure",
+      errorMessage: error?.message || "Failed to initiate call",
     });
 
     logTelephony("error", "api.calls.trigger.failed", {

@@ -1,7 +1,10 @@
-import { CustomerStatus } from "@prisma/client";
+import { CallStatus, CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { generateInitialCallPrompt } from "@/lib/ai/openai";
 import { runAIWithFailover } from "@/lib/ai/provider-router";
+import { applyCustomerTransition } from "@/lib/journey/transition-service";
+import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
+import { toIntentLabel } from "@/lib/journey/constants";
 
 function xmlEscape(value) {
   return String(value || "")
@@ -24,17 +27,20 @@ function twimlResponse(xmlBody) {
 }
 
 function mapIntentToCustomerStatus(intent) {
-  const normalized = String(intent || "").toUpperCase();
+  const normalized = String(intent || "").trim().toLowerCase();
 
-  if (normalized.includes("INTEREST")) return CustomerStatus.INTERESTED;
-  if (normalized.includes("NOT_INTEREST") || normalized.includes("NOT INTEREST")) {
+  if (normalized === "interested") return CustomerStatus.INTERESTED;
+  if (normalized === "not_interested") {
     return CustomerStatus.NOT_INTERESTED;
   }
-  if (normalized.includes("DO_NOT_CALL") || normalized.includes("DNC")) {
+  if (normalized === "do_not_call") {
     return CustomerStatus.DO_NOT_CALL;
   }
+  if (normalized === "converted") return CustomerStatus.CONVERTED;
+  if (normalized === "follow_up" || normalized === "call_back_later") return CustomerStatus.FOLLOW_UP;
+  if (normalized === "failed") return CustomerStatus.CALL_FAILED;
 
-  return CustomerStatus.FOLLOW_UP;
+  return CustomerStatus.CALL_FAILED;
 }
 
 async function appendTranscript(callLogId, speaker, message) {
@@ -58,18 +64,29 @@ async function finishCall(callLogId, customerId) {
   }
 
   const callLog = await prisma.callLog.findUnique({ where: { id: callLogId } });
+  if (!callLog) {
+    return;
+  }
+
+  if (callLog.status === CallStatus.COMPLETED && callLog.endedAt) {
+    return;
+  }
+
   const transcript = callLog?.transcript || "";
   const aiOutput = await runAIWithFailover({
     task: "CALL_SUMMARY",
     payload: { transcript },
   });
   const analysis = aiOutput.result;
+  const normalizedIntent = String(analysis.intent || "failed").trim().toLowerCase();
+  const mappedStatus = mapIntentToCustomerStatus(normalizedIntent);
 
   await prisma.callLog.update({
     where: { id: callLogId },
     data: {
       summary: analysis.summary,
-      intent: analysis.intent,
+      intent: toIntentLabel(normalizedIntent),
+      intentClassification: normalizedIntent,
       nextAction: analysis.nextAction,
       aiProviderUsed: aiOutput.provider.name,
       status: "COMPLETED",
@@ -78,13 +95,31 @@ async function finishCall(callLogId, customerId) {
   });
 
   if (customerId) {
-    await prisma.customer.update({
-      where: { id: customerId },
-      data: {
-        status: mapIntentToCustomerStatus(analysis.intent),
+    await applyCustomerTransition({
+      customerId,
+      toStatus: mappedStatus,
+      reason: `Webhook final outcome: ${normalizedIntent}`,
+      source: "AI_WORKER",
+      metadata: {
+        inActiveCall: false,
         lastContactedAt: new Date(),
+        aiSummary: analysis.summary,
+        aiIntent: normalizedIntent,
+      },
+      idempotencyScope: {
+        callLogId,
+        intent: normalizedIntent,
+        end: true,
       },
     });
+
+    if (mappedStatus === CustomerStatus.CALL_FAILED) {
+      await scheduleRetryForFailure({
+        customerId,
+        failureCode: normalizedIntent,
+        errorMessage: analysis.nextAction || "Call failed",
+      });
+    }
   }
 }
 

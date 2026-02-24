@@ -14,7 +14,7 @@ export default async function ProvidersPage() {
     redirect("/login");
   }
 
-  if (!["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+  if (session.user.role !== "SUPER_ADMIN") {
     redirect("/dashboard");
   }
 

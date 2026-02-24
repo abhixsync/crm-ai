@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 
 export async function GET(request) {
   const auth = await requireSession();
@@ -104,6 +105,11 @@ export async function POST(request) {
         },
       });
 
+      try {
+        await enqueueCustomerIfEligible(customer.id, "customer_reactivated");
+      } catch {
+      }
+
       return Response.json({ customer });
     }
 
@@ -123,6 +129,11 @@ export async function POST(request) {
         notes: body.notes || null,
       },
     });
+
+    try {
+      await enqueueCustomerIfEligible(customer.id, "customer_created");
+    } catch {
+    }
 
     return Response.json({ customer });
   } catch {

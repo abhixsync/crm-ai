@@ -2,6 +2,7 @@ import { CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseCustomerExcel } from "@/lib/server/excel";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 
 export async function POST(request) {
   const auth = await requireSession();
@@ -32,7 +33,7 @@ export async function POST(request) {
     }
 
     try {
-      await prisma.customer.upsert({
+      const customer = await prisma.customer.upsert({
         where: { phone: row.phone },
         create: {
           ...row,
@@ -51,6 +52,11 @@ export async function POST(request) {
           notes: row.notes,
         },
       });
+
+      try {
+        await enqueueCustomerIfEligible(customer.id, "excel_upload");
+      } catch {
+      }
 
       successRows += 1;
     } catch {

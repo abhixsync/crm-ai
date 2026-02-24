@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { mapTelephonyStatus } from "@/lib/telephony/provider-router";
 import { logTelephony } from "@/lib/telephony/logger";
+import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
+import { applyCustomerTransition } from "@/lib/journey/transition-service";
+import { CustomerStatus } from "@prisma/client";
 
 export async function POST(request) {
   let callSid = "";
@@ -46,19 +49,55 @@ export async function POST(request) {
     telephonyProviderType: existingCall?.telephonyProviderType || "UNKNOWN",
   });
 
-  await prisma.callLog.updateMany({
+  const callLog = await prisma.callLog.findFirst({
     where: { providerCallId: String(callSid) },
-    data: {
-      status: mappedStatus,
-      durationSecs: duration ? Number(duration) : undefined,
-      recordingUrl: recordingUrl ? String(recordingUrl) : undefined,
-      endedAt:
-        String(callStatus).toLowerCase() === "completed" ||
-        String(callStatus).toLowerCase() === "failed"
-          ? new Date()
-          : undefined,
-    },
+    select: { id: true, customerId: true, mode: true },
   });
+
+  if (callLog) {
+    await prisma.callLog.update({
+      where: { id: callLog.id },
+      data: {
+        status: mappedStatus,
+        durationSecs: duration ? Number(duration) : undefined,
+        recordingUrl: recordingUrl ? String(recordingUrl) : undefined,
+        endedAt:
+          String(callStatus).toLowerCase() === "completed" ||
+          String(callStatus).toLowerCase() === "failed" ||
+          String(callStatus).toLowerCase() === "busy" ||
+          String(callStatus).toLowerCase() === "no-answer" ||
+          String(callStatus).toLowerCase() === "no_answer"
+            ? new Date()
+            : undefined,
+      },
+    });
+
+    const normalizedProviderStatus = String(callStatus || "").toLowerCase();
+    const failureStatus = new Set(["failed", "busy", "no-answer", "no_answer", "canceled", "cancelled"]);
+
+    if (callLog.mode === "AI" && failureStatus.has(normalizedProviderStatus)) {
+      await applyCustomerTransition({
+        customerId: callLog.customerId,
+        toStatus: CustomerStatus.CALL_FAILED,
+        reason: `Telephony failure: ${normalizedProviderStatus}`,
+        source: "AI_WORKER",
+        metadata: {
+          inActiveCall: false,
+          lastContactedAt: new Date(),
+        },
+        idempotencyScope: {
+          providerCallId: String(callSid),
+          failureStatus: normalizedProviderStatus,
+        },
+      });
+
+      await scheduleRetryForFailure({
+        customerId: callLog.customerId,
+        failureCode: normalizedProviderStatus,
+        errorMessage: `Telephony callback reported ${normalizedProviderStatus}`,
+      });
+    }
+  }
 
   logTelephony("info", "api.calls.status.persisted", {
     providerCallId: String(callSid),

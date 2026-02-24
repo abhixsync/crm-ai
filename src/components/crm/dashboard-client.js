@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Pencil, Phone, PhoneCall, Plus, Trash2, Upload } from "lucide-react";
+import { Pencil, Phone, PhoneCall, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const STATUS_OPTIONS = ["NEW", "INTERESTED", "FOLLOW_UP", "NOT_INTERESTED", "DO_NOT_CALL", "CONVERTED"];
+const STATUS_OPTIONS = [
+  "NEW",
+  "CALL_PENDING",
+  "CALLING",
+  "INTERESTED",
+  "FOLLOW_UP",
+  "NOT_INTERESTED",
+  "DO_NOT_CALL",
+  "CONVERTED",
+  "CALL_FAILED",
+  "RETRY_SCHEDULED",
+];
 const TERMINAL_CALL_STATUSES = ["COMPLETED", "FAILED", "NO_ANSWER"];
 const SOFTPHONE_PROVIDER_TYPES = ["TWILIO"];
 const STATUS_SELECT_CLASS = {
@@ -51,6 +62,8 @@ export function DashboardClient({
   initialCustomers,
   initialPagination,
 }) {
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
+
   const [metrics, setMetrics] = useState(initialMetrics);
   const [customers, setCustomers] = useState(initialCustomers);
   const [pagination, setPagination] = useState(initialPagination);
@@ -66,7 +79,9 @@ export function DashboardClient({
   const [customerForm, setCustomerForm] = useState(EMPTY_CUSTOMER_FORM);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [creationMode, setCreationMode] = useState("manual");
-  const [showAiCallPanel, setShowAiCallPanel] = useState(false);
+  const [aiDialogState, setAiDialogState] = useState({ open: false, mode: "campaign" });
+  const [automationEnabled, setAutomationEnabled] = useState(false);
+  const [loadingAutomation, setLoadingAutomation] = useState(false);
   const [activeTelephonyProvider, setActiveTelephonyProvider] = useState(null);
   const [enabledTelephonyProviders, setEnabledTelephonyProviders] = useState([]);
   const [loadingActiveTelephony, setLoadingActiveTelephony] = useState(false);
@@ -83,10 +98,14 @@ export function DashboardClient({
   const [softphoneLoading, setSoftphoneLoading] = useState(false);
   const [softphoneHealthLoading, setSoftphoneHealthLoading] = useState(false);
   const [softphoneHealth, setSoftphoneHealth] = useState(null);
+  const [manualCallContext, setManualCallContext] = useState(null);
+  const [manualDisposition, setManualDisposition] = useState("follow_up");
+  const [completingManualCall, setCompletingManualCall] = useState(false);
 
   const deviceRef = useRef(null);
   const connectionRef = useRef(null);
   const filtersInitializedRef = useRef(false);
+  const currentPageRef = useRef(initialPagination.page || 1);
 
   useEffect(() => {
     return () => {
@@ -139,33 +158,126 @@ export function DashboardClient({
     }
   }
 
-  async function toggleAiCallPanel() {
-    const nextOpen = !showAiCallPanel;
-    setShowAiCallPanel(nextOpen);
+  async function openAiDialog(mode = "campaign") {
+    if (mode === "campaign" && !softphoneInCall) {
+      setManualCallContext(null);
+      setManualDisposition("follow_up");
+      setSoftphoneCustomerName("");
+      setSoftphoneTo("");
+    }
 
-    if (nextOpen) {
-      const provider = await fetchActiveTelephonyProvider();
-      if (provider?.type === "TWILIO" && !deviceRef.current && !softphoneLoading) {
-        await initSoftphone();
-      }
+    if (mode === "manual") {
+      setSoftphoneHealth(null);
+      setSoftphoneHealthLoading(false);
+    }
+
+    setAiDialogState({ open: true, mode });
+
+    if (mode === "campaign" && isSuperAdmin) {
+      await fetchAutomationSetting();
+    }
+
+    const provider = await fetchActiveTelephonyProvider();
+    if (provider?.type === "TWILIO" && !deviceRef.current && !softphoneLoading) {
+      await initSoftphone();
     }
   }
 
-  async function fetchCustomers(nextPage = pagination.page) {
+  async function toggleAiCallPanel() {
+    if (aiDialogState.open && aiDialogState.mode === "campaign") {
+      setAiDialogState({ open: false, mode: "campaign" });
+      return;
+    }
+
+    await openAiDialog("campaign");
+  }
+
+  function closeAiDialog() {
+    if (!softphoneInCall) {
+      setManualCallContext(null);
+      setSoftphoneCustomerName("");
+    }
+    setSoftphoneHealth(null);
+    setSoftphoneHealthLoading(false);
+    setAiDialogState({ open: false, mode: "campaign" });
+  }
+
+  async function fetchAutomationSetting() {
+    setLoadingAutomation(true);
+
+    try {
+      const response = await fetch("/api/automation/toggle");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to load AI automation setting.");
+      }
+
+      setAutomationEnabled(Boolean(data.settings?.enabled));
+    } catch (error) {
+      toast.error(error?.message || "Unable to load AI automation setting.");
+    } finally {
+      setLoadingAutomation(false);
+    }
+  }
+
+  async function toggleAutomation(enabled) {
+    setLoadingAutomation(true);
+
+    try {
+      const response = await fetch("/api/automation/toggle", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to update AI automation toggle.");
+      }
+
+      setAutomationEnabled(Boolean(data.settings?.enabled));
+
+      if (enabled) {
+        const runResponse = await fetch("/api/calls/automation/run", {
+          method: "POST",
+        });
+        const runData = await runResponse.json();
+
+        if (runResponse.ok) {
+          toast.success(`AI Call Automation enabled. Queued ${runData.queued || 0} customers.`);
+        } else {
+          toast.warning(runData.error || "Automation enabled, but campaign enqueue did not run.");
+        }
+      } else {
+        toast.success("AI Call Automation disabled.");
+      }
+    } catch (error) {
+      toast.error(error?.message || "Unable to update AI automation toggle.");
+    } finally {
+      setLoadingAutomation(false);
+    }
+  }
+
+  const fetchCustomers = useCallback(async (nextPage = currentPageRef.current) => {
     setLoadingCustomers(true);
     const params = new URLSearchParams();
+    const targetPage = Number(nextPage) || 1;
 
     if (query) params.set("q", query);
     if (statusFilter) params.set("status", statusFilter);
-    params.set("page", String(nextPage));
+    params.set("page", String(targetPage));
     params.set("pageSize", String(pagination.pageSize));
 
     const response = await fetch(`/api/customers?${params.toString()}`);
     const data = await response.json();
+    const nextPagination = data.pagination || initialPagination;
     setCustomers(data.customers || []);
-    setPagination(data.pagination || initialPagination);
+    setPagination(nextPagination);
+    currentPageRef.current = Number(nextPagination.page) || targetPage;
     setLoadingCustomers(false);
-  }
+  }, [initialPagination, pagination.pageSize, query, statusFilter]);
 
   useEffect(() => {
     if (!filtersInitializedRef.current) {
@@ -178,7 +290,7 @@ export function DashboardClient({
     }, 250);
 
     return () => clearTimeout(timeout);
-  }, [query, statusFilter]);
+  }, [fetchCustomers]);
 
   async function pollCallStatus(callLogId) {
     for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -380,6 +492,25 @@ export function DashboardClient({
     setSoftphoneStatus("Connecting...");
 
     try {
+      if (manualCallContext?.customerId && !manualCallContext?.callLogId) {
+        const startResponse = await fetch("/api/calls/manual/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ customerId: manualCallContext.customerId }),
+        });
+
+        const startData = await startResponse.json();
+
+        if (!startResponse.ok) {
+          throw new Error(startData.error || "Unable to start manual call session.");
+        }
+
+        setManualCallContext((previous) => ({
+          ...(previous || {}),
+          callLogId: startData.callLog?.id || null,
+        }));
+      }
+
       const connection = await deviceRef.current.connect({
         params: {
           To: softphoneTo,
@@ -397,7 +528,7 @@ export function DashboardClient({
     }
   }
 
-  function hangupBrowserCall() {
+  async function hangupBrowserCall() {
     if (connectionRef.current) {
       connectionRef.current.disconnect();
       connectionRef.current = null;
@@ -410,6 +541,39 @@ export function DashboardClient({
     setSoftphoneInCall(false);
     setSoftphoneMuted(false);
     setSoftphoneStatus("Call ended");
+
+    if (manualCallContext?.customerId && manualCallContext?.callLogId) {
+      setCompletingManualCall(true);
+
+      try {
+        const response = await fetch("/api/calls/manual/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerId: manualCallContext.customerId,
+            callLogId: manualCallContext.callLogId,
+            disposition: manualDisposition,
+            summary: `Manual web call completed with disposition: ${manualDisposition}`,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Unable to persist manual call outcome.");
+        }
+
+        toast.success("Manual call outcome saved.");
+      } catch (error) {
+        toast.error(error?.message || "Unable to persist manual call outcome.");
+      } finally {
+        setCompletingManualCall(false);
+      }
+
+      setManualCallContext(null);
+      await fetchMetrics();
+      await fetchCustomers();
+    }
   }
 
   function toggleMuteBrowserCall() {
@@ -422,11 +586,18 @@ export function DashboardClient({
     setSoftphoneMuted(nextMuted);
   }
 
-  function setSoftphoneTarget(customer) {
+  async function setSoftphoneTarget(customer) {
     const name = `${customer.firstName} ${customer.lastName || ""}`.trim();
     setSoftphoneCustomerName(name);
     setSoftphoneTo(customer.phone || "");
-    toast.info(`Softphone target selected: ${name} (${customer.phone || "N/A"})`);
+    setManualDisposition("follow_up");
+    setManualCallContext({
+      customerId: customer.id,
+      callLogId: null,
+    });
+
+    await openAiDialog("manual");
+    toast.info(`Ready to call: ${name} (${customer.phone || "N/A"})`);
   }
 
   async function onUpload(event) {
@@ -635,7 +806,7 @@ export function DashboardClient({
   const canShowDirectCallButton = false;
   const webCallDisabledReason = hasSoftphoneProvider
     ? ""
-    : "No AI provider is available for Web Call. Please enable one, or check for other Web Call providers.";
+    : "No supported telephony provider is available for Web Call.";
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
@@ -645,16 +816,19 @@ export function DashboardClient({
           <p className="mt-1 text-sm text-slate-600">Welcome, {user.name} ({user.role})</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {["ADMIN", "SUPER_ADMIN"].includes(user.role) ? (
+          {isSuperAdmin ? (
             <>
-              <Link href="/admin/providers">
+              {/* <Link href="/admin/providers">
                 <Button variant="secondary">Providers</Button>
+              </Link> */}
+              <Link href="/admin/automation">
+                <Button variant="secondary">Automation</Button>
               </Link>
             </>
           ) : null}
           <Button variant="secondary" onClick={toggleAiCallPanel}>
             <PhoneCall className="mr-1 h-4 w-4" />
-            {showAiCallPanel ? "Close AI Call" : "AI Call"}
+            {aiDialogState.open && aiDialogState.mode === "campaign" ? "AI Call" : "AI Call"}
           </Button>
           <Button variant="secondary" onClick={() => signOut({ callbackUrl: "/login" })}>
             Logout
@@ -717,33 +891,59 @@ export function DashboardClient({
         </Card>
       ) : null}
 
-      {showAiCallPanel ? (
-        <Card>
+      {aiDialogState.open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-4">
+          <Card className="w-full max-w-5xl max-h-[90vh] overflow-y-auto">
           <CardHeader>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <CardTitle>AI Call</CardTitle>
+                <CardTitle>{aiDialogState.mode === "manual" ? "Web Call" : "AI Call"}</CardTitle>
                 <CardDescription>
-                  Active telephony provider: {activeTelephonyProvider?.name || "-"}
-                  {activeTelephonyProvider?.type ? ` (${activeTelephonyProvider.type})` : ""}
+                  {aiDialogState.mode === "manual"
+                    ? `Manual softphone flow for ${softphoneCustomerName || "selected customer"}.`
+                    : `Active telephony provider: ${activeTelephonyProvider?.name || "-"}${activeTelephonyProvider?.type ? ` (${activeTelephonyProvider.type})` : ""}`}
                 </CardDescription>
               </div>
               <div className="flex flex-wrap gap-2 sm:justify-end">
-                <Link href="/calls">
-                  <Button variant="secondary">Open Call History</Button>
-                </Link>
-                {activeTelephonyProvider?.type === "TWILIO" ? (
+                {aiDialogState.mode === "campaign" ? (
                   <>
-                    <Button variant="secondary" onClick={initSoftphone} disabled={softphoneLoading}>
-                      {softphoneLoading ? "Initializing..." : softphoneReady ? "Reinitialize Softphone" : "Initialize Softphone"}
-                    </Button>
-                    {user.role === "SUPER_ADMIN" ? (
-                      <Button variant="secondary" onClick={runSoftphoneHealthCheck} disabled={softphoneHealthLoading}>
-                        {softphoneHealthLoading ? "Checking Status..." : "Check Status"}
+                    <Link href="/calls">
+                      <Button variant="secondary">Open Call History</Button>
+                    </Link>
+                    {isSuperAdmin ? (
+                      <Button
+                        variant={automationEnabled ? "default" : "secondary"}
+                        onClick={() => toggleAutomation(!automationEnabled)}
+                        disabled={loadingAutomation}
+                      >
+                        {loadingAutomation
+                          ? "Updating AI Toggle..."
+                          : automationEnabled
+                            ? "AI Automation ON"
+                            : "AI Automation OFF"}
                       </Button>
                     ) : null}
+                    {activeTelephonyProvider?.type === "TWILIO" ? (
+                      <>
+                        <Button variant="secondary" onClick={initSoftphone} disabled={softphoneLoading}>
+                          {softphoneLoading ? "Initializing..." : softphoneReady ? "Reinitialize Softphone" : "Initialize Softphone"}
+                        </Button>
+                        {isSuperAdmin ? (
+                          <Button variant="secondary" onClick={runSoftphoneHealthCheck} disabled={softphoneHealthLoading}>
+                            {softphoneHealthLoading ? "Checking Status..." : "Check Status"}
+                          </Button>
+                        ) : null}
+                      </>
+                    ) : null}
                   </>
-                ) : null}
+                ) : (
+                  <Button variant="secondary" onClick={initSoftphone} disabled={softphoneLoading}>
+                    {softphoneLoading ? "Initializing..." : softphoneReady ? "Reinitialize Softphone" : "Initialize Softphone"}
+                  </Button>
+                )}
+                <Button variant="secondary" onClick={closeAiDialog} className="h-9 w-9 px-0" aria-label="Close dialog" title="Close">
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -759,20 +959,32 @@ export function DashboardClient({
             {!loadingActiveTelephony && !activeTelephonyError && activeTelephonyProvider?.type === "TWILIO" ? (
               <>
                 <div className="grid gap-3 lg:grid-cols-5">
-                  <div className="lg:col-span-2">
+                  <div className="lg:col-span-5">
                     <Input
                       value={softphoneTo}
                       onChange={(event) => setSoftphoneTo(event.target.value)}
                       placeholder="Destination phone (E.164)"
                     />
                   </div>
-                  <p className="flex items-center rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    <span className="font-semibold">Status:</span>&nbsp;{softphoneStatus}
-                  </p>
-                  <p className="flex items-center rounded-md border bg-slate-50 px-3 py-2 text-sm text-slate-700 lg:col-span-2">
-                    <span className="font-semibold">Identity:</span>&nbsp;{softphoneIdentity || "Not registered"}
-                  </p>
                 </div>
+
+                {manualCallContext?.customerId ? (
+                  <div className="mt-3 grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-center">
+                    <p className="text-sm text-slate-700">
+                      Manual call disposition for <span className="font-semibold">{softphoneCustomerName || "selected customer"}</span>
+                    </p>
+                    <Select value={manualDisposition} onChange={(event) => setManualDisposition(event.target.value)}>
+                      <option value="interested">Interested</option>
+                      <option value="not_interested">Not Interested</option>
+                      <option value="follow_up">Follow Up</option>
+                      <option value="converted">Converted</option>
+                      <option value="do_not_call">Do Not Call</option>
+                    </Select>
+                    <span className="text-xs text-slate-600">
+                      {completingManualCall ? "Saving outcome..." : "Outcome is saved when call ends."}
+                    </span>
+                  </div>
+                ) : null}
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button onClick={startBrowserCall} disabled={softphoneInCall || softphoneLoading}>
@@ -811,7 +1023,8 @@ export function DashboardClient({
               </div>
             ) : null}
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1028,6 +1241,9 @@ export function DashboardClient({
                 ) : null}
                 <Button
                   variant="secondary"
+                  className="h-9 w-9 px-0"
+                  aria-label="Close dialog"
+                  title="Close"
                   onClick={() => {
                     setShowAddCustomerModal(false);
                     if (!editingCustomerId) {
@@ -1035,7 +1251,7 @@ export function DashboardClient({
                     }
                   }}
                 >
-                  Close
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
             </div>

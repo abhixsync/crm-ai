@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { applyCustomerTransition } from "@/lib/journey/transition-service";
 
 export async function PATCH(request, { params }) {
   const auth = await requireSession();
@@ -38,7 +39,7 @@ export async function PATCH(request, { params }) {
   if (body.monthlyIncome !== undefined) {
     data.monthlyIncome = body.monthlyIncome ? Number(body.monthlyIncome) : null;
   }
-  if (body.status !== undefined) data.status = body.status;
+  const requestedStatus = body.status !== undefined ? body.status : undefined;
   if (body.notes !== undefined) data.notes = body.notes || null;
 
   data.lastContactedAt = new Date();
@@ -47,6 +48,22 @@ export async function PATCH(request, { params }) {
     where: { id: customerId },
     data,
   });
+
+  if (requestedStatus && requestedStatus !== existing.status) {
+    await applyCustomerTransition({
+      customerId,
+      toStatus: requestedStatus,
+      reason: "Manual status update from customer edit",
+      source: "MANUAL",
+      metadata: {
+        lastContactedAt: new Date(),
+      },
+      idempotencyScope: {
+        route: "customers/[customerId]",
+        requestedStatus,
+      },
+    });
+  }
 
   return Response.json({ customer });
 }
