@@ -14,11 +14,7 @@ export function isCampaignWorkerEnabled() {
 }
 
 export function resolveAutomationExecutionMode(settings) {
-  const selected = String(settings?.executionMode || AUTOMATION_DEFAULTS.executionMode)
-    .trim()
-    .toUpperCase();
-
-  if (selected === "WORKER" && isCampaignWorkerEnabled()) {
+  if (isCampaignWorkerEnabled()) {
     return "WORKER";
   }
 
@@ -26,6 +22,10 @@ export function resolveAutomationExecutionMode(settings) {
 }
 
 function normalizeExecutionMode(mode) {
+  if (isCampaignWorkerEnabled()) {
+    return "WORKER";
+  }
+
   const normalized = String(mode || AUTOMATION_DEFAULTS.executionMode)
     .trim()
     .toUpperCase();
@@ -34,11 +34,7 @@ function normalizeExecutionMode(mode) {
     return AUTOMATION_DEFAULTS.executionMode;
   }
 
-  if (normalized === "WORKER" && !isCampaignWorkerEnabled()) {
-    return "CRON";
-  }
-
-  return normalized;
+  return normalized === "WORKER" ? "CRON" : normalized;
 }
 
 function normalizeEligibleStatuses(statuses) {

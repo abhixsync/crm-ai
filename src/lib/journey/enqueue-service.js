@@ -40,6 +40,7 @@ export async function enqueueCustomerIfEligible(customerId, reason = "new_custom
       startedAt: null,
       metadata: {
         source: "enqueue-service",
+        executionRuntime: "WORKER",
       },
     },
     create: {
@@ -50,6 +51,7 @@ export async function enqueueCustomerIfEligible(customerId, reason = "new_custom
       enqueuedAt: new Date(),
       metadata: {
         source: "enqueue-service",
+        executionRuntime: "WORKER",
       },
     },
   });

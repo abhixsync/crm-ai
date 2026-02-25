@@ -72,6 +72,30 @@ function formatJson(value) {
   }
 }
 
+function getJobRuntime(job) {
+  const explicitRuntime = String(job?.metadata?.executionRuntime || "")
+    .trim()
+    .toUpperCase();
+  if (explicitRuntime === "WORKER" || explicitRuntime === "CRON") {
+    return explicitRuntime;
+  }
+
+  const source = String(job?.metadata?.source || "")
+    .trim()
+    .toLowerCase();
+  if (source.includes("cron")) return "CRON";
+  if (source.includes("worker") || source.includes("enqueue-service")) return "WORKER";
+
+  const mode = String(job?.result?.mode || "")
+    .trim()
+    .toUpperCase();
+  if (mode === "WORKER" || mode === "CRON") {
+    return mode;
+  }
+
+  return "UNKNOWN";
+}
+
 export function AutomationSettingsAdminClient() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [workerEnabled, setWorkerEnabled] = useState(false);
@@ -209,7 +233,7 @@ export function AutomationSettingsAdminClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           enabled: Boolean(form.enabled),
-          executionMode: workerEnabled ? String(form.executionMode || "CRON") : "CRON",
+          executionMode: workerEnabled ? "WORKER" : "CRON",
           maxRetries: Number(form.maxRetries),
           batchSize: Number(form.batchSize),
           concurrency: Number(form.concurrency),
@@ -265,17 +289,6 @@ export function AutomationSettingsAdminClient() {
         <CardDescription>
           Configure retries, daily limits, working hours, and batch execution for automated AI calling.
         </CardDescription>
-        <div>
-          <span
-            className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${
-              workerEnabled
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                : "border-slate-300 bg-slate-50 text-slate-700"
-            }`}
-          >
-            Worker Feature: {workerEnabled ? "ENABLED" : "DISABLED"}
-          </span>
-        </div>
       </CardHeader>
       <CardContent className="space-y-5">
         {loading ? <p className="text-sm text-slate-600">Loading automation settings...</p> : null}
@@ -316,17 +329,12 @@ export function AutomationSettingsAdminClient() {
           </label>
 
           {workerEnabled ? (
-            <label className="space-y-2">
+            <div className="space-y-2">
               <span className="text-sm font-medium text-slate-700">Execution Mode</span>
-              <select
-                className="h-9 w-full rounded-md border border-slate-300/90 bg-white px-3 text-sm text-slate-900"
-                value={String(form.executionMode || "CRON")}
-                onChange={(event) => updateField("executionMode", event.target.value)}
-              >
-                <option value="CRON">Cron</option>
-                <option value="WORKER">Worker</option>
-              </select>
-            </label>
+              <div className="h-9 w-full rounded-md border border-slate-300/90 bg-slate-50 px-3 text-sm text-slate-900 flex items-center">
+                Worker (Cron disabled)
+              </div>
+            </div>
           ) : null}
 
           {workerEnabled ? (
@@ -537,6 +545,7 @@ export function AutomationSettingsAdminClient() {
                           </summary>
                           <div className="mt-2 space-y-1 text-xs text-slate-600">
                             <div><span className="font-medium">Status:</span> {job.status || "-"}</div>
+                            <div><span className="font-medium">Runtime:</span> {getJobRuntime(job)}</div>
                             <div><span className="font-medium">Skip Reason:</span> {getCampaignStatusTooltip(job) || "-"}</div>
                             <div><span className="font-medium">Error:</span> {job.errorMessage || "-"}</div>
                             <div className="mt-2">

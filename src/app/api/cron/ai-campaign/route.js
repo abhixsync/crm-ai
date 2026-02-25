@@ -1,6 +1,10 @@
 import { runAutomationBatch } from "@/lib/journey/automation-runner";
 import { prisma } from "@/lib/prisma";
-import { getAutomationSettings, resolveAutomationExecutionMode } from "@/lib/journey/automation-settings";
+import {
+  getAutomationSettings,
+  isCampaignWorkerEnabled,
+  resolveAutomationExecutionMode,
+} from "@/lib/journey/automation-settings";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 const CRON_STATE_KEY = "AI_CAMPAIGN_CRON_STATE";
@@ -52,6 +56,14 @@ export async function GET(request) {
   }
 
   try {
+    if (isCampaignWorkerEnabled()) {
+      return Response.json({
+        skipped: true,
+        reason: "worker_feature_enabled",
+        executionMode: "WORKER",
+      });
+    }
+
     const settings = await getAutomationSettings();
     const executionMode = resolveAutomationExecutionMode(settings);
 

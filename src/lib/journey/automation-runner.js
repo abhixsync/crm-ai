@@ -22,6 +22,7 @@ async function runCustomerInCronMode(customer, reason) {
       startedAt: new Date(),
       metadata: {
         source: "cron_runner",
+        executionRuntime: "CRON",
       },
     },
   });

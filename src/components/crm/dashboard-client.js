@@ -944,9 +944,6 @@ export function DashboardClient({
               <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${automationHealth?.runtimeOnline ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-rose-300 bg-rose-50 text-rose-700"}`}>
                 {automationHealth?.runtimeKind === "WORKER" ? "Worker" : "Cron"}: {loadingAutomationHealth ? "Checking..." : automationHealth?.runtimeOnline ? "ONLINE" : "OFFLINE"}
               </span>
-              <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${automationHealth?.workerEnabled ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-300 bg-slate-50 text-slate-700"}`}>
-                Worker Feature: {automationHealth?.workerEnabled ? "ENABLED" : "DISABLED"}
-              </span>
               <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
                 Waiting: {automationHealth?.queue?.waiting ?? 0}
               </span>

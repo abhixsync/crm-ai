@@ -38,6 +38,14 @@ async function updateCampaignJob(job, patch = {}) {
   });
 }
 
+function workerRuntimeMetadata(extra = {}) {
+  return {
+    executionRuntime: "WORKER",
+    source: "worker_processor",
+    ...extra,
+  };
+}
+
 const worker = new Worker(
   AI_CAMPAIGN_QUEUE,
   async (job) => {
@@ -49,6 +57,7 @@ const worker = new Worker(
       attemptsMade: Number(job.attemptsMade || 0),
       errorMessage: null,
       result: null,
+      metadata: workerRuntimeMetadata(),
     });
 
     const settings = await getAutomationSettings();
@@ -58,6 +67,7 @@ const worker = new Worker(
         status: CampaignJobStatus.SKIPPED,
         completedAt: new Date(),
         result,
+        metadata: workerRuntimeMetadata(),
       });
       return result;
     }
@@ -82,6 +92,7 @@ const worker = new Worker(
         status: CampaignJobStatus.SKIPPED,
         completedAt: new Date(),
         result,
+        metadata: workerRuntimeMetadata(),
       });
       return result;
     }
@@ -94,6 +105,7 @@ const worker = new Worker(
         status: CampaignJobStatus.SKIPPED,
         completedAt: new Date(),
         result,
+        metadata: workerRuntimeMetadata(),
       });
       return result;
     }
@@ -104,6 +116,7 @@ const worker = new Worker(
         status: CampaignJobStatus.SKIPPED,
         completedAt: new Date(),
         result,
+        metadata: workerRuntimeMetadata(),
       });
       return result;
     }
@@ -115,6 +128,7 @@ const worker = new Worker(
         status: CampaignJobStatus.COMPLETED,
         completedAt: new Date(),
         result,
+        metadata: workerRuntimeMetadata(),
       });
       return result;
     } catch (error) {
@@ -133,6 +147,7 @@ const worker = new Worker(
           customerId,
           reason: "worker_failure",
         },
+        metadata: workerRuntimeMetadata(),
       });
 
       throw error;

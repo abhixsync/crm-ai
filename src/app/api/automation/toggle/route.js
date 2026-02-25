@@ -41,12 +41,15 @@ export async function PATCH(request) {
   }
 
   const body = await request.json();
+  const workerEnabled = isCampaignWorkerEnabled();
   const update = {};
 
   if (body.enabled !== undefined) update.enabled = body.enabled;
-  if (body.executionMode !== undefined) {
+  if (workerEnabled) {
+    update.executionMode = "WORKER";
+  } else if (body.executionMode !== undefined) {
     const mode = String(body.executionMode || "").trim().toUpperCase();
-    if (mode === "WORKER" && !isCampaignWorkerEnabled()) {
+    if (mode === "WORKER") {
       return Response.json(
         { error: "Campaign worker mode is disabled by environment." },
         { status: 400 }
@@ -69,7 +72,7 @@ export async function PATCH(request) {
     return Response.json({
       settings,
       capabilities: {
-        workerEnabled: isCampaignWorkerEnabled(),
+        workerEnabled,
       },
     });
   } catch (error) {
