@@ -29,6 +29,9 @@ const envSchema = z.object({
   DIALOGFLOW_PRIVATE_KEY: z.string().optional(),
   DIALOGFLOW_LANGUAGE_CODE: z.string().optional(),
 
+  CRON_SECRET: z.string().optional(),
+  CRON_INTERVAL_MINUTES: z.string().optional(),
+
   DEEPGRAM_API_KEY: z.string().optional(),
   ELEVENLABS_API_KEY: z.string().optional(),
 });

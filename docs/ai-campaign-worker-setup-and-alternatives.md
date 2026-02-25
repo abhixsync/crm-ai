@@ -151,6 +151,31 @@ Migration outline:
 5. Keep existing health endpoint, change queue metrics source to DB counts.
 
 ### Path B (balanced): Move to pg-boss
+## Vercel cron alternative (no worker, no Redis)
+This repo now includes a cron-style runner that executes the same automation batch logic on a schedule.
+
+How it works:
+- Vercel cron hits `GET /api/cron/ai-campaign` on a schedule.
+- The route reuses the same batch logic as the manual run API.
+- It writes job records to Postgres and updates customer state just like the worker.
+
+Files:
+- `vercel.json` (cron schedule)
+- `src/app/api/cron/ai-campaign/route.js` (cron runner)
+- `src/lib/journey/automation-runner.js` (shared batch logic)
+
+Security:
+- Set `CRON_SECRET` and send it as `Authorization: Bearer <secret>` or `x-cron-secret: <secret>`.
+
+Notes:
+- This avoids Redis + separate worker process.
+- For higher volume, prefer a queue-based worker to prevent long cron runs.
+
+Dynamic interval:
+- `CRON_INTERVAL_MINUTES` controls how often the cron will actually run, even if Vercel triggers more frequently.
+- Example: set Vercel schedule to every 5 minutes but set `CRON_INTERVAL_MINUTES=15` to run only every 15 minutes.
+- This is a guard inside the cron handler and does not change Vercel's schedule itself.
+
 Good when you still want queue features (retry/schedule) but no Redis.
 
 Migration outline:
