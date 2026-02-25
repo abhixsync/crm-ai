@@ -11,19 +11,37 @@ export async function GET() {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [totalCustomers, interestedCustomers, followUps, totalCalls] = await Promise.all([
-    prisma.customer.count({ where: { archivedAt: null } }),
-    prisma.customer.count({ where: { status: CustomerStatus.INTERESTED, archivedAt: null } }),
-    prisma.customer.count({ where: { status: CustomerStatus.FOLLOW_UP, archivedAt: null } }),
-    prisma.callLog.count(),
-  ]);
+  try {
+    const [totalCustomers, interestedCustomers, followUps, totalCalls] = await Promise.all([
+      prisma.customer.count({ where: { archivedAt: null } }),
+      prisma.customer.count({ where: { status: CustomerStatus.INTERESTED, archivedAt: null } }),
+      prisma.customer.count({ where: { status: CustomerStatus.FOLLOW_UP, archivedAt: null } }),
+      prisma.callLog.count(),
+    ]);
 
-  return Response.json({
-    metrics: {
-      totalCustomers,
-      interestedCustomers,
-      followUps,
-      totalCalls,
-    },
-  });
+    return Response.json({
+      metrics: {
+        totalCustomers,
+        interestedCustomers,
+        followUps,
+        totalCalls,
+      },
+    });
+  } catch (error) {
+    console.warn("[api/dashboard/metrics] Failed to load metrics.", error);
+
+    return Response.json(
+      {
+        metrics: {
+          totalCustomers: 0,
+          interestedCustomers: 0,
+          followUps: 0,
+          totalCalls: 0,
+        },
+        degraded: true,
+        error: "Database unavailable",
+      },
+      { status: 503 }
+    );
+  }
 }

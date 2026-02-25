@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/server/auth-guard";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function DELETE() {
   const auth = await requireSession();
@@ -35,6 +36,11 @@ export async function DELETE() {
       },
     });
   } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/customers/delete-all] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
     const errorCode =
       error && typeof error === "object" && "code" in error ? String(error.code) : undefined;
 

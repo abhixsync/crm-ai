@@ -2,6 +2,7 @@ import { CallStatus, CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasRole, requireSession } from "@/lib/server/auth-guard";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 const dispositionMap = {
   interested: CustomerStatus.INTERESTED,
@@ -34,41 +35,50 @@ export async function POST(request) {
     return Response.json({ error: "Invalid disposition" }, { status: 400 });
   }
 
-  if (callLogId) {
-    await prisma.callLog.updateMany({
-      where: { id: callLogId, customerId },
-      data: {
-        status: CallStatus.COMPLETED,
-        intent: disposition.toUpperCase(),
-        intentClassification: disposition,
-        summary: body.summary || `Manual call disposition selected: ${disposition}`,
-        nextAction: body.nextAction || null,
-        durationSecs: body.durationSecs ? Number(body.durationSecs) : null,
-        recordingUrl: body.recordingUrl || null,
-        transcript: body.transcript || null,
-        endedAt: new Date(),
+  try {
+    if (callLogId) {
+      await prisma.callLog.updateMany({
+        where: { id: callLogId, customerId },
+        data: {
+          status: CallStatus.COMPLETED,
+          intent: disposition.toUpperCase(),
+          intentClassification: disposition,
+          summary: body.summary || `Manual call disposition selected: ${disposition}`,
+          nextAction: body.nextAction || null,
+          durationSecs: body.durationSecs ? Number(body.durationSecs) : null,
+          recordingUrl: body.recordingUrl || null,
+          transcript: body.transcript || null,
+          endedAt: new Date(),
+        },
+      });
+    }
+
+    const result = await applyCustomerTransition({
+      customerId,
+      toStatus: nextStatus,
+      reason: `Manual disposition: ${disposition}`,
+      source: "MANUAL",
+      metadata: {
+        inActiveCall: false,
+        lastContactedAt: new Date(),
+        aiSummary: body.summary || undefined,
+        aiIntent: disposition,
+      },
+      idempotencyScope: {
+        mode: "manual",
+        stage: "complete",
+        callLogId,
+        disposition,
       },
     });
+
+    return Response.json({ result });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/calls/manual/complete] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
   }
-
-  const result = await applyCustomerTransition({
-    customerId,
-    toStatus: nextStatus,
-    reason: `Manual disposition: ${disposition}`,
-    source: "MANUAL",
-    metadata: {
-      inActiveCall: false,
-      lastContactedAt: new Date(),
-      aiSummary: body.summary || undefined,
-      aiIntent: disposition,
-    },
-    idempotencyScope: {
-      mode: "manual",
-      stage: "complete",
-      callLogId,
-      disposition,
-    },
-  });
-
-  return Response.json({ result });
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function GET(request) {
   const auth = await requireSession();
@@ -15,26 +16,35 @@ export async function GET(request) {
   const limit = Number(searchParams.get("limit") || 15);
   const safeLimit = Number.isNaN(limit) || limit < 1 ? 15 : Math.min(limit, 50);
 
-  const callLogs = await prisma.callLog.findMany({
-    where: {
-      ...(customerId ? { customerId } : {}),
-      customer: {
-        archivedAt: null,
-      },
-    },
-    include: {
-      customer: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
+  try {
+    const callLogs = await prisma.callLog.findMany({
+      where: {
+        ...(customerId ? { customerId } : {}),
+        customer: {
+          archivedAt: null,
         },
       },
-    },
-    orderBy: { createdAt: "desc" },
-    take: safeLimit,
-  });
+      include: {
+        customer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: safeLimit,
+    });
 
-  return Response.json({ callLogs });
+    return Response.json({ callLogs });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/calls/history] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
+  }
 }

@@ -1,7 +1,7 @@
 import { CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { RETRYABLE_FAILURE_CODES } from "@/lib/journey/constants";
-import { getAutomationSettings } from "@/lib/journey/automation-settings";
+import { getAutomationSettings, resolveAutomationExecutionMode } from "@/lib/journey/automation-settings";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { enqueueAICampaignJob } from "@/lib/queue/ai-campaign-queue";
 
@@ -25,7 +25,7 @@ export async function scheduleRetryForFailure({ customerId, failureCode, errorMe
       customerId,
       toStatus: CustomerStatus.CALL_FAILED,
       reason: `Non-retryable failure: ${normalizedFailure}`,
-      source: "AI_WORKER",
+      source: "AI_AUTOMATION",
       metadata: {
         inActiveCall: false,
         lastContactedAt: new Date(),
@@ -49,7 +49,7 @@ export async function scheduleRetryForFailure({ customerId, failureCode, errorMe
       customerId,
       toStatus: CustomerStatus.CALL_FAILED,
       reason: "Max retries reached",
-      source: "AI_WORKER",
+      source: "AI_AUTOMATION",
       metadata: {
         retryCount: nextRetryCount,
         inActiveCall: false,
@@ -75,7 +75,7 @@ export async function scheduleRetryForFailure({ customerId, failureCode, errorMe
     customerId,
     toStatus: CustomerStatus.RETRY_SCHEDULED,
     reason: `Retry scheduled due to ${normalizedFailure}`,
-    source: "AI_WORKER",
+    source: "AI_AUTOMATION",
     metadata: {
       retryCount: nextRetryCount,
       nextFollowUpAt,
@@ -84,6 +84,17 @@ export async function scheduleRetryForFailure({ customerId, failureCode, errorMe
     },
     idempotencyScope: { normalizedFailure, nextRetryCount, nextFollowUpAt: nextFollowUpAt.toISOString() },
   });
+
+  const executionMode = resolveAutomationExecutionMode(settings);
+  if (executionMode !== "WORKER") {
+    return {
+      scheduled: true,
+      retryCount: nextRetryCount,
+      delayMs,
+      nextFollowUpAt,
+      mode: "CRON",
+    };
+  }
 
   const queueResult = await enqueueAICampaignJob({
     customerId,
@@ -105,7 +116,7 @@ export async function scheduleRetryForFailure({ customerId, failureCode, errorMe
     customerId,
     toStatus: CustomerStatus.CALL_PENDING,
     reason: "Queued after retry schedule",
-    source: "AI_WORKER",
+    source: "AI_AUTOMATION",
     metadata: {
       retryCount: nextRetryCount,
       nextFollowUpAt,

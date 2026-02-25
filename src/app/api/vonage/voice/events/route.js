@@ -1,6 +1,7 @@
 import { mapTelephonyStatus } from "@/lib/telephony/provider-router";
 import { prisma } from "@/lib/prisma";
 import { logTelephony } from "@/lib/telephony/logger";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 async function parsePayload(request) {
   const contentType = request.headers.get("content-type") || "";
@@ -28,38 +29,47 @@ function shouldSetEndedAt(mappedStatus) {
 }
 
 export async function POST(request) {
-  const body = await parsePayload(request);
+  try {
+    const body = await parsePayload(request);
 
-  const providerCallId = String(body.uuid || body.call_uuid || body.request_uuid || "").trim();
-  const providerStatus = String(body.status || body.call_status || "").trim();
-  const duration = body.duration || body.duration_secs;
+    const providerCallId = String(body.uuid || body.call_uuid || body.request_uuid || "").trim();
+    const providerStatus = String(body.status || body.call_status || "").trim();
+    const duration = body.duration || body.duration_secs;
 
-  if (!providerCallId) {
-    logTelephony("warn", "api.vonage.voice.events.ignored", {
-      reason: "missing-provider-call-id",
-      providerStatus,
+    if (!providerCallId) {
+      logTelephony("warn", "api.vonage.voice.events.ignored", {
+        reason: "missing-provider-call-id",
+        providerStatus,
+      });
+      return Response.json({ ok: true });
+    }
+
+    const mappedStatus = mapTelephonyStatus("VONAGE", providerStatus);
+
+    await prisma.callLog.updateMany({
+      where: { providerCallId },
+      data: {
+        status: mappedStatus,
+        durationSecs: duration ? Number(duration) : undefined,
+        endedAt: shouldSetEndedAt(mappedStatus) ? new Date() : undefined,
+      },
     });
+
+    logTelephony("info", "api.vonage.voice.events.persisted", {
+      providerCallId,
+      providerStatus,
+      mappedStatus,
+    });
+
     return Response.json({ ok: true });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/vonage/voice/events] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
   }
-
-  const mappedStatus = mapTelephonyStatus("VONAGE", providerStatus);
-
-  await prisma.callLog.updateMany({
-    where: { providerCallId },
-    data: {
-      status: mappedStatus,
-      durationSecs: duration ? Number(duration) : undefined,
-      endedAt: shouldSetEndedAt(mappedStatus) ? new Date() : undefined,
-    },
-  });
-
-  logTelephony("info", "api.vonage.voice.events.persisted", {
-    providerCallId,
-    providerStatus,
-    mappedStatus,
-  });
-
-  return Response.json({ ok: true });
 }
 
 export async function GET(request) {

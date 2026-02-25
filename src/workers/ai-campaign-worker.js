@@ -3,12 +3,21 @@ import { CampaignJobStatus } from "@prisma/client";
 import os from "node:os";
 import { prisma } from "@/lib/prisma";
 import { AI_CAMPAIGN_QUEUE, queueConnection } from "@/lib/queue/ai-campaign-queue";
-import { getAutomationSettings, isWithinWorkingHours } from "@/lib/journey/automation-settings";
+import {
+  getAutomationSettings,
+  isCampaignWorkerEnabled,
+  isWithinWorkingHours,
+} from "@/lib/journey/automation-settings";
 import { isEligibleForAutomation } from "@/lib/journey/campaign-eligibility";
 import { runAICampaignForCustomer } from "@/lib/journey/ai-campaign-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 
 const WORKER_HEARTBEAT_KEY = "AI_CAMPAIGN_WORKER_HEARTBEAT";
+
+if (!isCampaignWorkerEnabled()) {
+  console.log("[ai-campaign-worker] ENABLE_CAMPAIGN_WORKER is false. Exiting.");
+  process.exit(0);
+}
 
 async function updateCampaignJob(job, patch = {}) {
   const queueJobId = String(job?.id || "");
@@ -29,6 +38,14 @@ async function updateCampaignJob(job, patch = {}) {
   });
 }
 
+function workerRuntimeMetadata(extra = {}) {
+  return {
+    executionRuntime: "WORKER",
+    source: "worker_processor",
+    ...extra,
+  };
+}
+
 const worker = new Worker(
   AI_CAMPAIGN_QUEUE,
   async (job) => {
@@ -40,6 +57,7 @@ const worker = new Worker(
       attemptsMade: Number(job.attemptsMade || 0),
       errorMessage: null,
       result: null,
+      metadata: workerRuntimeMetadata(),
     });
 
     const settings = await getAutomationSettings();
@@ -49,6 +67,7 @@ const worker = new Worker(
         status: CampaignJobStatus.SKIPPED,
         completedAt: new Date(),
         result,
+        metadata: workerRuntimeMetadata(),
       });
       return result;
     }
@@ -73,6 +92,7 @@ const worker = new Worker(
         status: CampaignJobStatus.SKIPPED,
         completedAt: new Date(),
         result,
+        metadata: workerRuntimeMetadata(),
       });
       return result;
     }
@@ -85,6 +105,7 @@ const worker = new Worker(
         status: CampaignJobStatus.SKIPPED,
         completedAt: new Date(),
         result,
+        metadata: workerRuntimeMetadata(),
       });
       return result;
     }
@@ -95,6 +116,7 @@ const worker = new Worker(
         status: CampaignJobStatus.SKIPPED,
         completedAt: new Date(),
         result,
+        metadata: workerRuntimeMetadata(),
       });
       return result;
     }
@@ -106,6 +128,7 @@ const worker = new Worker(
         status: CampaignJobStatus.COMPLETED,
         completedAt: new Date(),
         result,
+        metadata: workerRuntimeMetadata(),
       });
       return result;
     } catch (error) {
@@ -124,6 +147,7 @@ const worker = new Worker(
           customerId,
           reason: "worker_failure",
         },
+        metadata: workerRuntimeMetadata(),
       });
 
       throw error;

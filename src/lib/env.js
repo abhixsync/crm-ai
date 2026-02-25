@@ -25,10 +25,25 @@ const envSchema = z.object({
   DIALOGFLOW_PROJECT_ID: z.string().optional(),
   DIALOGFLOW_SERVICE_ACCOUNT_JSON: z.string().optional(),
   DIALOGFLOW_SERVICE_ACCOUNT_BASE64: z.string().optional(),
+  DIALOGFLOW_CLIENT_EMAIL: z.string().optional(),
+  DIALOGFLOW_PRIVATE_KEY: z.string().optional(),
   DIALOGFLOW_LANGUAGE_CODE: z.string().optional(),
+
+  CRON_SECRET: z.string().optional(),
+  CRON_INTERVAL_MINUTES: z.string().optional(),
+  ENABLE_CAMPAIGN_WORKER: z.string().optional(),
 
   DEEPGRAM_API_KEY: z.string().optional(),
   ELEVENLABS_API_KEY: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);
+
+const hasDialogflowClientEmail = Boolean(String(env.DIALOGFLOW_CLIENT_EMAIL || "").trim());
+const hasDialogflowPrivateKey = Boolean(String(env.DIALOGFLOW_PRIVATE_KEY || "").trim());
+
+if (hasDialogflowClientEmail !== hasDialogflowPrivateKey) {
+  console.warn(
+    "[env] Incomplete Dialogflow split credentials: set both DIALOGFLOW_CLIENT_EMAIL and DIALOGFLOW_PRIVATE_KEY together."
+  );
+}

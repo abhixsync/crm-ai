@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseCustomerExcel } from "@/lib/server/excel";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function POST(request) {
   const auth = await requireSession();
@@ -59,20 +60,34 @@ export async function POST(request) {
       }
 
       successRows += 1;
-    } catch {
+    } catch (error) {
+      if (isDatabaseUnavailable(error)) {
+        console.warn("[api/leads/upload] Database unavailable during row upsert.");
+        return databaseUnavailableResponse();
+      }
+
       failedRows += 1;
     }
   }
 
-  await prisma.leadUpload.create({
-    data: {
-      fileName: file.name,
-      totalRows: rows.length,
-      successRows,
-      failedRows,
-      uploadedById: auth.session.user.id,
-    },
-  });
+  try {
+    await prisma.leadUpload.create({
+      data: {
+        fileName: file.name,
+        totalRows: rows.length,
+        successRows,
+        failedRows,
+        uploadedById: auth.session.user.id,
+      },
+    });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/leads/upload] Database unavailable while recording upload summary.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
+  }
 
   return Response.json({
     message: "Lead upload processed",

@@ -1,6 +1,7 @@
 import { TelephonyProviderType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 function parseOptionalString(value) {
   const text = String(value || "").trim();
@@ -28,11 +29,20 @@ export async function GET() {
   const auth = await requireAdminSession();
   if (auth.error) return auth.error;
 
-  const providers = await prisma.telephonyProviderConfig.findMany({
-    orderBy: [{ isActive: "desc" }, { priority: "asc" }, { name: "asc" }],
-  });
+  try {
+    const providers = await prisma.telephonyProviderConfig.findMany({
+      orderBy: [{ isActive: "desc" }, { priority: "asc" }, { name: "asc" }],
+    });
 
-  return Response.json({ providers });
+    return Response.json({ providers });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/admin/telephony-providers] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
+  }
 }
 
 export async function POST(request) {
@@ -52,24 +62,33 @@ export async function POST(request) {
   const timeoutMs = Number.isFinite(Number(body.timeoutMs)) ? Number(body.timeoutMs) : 12000;
   const makeActive = Boolean(body.isActive);
 
-  const created = await prisma.$transaction(async (tx) => {
-    if (makeActive) {
-      await tx.telephonyProviderConfig.updateMany({ data: { isActive: false } });
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      if (makeActive) {
+        await tx.telephonyProviderConfig.updateMany({ data: { isActive: false } });
+      }
+
+      return tx.telephonyProviderConfig.create({
+        data: {
+          name,
+          type,
+          apiKey: parseOptionalString(body.apiKey),
+          priority,
+          timeoutMs,
+          enabled: body.enabled === undefined ? true : Boolean(body.enabled),
+          isActive: makeActive,
+          metadata: body.metadata || null,
+        },
+      });
+    });
+
+    return Response.json({ provider: created }, { status: 201 });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/admin/telephony-providers] Database unavailable during create.");
+      return databaseUnavailableResponse();
     }
 
-    return tx.telephonyProviderConfig.create({
-      data: {
-        name,
-        type,
-        apiKey: parseOptionalString(body.apiKey),
-        priority,
-        timeoutMs,
-        enabled: body.enabled === undefined ? true : Boolean(body.enabled),
-        isActive: makeActive,
-        metadata: body.metadata || null,
-      },
-    });
-  });
-
-  return Response.json({ provider: created }, { status: 201 });
+    throw error;
+  }
 }

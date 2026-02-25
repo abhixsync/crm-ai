@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function GET(request) {
   const auth = await requireSession();
@@ -35,32 +36,41 @@ export async function GET(request) {
       : {}),
   };
 
-  const total = await prisma.customer.count({ where });
-  const totalPages = Math.max(1, Math.ceil(total / safePageSize));
-  const currentPage = Math.min(safePage, totalPages);
+  try {
+    const total = await prisma.customer.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / safePageSize));
+    const currentPage = Math.min(safePage, totalPages);
 
-  const customers = await prisma.customer.findMany({
-    where,
-    include: {
-      calls: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
+    const customers = await prisma.customer.findMany({
+      where,
+      include: {
+        calls: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
-    },
-    orderBy: { createdAt: "desc" },
-    skip: (currentPage - 1) * safePageSize,
-    take: safePageSize,
-  });
+      orderBy: { createdAt: "desc" },
+      skip: (currentPage - 1) * safePageSize,
+      take: safePageSize,
+    });
 
-  return Response.json({
-    customers,
-    pagination: {
-      page: currentPage,
-      pageSize: safePageSize,
-      total,
-      totalPages,
-    },
-  });
+    return Response.json({
+      customers,
+      pagination: {
+        page: currentPage,
+        pageSize: safePageSize,
+        total,
+        totalPages,
+      },
+    });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/customers] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
+  }
 }
 
 export async function POST(request) {
@@ -136,7 +146,12 @@ export async function POST(request) {
     }
 
     return Response.json({ customer });
-  } catch {
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/customers] Database unavailable during create/update.");
+      return databaseUnavailableResponse();
+    }
+
     return Response.json({ error: "Unable to create customer. Phone may already exist." }, { status: 400 });
   }
 }
