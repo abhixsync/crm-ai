@@ -13,6 +13,7 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "node prisma/seed.js",
+    "db:backfill:campaign-runtime": "node scripts/backfill-campaign-job-runtime.cjs",
     "postinstall": "prisma generate"
   },
   "prisma": {
