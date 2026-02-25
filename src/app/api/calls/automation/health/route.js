@@ -2,6 +2,7 @@ import { Queue } from "bullmq";
 import { prisma } from "@/lib/prisma";
 import { hasRole, requireSession } from "@/lib/server/auth-guard";
 import { AI_CAMPAIGN_QUEUE, queueConnection } from "@/lib/queue/ai-campaign-queue";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 const WORKER_HEARTBEAT_KEY = "AI_CAMPAIGN_WORKER_HEARTBEAT";
 const WORKER_ONLINE_WINDOW_MS = 45 * 1000;
@@ -19,10 +20,23 @@ export async function GET() {
   });
 
   try {
-    const [counts, heartbeatRecord] = await Promise.all([
-      queue.getJobCounts("waiting", "active", "completed", "failed", "delayed", "paused"),
-      prisma.automationSetting.findUnique({ where: { key: WORKER_HEARTBEAT_KEY } }),
-    ]);
+    const counts = await queue.getJobCounts("waiting", "active", "completed", "failed", "delayed", "paused");
+
+    let heartbeatRecord = null;
+    try {
+      heartbeatRecord = await prisma.automationSetting.findUnique({ where: { key: WORKER_HEARTBEAT_KEY } });
+    } catch (error) {
+      if (isDatabaseUnavailable(error)) {
+        console.warn("[api/calls/automation/health] Database unavailable; returning degraded response.");
+        return databaseUnavailableResponse({
+          workerOnline: false,
+          heartbeat: null,
+          queue: counts,
+        });
+      }
+
+      throw error;
+    }
 
     const heartbeatAt = new Date(heartbeatRecord?.value?.lastHeartbeatAt || 0);
     const workerOnline = Date.now() - heartbeatAt.getTime() <= WORKER_ONLINE_WINDOW_MS;

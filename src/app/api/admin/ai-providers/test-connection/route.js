@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
 import { runProviderConnectivityCheck } from "@/lib/ai/connection-check";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 function sortProviders(providers) {
   return [...providers].sort((left, right) => {
@@ -23,29 +24,38 @@ export async function POST(request) {
   const testAll = Boolean(body?.testAll);
 
   if (testAll) {
-    const providers = await prisma.aiProviderConfig.findMany({
-      orderBy: [{ isActive: "desc" }, { priority: "asc" }, { name: "asc" }],
-    });
+    try {
+      const providers = await prisma.aiProviderConfig.findMany({
+        orderBy: [{ isActive: "desc" }, { priority: "asc" }, { name: "asc" }],
+      });
 
-    const orderedProviders = sortProviders(providers);
-    const results = [];
+      const orderedProviders = sortProviders(providers);
+      const results = [];
 
-    for (const provider of orderedProviders) {
-      const result = await runProviderConnectivityCheck(provider);
-      results.push(result);
+      for (const provider of orderedProviders) {
+        const result = await runProviderConnectivityCheck(provider);
+        results.push(result);
+      }
+
+      const successCount = results.filter((result) => result.ok).length;
+      const failedCount = results.length - successCount;
+
+      return Response.json({
+        ok: failedCount === 0,
+        mode: "all",
+        totalProviders: results.length,
+        successCount,
+        failedCount,
+        results,
+      });
+    } catch (error) {
+      if (isDatabaseUnavailable(error)) {
+        console.warn("[api/admin/ai-providers/test-connection] Database unavailable for test-all.");
+        return databaseUnavailableResponse();
+      }
+
+      throw error;
     }
-
-    const successCount = results.filter((result) => result.ok).length;
-    const failedCount = results.length - successCount;
-
-    return Response.json({
-      ok: failedCount === 0,
-      mode: "all",
-      totalProviders: results.length,
-      successCount,
-      failedCount,
-      results,
-    });
   }
 
   const providerId = String(body?.providerId || "").trim();
@@ -54,14 +64,23 @@ export async function POST(request) {
     return Response.json({ ok: false, error: "providerId is required." }, { status: 400 });
   }
 
-  const provider = await prisma.aiProviderConfig.findUnique({
-    where: { id: providerId },
-  });
+  try {
+    const provider = await prisma.aiProviderConfig.findUnique({
+      where: { id: providerId },
+    });
 
-  if (!provider) {
-    return Response.json({ ok: false, error: "Provider not found." }, { status: 404 });
+    if (!provider) {
+      return Response.json({ ok: false, error: "Provider not found." }, { status: 404 });
+    }
+
+    const result = await runProviderConnectivityCheck(provider);
+    return Response.json(result, { status: result.ok ? 200 : 422 });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/admin/ai-providers/test-connection] Database unavailable for single-provider test.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
   }
-
-  const result = await runProviderConnectivityCheck(provider);
-  return Response.json(result, { status: result.ok ? 200 : 422 });
 }

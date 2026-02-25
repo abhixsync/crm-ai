@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function GET(_request, { params }) {
   const auth = await requireSession();
@@ -17,23 +18,32 @@ export async function GET(_request, { params }) {
     return Response.json({ error: "callLogId is required" }, { status: 400 });
   }
 
-  const callLog = await prisma.callLog.findUnique({
-    where: { id: callLogId },
-    include: {
-      customer: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
+  try {
+    const callLog = await prisma.callLog.findUnique({
+      where: { id: callLogId },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  if (!callLog) {
-    return Response.json({ error: "Call log not found" }, { status: 404 });
+    if (!callLog) {
+      return Response.json({ error: "Call log not found" }, { status: 404 });
+    }
+
+    return Response.json({ callLog });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/calls/[callLogId]] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
   }
-
-  return Response.json({ callLog });
 }

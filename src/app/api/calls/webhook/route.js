@@ -5,6 +5,7 @@ import { runAIWithFailover } from "@/lib/ai/provider-router";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 import { toIntentLabel } from "@/lib/journey/constants";
+import { isDatabaseUnavailable } from "@/lib/server/database-error";
 
 function xmlEscape(value) {
   return String(value || "")
@@ -124,89 +125,98 @@ async function finishCall(callLogId, customerId) {
 }
 
 export async function POST(request) {
-  const url = new URL(request.url);
-  const customerId = url.searchParams.get("customerId");
-  const callLogId = url.searchParams.get("callLogId");
-  const turn = Number(url.searchParams.get("turn") || "0");
+  try {
+    const url = new URL(request.url);
+    const customerId = url.searchParams.get("customerId");
+    const callLogId = url.searchParams.get("callLogId");
+    const turn = Number(url.searchParams.get("turn") || "0");
 
-  const formData = await request.formData();
-  const callSid = String(formData.get("CallSid") || "");
-  const speechResult = String(formData.get("SpeechResult") || "").trim();
+    const formData = await request.formData();
+    const callSid = String(formData.get("CallSid") || "");
+    const speechResult = String(formData.get("SpeechResult") || "").trim();
 
-  const customer = customerId
-    ? await prisma.customer.findUnique({ where: { id: customerId } })
-    : null;
+    const customer = customerId
+      ? await prisma.customer.findUnique({ where: { id: customerId } })
+      : null;
 
-  if (!customer) {
-    return twimlResponse("<Say>Customer record not found. Please call again later.</Say><Hangup/>");
-  }
+    if (!customer) {
+      return twimlResponse("<Say>Customer record not found. Please call again later.</Say><Hangup/>");
+    }
 
-  if (callLogId && callSid) {
-    await prisma.callLog.update({
-      where: { id: callLogId },
-      data: {
-        providerCallId: callSid,
+    if (callLogId && callSid) {
+      await prisma.callLog.update({
+        where: { id: callLogId },
+        data: {
+          providerCallId: callSid,
+        },
+      });
+    }
+
+    if (speechResult) {
+      await appendTranscript(callLogId, "Customer", speechResult);
+    }
+
+    if (!speechResult && turn === 0) {
+      const opening = generateInitialCallPrompt(customer);
+      await appendTranscript(callLogId, "Agent", opening);
+
+      const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=1`;
+
+      return twimlResponse(
+        `<Gather input="speech" language="en-IN" speechTimeout="auto" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="alice">${xmlEscape(
+          opening
+        )}</Say></Gather><Say voice="alice">I could not hear your response. We will follow up later.</Say><Hangup/>`
+      );
+    }
+
+    const callLog = callLogId ? await prisma.callLog.findUnique({ where: { id: callLogId } }) : null;
+    const transcript = callLog?.transcript || "";
+
+    const aiOutput = await runAIWithFailover({
+      task: "CALL_TURN",
+      payload: {
+        customer,
+        transcript,
+        turn,
       },
     });
-  }
+    const aiTurn = aiOutput.result;
 
-  if (speechResult) {
-    await appendTranscript(callLogId, "Customer", speechResult);
-  }
+    await appendTranscript(callLogId, "Agent", aiTurn.reply);
 
-  if (!speechResult && turn === 0) {
-    const opening = generateInitialCallPrompt(customer);
-    await appendTranscript(callLogId, "Agent", opening);
+    if (callLogId) {
+      await prisma.callLog.update({
+        where: { id: callLogId },
+        data: {
+          aiProviderUsed: aiOutput.provider.name,
+        },
+      });
+    }
 
-    const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=1`;
+    const shouldEnd = aiTurn.shouldEnd || turn >= 3 || !speechResult;
+
+    if (shouldEnd) {
+      const closing = `${aiTurn.reply} Thank you for your time. Our loan advisor will contact you shortly.`;
+      await finishCall(callLogId, customer.id);
+      return twimlResponse(`<Say voice="alice">${xmlEscape(closing)}</Say><Hangup/>`);
+    }
+
+    const nextTurn = turn + 1;
+    const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}`;
 
     return twimlResponse(
       `<Gather input="speech" language="en-IN" speechTimeout="auto" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="alice">${xmlEscape(
-        opening
-      )}</Say></Gather><Say voice="alice">I could not hear your response. We will follow up later.</Say><Hangup/>`
+        aiTurn.reply
+      )}</Say></Gather><Say voice="alice">I could not hear your response. Thank you, we will follow up later.</Say><Hangup/>`
     );
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/calls/webhook] Database unavailable; returning fallback TwiML.");
+      return twimlResponse("<Say>System is temporarily unavailable. Please try again later.</Say><Hangup/>");
+    }
+
+    throw error;
   }
-
-  const callLog = callLogId ? await prisma.callLog.findUnique({ where: { id: callLogId } }) : null;
-  const transcript = callLog?.transcript || "";
-
-  const aiOutput = await runAIWithFailover({
-    task: "CALL_TURN",
-    payload: {
-      customer,
-      transcript,
-      turn,
-    },
-  });
-  const aiTurn = aiOutput.result;
-
-  await appendTranscript(callLogId, "Agent", aiTurn.reply);
-
-  if (callLogId) {
-    await prisma.callLog.update({
-      where: { id: callLogId },
-      data: {
-        aiProviderUsed: aiOutput.provider.name,
-      },
-    });
-  }
-
-  const shouldEnd = aiTurn.shouldEnd || turn >= 3 || !speechResult;
-
-  if (shouldEnd) {
-    const closing = `${aiTurn.reply} Thank you for your time. Our loan advisor will contact you shortly.`;
-    await finishCall(callLogId, customer.id);
-    return twimlResponse(`<Say voice="alice">${xmlEscape(closing)}</Say><Hangup/>`);
-  }
-
-  const nextTurn = turn + 1;
-  const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}`;
-
-  return twimlResponse(
-    `<Gather input="speech" language="en-IN" speechTimeout="auto" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="alice">${xmlEscape(
-      aiTurn.reply
-    )}</Say></Gather><Say voice="alice">I could not hear your response. Thank you, we will follow up later.</Say><Hangup/>`
-  );
 }
 
 export async function GET(request) {

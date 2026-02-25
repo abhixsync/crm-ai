@@ -6,6 +6,7 @@ import { initiateTelephonyCallWithFailover } from "@/lib/telephony/provider-rout
 import { logTelephony, redactedPhone } from "@/lib/telephony/logger";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 function isPublicHttpsUrl(url) {
   if (!url) return false;
@@ -38,37 +39,49 @@ export async function POST(request) {
     return Response.json({ error: "customerId is required" }, { status: 400 });
   }
 
-  const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+  let customer;
+  let callLog;
 
-  if (!customer) {
-    return Response.json({ error: "Customer not found" }, { status: 404 });
-  }
+  try {
+    customer = await prisma.customer.findUnique({ where: { id: customerId } });
 
-  const callLog = await prisma.callLog.create({
-    data: {
+    if (!customer) {
+      return Response.json({ error: "Customer not found" }, { status: 404 });
+    }
+
+    callLog = await prisma.callLog.create({
+      data: {
+        customerId: customer.id,
+        status: CallStatus.INITIATED,
+        mode: "AI",
+        attemptNumber: (customer.retryCount || 0) + 1,
+        startedAt: new Date(),
+        summary: "Automated outbound loan-interest call initiated.",
+      },
+    });
+
+    await applyCustomerTransition({
       customerId: customer.id,
-      status: CallStatus.INITIATED,
-      mode: "AI",
-      attemptNumber: (customer.retryCount || 0) + 1,
-      startedAt: new Date(),
-      summary: "Automated outbound loan-interest call initiated.",
-    },
-  });
+      toStatus: "CALLING",
+      reason: "Direct AI call trigger started",
+      source: "MANUAL",
+      metadata: {
+        inActiveCall: true,
+        lastContactedAt: new Date(),
+      },
+      idempotencyScope: {
+        route: "calls/trigger",
+        callLogId: callLog.id,
+      },
+    });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/calls/trigger] Database unavailable before call start.");
+      return databaseUnavailableResponse();
+    }
 
-  await applyCustomerTransition({
-    customerId: customer.id,
-    toStatus: "CALLING",
-    reason: "Direct AI call trigger started",
-    source: "MANUAL",
-    metadata: {
-      inActiveCall: true,
-      lastContactedAt: new Date(),
-    },
-    idempotencyScope: {
-      route: "calls/trigger",
-      callLogId: callLog.id,
-    },
-  });
+    throw error;
+  }
 
   try {
     logTelephony("info", "api.calls.trigger.started", {
@@ -84,7 +97,9 @@ export async function POST(request) {
     const script = aiOutput.result.script;
 
     const baseUrl = process.env.APP_BASE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
-    const callbackUrl = `${baseUrl}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLog.id}&turn=0`;
+    const callbackUrl = isPublicHttpsUrl(baseUrl)
+      ? `${baseUrl}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLog.id}&turn=0`
+      : undefined;
     const statusCallbackUrl = isPublicHttpsUrl(baseUrl) ? `${baseUrl}/api/calls/status` : undefined;
     const vonageAnswerUrl = `${baseUrl}/api/vonage/voice/answer?customerId=${customer.id}&callLogId=${callLog.id}`;
     const vonageEventUrl = isPublicHttpsUrl(baseUrl) ? `${baseUrl}/api/vonage/voice/events` : undefined;
@@ -135,42 +150,51 @@ export async function POST(request) {
       callLog: updatedCallLog,
       provider: telephonyOutput.provider.name,
       info:
-        String(telephonyOutput.provider.type || "").toUpperCase() === "TWILIO" && !statusCallbackUrl
-          ? "Call started. Status callbacks are disabled in local HTTP mode. Use a public HTTPS APP_BASE_URL for webhooks."
+        String(telephonyOutput.provider.type || "").toUpperCase() === "TWILIO" && (!statusCallbackUrl || !callbackUrl)
+          ? "Call started. Twilio webhooks are disabled in local HTTP mode. Use a public HTTPS APP_BASE_URL for conversational/status webhooks."
           : "Call started successfully.",
     });
   } catch (error) {
-    await prisma.callLog.update({
-      where: { id: callLog.id },
-      data: {
-        status: CallStatus.FAILED,
-        errorReason: error?.message || "Failed to initiate call",
-        endedAt: new Date(),
-        nextAction: "Check AI/voice provider configuration and retry.",
-      },
-    });
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/calls/trigger] Database unavailable during call processing.");
+      return databaseUnavailableResponse();
+    }
 
-    await applyCustomerTransition({
-      customerId: customer.id,
-      toStatus: "CALL_FAILED",
-      reason: error?.message || "Trigger call failed",
-      source: "MANUAL",
-      metadata: {
-        inActiveCall: false,
-        lastContactedAt: new Date(),
-      },
-      idempotencyScope: {
-        route: "calls/trigger",
-        stage: "failed",
-        callLogId: callLog.id,
-      },
-    });
+    if (callLog?.id) {
+      await prisma.callLog.update({
+        where: { id: callLog.id },
+        data: {
+          status: CallStatus.FAILED,
+          errorReason: error?.message || "Failed to initiate call",
+          endedAt: new Date(),
+          nextAction: "Check AI/voice provider configuration and retry.",
+        },
+      });
+    }
 
-    await scheduleRetryForFailure({
-      customerId: customer.id,
-      failureCode: "telephony_failure",
-      errorMessage: error?.message || "Failed to initiate call",
-    });
+    if (customer?.id && callLog?.id) {
+      await applyCustomerTransition({
+        customerId: customer.id,
+        toStatus: "CALL_FAILED",
+        reason: error?.message || "Trigger call failed",
+        source: "MANUAL",
+        metadata: {
+          inActiveCall: false,
+          lastContactedAt: new Date(),
+        },
+        idempotencyScope: {
+          route: "calls/trigger",
+          stage: "failed",
+          callLogId: callLog.id,
+        },
+      });
+
+      await scheduleRetryForFailure({
+        customerId: customer.id,
+        failureCode: "telephony_failure",
+        errorMessage: error?.message || "Failed to initiate call",
+      });
+    }
 
     logTelephony("error", "api.calls.trigger.failed", {
       callLogId: callLog.id,

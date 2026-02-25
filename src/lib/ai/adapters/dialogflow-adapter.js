@@ -55,6 +55,26 @@ function parseJsonFilePath(value) {
   }
 }
 
+function normalizePrivateKey(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return raw.replace(/\\n/g, "\n");
+}
+
+function parseServiceAccountFromDiscreteEnv() {
+  const clientEmail = String(process.env.DIALOGFLOW_CLIENT_EMAIL || "").trim();
+  const privateKey = normalizePrivateKey(process.env.DIALOGFLOW_PRIVATE_KEY);
+  const projectId = String(process.env.DIALOGFLOW_PROJECT_ID || "").trim();
+
+  if (!clientEmail || !privateKey) return null;
+
+  return {
+    client_email: clientEmail,
+    private_key: privateKey,
+    project_id: projectId || undefined,
+  };
+}
+
 function getServiceAccount(config) {
   const metadata = config?.metadata || {};
   const envServiceAccount = process.env.DIALOGFLOW_SERVICE_ACCOUNT_JSON;
@@ -64,7 +84,8 @@ function getServiceAccount(config) {
     parseJsonSafe(metadata?.serviceAccountJson) ||
     parseJsonSafe(envServiceAccount) ||
     parseJsonFilePath(envServiceAccount) ||
-    parseBase64Json(process.env.DIALOGFLOW_SERVICE_ACCOUNT_BASE64)
+    parseBase64Json(process.env.DIALOGFLOW_SERVICE_ACCOUNT_BASE64) ||
+    parseServiceAccountFromDiscreteEnv()
   );
 }
 
@@ -206,7 +227,7 @@ async function invokeDialogflow({ task, input, config }) {
   const serviceAccount = getServiceAccount(config);
   if (!serviceAccount) {
     throw new Error(
-      "Dialogflow credentials are missing. Configure service account JSON in provider apiKey/metadata or DIALOGFLOW_SERVICE_ACCOUNT_JSON."
+      "Dialogflow credentials are missing. Configure service account JSON in provider apiKey/metadata, DIALOGFLOW_SERVICE_ACCOUNT_JSON, DIALOGFLOW_SERVICE_ACCOUNT_BASE64, or DIALOGFLOW_CLIENT_EMAIL + DIALOGFLOW_PRIVATE_KEY."
     );
   }
 

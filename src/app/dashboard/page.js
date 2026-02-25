@@ -7,6 +7,12 @@ import { DashboardClient } from "@/components/crm/dashboard-client";
 
 const PAGE_SIZE = 10;
 
+function isDatabaseUnavailable(error) {
+  const code = error?.code;
+  const message = String(error?.message || "");
+  return code === "P1001" || message.includes("Can't reach database server");
+}
+
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
 
@@ -14,23 +20,37 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const [totalCustomers, interestedCustomers, followUps, totalCalls, customers] = await Promise.all([
-    prisma.customer.count({ where: { archivedAt: null } }),
-    prisma.customer.count({ where: { status: CustomerStatus.INTERESTED, archivedAt: null } }),
-    prisma.customer.count({ where: { status: CustomerStatus.FOLLOW_UP, archivedAt: null } }),
-    prisma.callLog.count(),
-    prisma.customer.findMany({
-      where: { archivedAt: null },
-      include: {
-        calls: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
+  let totalCustomers = 0;
+  let interestedCustomers = 0;
+  let followUps = 0;
+  let totalCalls = 0;
+  let customers = [];
+
+  try {
+    [totalCustomers, interestedCustomers, followUps, totalCalls, customers] = await Promise.all([
+      prisma.customer.count({ where: { archivedAt: null } }),
+      prisma.customer.count({ where: { status: CustomerStatus.INTERESTED, archivedAt: null } }),
+      prisma.customer.count({ where: { status: CustomerStatus.FOLLOW_UP, archivedAt: null } }),
+      prisma.callLog.count(),
+      prisma.customer.findMany({
+        where: { archivedAt: null },
+        include: {
+          calls: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      take: PAGE_SIZE,
-    }),
-  ]);
+        orderBy: { createdAt: "desc" },
+        take: PAGE_SIZE,
+      }),
+    ]);
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[dashboard] Database unavailable; rendering empty dashboard state.");
+    } else {
+      console.warn("[dashboard] Failed to load initial dashboard data.", error);
+    }
+  }
 
   const totalPages = Math.max(1, Math.ceil(totalCustomers / PAGE_SIZE));
 

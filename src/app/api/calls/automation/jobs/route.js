@@ -1,6 +1,7 @@
 import { CampaignJobStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function GET(request) {
   const auth = await requireSession();
@@ -21,34 +22,43 @@ export async function GET(request) {
     ...(customerId ? { customerId } : {}),
   };
 
-  const [total, jobs] = await Promise.all([
-    prisma.campaignJob.count({ where }),
-    prisma.campaignJob.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      include: {
-        customer: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-            status: true,
+  try {
+    const [total, jobs] = await Promise.all([
+      prisma.campaignJob.count({ where }),
+      prisma.campaignJob.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          customer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              status: true,
+            },
           },
         },
-      },
-    }),
-  ]);
+      }),
+    ]);
 
-  return Response.json({
-    jobs,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
-    },
-  });
+    return Response.json({
+      jobs,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/calls/automation/jobs] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
+  }
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function GET(_request, { params }) {
   const auth = await requireSession();
@@ -16,31 +17,40 @@ export async function GET(_request, { params }) {
     return Response.json({ error: "customerId is required" }, { status: 400 });
   }
 
-  const [transitions, callAttempts, customer] = await Promise.all([
-    prisma.customerTransition.findMany({
-      where: { customerId },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    }),
-    prisma.callLog.findMany({
-      where: { customerId },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    }),
-    prisma.customer.findUnique({
-      where: { id: customerId },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        status: true,
-        retryCount: true,
-        maxRetries: true,
-        manualReview: true,
-        inActiveCall: true,
-      },
-    }),
-  ]);
+  try {
+    const [transitions, callAttempts, customer] = await Promise.all([
+      prisma.customerTransition.findMany({
+        where: { customerId },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      }),
+      prisma.callLog.findMany({
+        where: { customerId },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      }),
+      prisma.customer.findUnique({
+        where: { id: customerId },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          status: true,
+          retryCount: true,
+          maxRetries: true,
+          manualReview: true,
+          inActiveCall: true,
+        },
+      }),
+    ]);
 
-  return Response.json({ customer, transitions, callAttempts });
+    return Response.json({ customer, transitions, callAttempts });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/customers/[customerId]/audit] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
+  }
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { logTelephony } from "@/lib/telephony/logger";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 async function parsePayload(request) {
   const contentType = request.headers.get("content-type") || "";
@@ -32,32 +33,41 @@ function nccoResponse(body) {
 }
 
 export async function POST(request) {
-  const url = new URL(request.url);
-  const payload = await parsePayload(request);
+  try {
+    const url = new URL(request.url);
+    const payload = await parsePayload(request);
 
-  const callLogId = String(url.searchParams.get("callLogId") || payload.callLogId || "").trim();
-  const customerId = String(url.searchParams.get("customerId") || payload.customerId || "").trim();
-  const uuid = String(payload.uuid || payload.call_uuid || payload.request_uuid || "").trim();
+    const callLogId = String(url.searchParams.get("callLogId") || payload.callLogId || "").trim();
+    const customerId = String(url.searchParams.get("customerId") || payload.customerId || "").trim();
+    const uuid = String(payload.uuid || payload.call_uuid || payload.request_uuid || "").trim();
 
-  if (callLogId && uuid) {
-    await prisma.callLog.updateMany({
-      where: { id: callLogId },
-      data: { providerCallId: uuid },
+    if (callLogId && uuid) {
+      await prisma.callLog.updateMany({
+        where: { id: callLogId },
+        data: { providerCallId: uuid },
+      });
+    }
+
+    logTelephony("info", "api.vonage.voice.answer", {
+      callLogId: callLogId || null,
+      customerId: customerId || null,
+      providerCallId: uuid || null,
     });
+
+    return nccoResponse([
+      {
+        action: "talk",
+        text: "Hello, this is AI calling from CRM.",
+      },
+    ]);
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/vonage/voice/answer] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
   }
-
-  logTelephony("info", "api.vonage.voice.answer", {
-    callLogId: callLogId || null,
-    customerId: customerId || null,
-    providerCallId: uuid || null,
-  });
-
-  return nccoResponse([
-    {
-      action: "talk",
-      text: "Hello, this is AI calling from CRM.",
-    },
-  ]);
 }
 
 export async function GET(request) {

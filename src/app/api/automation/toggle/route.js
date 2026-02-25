@@ -3,6 +3,7 @@ import {
   getAutomationSettings,
   upsertAutomationSettings,
 } from "@/lib/journey/automation-settings";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function GET() {
   const auth = await requireSession();
@@ -12,8 +13,17 @@ export async function GET() {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const settings = await getAutomationSettings();
-  return Response.json({ settings });
+  try {
+    const settings = await getAutomationSettings();
+    return Response.json({ settings });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/automation/toggle] Database unavailable; returning degraded response.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
+  }
 }
 
 export async function PATCH(request) {
@@ -37,7 +47,16 @@ export async function PATCH(request) {
   if (body.timezone !== undefined) update.timezone = body.timezone;
   if (body.eligibleStatuses !== undefined) update.eligibleStatuses = body.eligibleStatuses;
 
-  const settings = await upsertAutomationSettings(update);
+  try {
+    const settings = await upsertAutomationSettings(update);
 
-  return Response.json({ settings });
+    return Response.json({ settings });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/automation/toggle] Database unavailable during settings update.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
+  }
 }

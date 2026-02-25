@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 function parseOptionalString(value) {
   if (value === undefined) return undefined;
@@ -41,21 +42,30 @@ export async function PATCH(request, { params }) {
 
   const makeActive = body.isActive === true;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    if (makeActive) {
-      await tx.telephonyProviderConfig.updateMany({ data: { isActive: false } });
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      if (makeActive) {
+        await tx.telephonyProviderConfig.updateMany({ data: { isActive: false } });
+      }
+
+      return tx.telephonyProviderConfig.update({
+        where: { id: providerId },
+        data: {
+          ...updateData,
+          ...(body.isActive !== undefined ? { isActive: Boolean(body.isActive) } : {}),
+        },
+      });
+    });
+
+    return Response.json({ provider: updated });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/admin/telephony-providers/[providerId]] Database unavailable during update.");
+      return databaseUnavailableResponse();
     }
 
-    return tx.telephonyProviderConfig.update({
-      where: { id: providerId },
-      data: {
-        ...updateData,
-        ...(body.isActive !== undefined ? { isActive: Boolean(body.isActive) } : {}),
-      },
-    });
-  });
-
-  return Response.json({ provider: updated });
+    throw error;
+  }
 }
 
 export async function DELETE(_request, { params }) {
@@ -68,34 +78,43 @@ export async function DELETE(_request, { params }) {
     return Response.json({ error: "providerId is required" }, { status: 400 });
   }
 
-  const total = await prisma.telephonyProviderConfig.count();
-  if (total <= 1) {
-    return Response.json({ error: "At least one telephony provider config must remain." }, { status: 400 });
-  }
-
-  const target = await prisma.telephonyProviderConfig.findUnique({ where: { id: providerId } });
-
-  if (!target) {
-    return Response.json({ error: "Provider not found" }, { status: 404 });
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.telephonyProviderConfig.delete({ where: { id: providerId } });
-
-    if (target.isActive) {
-      const nextProvider = await tx.telephonyProviderConfig.findFirst({
-        where: { enabled: true },
-        orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
-      });
-
-      if (nextProvider) {
-        await tx.telephonyProviderConfig.update({
-          where: { id: nextProvider.id },
-          data: { isActive: true },
-        });
-      }
+  try {
+    const total = await prisma.telephonyProviderConfig.count();
+    if (total <= 1) {
+      return Response.json({ error: "At least one telephony provider config must remain." }, { status: 400 });
     }
-  });
 
-  return Response.json({ ok: true });
+    const target = await prisma.telephonyProviderConfig.findUnique({ where: { id: providerId } });
+
+    if (!target) {
+      return Response.json({ error: "Provider not found" }, { status: 404 });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.telephonyProviderConfig.delete({ where: { id: providerId } });
+
+      if (target.isActive) {
+        const nextProvider = await tx.telephonyProviderConfig.findFirst({
+          where: { enabled: true },
+          orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+        });
+
+        if (nextProvider) {
+          await tx.telephonyProviderConfig.update({
+            where: { id: nextProvider.id },
+            data: { isActive: true },
+          });
+        }
+      }
+    });
+
+    return Response.json({ ok: true });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/admin/telephony-providers/[providerId]] Database unavailable during delete.");
+      return databaseUnavailableResponse();
+    }
+
+    throw error;
+  }
 }

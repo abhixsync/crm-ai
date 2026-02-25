@@ -31,6 +31,26 @@ const INITIAL_FORM = {
   eligibleStatuses: ["NEW", "FOLLOW_UP", "RETRY_SCHEDULED"],
 };
 
+const SKIPPED_REASON_LABELS = {
+  automation_disabled: "Automation disabled",
+  daily_cap_reached: "Daily cap reached",
+  customer_not_found: "Customer not found",
+  not_eligible: "Customer not eligible",
+};
+
+function getCampaignStatusLabel(job) {
+  const status = String(job?.status || "").trim();
+  return status || "-";
+}
+
+function getCampaignStatusTooltip(job) {
+  const status = String(job?.status || "").trim();
+  if (status !== "SKIPPED") return "";
+
+  const reasonCode = String(job?.result?.reason || "").trim();
+  return SKIPPED_REASON_LABELS[reasonCode] || "Skipped by automation rules";
+}
+
 export function AutomationSettingsAdminClient() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(true);
@@ -397,7 +417,12 @@ export function AutomationSettingsAdminClient() {
                           : "-"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-slate-700">{job.reason}</td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">{job.status}</td>
+                      <td
+                        className="whitespace-nowrap px-3 py-2 text-slate-700"
+                        title={getCampaignStatusTooltip(job)}
+                      >
+                        {getCampaignStatusLabel(job)}
+                      </td>
                       <td className="whitespace-nowrap px-3 py-2 text-slate-700">{job.attemptsMade ?? 0}</td>
                       <td className="max-w-[280px] truncate px-3 py-2 text-slate-700" title={job.errorMessage || ""}>
                         {job.errorMessage || "-"}

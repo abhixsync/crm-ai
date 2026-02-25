@@ -13,6 +13,22 @@ const CallGraphState = Annotation.Root({
   callResult: Annotation(),
 });
 
+function isPublicHttpsUrl(url) {
+  if (!url) return false;
+
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+
+    if (parsed.protocol !== "https:") return false;
+    if (["localhost", "127.0.0.1", "0.0.0.0"].includes(host)) return false;
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function stateToPending(state) {
   await applyCustomerTransition({
     customerId: state.customer.id,
@@ -73,7 +89,10 @@ async function runCall(state) {
     "Namaste, kya abhi 2 minute baat karna convenient hai?";
 
   const baseUrl = process.env.APP_BASE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
-  const callbackUrl = `${baseUrl}/api/calls/webhook?customerId=${state.customer.id}&callLogId=${state.callLogId}&turn=0`;
+  const callbackUrl = isPublicHttpsUrl(baseUrl)
+    ? `${baseUrl}/api/calls/webhook?customerId=${state.customer.id}&callLogId=${state.callLogId}&turn=0`
+    : undefined;
+  const statusCallbackUrl = isPublicHttpsUrl(baseUrl) ? `${baseUrl}/api/calls/status` : undefined;
 
   const telephonyOutput = await initiateTelephonyCallWithFailover({
     to: state.customer.phone,
@@ -81,7 +100,7 @@ async function runCall(state) {
     fromNumber: process.env.TWILIO_CALLER_ID || process.env.TWILIO_FROM_NUMBER || undefined,
     preferredProviderType: "TWILIO",
     callbackUrl,
-    statusCallbackUrl: `${baseUrl}/api/calls/status`,
+    statusCallbackUrl,
     vonageAnswerUrl: `${baseUrl}/api/vonage/voice/answer?customerId=${state.customer.id}&callLogId=${state.callLogId}`,
     vonageEventUrl: `${baseUrl}/api/vonage/voice/events`,
     vonageFallbackUrl: `${baseUrl}/api/vonage/voice/fallback`,
