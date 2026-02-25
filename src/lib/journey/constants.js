@@ -19,6 +19,7 @@ export const ELIGIBLE_AUTOMATION_STATES = new Set([
 ]);
 
 export const AUTOMATION_DEFAULTS = {
+  executionMode: "CRON",
   maxRetries: 3,
   batchSize: 25,
   concurrency: 5,
@@ -32,6 +33,8 @@ export const AUTOMATION_DEFAULTS = {
     CustomerStatus.RETRY_SCHEDULED,
   ],
 };
+
+export const AUTOMATION_EXECUTION_MODES = ["CRON", "WORKER"];
 
 export const AUTOMATION_STATUS_OPTIONS = [
   CustomerStatus.NEW,

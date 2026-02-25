@@ -1,7 +1,45 @@
 import { prisma } from "@/lib/prisma";
-import { AUTOMATION_DEFAULTS, AUTOMATION_STATUS_OPTIONS } from "@/lib/journey/constants";
+import {
+  AUTOMATION_DEFAULTS,
+  AUTOMATION_EXECUTION_MODES,
+  AUTOMATION_STATUS_OPTIONS,
+} from "@/lib/journey/constants";
 
 const SETTING_KEY = "AI_AUTOMATION";
+
+export function isCampaignWorkerEnabled() {
+  return String(process.env.ENABLE_CAMPAIGN_WORKER || "")
+    .trim()
+    .toLowerCase() === "true";
+}
+
+export function resolveAutomationExecutionMode(settings) {
+  const selected = String(settings?.executionMode || AUTOMATION_DEFAULTS.executionMode)
+    .trim()
+    .toUpperCase();
+
+  if (selected === "WORKER" && isCampaignWorkerEnabled()) {
+    return "WORKER";
+  }
+
+  return "CRON";
+}
+
+function normalizeExecutionMode(mode) {
+  const normalized = String(mode || AUTOMATION_DEFAULTS.executionMode)
+    .trim()
+    .toUpperCase();
+
+  if (!AUTOMATION_EXECUTION_MODES.includes(normalized)) {
+    return AUTOMATION_DEFAULTS.executionMode;
+  }
+
+  if (normalized === "WORKER" && !isCampaignWorkerEnabled()) {
+    return "CRON";
+  }
+
+  return normalized;
+}
 
 function normalizeEligibleStatuses(statuses) {
   const allowed = new Set(AUTOMATION_STATUS_OPTIONS);
@@ -15,6 +53,7 @@ function normalizeEligibleStatuses(statuses) {
 
 function normalizeSettings(value = {}) {
   return {
+    executionMode: normalizeExecutionMode(value.executionMode),
     enabled: Boolean(value.enabled),
     maxRetries: Number(value.maxRetries || AUTOMATION_DEFAULTS.maxRetries),
     batchSize: Number(value.batchSize || AUTOMATION_DEFAULTS.batchSize),

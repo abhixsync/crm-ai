@@ -100,7 +100,7 @@ async function finishCall(callLogId, customerId) {
       customerId,
       toStatus: mappedStatus,
       reason: `Webhook final outcome: ${normalizedIntent}`,
-      source: "AI_WORKER",
+      source: "AI_AUTOMATION",
       metadata: {
         inActiveCall: false,
         lastContactedAt: new Date(),

@@ -20,6 +20,7 @@ const STATUS_OPTIONS = [
 ];
 
 const INITIAL_FORM = {
+  executionMode: "CRON",
   enabled: false,
   maxRetries: 3,
   batchSize: 25,
@@ -73,6 +74,7 @@ function formatJson(value) {
 
 export function AutomationSettingsAdminClient() {
   const [form, setForm] = useState(INITIAL_FORM);
+  const [workerEnabled, setWorkerEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [runningBatch, setRunningBatch] = useState(false);
@@ -108,6 +110,7 @@ export function AutomationSettingsAdminClient() {
         ...prev,
         ...data.settings,
       }));
+      setWorkerEnabled(Boolean(data?.capabilities?.workerEnabled));
     } catch (error) {
       toast.error(error?.message || "Unable to load automation settings.");
     } finally {
@@ -206,6 +209,7 @@ export function AutomationSettingsAdminClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           enabled: Boolean(form.enabled),
+          executionMode: workerEnabled ? String(form.executionMode || "CRON") : "CRON",
           maxRetries: Number(form.maxRetries),
           batchSize: Number(form.batchSize),
           concurrency: Number(form.concurrency),
@@ -224,6 +228,7 @@ export function AutomationSettingsAdminClient() {
       }
 
       setForm((prev) => ({ ...prev, ...data.settings }));
+      setWorkerEnabled(Boolean(data?.capabilities?.workerEnabled));
       toast.success("Automation settings saved.");
     } catch (error) {
       toast.error(error?.message || "Unable to save automation settings.");
@@ -260,6 +265,17 @@ export function AutomationSettingsAdminClient() {
         <CardDescription>
           Configure retries, daily limits, working hours, and batch execution for automated AI calling.
         </CardDescription>
+        <div>
+          <span
+            className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${
+              workerEnabled
+                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                : "border-slate-300 bg-slate-50 text-slate-700"
+            }`}
+          >
+            Worker Feature: {workerEnabled ? "ENABLED" : "DISABLED"}
+          </span>
+        </div>
       </CardHeader>
       <CardContent className="space-y-5">
         {loading ? <p className="text-sm text-slate-600">Loading automation settings...</p> : null}
@@ -299,16 +315,32 @@ export function AutomationSettingsAdminClient() {
             />
           </label>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Concurrency</span>
-            <Input
-              type="number"
-              min={1}
-              max={50}
-              value={form.concurrency}
-              onChange={(event) => updateField("concurrency", event.target.value)}
-            />
-          </label>
+          {workerEnabled ? (
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Execution Mode</span>
+              <select
+                className="h-9 w-full rounded-md border border-slate-300/90 bg-white px-3 text-sm text-slate-900"
+                value={String(form.executionMode || "CRON")}
+                onChange={(event) => updateField("executionMode", event.target.value)}
+              >
+                <option value="CRON">Cron</option>
+                <option value="WORKER">Worker</option>
+              </select>
+            </label>
+          ) : null}
+
+          {workerEnabled ? (
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Concurrency</span>
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                value={form.concurrency}
+                onChange={(event) => updateField("concurrency", event.target.value)}
+              />
+            </label>
+          ) : null}
 
           <label className="space-y-2">
             <span className="text-sm font-medium text-slate-700">Daily Call Cap</span>
@@ -387,11 +419,11 @@ export function AutomationSettingsAdminClient() {
           <Button variant="secondary" onClick={runBatchNow} disabled={runningBatch || loading || !form.enabled}>
             {runningBatch ? "Running Batch..." : "Run Campaign Batch Now"}
           </Button>
-          <Button variant="secondary" onClick={fetchSettings} disabled={loading}>
+          {/* <Button variant="secondary" onClick={fetchSettings} disabled={loading}>
             Refresh
-          </Button>
+          </Button> */}
           <Button variant="secondary" onClick={() => fetchRecentJobs()} disabled={loadingJobs}>
-            {loadingJobs ? "Refreshing Jobs..." : "Refresh Jobs"}
+            {loadingJobs ? "Refreshing..." : "Refresh"}
           </Button>
           <Button variant="secondary" onClick={fetchAutomationHealth} disabled={loadingHealth}>
             {loadingHealth ? "Refreshing Health..." : "Refresh Health"}
@@ -404,28 +436,33 @@ export function AutomationSettingsAdminClient() {
           {!loadingHealth && health ? (
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-md border border-slate-200 bg-white p-3">
-                <p className="text-xs font-medium text-slate-500">Worker</p>
-                <p className={`mt-1 text-sm font-semibold ${health.workerOnline ? "text-emerald-700" : "text-rose-700"}`}>
-                  {health.workerOnline ? "ONLINE" : "OFFLINE"}
+                <p className="text-xs font-medium text-slate-500">{health.runtimeLabel || "Runtime"}</p>
+                <p className={`mt-1 text-sm font-semibold ${health.runtimeOnline ? "text-emerald-700" : "text-rose-700"}`}>
+                  {health.runtimeOnline ? "ONLINE" : "OFFLINE"}
                 </p>
               </div>
               <div className="rounded-md border border-slate-200 bg-white p-3">
-                <p className="text-xs font-medium text-slate-500">Queue Waiting</p>
+                <p className="text-xs font-medium text-slate-500">Jobs Queued</p>
                 <p className="mt-1 text-sm font-semibold text-slate-800">{health.queue?.waiting ?? 0}</p>
               </div>
               <div className="rounded-md border border-slate-200 bg-white p-3">
-                <p className="text-xs font-medium text-slate-500">Queue Active</p>
+                <p className="text-xs font-medium text-slate-500">Jobs Active</p>
                 <p className="mt-1 text-sm font-semibold text-slate-800">{health.queue?.active ?? 0}</p>
               </div>
               <div className="rounded-md border border-slate-200 bg-white p-3">
-                <p className="text-xs font-medium text-slate-500">Queue Failed</p>
+                <p className="text-xs font-medium text-slate-500">Jobs Failed</p>
                 <p className="mt-1 text-sm font-semibold text-slate-800">{health.queue?.failed ?? 0}</p>
               </div>
             </div>
           ) : null}
-          {!loadingHealth && health?.heartbeat?.lastHeartbeatAt ? (
+          {!loadingHealth && health?.executionMode === "CRON" && health?.lastRunAt ? (
             <p className="text-xs text-slate-600">
-              Last heartbeat: {new Date(health.heartbeat.lastHeartbeatAt).toLocaleString()}
+              Last cron run: {new Date(health.lastRunAt).toLocaleString()} (interval: {health.intervalMinutes || 5} min)
+            </p>
+          ) : null}
+          {!loadingHealth && health?.executionMode === "WORKER" && health?.lastHeartbeatAt ? (
+            <p className="text-xs text-slate-600">
+              Last worker heartbeat: {new Date(health.lastHeartbeatAt).toLocaleString()}
             </p>
           ) : null}
         </div>
@@ -441,13 +478,10 @@ export function AutomationSettingsAdminClient() {
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Queue Job ID</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Customer</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Customer Details</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Reason</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Status</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Attempts</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Error</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Job Details</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Enqueued</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Updated</th>
@@ -456,7 +490,6 @@ export function AutomationSettingsAdminClient() {
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {jobs.map((job) => (
                     <tr key={job.id}>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">{job.queueJobId}</td>
                       <td className="whitespace-nowrap px-3 py-2 text-slate-700">
                         {job.customer
                           ? `${job.customer.firstName || ""} ${job.customer.lastName || ""}`.trim() || job.customer.id
@@ -496,10 +529,6 @@ export function AutomationSettingsAdminClient() {
                         title={getCampaignStatusTooltip(job)}
                       >
                         {getCampaignStatusLabel(job)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">{job.attemptsMade ?? 0}</td>
-                      <td className="max-w-[280px] truncate px-3 py-2 text-slate-700" title={job.errorMessage || ""}>
-                        {job.errorMessage || "-"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-slate-700">
                         <details className="group">

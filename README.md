@@ -66,6 +66,7 @@ Open `http://localhost:3000`.
 	- `NEXTAUTH_SECRET`
 	- `NEXTAUTH_URL`
 	- `APP_BASE_URL`
+	- `ENABLE_CAMPAIGN_WORKER` (`true` to expose and allow worker mode, otherwise cron-only)
 
 - AI
 	- `OPENAI_API_KEY`
@@ -98,6 +99,11 @@ Open `http://localhost:3000`.
 - Voice utilities
 	- `DEEPGRAM_API_KEY` (optional)
 	- `ELEVENLABS_API_KEY` (optional)
+
+- Automation runtime
+	- `CRON_INTERVAL_MINUTES`
+	- `CRON_SECRET`
+	- `ENABLE_CAMPAIGN_WORKER` (feature switch for worker runtime and UI mode selector)
 
 - Phone formatting
 	- `DEFAULT_COUNTRY_CODE` (defaults to `+91`)

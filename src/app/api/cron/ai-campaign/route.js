@@ -1,5 +1,6 @@
 import { runAutomationBatch } from "@/lib/journey/automation-runner";
 import { prisma } from "@/lib/prisma";
+import { getAutomationSettings, resolveAutomationExecutionMode } from "@/lib/journey/automation-settings";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 const CRON_STATE_KEY = "AI_CAMPAIGN_CRON_STATE";
@@ -51,11 +52,23 @@ export async function GET(request) {
   }
 
   try {
+    const settings = await getAutomationSettings();
+    const executionMode = resolveAutomationExecutionMode(settings);
+
+    if (executionMode === "WORKER") {
+      return Response.json({
+        skipped: true,
+        reason: "execution_mode_worker",
+        executionMode,
+      });
+    }
+
     const gate = await shouldRunCron();
     if (!gate.run) {
       return Response.json({
         skipped: true,
         reason: "interval_not_reached",
+        executionMode,
         intervalMinutes: gate.intervalMinutes,
         lastRunAt: gate.lastRunAt?.toISOString() || null,
       });
@@ -69,7 +82,10 @@ export async function GET(request) {
 
     await recordCronRun();
 
-    return Response.json(result.data);
+    return Response.json({
+      ...result.data,
+      executionMode,
+    });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
       console.warn("[api/cron/ai-campaign] Database unavailable; returning degraded response.");

@@ -34,7 +34,7 @@ async function stateToPending(state) {
     customerId: state.customer.id,
     toStatus: CustomerStatus.CALL_PENDING,
     reason: "Queued for automated AI call",
-    source: "AI_WORKER",
+    source: "AI_AUTOMATION",
     metadata: {
       inActiveCall: false,
       lastContactedAt: new Date(),
@@ -60,7 +60,7 @@ async function stateToCalling(state) {
     customerId: state.customer.id,
     toStatus: CustomerStatus.CALLING,
     reason: "Outbound AI call starting",
-    source: "AI_WORKER",
+    source: "AI_AUTOMATION",
     metadata: {
       inActiveCall: true,
       lastContactedAt: new Date(),

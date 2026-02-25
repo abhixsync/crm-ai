@@ -31,6 +31,7 @@ const envSchema = z.object({
 
   CRON_SECRET: z.string().optional(),
   CRON_INTERVAL_MINUTES: z.string().optional(),
+  ENABLE_CAMPAIGN_WORKER: z.string().optional(),
 
   DEEPGRAM_API_KEY: z.string().optional(),
   ELEVENLABS_API_KEY: z.string().optional(),

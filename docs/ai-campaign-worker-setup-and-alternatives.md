@@ -1,29 +1,23 @@
-# AI Campaign Worker Setup and Alternatives
+# AI Campaign Cron Setup and Alternatives
 
 ## Purpose
-This document explains the current AI campaign worker architecture in this project, why some behavior (like attempts showing `0`) is expected, and practical alternatives if this setup is not a good fit.
+This document explains the current cron-based AI campaign runtime, expected status behavior (including `SKIPPED` and `attemptsMade`), and alternative execution models if scale changes.
 
 ## Current Setup (What runs today)
 
 ### Runtime pieces
-- Web app (Next.js): handles admin controls and enqueue APIs.
-- Queue producer: enqueues jobs in BullMQ.
-- Worker process: consumes queue jobs and executes campaign calls.
-- Redis: backing store for BullMQ queue state.
-- Postgres (Prisma): system of record for campaign jobs, customer state, call logs, and settings.
+- Next.js app (admin controls + APIs)
+- Cron endpoint trigger: `GET /api/cron/ai-campaign`
+- Shared batch runner: `src/lib/journey/automation-runner.js`
+- Postgres (Prisma): source of truth for campaign jobs, settings, and customer state
 
 ### Main files
-- Queue config and enqueue: `src/lib/queue/ai-campaign-queue.js`
-- Eligibility + enqueue orchestration: `src/lib/journey/enqueue-service.js`
-- Worker: `src/workers/ai-campaign-worker.js`
-- Automation settings read/write: `src/lib/journey/automation-settings.js`
-- Automation APIs:
-  - `src/app/api/automation/toggle/route.js`
-  - `src/app/api/calls/automation/run/route.js`
-  - `src/app/api/calls/automation/jobs/route.js`
-  - `src/app/api/calls/automation/health/route.js`
-- Campaign job model + status enum: `prisma/schema.prisma`
-- Worker start script: `package.json` (`worker:ai-campaign`)
+- Cron route: `src/app/api/cron/ai-campaign/route.js`
+- Batch runner: `src/lib/journey/automation-runner.js`
+- Manual run API: `src/app/api/calls/automation/run/route.js`
+- Health API: `src/app/api/calls/automation/health/route.js`
+- Jobs API: `src/app/api/calls/automation/jobs/route.js`
+- Schedule config: `vercel.json`
 
 ## Data model summary
 
@@ -36,167 +30,54 @@ This document explains the current AI campaign worker architecture in this proje
 - `SKIPPED`
 
 ### Relevant fields in `CampaignJob`
-- `queueJobId` (unique queue identity)
+- `queueJobId` (logical job identity used by the app)
 - `status`
 - `attemptsMade`
-- `reason` (enqueue reason)
-- `result` (JSON payload including skip/failure details)
+- `reason`
+- `result` (JSON details for skip/failure context)
 - timestamps: `enqueuedAt`, `startedAt`, `completedAt`, `failedAt`
 
 ## End-to-end flow
-1. Admin enables automation / triggers batch from UI.
-2. `POST /api/calls/automation/run` fetches eligible customers within working-hours and daily-cap constraints.
-3. `enqueueCustomerIfEligible(...)` validates eligibility and enqueues BullMQ jobs.
-4. Campaign jobs are upserted in DB as `QUEUED`.
-5. Worker picks a job, marks `ACTIVE`, executes business checks, then:
-   - marks `SKIPPED` for expected business-rule skips,
-   - marks `COMPLETED` on success,
-   - marks `FAILED` on execution failure.
-6. Worker heartbeat is written to `automationSetting` key `AI_CAMPAIGN_WORKER_HEARTBEAT` for health monitoring.
+1. Cron (or manual run) triggers automation batch execution.
+2. Batch runner loads active automation settings and eligible customers.
+3. Eligible records are processed and job rows are persisted.
+4. Job lifecycle updates status to `SKIPPED`, `COMPLETED`, or `FAILED` as appropriate.
+5. Cron state (`AI_CAMPAIGN_CRON_STATE`) tracks `lastRunAt` for interval gating and health status.
 
-## Why attempts show 0
-This is expected in the current configuration:
-- Queue default is `attempts: 1` in `src/lib/queue/ai-campaign-queue.js`.
-- BullMQ `job.attemptsMade` is number of failed attempts before the current run.
-- First run therefore has `attemptsMade = 0`.
-- With no retries configured (`attempts: 1`), most jobs stay at `0` forever.
+## Health model
+- Health endpoint now reports cron scheduler status from DB state.
+- `schedulerOnline` is based on recent `lastRunAt` vs configured interval window.
+- Job counts are derived from `campaignJob` grouped by status.
 
-If you want human-facing attempt numbers, display `attemptsMade + 1`.
+## Why attempts can show 0
+- `attemptsMade` reflects retry history, not a human-friendly run counter.
+- First successful processing path often remains `0`.
+- If a user-facing attempt number is needed, display `attemptsMade + 1`.
 
-## Current strengths
-- Clear separation of API, queueing, and worker execution.
-- Durable campaign job audit trail in Postgres.
-- Business-rule skip reasons captured in `result.reason`.
-- Health endpoint with queue counts and worker heartbeat.
-
-## Current pain points / limitations
-- Requires Redis + separate worker process to operate reliably.
-- More moving parts for local/dev and deployment.
-- Retry semantics can be confusing (`attemptsMade` behavior).
-- Potential dual-write complexity (queue state in Redis, business state in Postgres).
+## Operational notes
+- Local run: `node scripts/run-cron-local.js --once`
+- Continuous local schedule: `node scripts/run-cron-local.js --interval=5`
+- Optional auth: set `CRON_SECRET` and pass bearer/header secret.
+- Runtime interval guard: `CRON_INTERVAL_MINUTES`.
 
 ## Alternatives
 
-## 1) Postgres-native DB polling worker (no Redis)
-Use only Postgres as queue store (`campaignJob` rows as pending work), with one or more worker loops selecting jobs using row locks.
+### 1) Postgres-native polling loop
+- Claim and process jobs with SQL locking (`FOR UPDATE SKIP LOCKED`).
+- Best when you want no external queue infra and strict DB-only control.
 
-How it works:
-- Insert `QUEUED` jobs in DB.
-- Worker repeatedly claims jobs with SQL locking (`FOR UPDATE SKIP LOCKED` pattern), sets `ACTIVE`, processes, then updates to terminal status.
+### 2) pg-boss (Postgres-backed queue)
+- Queue features (retry/scheduling) on top of Postgres.
+- Best when you need richer queue semantics without Redis.
 
-Pros:
-- Removes Redis dependency.
-- Single source of truth (Postgres only).
-- Easier local/dev footprint.
+### 3) Managed cloud queue + stateless processors
+- Queue service (e.g., SQS) with independent processing layer.
+- Best when throughput and reliability requirements become high.
 
-Cons:
-- You must implement scheduling, retries, and backoff yourself.
-- Throughput/scaling needs careful query and lock design.
+### 4) Workflow engine (Temporal)
+- Durable orchestration for complex multi-step journeys.
+- Best when flows become long-running with branching and compensations.
 
-Best for:
-- Teams wanting fewer infra components and moderate queue volume.
-
-## 2) pg-boss (Postgres-backed queue library)
-Replace BullMQ with pg-boss, which uses Postgres internally.
-
-Pros:
-- Removes Redis while keeping queue abstractions.
-- Built-in retries, scheduling, and job lifecycle.
-- Good fit since app already depends on Postgres.
-
-Cons:
-- Library migration effort from BullMQ API.
-- Different operational behavior than BullMQ.
-
-Best for:
-- Teams that want queue features without Redis ops.
-
-## 3) Managed cloud queue + stateless workers
-Use managed queue services (e.g., AWS SQS + worker) and keep Postgres for campaign state.
-
-Pros:
-- High reliability and scalability.
-- Offloads queue ops to cloud provider.
-
-Cons:
-- Vendor coupling and cloud-specific setup.
-- More deployment/permissions complexity.
-
-Best for:
-- Production systems needing higher scale and reliability guarantees.
-
-## 4) Workflow engine (Temporal / similar)
-Model each campaign execution as a workflow with durable state/retries.
-
-Pros:
-- Strong retry/state management and observability.
-- Good for complex long-running orchestrations.
-
-Cons:
-- Highest complexity and adoption cost.
-
-Best for:
-- Complex multi-step automations beyond simple queue jobs.
-
-## Recommendation paths
-
-### Path A (least infra): Move to Postgres-native queueing
-Good when Redis and separate worker process are the main pain.
-
-Migration outline:
-1. Keep `CampaignJob` as source of work.
-2. Replace BullMQ enqueue with DB insert/upsert (`QUEUED`).
-3. Add worker claim query with row locking.
-4. Preserve existing `SKIPPED/FAILED/COMPLETED` transitions.
-5. Keep existing health endpoint, change queue metrics source to DB counts.
-
-### Path B (balanced): Move to pg-boss
-## Vercel cron alternative (no worker, no Redis)
-This repo now includes a cron-style runner that executes the same automation batch logic on a schedule.
-
-How it works:
-- Vercel cron hits `GET /api/cron/ai-campaign` on a schedule.
-- The route reuses the same batch logic as the manual run API.
-- It writes job records to Postgres and updates customer state just like the worker.
-
-Files:
-- `vercel.json` (cron schedule)
-- `src/app/api/cron/ai-campaign/route.js` (cron runner)
-- `src/lib/journey/automation-runner.js` (shared batch logic)
-
-Security:
-- Set `CRON_SECRET` and send it as `Authorization: Bearer <secret>` or `x-cron-secret: <secret>`.
-
-Notes:
-- This avoids Redis + separate worker process.
-- For higher volume, prefer a queue-based worker to prevent long cron runs.
-
-Dynamic interval:
-- `CRON_INTERVAL_MINUTES` controls how often the cron will actually run, even if Vercel triggers more frequently.
-- Example: set Vercel schedule to every 5 minutes but set `CRON_INTERVAL_MINUTES=15` to run only every 15 minutes.
-- This is a guard inside the cron handler and does not change Vercel's schedule itself.
-
-Good when you still want queue features (retry/schedule) but no Redis.
-
-Migration outline:
-1. Introduce pg-boss setup.
-2. Replace `enqueueAICampaignJob` implementation.
-3. Replace BullMQ worker with pg-boss handlers.
-4. Keep current Prisma `CampaignJob` writes for reporting compatibility.
-
-## Operational checklist (current setup)
-- Start app: `npm run dev`
-- Start worker separately: `npm run worker:ai-campaign`
-- Ensure Redis is reachable (`REDIS_HOST`, `REDIS_PORT`, optional `REDIS_PASSWORD`).
-- Ensure DB is reachable (`DATABASE_URL`).
-- Monitor:
-  - `/api/calls/automation/health`
-  - `/api/calls/automation/jobs`
-
-## Notes on status semantics
-- `SKIPPED` = expected business-rule skip, not an execution error.
-- `FAILED` = execution attempted and failed.
-- `attemptsMade` reflects retry history, not human attempt number.
-
-## If you decide to migrate
-Keep the `CampaignJob` schema and status contract stable first, then replace queue internals. This minimizes UI/API changes and makes rollback easier.
+## Recommendation
+- Keep current cron-first runtime for low-to-moderate volume.
+- Move to a queue/workflow engine only when batch duration or concurrency requirements exceed serverless cron constraints.

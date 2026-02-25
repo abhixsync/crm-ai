@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getAutomationSettings } from "@/lib/journey/automation-settings";
+import { getAutomationSettings, resolveAutomationExecutionMode } from "@/lib/journey/automation-settings";
 import { isEligibleForAutomation } from "@/lib/journey/campaign-eligibility";
 import { enqueueAICampaignJob } from "@/lib/queue/ai-campaign-queue";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
@@ -13,6 +13,11 @@ export async function enqueueCustomerIfEligible(customerId, reason = "new_custom
 
   if (!isEligibleForAutomation(customer, settings)) {
     return { queued: false, reason: "not_eligible" };
+  }
+
+  const executionMode = resolveAutomationExecutionMode(settings);
+  if (executionMode !== "WORKER") {
+    return { queued: false, reason: "execution_mode_cron" };
   }
 
   const queueResult = await enqueueAICampaignJob({ customerId, reason });

@@ -82,7 +82,7 @@ export async function POST(request) {
           customerId: callLog.customerId,
           toStatus: CustomerStatus.CALL_FAILED,
           reason: `Telephony failure: ${normalizedProviderStatus}`,
-          source: "AI_WORKER",
+          source: "AI_AUTOMATION",
           metadata: {
             inActiveCall: false,
             lastContactedAt: new Date(),

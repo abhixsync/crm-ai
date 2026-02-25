@@ -3,12 +3,21 @@ import { CampaignJobStatus } from "@prisma/client";
 import os from "node:os";
 import { prisma } from "@/lib/prisma";
 import { AI_CAMPAIGN_QUEUE, queueConnection } from "@/lib/queue/ai-campaign-queue";
-import { getAutomationSettings, isWithinWorkingHours } from "@/lib/journey/automation-settings";
+import {
+  getAutomationSettings,
+  isCampaignWorkerEnabled,
+  isWithinWorkingHours,
+} from "@/lib/journey/automation-settings";
 import { isEligibleForAutomation } from "@/lib/journey/campaign-eligibility";
 import { runAICampaignForCustomer } from "@/lib/journey/ai-campaign-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 
 const WORKER_HEARTBEAT_KEY = "AI_CAMPAIGN_WORKER_HEARTBEAT";
+
+if (!isCampaignWorkerEnabled()) {
+  console.log("[ai-campaign-worker] ENABLE_CAMPAIGN_WORKER is false. Exiting.");
+  process.exit(0);
+}
 
 async function updateCampaignJob(job, patch = {}) {
   const queueJobId = String(job?.id || "");
