@@ -965,6 +965,9 @@ export function DashboardClient({
               <Link href="/admin/automation">
                 <Button variant="secondary">Automation</Button>
               </Link>
+              <Link href="/admin/user-management">
+                <Button variant="secondary">User Management</Button>
+              </Link>
             </>
           ) : null}
           <Button variant="secondary" onClick={toggleAiCallPanel}>

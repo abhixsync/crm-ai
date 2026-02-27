@@ -73,11 +73,50 @@ model User {
   email        String         @unique
   passwordHash String
   role         UserRole       @default(SALES)
+  customRoleId String?
+  isActive     Boolean        @default(true)
+  metadata     Json?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   uploads      LeadUpload[]
   assigned     Customer[]     @relation("CustomerAssignee")
   followUps    FollowUpTask[]
+  customRole   RoleDefinition? @relation("RoleUsers", fields: [customRoleId], references: [id])
+  authoredUserAuditLogs UserManagementAuditLog[] @relation("UserAuditActor")
+  targetUserAuditLogs   UserManagementAuditLog[] @relation("UserAuditTarget")
+}
+
+model RoleDefinition {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  name          String
+  description   String?
+  baseRole      UserRole @default(SALES)
+  modules       Json?
+  permissions   Json?
+  featureToggles Json?
+  active        Boolean  @default(true)
+  isSystem      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  users         User[]   @relation("RoleUsers")
+
+  @@index([active])
+}
+
+model UserManagementAuditLog {
+  id           String   @id @default(cuid())
+  action       String
+  actorUserId  String?
+  targetUserId String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  actor        User?    @relation("UserAuditActor", fields: [actorUserId], references: [id])
+  targetUser   User?    @relation("UserAuditTarget", fields: [targetUserId], references: [id])
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([targetUserId, createdAt])
 }
 
 model LeadUpload {
