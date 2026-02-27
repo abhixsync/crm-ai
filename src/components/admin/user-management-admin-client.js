@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -38,9 +39,6 @@ const EMPTY_ROLE_FORM = {
   featureToggles: "{}",
   active: true,
 };
-
-const BULK_TEMPLATE = `name,email,roleKey,password,isActive,modules,permissions
-John Sales,john.sales@crm.local,SALES,Pass@123,true,dashboard|customers|calls,customers:read|calls:trigger`;
 
 function parseCsv(text) {
   return String(text || "")
@@ -88,7 +86,6 @@ export function UserManagementAdminClient() {
   const [userCreationMode, setUserCreationMode] = useState("manual");
   const [userForm, setUserForm] = useState(EMPTY_USER_FORM);
   const [roleForm, setRoleForm] = useState(EMPTY_ROLE_FORM);
-  const [bulkCsv, setBulkCsv] = useState(BULK_TEMPLATE);
   const [bulkRunning, setBulkRunning] = useState(false);
   const userDialogRef = useRef(null);
   const roleDialogRef = useRef(null);
@@ -263,58 +260,62 @@ export function UserManagementAdminClient() {
     }
   }
 
-  function parseBulkCsv(text) {
-    const lines = String(text || "")
-      .split(/\r?\n/)
-      .map((line) => line.trim())
+  function splitList(value) {
+    return String(value || "")
+      .split(/[|,]/)
+      .map((entry) => entry.trim())
       .filter(Boolean);
+  }
 
-    if (lines.length < 2) {
-      throw new Error("Bulk CSV must include header + at least one data row.");
+  async function parseBulkFile(file) {
+    const XLSX = await import("xlsx");
+    const bytes = await file.arrayBuffer();
+    const workbook = XLSX.read(bytes, { type: "array" });
+    const firstSheet = workbook.SheetNames[0];
+
+    if (!firstSheet) {
+      throw new Error("No worksheet found in uploaded file.");
     }
 
-    const header = lines[0].split(",").map((value) => value.trim());
-    const requiredColumns = ["name", "email", "roleKey", "password"];
+    const worksheet = workbook.Sheets[firstSheet];
+    const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-    for (const column of requiredColumns) {
-      if (!header.includes(column)) {
-        throw new Error(`Missing required column: ${column}`);
-      }
+    if (!Array.isArray(rawRows) || rawRows.length === 0) {
+      throw new Error("Uploaded file is empty.");
     }
 
-    const rows = [];
-    for (let index = 1; index < lines.length; index += 1) {
-      const values = lines[index].split(",");
-      const row = {};
-
-      for (let colIndex = 0; colIndex < header.length; colIndex += 1) {
-        row[header[colIndex]] = String(values[colIndex] || "").trim();
+    const rows = rawRows.map((rawRow) => {
+      const normalized = {};
+      for (const [key, value] of Object.entries(rawRow || {})) {
+        normalized[String(key || "").trim().toLowerCase()] = String(value ?? "").trim();
       }
 
-      rows.push({
-        name: row.name,
-        email: row.email,
-        roleKey: row.roleKey,
-        password: row.password,
-        isActive: String(row.isActive || "true").toLowerCase() !== "false",
-        modules: String(row.modules || "")
-          .split("|")
-          .map((value) => value.trim())
-          .filter(Boolean),
-        permissions: String(row.permissions || "")
-          .split("|")
-          .map((value) => value.trim())
-          .filter(Boolean),
-      });
+      return {
+        name: normalized.name,
+        email: normalized.email,
+        roleKey: normalized.rolekey || normalized.role,
+        password: normalized.password,
+        isActive: String(normalized.isactive || "true").toLowerCase() !== "false",
+        modules: splitList(normalized.modules),
+        permissions: splitList(normalized.permissions),
+      };
+    });
+
+    const invalidRowIndex = rows.findIndex(
+      (row) => !String(row.name || "").trim() || !String(row.email || "").trim() || !String(row.roleKey || "").trim() || !String(row.password || "").trim()
+    );
+
+    if (invalidRowIndex !== -1) {
+      throw new Error(`Invalid or incomplete data at row ${invalidRowIndex + 2}. Required columns: name, email, roleKey, password.`);
     }
 
     return rows;
   }
 
-  async function runBulkUpload() {
+  async function runBulkUpload(file) {
     setBulkRunning(true);
     try {
-      const rows = parseBulkCsv(bulkCsv);
+      const rows = await parseBulkFile(file);
       const response = await fetch("/api/admin/user-management/users/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -333,6 +334,14 @@ export function UserManagementAdminClient() {
     } finally {
       setBulkRunning(false);
     }
+  }
+
+  async function onBulkUploadFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    await runBulkUpload(file);
+    event.target.value = "";
   }
 
   function toggleUserSelection(userId) {
@@ -757,15 +766,25 @@ export function UserManagementAdminClient() {
 
             {userCreationMode === "upload" && !selectedUserId ? (
               <div>
-                <p className="mb-2 text-sm text-slate-600">Upload users in CSV format. Use comma as column separator and pipe | inside modules/permissions.</p>
-                <textarea
-                  className="min-h-[180px] w-full rounded-md border border-slate-300/90 bg-white p-3 text-sm text-slate-900"
-                  value={bulkCsv}
-                  onChange={(event) => setBulkCsv(event.target.value)}
-                />
-                <div className="mt-3 flex gap-2">
-                  <Button onClick={runBulkUpload} disabled={bulkRunning}>{bulkRunning ? "Uploading..." : "Run Bulk Upload"}</Button>
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-slate-600">
+                    Download sample file, fill in your user data, and upload it. Accepted formats: .xlsx, .xls, .csv.
+                  </p>
+                  <Link href="/samples/sample-users.xlsx" target="_blank" rel="noopener noreferrer">
+                    <Button variant="secondary" className="w-fit">Download (sample-users.xlsx)</Button>
+                  </Link>
                 </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  <Upload className="h-4 w-4" />
+                  {bulkRunning ? "Uploading..." : "Select Excel File"}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={onBulkUploadFile}
+                    disabled={bulkRunning}
+                  />
+                </label>
               </div>
             ) : (
               <>
