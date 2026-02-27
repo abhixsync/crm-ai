@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { GlobalHamburgerMenu } from "@/components/layout/global-hamburger-menu";
 import { ThemeProvider } from "@/core/theme/ThemeProvider";
+import { ThemeAssets } from "@/components/theme/theme-assets";
 import { Toaster } from "sonner";
 
 const geistSans = Geist({
@@ -28,6 +29,7 @@ export default function RootLayout({ children }) {
       >
         <AuthSessionProvider>
           <ThemeProvider>
+            <ThemeAssets />
             <GlobalHamburgerMenu />
             {children}
           </ThemeProvider>

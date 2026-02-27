@@ -7,9 +7,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useTheme } from "@/core/theme/useTheme";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { theme } = useTheme();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,10 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4 sm:p-6">
+    <main 
+      className="flex min-h-screen items-center justify-center p-4 sm:p-6"
+      style={theme.loginBackgroundUrl ? { backgroundImage: `url(${theme.loginBackgroundUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+    >
       <Card className="w-full max-w-md">
         <CardHeader className="pb-4">
           <CardTitle>Sign in to Loan CRM</CardTitle>
