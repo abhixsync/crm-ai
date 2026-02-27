@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { Pencil, Phone, PhoneCall, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,7 @@ export function DashboardClient({
   initialPagination,
 }) {
   const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const searchParams = useSearchParams();
 
   const [metrics, setMetrics] = useState(initialMetrics);
   const [customers, setCustomers] = useState(initialCustomers);
@@ -127,6 +128,18 @@ export function DashboardClient({
     fetchActiveTelephonyProvider();
   }, []);
 
+  useEffect(() => {
+    if (searchParams.get("aiCall") !== "1" || aiDialogState.open) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setAiDialogState({ open: true, mode: "campaign" });
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [aiDialogState.open, searchParams]);
+
   async function fetchMetrics() {
     const response = await fetch("/api/dashboard/metrics");
     const data = await response.json();
@@ -183,15 +196,6 @@ export function DashboardClient({
     if (provider?.type === "TWILIO" && !deviceRef.current && !softphoneLoading) {
       await initSoftphone();
     }
-  }
-
-  async function toggleAiCallPanel() {
-    if (aiDialogState.open && aiDialogState.mode === "campaign") {
-      setAiDialogState({ open: false, mode: "campaign" });
-      return;
-    }
-
-    await openAiDialog("campaign");
   }
 
   function closeAiDialog() {
@@ -956,28 +960,7 @@ export function DashboardClient({
             </div>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {isSuperAdmin ? (
-            <>
-              {/* <Link href="/admin/providers">
-                <Button variant="secondary">Providers</Button>
-              </Link> */}
-              <Link href="/admin/automation">
-                <Button variant="secondary">Automation</Button>
-              </Link>
-              <Link href="/admin/user-management">
-                <Button variant="secondary">User Management</Button>
-              </Link>
-            </>
-          ) : null}
-          <Button variant="secondary" onClick={toggleAiCallPanel}>
-            <PhoneCall className="mr-1 h-4 w-4" />
-            {aiDialogState.open && aiDialogState.mode === "campaign" ? "AI Call" : "AI Call"}
-          </Button>
-          <Button variant="secondary" onClick={() => signOut({ callbackUrl: "/login" })}>
-            Logout
-          </Button>
-        </div>
+        <div className="flex flex-wrap items-center gap-2" />
       </div>
 
       {activeCall ? (

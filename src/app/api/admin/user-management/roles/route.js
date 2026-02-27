@@ -9,7 +9,7 @@ export async function GET() {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -31,7 +31,7 @@ export async function POST(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

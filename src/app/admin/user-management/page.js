@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
+import { prisma } from "@/lib/prisma";
 import { UserManagementAdminClient } from "@/components/admin/user-management-admin-client";
 
 export default async function UserManagementPage() {
@@ -12,8 +11,18 @@ export default async function UserManagementPage() {
     redirect("/login");
   }
 
-  if (session.user.role !== "SUPER_ADMIN") {
+  if (!session.user.role || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
     redirect("/dashboard");
+  }
+
+  let tenantLabel = null;
+  if (session.user.role === "ADMIN" && session.user.tenantId) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: session.user.tenantId },
+      select: { name: true },
+    });
+
+    tenantLabel = tenant?.name || "Assigned Tenant";
   }
 
   return (
@@ -22,16 +31,11 @@ export default async function UserManagementPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">User Management</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Super-admin module for users, role templates, permissions, module access, and audit tracking.
+            Manage users, role templates, permissions, and module access.
           </p>
-        </div>
-        <div className="flex gap-2">
-          {/* <Link href="/admin/automation">
-            <Button variant="secondary">Automation</Button>
-          </Link> */}
-          <Link href="/dashboard">
-            <Button variant="secondary">Back to Dashboard</Button>
-          </Link>
+          {tenantLabel ? (
+            <p className="mt-2 text-xs font-medium text-slate-600">Current Tenant: {tenantLabel}</p>
+          ) : null}
         </div>
       </div>
 

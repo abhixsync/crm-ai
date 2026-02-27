@@ -9,7 +9,7 @@ export async function GET() {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -31,13 +31,18 @@ export async function POST(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
     const tenant = getTenantContext(auth.session);
     const payload = await request.json();
+
+    if (!tenant.isSuperAdmin && String(payload?.roleKey || "").trim().toUpperCase() === "SUPER_ADMIN") {
+      return Response.json({ error: "SUPER_ADMIN role assignment is not allowed." }, { status: 400 });
+    }
+
     const user = await createUser(payload, auth.session.user.id, tenant.tenantId);
     return Response.json({ user }, { status: 201 });
   } catch (error) {

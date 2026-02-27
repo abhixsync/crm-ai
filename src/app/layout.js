@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { GlobalHamburgerMenu } from "@/components/layout/global-hamburger-menu";
 import { ThemeProvider } from "@/core/theme/ThemeProvider";
 import { Toaster } from "sonner";
 
@@ -26,7 +27,10 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthSessionProvider>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            <GlobalHamburgerMenu />
+            {children}
+          </ThemeProvider>
           <Toaster position="top-right" richColors closeButton />
         </AuthSessionProvider>
       </body>

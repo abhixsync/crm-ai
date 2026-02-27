@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { hasRole, requireSession, getTenantContext } from "@/lib/server/auth-guard";
 import {
   getAutomationSettings,
   isCampaignWorkerEnabled,
@@ -16,7 +16,7 @@ function getIntervalMinutes() {
 }
 
 function getCountsByStatus(rows) {
-  const byStatus = Object.fromEntries(rows.map((row) => [row.status, row._count.status]));
+  const byStatus = Object.fromEntries(rows.map((row) => [row.status, row._count]));
 
   return {
     waiting: byStatus.QUEUED || 0,
@@ -32,9 +32,11 @@ export async function GET() {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const tenant = getTenantContext(auth.session);
 
   try {
     const intervalMinutes = getIntervalMinutes();
@@ -60,7 +62,12 @@ export async function GET() {
         prisma.automationSetting.findUnique({ where: { key: WORKER_HEARTBEAT_KEY } }),
         prisma.campaignJob.groupBy({
           by: ["status"],
-          _count: { status: true },
+          _count: true,
+          where: tenant.isSuperAdmin ? {} : {
+            customer: {
+              tenantId: tenant.tenantId,
+            },
+          },
         }),
       ]);
 

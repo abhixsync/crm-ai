@@ -1,9 +1,7 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Button } from "@/components/ui/button";
 import { AiProvidersAdminClient } from "@/components/admin/ai-providers-admin-client";
 import { TelephonyProvidersAdminClient } from "@/components/admin/telephony-providers-admin-client";
 
@@ -36,9 +34,6 @@ export default async function ProvidersPage() {
             Manage AI and telephony providers from a single admin page.
           </p>
         </div>
-        <Link href="/dashboard">
-          <Button variant="secondary">Back to Dashboard</Button>
-        </Link>
       </div>
 
       <section className="space-y-4 rounded-xl border border-slate-200/70 bg-white/70 p-4 shadow-sm backdrop-blur-sm sm:p-5">

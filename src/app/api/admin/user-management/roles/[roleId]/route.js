@@ -6,7 +6,7 @@ export async function PATCH(request, { params }) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -35,7 +35,7 @@ export async function DELETE(_request, { params }) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

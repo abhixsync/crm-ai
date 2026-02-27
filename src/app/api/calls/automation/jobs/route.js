@@ -1,15 +1,17 @@
 import { CampaignJobStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { hasRole, requireSession, getTenantContext } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function GET(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const tenant = getTenantContext(auth.session);
 
   const { searchParams } = new URL(request.url);
   const status = String(searchParams.get("status") || "").toUpperCase();
@@ -20,6 +22,11 @@ export async function GET(request) {
   const where = {
     ...(status && CampaignJobStatus[status] ? { status } : {}),
     ...(customerId ? { customerId } : {}),
+    ...(tenant.isSuperAdmin ? {} : {
+      customer: {
+        tenantId: tenant.tenantId,
+      },
+    }),
   };
 
   try {

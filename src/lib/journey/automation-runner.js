@@ -69,7 +69,7 @@ async function runCustomerInCronMode(customer, reason) {
   }
 }
 
-export async function runAutomationBatch() {
+export async function runAutomationBatch(tenantId = undefined) {
   const settings = await getAutomationSettings();
   const executionMode = resolveAutomationExecutionMode(settings);
 
@@ -88,6 +88,7 @@ export async function runAutomationBatch() {
     where: {
       mode: "AI",
       createdAt: { gte: todayStart },
+      ...(tenantId ? { customer: { tenantId } } : {}),
     },
   });
 
@@ -109,6 +110,7 @@ export async function runAutomationBatch() {
       retryCount: {
         lt: settings.maxRetries,
       },
+      ...(tenantId ? { tenantId } : {}),
     },
     orderBy: [{ nextFollowUpAt: "asc" }, { createdAt: "asc" }],
     take: batchLimit,

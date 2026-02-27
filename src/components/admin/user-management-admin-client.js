@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,11 @@ function parseJsonObject(text) {
 }
 
 export function UserManagementAdminClient() {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id || "";
+  const currentRole = session?.user?.role || "";
+  const isAdminOnly = currentRole === "ADMIN";
+
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -95,11 +101,18 @@ export function UserManagementAdminClient() {
     [roles, userForm.roleKey]
   );
 
-  useEffect(() => {
-    loadAll();
-  }, []);
+  const roleOptionsForUserForm = useMemo(() => {
+    const base = roles.filter((role) => role.active);
+    if (!isAdminOnly) {
+      return base;
+    }
 
-  async function loadAll() {
+    return base.filter((role) => String(role.key || "").toUpperCase() !== "SUPER_ADMIN");
+  }, [isAdminOnly, roles]);
+
+  const visibleUsers = useMemo(() => users, [users]);
+
+  const loadAll = useCallback(async () => {
     setLoading(true);
     try {
       const [usersRes, rolesRes, logsRes] = await Promise.all([
@@ -122,15 +135,24 @@ export function UserManagementAdminClient() {
       setRoles(Array.isArray(rolesData.roles) ? rolesData.roles : []);
       setLogs(Array.isArray(logsData.logs) ? logsData.logs : []);
 
-      if (!userForm.roleKey && Array.isArray(rolesData.roles) && rolesData.roles.length > 0) {
-        setUserForm((prev) => ({ ...prev, roleKey: rolesData.roles[0].key }));
+      const nextRoles = Array.isArray(rolesData.roles) ? rolesData.roles : [];
+      const allowedRoles = isAdminOnly
+        ? nextRoles.filter((role) => String(role.key || "").toUpperCase() !== "SUPER_ADMIN")
+        : nextRoles;
+
+      if (allowedRoles.length > 0) {
+        setUserForm((prev) => (prev.roleKey ? prev : { ...prev, roleKey: allowedRoles[0].key }));
       }
     } catch (error) {
       toast.error(error?.message || "Unable to load user management data.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [isAdminOnly]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   function updateUserForm(field, value) {
     setUserForm((current) => ({ ...current, [field]: value }));
@@ -160,16 +182,26 @@ export function UserManagementAdminClient() {
       const response = await fetch("/api/admin/user-management/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: userForm.name,
-          email: userForm.email,
-          password: userForm.password,
-          roleKey: userForm.roleKey,
-          isActive: Boolean(userForm.isActive),
-          modules: parseCsv(userForm.modules),
-          permissions: parseCsv(userForm.permissions),
-          featureToggles: parseJsonObject(userForm.featureToggles),
-        }),
+        body: JSON.stringify(
+          isAdminOnly
+            ? {
+                name: userForm.name,
+                email: userForm.email,
+                password: userForm.password,
+                roleKey: userForm.roleKey,
+                isActive: Boolean(userForm.isActive),
+              }
+            : {
+                name: userForm.name,
+                email: userForm.email,
+                password: userForm.password,
+                roleKey: userForm.roleKey,
+                isActive: Boolean(userForm.isActive),
+                modules: parseCsv(userForm.modules),
+                permissions: parseCsv(userForm.permissions),
+                featureToggles: parseJsonObject(userForm.featureToggles),
+              }
+        ),
       });
 
       const data = await response.json();
@@ -205,9 +237,13 @@ export function UserManagementAdminClient() {
         email: userForm.email,
         roleKey: userForm.roleKey,
         isActive: Boolean(userForm.isActive),
-        modules: parseCsv(userForm.modules),
-        permissions: parseCsv(userForm.permissions),
-        featureToggles: parseJsonObject(userForm.featureToggles),
+        ...(isAdminOnly
+          ? {}
+          : {
+              modules: parseCsv(userForm.modules),
+              permissions: parseCsv(userForm.permissions),
+              featureToggles: parseJsonObject(userForm.featureToggles),
+            }),
       };
 
       if (String(userForm.password || "").trim()) {
@@ -534,7 +570,7 @@ export function UserManagementAdminClient() {
     setUserCreationMode("manual");
     setUserForm((prev) => ({
       ...EMPTY_USER_FORM,
-      roleKey: prev.roleKey || roles[0]?.key || "",
+      roleKey: prev.roleKey || roleOptionsForUserForm[0]?.key || "",
     }));
   }
 
@@ -661,13 +697,15 @@ export function UserManagementAdminClient() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">
-                  <input
-                    type="checkbox"
-                    checked={users.length > 0 && selectedUserIds.length === users.length}
-                    onChange={toggleSelectAllUsers}
-                  />
-                </TableHead>
+                {!isAdminOnly ? (
+                  <TableHead className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={visibleUsers.length > 0 && selectedUserIds.length === visibleUsers.length}
+                      onChange={toggleSelectAllUsers}
+                    />
+                  </TableHead>
+                ) : null}
                 <TableHead className="min-w-[180px]">Name</TableHead>
                 <TableHead className="min-w-[220px]">Email</TableHead>
                 <TableHead className="min-w-[140px]">Role</TableHead>
@@ -676,47 +714,53 @@ export function UserManagementAdminClient() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!loading && users.length === 0 ? (
+              {!loading && visibleUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6}>No users found.</TableCell>
+                  <TableCell colSpan={isAdminOnly ? 5 : 6}>No users found.</TableCell>
                 </TableRow>
               ) : null}
-              {users.map((user) => (
+              {visibleUsers.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell>
-                    <input
-                      type="checkbox"
-                      checked={selectedUserIds.includes(user.id)}
-                      onChange={() => toggleUserSelection(user.id)}
-                    />
-                  </TableCell>
+                  {!isAdminOnly ? (
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedUserIds.includes(user.id)}
+                        onChange={() => toggleUserSelection(user.id)}
+                      />
+                    </TableCell>
+                  ) : null}
                   <TableCell>{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.roleKey || user.role}</TableCell>
                   <TableCell>{user.isActive ? "Yes" : "No"}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        className="h-8 px-2 sm:px-3"
-                        variant="secondary"
-                        onClick={() => hydrateUserForm(user)}
-                        aria-label="Edit"
-                        title="Edit"
-                      >
-                        <Pencil className="h-3.5 w-3.5 sm:mr-1" />
-                        <span className="hidden sm:inline">Edit</span>
-                      </Button>
-                      <Button
-                        className="h-8 px-2 sm:px-3"
-                        variant="destructive"
-                        onClick={() => deleteUserById(user.id)}
-                        disabled={savingUser}
-                        aria-label="Delete"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 sm:mr-1" />
-                        <span className="hidden sm:inline">Delete</span>
-                      </Button>
+                      {!isAdminOnly || user.id === currentUserId || (isAdminOnly && String(user.roleKey || user.role || "").toUpperCase() === "SALES") ? (
+                        <Button
+                          className="h-8 px-2 sm:px-3"
+                          variant="secondary"
+                          onClick={() => hydrateUserForm(user)}
+                          aria-label="Edit"
+                          title="Edit"
+                        >
+                          <Pencil className="h-3.5 w-3.5 sm:mr-1" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </Button>
+                      ) : null}
+                      {!isAdminOnly || (isAdminOnly && String(user.roleKey || user.role || "").toUpperCase() === "SALES") ? (
+                        <Button
+                          className="h-8 px-2 sm:px-3"
+                          variant="destructive"
+                          onClick={() => deleteUserById(user.id)}
+                          disabled={savingUser}
+                          aria-label="Delete"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 sm:mr-1" />
+                          <span className="hidden sm:inline">Delete</span>
+                        </Button>
+                      ) : null}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -724,11 +768,13 @@ export function UserManagementAdminClient() {
             </TableBody>
           </Table>
 
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => runBatchAction("ACTIVATE")} disabled={savingUser || selectedUserIds.length === 0}>Activate Selected</Button>
-            <Button variant="secondary" onClick={() => runBatchAction("DEACTIVATE")} disabled={savingUser || selectedUserIds.length === 0}>Deactivate Selected</Button>
-            <Button variant="destructive" onClick={() => runBatchAction("DELETE")} disabled={savingUser || selectedUserIds.length === 0}>Delete Selected</Button>
-          </div>
+          {!isAdminOnly ? (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => runBatchAction("ACTIVATE")} disabled={savingUser || selectedUserIds.length === 0}>Activate Selected</Button>
+              <Button variant="secondary" onClick={() => runBatchAction("DEACTIVATE")} disabled={savingUser || selectedUserIds.length === 0}>Deactivate Selected</Button>
+              <Button variant="destructive" onClick={() => runBatchAction("DELETE")} disabled={savingUser || selectedUserIds.length === 0}>Delete Selected</Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -750,12 +796,16 @@ export function UserManagementAdminClient() {
               <div className="flex flex-wrap gap-2">
                 {!selectedUserId ? (
                   <>
-                    <Button variant={userCreationMode === "manual" ? "default" : "secondary"} onClick={() => setUserCreationMode("manual")}>
-                      Manual Entry
-                    </Button>
-                    <Button variant={userCreationMode === "upload" ? "default" : "secondary"} onClick={() => setUserCreationMode("upload")}>
-                      Bulk Upload
-                    </Button>
+                    {!isAdminOnly ? (
+                      <>
+                        <Button variant={userCreationMode === "manual" ? "default" : "secondary"} onClick={() => setUserCreationMode("manual")}>
+                          Manual Entry
+                        </Button>
+                        <Button variant={userCreationMode === "upload" ? "default" : "secondary"} onClick={() => setUserCreationMode("upload")}>
+                          Bulk Upload
+                        </Button>
+                      </>
+                    ) : null}
                   </>
                 ) : null}
                 <Button variant="secondary" className="h-9 w-9 px-0" aria-label="Close dialog" title="Close" onClick={closeUserDialog}>
@@ -764,7 +814,7 @@ export function UserManagementAdminClient() {
               </div>
             </div>
 
-            {userCreationMode === "upload" && !selectedUserId ? (
+            {userCreationMode === "upload" && !selectedUserId && !isAdminOnly ? (
               <div>
                 <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-slate-600">
@@ -804,7 +854,7 @@ export function UserManagementAdminClient() {
                   <label className="space-y-2">
                     <span className="text-sm font-medium text-slate-700">Role</span>
                     <RoleSelect
-                      roles={roles.filter((role) => role.active)}
+                      roles={roleOptionsForUserForm}
                       value={userForm.roleKey}
                       onChange={(event) => updateUserForm("roleKey", event.target.value)}
                     />
@@ -822,43 +872,47 @@ export function UserManagementAdminClient() {
                   </label>
                 </div>
 
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Permission Overrides (CSV)</span>
-                    <Input
-                      value={userForm.permissions}
-                      placeholder="customers:read, customers:write"
-                      onChange={(event) => updateUserForm("permissions", event.target.value)}
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Module Overrides (CSV)</span>
-                    <Input
-                      value={userForm.modules}
-                      placeholder="dashboard, automation"
-                      onChange={(event) => updateUserForm("modules", event.target.value)}
-                    />
-                  </label>
-                </div>
+                {!isAdminOnly ? (
+                  <>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700">Permission Overrides (CSV)</span>
+                        <Input
+                          value={userForm.permissions}
+                          placeholder="customers:read, customers:write"
+                          onChange={(event) => updateUserForm("permissions", event.target.value)}
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700">Module Overrides (CSV)</span>
+                        <Input
+                          value={userForm.modules}
+                          placeholder="dashboard, automation"
+                          onChange={(event) => updateUserForm("modules", event.target.value)}
+                        />
+                      </label>
+                    </div>
 
-                <label className="mt-3 block space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Feature Toggle Overrides (JSON)</span>
-                  <textarea
-                    className="min-h-[90px] w-full rounded-md border border-slate-300/90 bg-white p-3 text-sm text-slate-900"
-                    value={userForm.featureToggles}
-                    onChange={(event) => updateUserForm("featureToggles", event.target.value)}
-                    placeholder='{"canBulkUserActions": true}'
-                  />
-                </label>
+                    <label className="mt-3 block space-y-2">
+                      <span className="text-sm font-medium text-slate-700">Feature Toggle Overrides (JSON)</span>
+                      <textarea
+                        className="min-h-[90px] w-full rounded-md border border-slate-300/90 bg-white p-3 text-sm text-slate-900"
+                        value={userForm.featureToggles}
+                        onChange={(event) => updateUserForm("featureToggles", event.target.value)}
+                        placeholder='{"canBulkUserActions": true}'
+                      />
+                    </label>
 
-                {selectedRole ? (
-                  <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                    <p><span className="font-semibold">Role Template:</span> {selectedRole.name} ({selectedRole.key})</p>
-                    <p className="mt-1"><span className="font-semibold">Base Role:</span> {selectedRole.baseRole}</p>
-                    <p className="mt-1"><span className="font-semibold">Modules:</span> {toCsv(selectedRole.modules || []) || "-"}</p>
-                    <p className="mt-1"><span className="font-semibold">Permissions:</span> {toCsv(selectedRole.permissions || []) || "-"}</p>
-                    <p className="mt-1"><span className="font-semibold">Feature Toggles:</span> {JSON.stringify(selectedRole.featureToggles || {})}</p>
-                  </div>
+                    {selectedRole ? (
+                      <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                        <p><span className="font-semibold">Role Template:</span> {selectedRole.name} ({selectedRole.key})</p>
+                        <p className="mt-1"><span className="font-semibold">Base Role:</span> {selectedRole.baseRole}</p>
+                        <p className="mt-1"><span className="font-semibold">Modules:</span> {toCsv(selectedRole.modules || []) || "-"}</p>
+                        <p className="mt-1"><span className="font-semibold">Permissions:</span> {toCsv(selectedRole.permissions || []) || "-"}</p>
+                        <p className="mt-1"><span className="font-semibold">Feature Toggles:</span> {JSON.stringify(selectedRole.featureToggles || {})}</p>
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -872,7 +926,7 @@ export function UserManagementAdminClient() {
                     onClick={() => {
                       setUserForm((prev) => ({
                         ...EMPTY_USER_FORM,
-                        roleKey: prev.roleKey || roles[0]?.key || "",
+                        roleKey: prev.roleKey || roleOptionsForUserForm[0]?.key || "",
                       }));
                     }}
                   >
@@ -885,6 +939,7 @@ export function UserManagementAdminClient() {
         </div>
       ) : null}
 
+      {!isAdminOnly ? (
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -958,7 +1013,9 @@ export function UserManagementAdminClient() {
 
         </CardContent>
       </Card>
+      ) : null}
 
+      {!isAdminOnly ? (
       <Modal
         open={showRoleForm}
         onClose={closeRoleDialog}
@@ -1034,7 +1091,9 @@ export function UserManagementAdminClient() {
                 <Button variant="secondary" onClick={closeRoleDialog}>Cancel</Button>
               </div>
       </Modal>
+      ) : null}
 
+      {!isAdminOnly ? (
       <Card>
         <CardHeader>
           <CardTitle>Audit Trail</CardTitle>
@@ -1076,6 +1135,7 @@ export function UserManagementAdminClient() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
     </div>
   );
 }

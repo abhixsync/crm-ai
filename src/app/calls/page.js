@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/server/auth-guard";
+import { CallsAiCallPanel } from "@/components/calls/calls-ai-call-panel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -51,6 +50,32 @@ export default async function CallsPage() {
     take: 100,
   });
 
+  const customers = await prisma.customer.findMany({
+    where: {
+      ...tenantFilter,
+      archivedAt: null,
+      phone: { not: "" },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      status: true,
+    },
+    orderBy: {
+      updatedAt: "desc",
+    },
+    take: 100,
+  });
+
+  const callCustomers = customers.map((customer) => ({
+    id: customer.id,
+    name: formatCustomerName(customer),
+    phone: customer.phone,
+    status: customer.status,
+  }));
+
   return (
     <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -58,10 +83,9 @@ export default async function CallsPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Calls History</h1>
           <p className="mt-1 text-sm text-slate-600">AI call logs, transcript, outcome, and next steps.</p>
         </div>
-        <Link href="/dashboard">
-          <Button variant="secondary">Back to Dashboard</Button>
-        </Link>
       </div>
+
+      <CallsAiCallPanel customers={callCustomers} role={session.user.role} />
 
       <Card>
         <CardHeader>

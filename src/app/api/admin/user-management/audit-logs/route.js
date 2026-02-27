@@ -1,4 +1,4 @@
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { listUserAuditLogs } from "@/lib/users/user-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -6,7 +6,7 @@ export async function GET(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -14,6 +14,11 @@ export async function GET(request) {
   const limit = Number(searchParams.get("limit") || 50);
 
   try {
+    const tenant = getTenantContext(auth.session);
+    if (!tenant.isSuperAdmin) {
+      return Response.json({ logs: [] });
+    }
+
     const logs = await listUserAuditLogs(limit);
     return Response.json({ logs });
   } catch (error) {

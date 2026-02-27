@@ -1,17 +1,16 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { ThemeSettingsPage } from "@/modules/admin/theme/ThemeSettingsPage";
+import { TenantsAdminClient } from "@/components/admin/tenants-admin-client";
 
-export default async function AdminThemePage() {
+export default async function TenantsAdminPage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
     redirect("/login");
   }
 
-  const role = (session.user as any).role;
-  if (!role || !["ADMIN", "SUPER_ADMIN"].includes(role)) {
+  if (session.user.role !== "SUPER_ADMIN") {
     redirect("/dashboard");
   }
 
@@ -19,12 +18,14 @@ export default async function AdminThemePage() {
     <main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Theme Customization</h1>
-          <p className="mt-1 text-sm text-slate-600">Customize your tenant CRM theme and branding with live preview.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Tenant Management</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Create and manage tenants with optional first-admin assignment.
+          </p>
         </div>
       </div>
 
-      <ThemeSettingsPage />
+      <TenantsAdminClient />
     </main>
   );
 }

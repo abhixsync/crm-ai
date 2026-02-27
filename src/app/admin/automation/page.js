@@ -1,8 +1,6 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
 import { AutomationSettingsAdminClient } from "@/components/admin/automation-settings-admin-client";
 
 export default async function AutomationAdminPage() {
@@ -12,7 +10,7 @@ export default async function AutomationAdminPage() {
     redirect("/login");
   }
 
-  if (session.user.role !== "SUPER_ADMIN") {
+  if (!["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
     redirect("/dashboard");
   }
 
@@ -24,17 +22,6 @@ export default async function AutomationAdminPage() {
           <p className="mt-1 text-sm text-slate-600">
             Super Admin panel for AI campaign retry, limits, batch, and working-hour controls.
           </p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/admin/providers">
-            <Button variant="secondary">Providers</Button>
-          </Link>
-          <Link href="/admin/user-management">
-            <Button variant="secondary">User Management</Button>
-          </Link>
-          <Link href="/dashboard">
-            <Button variant="secondary">Back to Dashboard</Button>
-          </Link>
         </div>
       </div>
 
