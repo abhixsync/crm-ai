@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 function buildMenuItems(role) {
@@ -14,7 +14,7 @@ function buildMenuItems(role) {
   ];
 
   if (role === "ADMIN" || role === "SUPER_ADMIN") {
-    items.push({ href: "/admin/theme", label: "Theme Settings" });
+    items.push({ href: "/admin/settings", label: "Settings" });
   }
 
   if (role === "ADMIN" || role === "SUPER_ADMIN") {
@@ -67,50 +67,52 @@ export function GlobalHamburgerMenu() {
 
   return (
     <div ref={rootRef} className="fixed right-4 top-4 z-50">
-      <Button
-        variant="secondary"
-        className="h-10 w-10 px-0"
-        onClick={() => setOpen((previous) => !previous)}
-        aria-label={open ? "Close menu" : "Open menu"}
-        title={open ? "Close menu" : "Open menu"}
-      >
-        {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-      </Button>
+      <div className="relative">
+        <Button
+          variant="outline"
+          className="h-10 w-10 px-0 border-slate-300 bg-white/80 backdrop-blur-sm hover:bg-white"
+          onClick={() => setOpen((previous) => !previous)}
+          aria-label={open ? "Close menu" : "Open menu"}
+          title={open ? "Close menu" : "Open menu"}
+        >
+          <Menu className={`h-4 w-4 transition-transform duration-200 ${open ? "rotate-90" : ""}`} />
+        </Button>
 
-      {open ? (
-        <div className="mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
-          <div className="mb-2 px-2 pt-1 text-xs text-slate-500">
-            {session.user.name || session.user.email || "User"}
-          </div>
+        {open ? (
+          <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+            <div className="mb-2 px-2 pt-1 text-xs text-slate-500">
+              {session.user.name || session.user.email || "User"}
+            </div>
 
-          <div className="space-y-1">
-            {items.map((item) => (
-              <Link key={item.href} href={item.href} className="block">
-                <Button
-                  variant={pathname === (item.matchPath || item.href) ? "default" : "ghost"}
-                  className="h-9 w-full justify-start"
-                  onClick={() => setOpen(false)}
-                >
-                  {item.label}
-                </Button>
-              </Link>
-            ))}
-          </div>
+            <div className="space-y-1">
+              {items.map((item) => (
+                <Link key={item.href} href={item.href} className="block">
+                  <Button
+                    variant={pathname === (item.matchPath || item.href) ? "default" : "ghost"}
+                    className="h-9 w-full justify-start"
+                    onClick={() => setOpen(false)}
+                  >
+                    {item.label}
+                  </Button>
+                </Link>
+              ))}
+            </div>
 
-          <div className="mt-2 border-t border-slate-200 pt-2">
-            <Button
-              variant="secondary"
-              className="h-9 w-full justify-start"
-              onClick={() => {
-                setOpen(false);
-                signOut({ callbackUrl: "/login" });
-              }}
-            >
-              Logout
-            </Button>
+            <div className="mt-2 border-t border-slate-200 pt-2">
+              <Button
+                variant="secondary"
+                className="h-9 w-full justify-start"
+                onClick={() => {
+                  setOpen(false);
+                  signOut({ callbackUrl: "/login" });
+                }}
+              >
+                Logout
+              </Button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

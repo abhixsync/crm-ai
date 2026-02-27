@@ -25,7 +25,7 @@ export async function getActiveThemeController(session: any, requestedTenantId?:
 }
 
 export async function updateThemeController(session: any, payload: ThemeUpdatePayload & { tenantId?: string | null }) {
-  if (!hasRole(session, ["ADMIN"])) {
+  if (!hasRole(session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -43,7 +43,7 @@ export async function uploadThemeAssetController(
   formData: FormData,
   requestedTenantId?: string | null
 ) {
-  if (!hasRole(session, ["ADMIN"])) {
+  if (!hasRole(session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

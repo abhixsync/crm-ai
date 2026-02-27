@@ -11,10 +11,10 @@ const variants = {
 };
 
 export function Button({
-  className,
+  className = undefined,
   variant = "default",
   type = "button",
-  disabled,
+  disabled = undefined,
   ...props
 }) {
   return (

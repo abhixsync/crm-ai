@@ -4,6 +4,21 @@ const { PrismaClient, UserRole, AiProviderType, TelephonyProviderType } = requir
 const prisma = new PrismaClient();
 
 async function main() {
+  // Create base tenant for super admin
+  const baseTenantName = "Super Admin";
+  const baseTenantSlug = "super-admin";
+  let baseTenant = await prisma.tenant.findUnique({ where: { slug: baseTenantSlug } });
+
+  if (!baseTenant) {
+    baseTenant = await prisma.tenant.create({
+      data: {
+        name: baseTenantName,
+        slug: baseTenantSlug,
+        isActive: true,
+      },
+    });
+  }
+
   const superAdminEmail = "lucifer.shukla@crm.local";
   const existingSuperAdmin = await prisma.user.findUnique({ where: { email: superAdminEmail } });
 
@@ -16,6 +31,7 @@ async function main() {
         email: superAdminEmail,
         passwordHash: superAdminHash,
         role: UserRole.SUPER_ADMIN,
+        tenantId: baseTenant.id, // Assign super admin to base tenant
       },
     });
   }
@@ -24,6 +40,21 @@ async function main() {
   const existing = await prisma.user.findUnique({ where: { email } });
 
   if (!existing) {
+    // Create a default tenant for the admin user
+    const defaultTenantName = "Demo CRM";
+    const defaultTenantSlug = "demo-crm";
+    let defaultTenant = await prisma.tenant.findUnique({ where: { slug: defaultTenantSlug } });
+
+    if (!defaultTenant) {
+      defaultTenant = await prisma.tenant.create({
+        data: {
+          name: defaultTenantName,
+          slug: defaultTenantSlug,
+          isActive: true,
+        },
+      });
+    }
+
     const passwordHash = await bcrypt.hash("Admin@123", 10);
 
     await prisma.user.create({
@@ -32,6 +63,7 @@ async function main() {
         email,
         passwordHash,
         role: UserRole.ADMIN,
+        tenantId: defaultTenant.id, // Assign admin to default tenant
       },
     });
   }

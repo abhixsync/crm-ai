@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Pencil, Phone, PhoneCall, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -62,9 +63,11 @@ export function DashboardClient({
   initialCustomers,
   initialPagination,
 }) {
+  const { data: session } = useSession();
   const isSuperAdmin = user.role === "SUPER_ADMIN";
   const searchParams = useSearchParams();
 
+  const [tenantName, setTenantName] = useState("CRM");
   const [metrics, setMetrics] = useState(initialMetrics);
   const [customers, setCustomers] = useState(initialCustomers);
   const [pagination, setPagination] = useState(initialPagination);
@@ -110,6 +113,22 @@ export function DashboardClient({
   const filtersInitializedRef = useRef(false);
   const currentPageRef = useRef(initialPagination.page || 1);
 
+  const fetchTenantName = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/settings");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to load settings.");
+      }
+
+      setTenantName(data.crmName || data.tenantName || "CRM");
+    } catch (error) {
+      console.error("Failed to fetch tenant name:", error);
+      setTenantName("CRM");
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       if (connectionRef.current) {
@@ -127,6 +146,11 @@ export function DashboardClient({
   useEffect(() => {
     fetchActiveTelephonyProvider();
   }, []);
+
+  useEffect(() => {
+    // Fetch tenant name for both ADMIN and SUPER_ADMIN
+    fetchTenantName();
+  }, [fetchTenantName]);
 
   useEffect(() => {
     if (searchParams.get("aiCall") !== "1" || aiDialogState.open) {
@@ -941,7 +965,7 @@ export function DashboardClient({
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Loan Enterprise CRM</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{tenantName}</h1>
           <p className="mt-1 text-sm text-slate-600">Welcome, {user.name} ({user.role})</p>
           {isSuperAdmin ? (
             <div className="mt-2 flex flex-wrap items-center gap-2">

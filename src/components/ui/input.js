@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export function Input({ className, ...props }) {
+export function Input({ className = undefined, ...props }) {
   return (
     <input
       className={cn(

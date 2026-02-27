@@ -1,16 +1,16 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { ThemeSettingsPage } from "@/modules/admin/theme/ThemeSettingsPage";
+import { SettingsTabs } from "@/components/admin/settings-tabs";
 
-export default async function AdminThemePage() {
+export default async function AdminSettingsPage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
     redirect("/login");
   }
 
-  const role = (session.user as any).role;
+  const role = session.user.role;
   if (!role || !["ADMIN", "SUPER_ADMIN"].includes(role)) {
     redirect("/dashboard");
   }
@@ -19,12 +19,12 @@ export default async function AdminThemePage() {
     <main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Theme Customization</h1>
-          <p className="mt-1 text-sm text-slate-600">Customize your tenant CRM theme and branding with live preview.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h1>
+          <p className="mt-1 text-sm text-slate-600">Manage your account settings and customize your CRM theme.</p>
         </div>
       </div>
 
-      <ThemeSettingsPage />
+      <SettingsTabs />
     </main>
   );
 }
