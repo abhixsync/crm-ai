@@ -1,4 +1,4 @@
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { deleteUser, updateUser } from "@/lib/users/user-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -11,6 +11,7 @@ export async function PATCH(request, { params }) {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
     const routeParams = await params;
     const userId = String(routeParams?.userId || "").trim();
     if (!userId) {
@@ -18,7 +19,7 @@ export async function PATCH(request, { params }) {
     }
 
     const payload = await request.json();
-    const user = await updateUser(userId, payload, auth.session.user.id);
+    const user = await updateUser(userId, payload, auth.session.user.id, tenant.isSuperAdmin ? undefined : tenant.tenantId);
     return Response.json({ user });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
@@ -39,13 +40,14 @@ export async function DELETE(_request, { params }) {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
     const routeParams = await params;
     const userId = String(routeParams?.userId || "").trim();
     if (!userId) {
       return Response.json({ error: "User ID is required." }, { status: 400 });
     }
 
-    const result = await deleteUser(userId, auth.session.user.id);
+    const result = await deleteUser(userId, auth.session.user.id, tenant.isSuperAdmin ? undefined : tenant.tenantId);
     return Response.json(result);
   } catch (error) {
     if (isDatabaseUnavailable(error)) {

@@ -108,40 +108,80 @@ function mergeUserMetadata(currentMetadata = {}, patch = {}) {
 }
 
 async function writeAuditLog({ actorUserId, targetUserId, action, metadata }) {
-  await prisma.userManagementAuditLog.create({
-    data: {
-      actorUserId: actorUserId || null,
-      targetUserId: targetUserId || null,
-      action,
-      metadata: metadata || null,
-    },
-  });
+  try {
+    await prisma.userManagementAuditLog.create({
+      data: {
+        actorUserId: actorUserId || null,
+        targetUserId: targetUserId || null,
+        action,
+        metadata: metadata || null,
+      },
+    });
+  } catch (error) {
+    if (error?.code === "P2003") {
+      await prisma.userManagementAuditLog.create({
+        data: {
+          actorUserId: null,
+          targetUserId: null,
+          action,
+          metadata: {
+            ...(metadata && typeof metadata === "object" ? metadata : {}),
+            auditFallback: "fk_violation",
+            originalActorUserId: actorUserId || null,
+            originalTargetUserId: targetUserId || null,
+          },
+        },
+      });
+      return;
+    }
+
+    throw error;
+  }
+}
+
+function tenantWhere(tenantId) {
+  if (tenantId === undefined) return {};
+  return { tenantId };
 }
 
 export async function ensureSystemRoleDefinitions() {
   for (const role of SYSTEM_ROLE_DEFINITIONS) {
-    await prisma.roleDefinition.upsert({
-      where: { key: role.key },
-      create: {
-        ...role,
-        isSystem: true,
-        active: true,
+    const existing = await prisma.roleDefinition.findFirst({
+      where: {
+        key: role.key,
+        tenantId: null,
       },
-      update: {
-        name: role.name,
-        description: role.description,
-        baseRole: role.baseRole,
-        modules: role.modules,
-        permissions: role.permissions,
-        featureToggles: role.featureToggles,
-        isSystem: true,
-        active: true,
-      },
+      select: { id: true },
     });
+
+    if (existing?.id) {
+      await prisma.roleDefinition.update({
+        where: { id: existing.id },
+        data: {
+          name: role.name,
+          description: role.description,
+          baseRole: role.baseRole,
+          modules: role.modules,
+          permissions: role.permissions,
+          featureToggles: role.featureToggles,
+          isSystem: true,
+          active: true,
+        },
+      });
+    } else {
+      await prisma.roleDefinition.create({
+        data: {
+          ...role,
+          tenantId: null,
+          isSystem: true,
+          active: true,
+        },
+      });
+    }
   }
 }
 
-async function resolveRoleAssignment(roleKey) {
+async function resolveRoleAssignment(roleKey, tenantId = null) {
   const normalizedKey = String(roleKey || "").trim().toUpperCase();
 
   const systemRole = getSystemRoleByKey(normalizedKey);
@@ -153,7 +193,13 @@ async function resolveRoleAssignment(roleKey) {
     };
   }
 
-  const customRole = await prisma.roleDefinition.findUnique({ where: { key: normalizedKey } });
+  const customRole = await prisma.roleDefinition.findFirst({
+    where: {
+      key: normalizedKey,
+      active: true,
+      ...tenantWhere(tenantId),
+    },
+  });
   if (!customRole || !customRole.active) {
     throw new Error(`Invalid or inactive role: ${normalizedKey}`);
   }
@@ -165,15 +211,18 @@ async function resolveRoleAssignment(roleKey) {
   };
 }
 
-export async function listRoleDefinitions() {
+export async function listRoleDefinitions(tenantId = null) {
   await ensureSystemRoleDefinitions();
 
   return prisma.roleDefinition.findMany({
+    where: {
+      OR: [{ tenantId: null }, ...((tenantId && tenantId !== null) ? [{ tenantId }] : [])],
+    },
     orderBy: [{ isSystem: "desc" }, { name: "asc" }],
   });
 }
 
-export async function createRoleDefinition(input, actorUserId) {
+export async function createRoleDefinition(input, actorUserId, tenantId = null) {
   const parsed = roleDefinitionSchema.parse(input);
 
   if (getSystemRoleByKey(parsed.key)) {
@@ -183,6 +232,7 @@ export async function createRoleDefinition(input, actorUserId) {
   const role = await prisma.roleDefinition.create({
     data: {
       ...parsed,
+      tenantId,
       isSystem: false,
       active: parsed.active ?? true,
     },
@@ -200,8 +250,8 @@ export async function createRoleDefinition(input, actorUserId) {
   return role;
 }
 
-export async function updateRoleDefinition(roleId, input, actorUserId) {
-  const existing = await prisma.roleDefinition.findUnique({ where: { id: roleId } });
+export async function updateRoleDefinition(roleId, input, actorUserId, tenantId = null) {
+  const existing = await prisma.roleDefinition.findFirst({ where: { id: roleId, ...tenantWhere(tenantId) } });
   if (!existing) {
     throw new Error("Role not found.");
   }
@@ -233,8 +283,8 @@ export async function updateRoleDefinition(roleId, input, actorUserId) {
   return role;
 }
 
-export async function deleteRoleDefinition(roleId, actorUserId) {
-  const existing = await prisma.roleDefinition.findUnique({ where: { id: roleId } });
+export async function deleteRoleDefinition(roleId, actorUserId, tenantId = null) {
+  const existing = await prisma.roleDefinition.findFirst({ where: { id: roleId, ...tenantWhere(tenantId) } });
   if (!existing) {
     throw new Error("Role not found.");
   }
@@ -243,7 +293,7 @@ export async function deleteRoleDefinition(roleId, actorUserId) {
     throw new Error("System roles cannot be deleted.");
   }
 
-  const assignedUsers = await prisma.user.count({ where: { customRoleId: roleId } });
+  const assignedUsers = await prisma.user.count({ where: { customRoleId: roleId, ...tenantWhere(tenantId) } });
   if (assignedUsers > 0) {
     throw new Error("Role is assigned to one or more users. Reassign users before deleting this role.");
   }
@@ -262,10 +312,13 @@ export async function deleteRoleDefinition(roleId, actorUserId) {
   return { ok: true };
 }
 
-export async function listUsers() {
+export async function listUsers(tenantId = undefined) {
   await ensureSystemRoleDefinitions();
 
   const users = await prisma.user.findMany({
+    where: {
+      ...tenantWhere(tenantId),
+    },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -295,23 +348,38 @@ export async function listUsers() {
   }));
 }
 
-export async function createUser(input, actorUserId) {
+export async function createUser(input, actorUserId, tenantId = null) {
   const parsed = createUserSchema.parse(input);
-  const assignment = await resolveRoleAssignment(parsed.roleKey);
+  const assignment = await resolveRoleAssignment(parsed.roleKey, tenantId);
+
+  const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
+  if (existing) {
+    throw new Error("A user with this email already exists.");
+  }
 
   const passwordHash = await bcrypt.hash(parsed.password, 10);
 
-  const user = await prisma.user.create({
-    data: {
-      name: parsed.name,
-      email: parsed.email,
-      passwordHash,
-      role: assignment.role,
-      customRoleId: assignment.customRoleId,
-      isActive: parsed.isActive ?? true,
-      metadata: mergeUserMetadata({}, parsed),
-    },
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        name: parsed.name,
+        email: parsed.email,
+        passwordHash,
+        tenantId,
+        role: assignment.role,
+        customRoleId: assignment.customRoleId,
+        isActive: parsed.isActive ?? true,
+        metadata: mergeUserMetadata({}, parsed),
+      },
+    });
+  } catch (error) {
+    if (error?.code === "P2002") {
+      throw new Error("A user with this email already exists.");
+    }
+
+    throw error;
+  }
 
   await writeAuditLog({
     actorUserId,
@@ -326,10 +394,10 @@ export async function createUser(input, actorUserId) {
   return user;
 }
 
-export async function updateUser(userId, input, actorUserId) {
+export async function updateUser(userId, input, actorUserId, tenantId = undefined) {
   const parsed = updateUserSchema.parse(input);
 
-  const existing = await prisma.user.findUnique({ where: { id: userId } });
+  const existing = await prisma.user.findFirst({ where: { id: userId, ...tenantWhere(tenantId) } });
   if (!existing) {
     throw new Error("User not found.");
   }
@@ -345,7 +413,7 @@ export async function updateUser(userId, input, actorUserId) {
   }
 
   if (parsed.roleKey) {
-    const assignment = await resolveRoleAssignment(parsed.roleKey);
+    const assignment = await resolveRoleAssignment(parsed.roleKey, tenantId ?? existing.tenantId ?? null);
     updateData.role = assignment.role;
     updateData.customRoleId = assignment.customRoleId;
   }
@@ -369,12 +437,12 @@ export async function updateUser(userId, input, actorUserId) {
   return user;
 }
 
-export async function deleteUser(userId, actorUserId) {
+export async function deleteUser(userId, actorUserId, tenantId = undefined) {
   if (userId === actorUserId) {
     throw new Error("You cannot delete your own account.");
   }
 
-  const existing = await prisma.user.findUnique({ where: { id: userId } });
+  const existing = await prisma.user.findFirst({ where: { id: userId, ...tenantWhere(tenantId) } });
   if (!existing) {
     throw new Error("User not found.");
   }
@@ -410,7 +478,7 @@ export async function listUserAuditLogs(limit = 50) {
   });
 }
 
-export async function applyUserBatchAction(input, actorUserId) {
+export async function applyUserBatchAction(input, actorUserId, tenantId = undefined) {
   const parsed = batchActionSchema.parse(input);
   const userIds = Array.from(new Set(parsed.userIds));
 
@@ -420,7 +488,7 @@ export async function applyUserBatchAction(input, actorUserId) {
 
   if (parsed.action === "ACTIVATE") {
     const result = await prisma.user.updateMany({
-      where: { id: { in: userIds } },
+      where: { id: { in: userIds }, ...tenantWhere(tenantId) },
       data: { isActive: true },
     });
 
@@ -435,7 +503,7 @@ export async function applyUserBatchAction(input, actorUserId) {
 
   if (parsed.action === "DEACTIVATE") {
     const result = await prisma.user.updateMany({
-      where: { id: { in: userIds } },
+      where: { id: { in: userIds }, ...tenantWhere(tenantId) },
       data: { isActive: false },
     });
 
@@ -451,6 +519,7 @@ export async function applyUserBatchAction(input, actorUserId) {
   const result = await prisma.user.deleteMany({
     where: {
       AND: [{ id: { in: userIds } }, { id: { not: actorUserId } }],
+      ...tenantWhere(tenantId),
     },
   });
 
@@ -463,7 +532,7 @@ export async function applyUserBatchAction(input, actorUserId) {
   return { ok: true, action: parsed.action, count: result.count };
 }
 
-export async function bulkCreateUsers(rows, actorUserId) {
+export async function bulkCreateUsers(rows, actorUserId, tenantId = null) {
   if (!Array.isArray(rows) || rows.length === 0) {
     throw new Error("Bulk payload must include at least one row.");
   }
@@ -477,7 +546,7 @@ export async function bulkCreateUsers(rows, actorUserId) {
 
     try {
       const parsed = bulkUserRowSchema.parse(row);
-      const created = await createUser(parsed, actorUserId);
+      const created = await createUser(parsed, actorUserId, tenantId);
       successes.push({ row: index + 1, userId: created.id, email: created.email });
     } catch (error) {
       failures.push({ row: index + 1, email: row?.email || null, error: error?.message || "Invalid row" });

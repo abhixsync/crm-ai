@@ -5,10 +5,15 @@ import { enqueueAICampaignJob } from "@/lib/queue/ai-campaign-queue";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { CampaignJobStatus, CustomerStatus } from "@prisma/client";
 
-export async function enqueueCustomerIfEligible(customerId, reason = "new_customer") {
+export async function enqueueCustomerIfEligible(customerId, reason = "new_customer", tenantId) {
   const [settings, customer] = await Promise.all([
     getAutomationSettings(),
-    prisma.customer.findUnique({ where: { id: customerId } }),
+    prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        ...(tenantId ? { tenantId } : {}),
+      },
+    }),
   ]);
 
   if (!isEligibleForAutomation(customer, settings)) {
@@ -20,7 +25,7 @@ export async function enqueueCustomerIfEligible(customerId, reason = "new_custom
     return { queued: false, reason: "execution_mode_cron" };
   }
 
-  const queueResult = await enqueueAICampaignJob({ customerId, reason });
+  const queueResult = await enqueueAICampaignJob({ customerId, tenantId: customer?.tenantId || tenantId || null, reason });
 
   if (!queueResult?.queued) {
     return { queued: false, reason: queueResult?.reason || "queue_unavailable" };
@@ -65,6 +70,7 @@ export async function enqueueCustomerIfEligible(customerId, reason = "new_custom
       inActiveCall: false,
     },
     idempotencyScope: { reason, enqueue: true, customerId },
+    tenantId: customer.tenantId,
   });
 
   return { queued: true, jobId: queueResult.jobId };

@@ -47,24 +47,29 @@ function mapIntentToCustomerStatus(intent) {
 async function appendTranscript(callLogId, speaker, message) {
   if (!callLogId || !message) return;
 
-  const callLog = await prisma.callLog.findUnique({ where: { id: callLogId } });
+  const callLog = await prisma.callLog.findFirst({ where: { id: callLogId } });
   if (!callLog) return;
 
   const prefix = callLog.transcript ? `${callLog.transcript}\n` : "";
   const nextTranscript = `${prefix}${speaker}: ${message}`;
 
-  await prisma.callLog.update({
-    where: { id: callLogId },
+  await prisma.callLog.updateMany({
+    where: { id: callLogId, tenantId: callLog.tenantId },
     data: { transcript: nextTranscript },
   });
 }
 
-async function finishCall(callLogId, customerId) {
+async function finishCall(callLogId, customerId, tenantId) {
   if (!callLogId) {
     return;
   }
 
-  const callLog = await prisma.callLog.findUnique({ where: { id: callLogId } });
+  const callLog = await prisma.callLog.findFirst({
+    where: {
+      id: callLogId,
+      ...(tenantId ? { tenantId } : {}),
+    },
+  });
   if (!callLog) {
     return;
   }
@@ -82,8 +87,8 @@ async function finishCall(callLogId, customerId) {
   const normalizedIntent = String(analysis.intent || "failed").trim().toLowerCase();
   const mappedStatus = mapIntentToCustomerStatus(normalizedIntent);
 
-  await prisma.callLog.update({
-    where: { id: callLogId },
+  await prisma.callLog.updateMany({
+    where: { id: callLogId, tenantId: callLog.tenantId },
     data: {
       summary: analysis.summary,
       intent: toIntentLabel(normalizedIntent),
@@ -112,11 +117,13 @@ async function finishCall(callLogId, customerId) {
         intent: normalizedIntent,
         end: true,
       },
+      tenantId: callLog.tenantId,
     });
 
     if (mappedStatus === CustomerStatus.CALL_FAILED) {
       await scheduleRetryForFailure({
         customerId,
+        tenantId: callLog.tenantId,
         failureCode: normalizedIntent,
         errorMessage: analysis.nextAction || "Call failed",
       });
@@ -135,17 +142,43 @@ export async function POST(request) {
     const callSid = String(formData.get("CallSid") || "");
     const speechResult = String(formData.get("SpeechResult") || "").trim();
 
-    const customer = customerId
-      ? await prisma.customer.findUnique({ where: { id: customerId } })
+    let tenantId = null;
+
+    const callLog = callLogId
+      ? await prisma.callLog.findFirst({
+          where: { id: callLogId },
+          select: { id: true, customerId: true, tenantId: true, transcript: true },
+        })
       : null;
+
+    if (callLog?.tenantId) {
+      tenantId = callLog.tenantId;
+    }
+
+    const effectiveCustomerId = callLog?.customerId || customerId;
+    const customer = effectiveCustomerId
+      ? await prisma.customer.findFirst({
+          where: {
+            id: effectiveCustomerId,
+            ...(tenantId ? { tenantId } : {}),
+          },
+        })
+      : null;
+
+    if (customer?.tenantId) {
+      tenantId = customer.tenantId;
+    }
 
     if (!customer) {
       return twimlResponse("<Say>Customer record not found. Please call again later.</Say><Hangup/>");
     }
 
     if (callLogId && callSid) {
-      await prisma.callLog.update({
-        where: { id: callLogId },
+      await prisma.callLog.updateMany({
+        where: {
+          id: callLogId,
+          ...(tenantId ? { tenantId } : {}),
+        },
         data: {
           providerCallId: callSid,
         },
@@ -169,7 +202,6 @@ export async function POST(request) {
       );
     }
 
-    const callLog = callLogId ? await prisma.callLog.findUnique({ where: { id: callLogId } }) : null;
     const transcript = callLog?.transcript || "";
 
     const aiOutput = await runAIWithFailover({
@@ -185,8 +217,11 @@ export async function POST(request) {
     await appendTranscript(callLogId, "Agent", aiTurn.reply);
 
     if (callLogId) {
-      await prisma.callLog.update({
-        where: { id: callLogId },
+      await prisma.callLog.updateMany({
+        where: {
+          id: callLogId,
+          ...(tenantId ? { tenantId } : {}),
+        },
         data: {
           aiProviderUsed: aiOutput.provider.name,
         },
@@ -197,7 +232,7 @@ export async function POST(request) {
 
     if (shouldEnd) {
       const closing = `${aiTurn.reply} Thank you for your time. Our loan advisor will contact you shortly.`;
-      await finishCall(callLogId, customer.id);
+      await finishCall(callLogId, customer.id, tenantId);
       return twimlResponse(`<Say voice="alice">${xmlEscape(closing)}</Say><Hangup/>`);
     }
 

@@ -25,15 +25,17 @@ export default async function DashboardPage() {
   let followUps = 0;
   let totalCalls = 0;
   let customers = [];
+  const tenantId = session.user.tenantId || null;
+  const tenantFilter = tenantId ? { tenantId } : {};
 
   try {
     [totalCustomers, interestedCustomers, followUps, totalCalls, customers] = await Promise.all([
-      prisma.customer.count({ where: { archivedAt: null } }),
-      prisma.customer.count({ where: { status: CustomerStatus.INTERESTED, archivedAt: null } }),
-      prisma.customer.count({ where: { status: CustomerStatus.FOLLOW_UP, archivedAt: null } }),
-      prisma.callLog.count(),
+      prisma.customer.count({ where: { ...tenantFilter, archivedAt: null } }),
+      prisma.customer.count({ where: { ...tenantFilter, status: CustomerStatus.INTERESTED, archivedAt: null } }),
+      prisma.customer.count({ where: { ...tenantFilter, status: CustomerStatus.FOLLOW_UP, archivedAt: null } }),
+      prisma.callLog.count({ where: { ...tenantFilter } }),
       prisma.customer.findMany({
-        where: { archivedAt: null },
+        where: { ...tenantFilter, archivedAt: null },
         include: {
           calls: {
             orderBy: { createdAt: "desc" },

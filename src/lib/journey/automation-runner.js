@@ -46,6 +46,7 @@ async function runCustomerInCronMode(customer, reason) {
   } catch (error) {
     await scheduleRetryForFailure({
       customerId: customer.id,
+        tenantId: customer.tenantId,
       failureCode: "failed",
       errorMessage: error?.message || "cron_failure",
     });
@@ -119,7 +120,7 @@ export async function runAutomationBatch() {
   for (const customer of customers) {
     const result =
       executionMode === "WORKER"
-        ? await enqueueCustomerIfEligible(customer.id, "bulk_campaign")
+        ? await enqueueCustomerIfEligible(customer.id, "bulk_campaign", customer.tenantId)
         : await runCustomerInCronMode(customer, "bulk_campaign");
 
     if (result.queued) {

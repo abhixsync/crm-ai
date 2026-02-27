@@ -1,6 +1,6 @@
 import { CallStatus, CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -20,7 +20,13 @@ export async function POST(request) {
   }
 
   try {
-    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    const tenant = getTenantContext(auth.session);
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }),
+      },
+    });
     if (!customer || customer.archivedAt) {
       return Response.json({ error: "Customer not found" }, { status: 404 });
     }
@@ -32,6 +38,7 @@ export async function POST(request) {
 
     const callLog = await prisma.callLog.create({
       data: {
+        tenantId: customer.tenantId,
         customerId,
         status: CallStatus.INITIATED,
         mode: "MANUAL",
@@ -57,6 +64,7 @@ export async function POST(request) {
         stage: "start",
         callLogId: callLog.id,
       },
+      tenantId: customer.tenantId,
     });
 
     return Response.json({

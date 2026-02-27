@@ -1,6 +1,6 @@
 import { CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 
 export async function GET() {
   const auth = await requireSession();
@@ -12,11 +12,17 @@ export async function GET() {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
+    const tenantId = tenant.tenantId;
+    if (!tenantId) {
+      return Response.json({ error: "Tenant context required." }, { status: 400 });
+    }
+
     const [totalCustomers, interestedCustomers, followUps, totalCalls] = await Promise.all([
-      prisma.customer.count({ where: { archivedAt: null } }),
-      prisma.customer.count({ where: { status: CustomerStatus.INTERESTED, archivedAt: null } }),
-      prisma.customer.count({ where: { status: CustomerStatus.FOLLOW_UP, archivedAt: null } }),
-      prisma.callLog.count(),
+      prisma.customer.count({ where: { tenantId, archivedAt: null } }),
+      prisma.customer.count({ where: { tenantId, status: CustomerStatus.INTERESTED, archivedAt: null } }),
+      prisma.customer.count({ where: { tenantId, status: CustomerStatus.FOLLOW_UP, archivedAt: null } }),
+      prisma.callLog.count({ where: { tenantId } }),
     ]);
 
     return Response.json({

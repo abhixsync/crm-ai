@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function GET(request) {
@@ -17,8 +17,10 @@ export async function GET(request) {
   const safeLimit = Number.isNaN(limit) || limit < 1 ? 15 : Math.min(limit, 50);
 
   try {
+    const tenant = getTenantContext(auth.session);
     const callLogs = await prisma.callLog.findMany({
       where: {
+        ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }),
         ...(customerId ? { customerId } : {}),
         customer: {
           archivedAt: null,

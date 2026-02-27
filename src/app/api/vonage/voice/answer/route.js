@@ -42,10 +42,17 @@ export async function POST(request) {
     const uuid = String(payload.uuid || payload.call_uuid || payload.request_uuid || "").trim();
 
     if (callLogId && uuid) {
-      await prisma.callLog.updateMany({
+      const callLog = await prisma.callLog.findFirst({
         where: { id: callLogId },
+        select: { id: true, tenantId: true },
+      });
+
+      if (callLog) {
+      await prisma.callLog.updateMany({
+        where: { id: callLog.id, tenantId: callLog.tenantId },
         data: { providerCallId: uuid },
       });
+      }
     }
 
     logTelephony("info", "api.vonage.voice.answer", {

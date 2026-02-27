@@ -26,9 +26,9 @@ export default async function UserManagementPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/admin/automation">
+          {/* <Link href="/admin/automation">
             <Button variant="secondary">Automation</Button>
-          </Link>
+          </Link> */}
           <Link href="/dashboard">
             <Button variant="secondary">Back to Dashboard</Button>
           </Link>

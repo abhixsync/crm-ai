@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -20,8 +20,14 @@ export async function PATCH(request, { params }) {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
+    const tenantId = tenant.tenantId;
+    if (!tenantId) {
+      return Response.json({ error: "Tenant context required." }, { status: 400 });
+    }
+
     const body = await request.json();
-    const existing = await prisma.customer.findUnique({ where: { id: customerId } });
+    const existing = await prisma.customer.findFirst({ where: { id: customerId, tenantId } });
 
     if (!existing || existing.archivedAt) {
       return Response.json({ error: "Customer not found" }, { status: 404 });
@@ -64,6 +70,7 @@ export async function PATCH(request, { params }) {
           route: "customers/[customerId]",
           requestedStatus,
         },
+        tenantId,
       });
     }
 
@@ -95,13 +102,23 @@ export async function DELETE(_request, { params }) {
   }
 
   try {
-    await prisma.customer.update({
-      where: { id: customerId },
+    const tenant = getTenantContext(auth.session);
+    const tenantId = tenant.tenantId;
+    if (!tenantId) {
+      return Response.json({ error: "Tenant context required." }, { status: 400 });
+    }
+
+    const result = await prisma.customer.updateMany({
+      where: { id: customerId, tenantId },
       data: {
         archivedAt: new Date(),
         status: "DO_NOT_CALL",
       },
     });
+
+    if (result.count === 0) {
+      return Response.json({ error: "Customer not found" }, { status: 404 });
+    }
 
     return Response.json({ success: true });
   } catch (error) {

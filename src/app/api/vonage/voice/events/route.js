@@ -46,8 +46,17 @@ export async function POST(request) {
 
     const mappedStatus = mapTelephonyStatus("VONAGE", providerStatus);
 
-    await prisma.callLog.updateMany({
+    const matchedCall = await prisma.callLog.findFirst({
       where: { providerCallId },
+      select: { id: true, tenantId: true },
+    });
+
+    if (!matchedCall) {
+      return Response.json({ ok: true });
+    }
+
+    await prisma.callLog.updateMany({
+      where: { id: matchedCall.id, tenantId: matchedCall.tenantId },
       data: {
         status: mappedStatus,
         durationSecs: duration ? Number(duration) : undefined,

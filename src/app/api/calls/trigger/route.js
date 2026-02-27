@@ -1,6 +1,6 @@
 import { CallStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { runAIWithFailover } from "@/lib/ai/provider-router";
 import { initiateTelephonyCallWithFailover } from "@/lib/telephony/provider-router";
 import { logTelephony, redactedPhone } from "@/lib/telephony/logger";
@@ -41,9 +41,11 @@ export async function POST(request) {
 
   let customer;
   let callLog;
+  const tenant = getTenantContext(auth.session);
+  const tenantWhere = tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId };
 
   try {
-    customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    customer = await prisma.customer.findFirst({ where: { id: customerId, ...tenantWhere } });
 
     if (!customer) {
       return Response.json({ error: "Customer not found" }, { status: 404 });
@@ -51,6 +53,7 @@ export async function POST(request) {
 
     callLog = await prisma.callLog.create({
       data: {
+        tenantId: customer.tenantId,
         customerId: customer.id,
         status: CallStatus.INITIATED,
         mode: "AI",
@@ -73,6 +76,7 @@ export async function POST(request) {
         route: "calls/trigger",
         callLogId: callLog.id,
       },
+      tenantId: customer.tenantId,
     });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
@@ -119,8 +123,8 @@ export async function POST(request) {
 
     const call = telephonyOutput.result;
 
-    const updatedCallLog = await prisma.callLog.update({
-      where: { id: callLog.id },
+    await prisma.callLog.updateMany({
+      where: { id: callLog.id, tenantId: customer.tenantId },
       data: {
         providerCallId: call.providerCallId,
         aiProviderUsed: aiOutput.provider.name,
@@ -130,24 +134,26 @@ export async function POST(request) {
       },
     });
 
-    await prisma.customer.update({
-      where: { id: customer.id },
+    const persistedCallLog = await prisma.callLog.findFirst({ where: { id: callLog.id, tenantId: customer.tenantId } });
+
+    await prisma.customer.updateMany({
+      where: { id: customer.id, tenantId: customer.tenantId },
       data: { lastContactedAt: new Date(), inActiveCall: true },
     });
 
     logTelephony("info", "api.calls.trigger.completed", {
-      callLogId: updatedCallLog.id,
+      callLogId: persistedCallLog?.id || callLog.id,
       customerId: customer.id,
       aiProvider: aiOutput.provider?.name,
       telephonyProvider: telephonyOutput.provider?.name,
       telephonyProviderType: telephonyOutput.provider?.type,
       providerCallId: call.providerCallId,
-      status: updatedCallLog.status,
+      status: persistedCallLog?.status || callLog.status,
       to: redactedPhone(customer.phone),
     });
 
     return Response.json({
-      callLog: updatedCallLog,
+      callLog: persistedCallLog,
       provider: telephonyOutput.provider.name,
       info:
         String(telephonyOutput.provider.type || "").toUpperCase() === "TWILIO" && (!statusCallbackUrl || !callbackUrl)
@@ -161,8 +167,8 @@ export async function POST(request) {
     }
 
     if (callLog?.id) {
-      await prisma.callLog.update({
-        where: { id: callLog.id },
+      await prisma.callLog.updateMany({
+        where: { id: callLog.id, ...(customer?.tenantId ? { tenantId: customer.tenantId } : {}) },
         data: {
           status: CallStatus.FAILED,
           errorReason: error?.message || "Failed to initiate call",
@@ -187,10 +193,12 @@ export async function POST(request) {
           stage: "failed",
           callLogId: callLog.id,
         },
+        tenantId: customer.tenantId,
       });
 
       await scheduleRetryForFailure({
         customerId: customer.id,
+        tenantId: customer.tenantId,
         failureCode: "telephony_failure",
         errorMessage: error?.message || "Failed to initiate call",
       });

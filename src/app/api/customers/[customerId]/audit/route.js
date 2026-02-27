@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function GET(_request, { params }) {
@@ -18,19 +18,25 @@ export async function GET(_request, { params }) {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
+    const tenantId = tenant.tenantId;
+    if (!tenantId) {
+      return Response.json({ error: "Tenant context required." }, { status: 400 });
+    }
+
     const [transitions, callAttempts, customer] = await Promise.all([
       prisma.customerTransition.findMany({
-        where: { customerId },
+        where: { customerId, customer: { tenantId } },
         orderBy: { createdAt: "desc" },
         take: 500,
       }),
       prisma.callLog.findMany({
-        where: { customerId },
+        where: { customerId, tenantId },
         orderBy: { createdAt: "desc" },
         take: 500,
       }),
-      prisma.customer.findUnique({
-        where: { id: customerId },
+      prisma.customer.findFirst({
+        where: { id: customerId, tenantId },
         select: {
           id: true,
           firstName: true,

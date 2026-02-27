@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function GET(_request, { params }) {
@@ -19,8 +19,12 @@ export async function GET(_request, { params }) {
   }
 
   try {
-    const callLog = await prisma.callLog.findUnique({
-      where: { id: callLogId },
+    const tenant = getTenantContext(auth.session);
+    const callLog = await prisma.callLog.findFirst({
+      where: {
+        id: callLogId,
+        ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }),
+      },
       include: {
         customer: {
           select: {

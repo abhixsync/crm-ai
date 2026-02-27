@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/server/auth-guard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,8 +27,12 @@ export default async function CallsPage() {
     redirect("/login");
   }
 
+  const tenant = getTenantContext(session);
+  const tenantFilter = tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId };
+
   const callLogs = await prisma.callLog.findMany({
     where: {
+      ...tenantFilter,
       customer: {
         archivedAt: null,
       },

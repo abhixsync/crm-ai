@@ -11,6 +11,7 @@ export async function applyCustomerTransition({
   toStatus,
   reason,
   source,
+  tenantId,
   metadata = {},
   callLogData,
   idempotencyScope,
@@ -32,7 +33,12 @@ export async function applyCustomerTransition({
       return { idempotent: true, transition: existingTransition };
     }
 
-    const customer = await tx.customer.findUnique({ where: { id: customerId } });
+    const customer = await tx.customer.findFirst({
+      where: {
+        id: customerId,
+        ...(tenantId ? { tenantId } : {}),
+      },
+    });
 
     if (!customer || customer.archivedAt) {
       throw new Error("Customer not found");
@@ -79,6 +85,7 @@ export async function applyCustomerTransition({
       await tx.callLog.create({
         data: {
           customerId,
+          tenantId: customer.tenantId,
           ...callLogData,
         },
       });

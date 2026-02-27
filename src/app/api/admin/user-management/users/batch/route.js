@@ -1,4 +1,4 @@
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { applyUserBatchAction } from "@/lib/users/user-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -11,8 +11,9 @@ export async function POST(request) {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
     const payload = await request.json();
-    const result = await applyUserBatchAction(payload, auth.session.user.id);
+    const result = await applyUserBatchAction(payload, auth.session.user.id, tenant.isSuperAdmin ? undefined : tenant.tenantId);
     return Response.json(result);
   } catch (error) {
     if (isDatabaseUnavailable(error)) {

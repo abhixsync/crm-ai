@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -13,6 +13,13 @@ export async function GET(request) {
   }
 
   const { searchParams } = new URL(request.url);
+  const tenant = getTenantContext(auth.session);
+  const tenantId = tenant.tenantId;
+
+  if (!tenantId) {
+    return Response.json({ error: "Tenant context required." }, { status: 400 });
+  }
+
   const status = searchParams.get("status");
   const query = searchParams.get("q");
   const page = Number(searchParams.get("page") || 1);
@@ -22,6 +29,7 @@ export async function GET(request) {
   const safePageSize = Number.isNaN(pageSize) || pageSize < 1 ? 10 : Math.min(pageSize, 100);
 
   const where = {
+    tenantId,
     archivedAt: null,
     ...(status ? { status } : {}),
     ...(query
@@ -82,6 +90,12 @@ export async function POST(request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const tenant = getTenantContext(auth.session);
+  const tenantId = tenant.tenantId;
+  if (!tenantId) {
+    return Response.json({ error: "Tenant context required." }, { status: 400 });
+  }
+
   const body = await request.json();
 
   if (!body.firstName || !body.phone) {
@@ -89,7 +103,7 @@ export async function POST(request) {
   }
 
   try {
-    const existing = await prisma.customer.findUnique({ where: { phone: String(body.phone) } });
+    const existing = await prisma.customer.findFirst({ where: { tenantId, phone: String(body.phone) } });
 
     if (existing && !existing.archivedAt) {
       return Response.json({ error: "Unable to create customer. Phone may already exist." }, { status: 400 });
@@ -100,6 +114,7 @@ export async function POST(request) {
         where: { id: existing.id },
         data: {
           firstName: body.firstName,
+          tenantId,
           lastName: body.lastName || null,
           phone: String(body.phone),
           email: body.email || null,
@@ -125,6 +140,7 @@ export async function POST(request) {
 
     const customer = await prisma.customer.create({
       data: {
+        tenantId,
         firstName: body.firstName,
         lastName: body.lastName || null,
         phone: String(body.phone),

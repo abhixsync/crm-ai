@@ -1,4 +1,4 @@
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import {
   createRoleDefinition,
   listRoleDefinitions,
@@ -14,7 +14,8 @@ export async function GET() {
   }
 
   try {
-    const roles = await listRoleDefinitions();
+    const tenant = getTenantContext(auth.session);
+    const roles = await listRoleDefinitions(tenant.tenantId);
     return Response.json({ roles });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
@@ -35,8 +36,9 @@ export async function POST(request) {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
     const payload = await request.json();
-    const role = await createRoleDefinition(payload, auth.session.user.id);
+    const role = await createRoleDefinition(payload, auth.session.user.id, tenant.tenantId);
     return Response.json({ role }, { status: 201 });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {

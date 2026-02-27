@@ -1,4 +1,4 @@
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { deleteRoleDefinition, updateRoleDefinition } from "@/lib/users/user-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -11,6 +11,7 @@ export async function PATCH(request, { params }) {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
     const routeParams = await params;
     const roleId = String(routeParams?.roleId || "").trim();
     if (!roleId) {
@@ -18,7 +19,7 @@ export async function PATCH(request, { params }) {
     }
 
     const payload = await request.json();
-    const role = await updateRoleDefinition(roleId, payload, auth.session.user.id);
+    const role = await updateRoleDefinition(roleId, payload, auth.session.user.id, tenant.tenantId);
     return Response.json({ role });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
@@ -39,13 +40,14 @@ export async function DELETE(_request, { params }) {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
     const routeParams = await params;
     const roleId = String(routeParams?.roleId || "").trim();
     if (!roleId) {
       return Response.json({ error: "Role ID is required." }, { status: 400 });
     }
 
-    const result = await deleteRoleDefinition(roleId, auth.session.user.id);
+    const result = await deleteRoleDefinition(roleId, auth.session.user.id, tenant.tenantId);
     return Response.json(result);
   } catch (error) {
     if (isDatabaseUnavailable(error)) {

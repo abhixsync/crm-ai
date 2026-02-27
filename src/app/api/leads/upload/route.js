@@ -1,7 +1,7 @@
 import { CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseCustomerExcel } from "@/lib/server/excel";
-import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -15,6 +15,13 @@ export async function POST(request) {
   }
 
   const formData = await request.formData();
+  const tenant = getTenantContext(auth.session);
+  const tenantId = tenant.tenantId;
+
+  if (!tenantId) {
+    return Response.json({ error: "Tenant context required." }, { status: 400 });
+  }
+
   const file = formData.get("file");
 
   if (!file) {
@@ -34,25 +41,34 @@ export async function POST(request) {
     }
 
     try {
-      const customer = await prisma.customer.upsert({
-        where: { phone: row.phone },
-        create: {
-          ...row,
-          status: CustomerStatus.NEW,
-        },
-        update: {
-          firstName: row.firstName,
-          lastName: row.lastName,
-          email: row.email,
-          city: row.city,
-          state: row.state,
-          source: row.source,
-          loanType: row.loanType,
-          loanAmount: row.loanAmount,
-          monthlyIncome: row.monthlyIncome,
-          notes: row.notes,
-        },
-      });
+      const existing = await prisma.customer.findFirst({ where: { tenantId, phone: row.phone } });
+      let customer;
+
+      if (existing) {
+        customer = await prisma.customer.update({
+          where: { id: existing.id },
+          data: {
+            firstName: row.firstName,
+            lastName: row.lastName,
+            email: row.email,
+            city: row.city,
+            state: row.state,
+            source: row.source,
+            loanType: row.loanType,
+            loanAmount: row.loanAmount,
+            monthlyIncome: row.monthlyIncome,
+            notes: row.notes,
+          },
+        });
+      } else {
+        customer = await prisma.customer.create({
+          data: {
+            tenantId,
+            ...row,
+            status: CustomerStatus.NEW,
+          },
+        });
+      }
 
       try {
         await enqueueCustomerIfEligible(customer.id, "excel_upload");
@@ -73,6 +89,7 @@ export async function POST(request) {
   try {
     await prisma.leadUpload.create({
       data: {
+        tenantId,
         fileName: file.name,
         totalRows: rows.length,
         successRows,

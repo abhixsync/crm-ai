@@ -1,4 +1,4 @@
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import {
   createUser,
   listUsers,
@@ -14,7 +14,8 @@ export async function GET() {
   }
 
   try {
-    const users = await listUsers();
+    const tenant = getTenantContext(auth.session);
+    const users = await listUsers(tenant.isSuperAdmin ? undefined : tenant.tenantId);
     return Response.json({ users });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
@@ -35,8 +36,9 @@ export async function POST(request) {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
     const payload = await request.json();
-    const user = await createUser(payload, auth.session.user.id);
+    const user = await createUser(payload, auth.session.user.id, tenant.tenantId);
     return Response.json({ user }, { status: 201 });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {

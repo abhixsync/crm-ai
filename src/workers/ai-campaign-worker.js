@@ -49,7 +49,7 @@ function workerRuntimeMetadata(extra = {}) {
 const worker = new Worker(
   AI_CAMPAIGN_QUEUE,
   async (job) => {
-    const { customerId } = job.data;
+    const { customerId, tenantId } = job.data;
 
     await updateCampaignJob(job, {
       status: CampaignJobStatus.ACTIVE,
@@ -83,6 +83,7 @@ const worker = new Worker(
       where: {
         createdAt: { gte: todayStart },
         mode: "AI",
+        ...(tenantId ? { tenantId } : {}),
       },
     });
 
@@ -97,7 +98,12 @@ const worker = new Worker(
       return result;
     }
 
-    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        ...(tenantId ? { tenantId } : {}),
+      },
+    });
 
     if (!customer) {
       const result = { skipped: true, reason: "customer_not_found" };
@@ -134,6 +140,7 @@ const worker = new Worker(
     } catch (error) {
       await scheduleRetryForFailure({
         customerId,
+        tenantId: customer?.tenantId || tenantId || null,
         failureCode: "failed",
         errorMessage: error?.message || "worker_failure",
       });

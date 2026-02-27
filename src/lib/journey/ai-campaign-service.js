@@ -40,6 +40,7 @@ async function stateToPending(state) {
       lastContactedAt: new Date(),
     },
     idempotencyScope: { stage: "pending", customerId: state.customer.id },
+    tenantId: state.customer.tenantId,
   });
   return state;
 }
@@ -47,6 +48,7 @@ async function stateToPending(state) {
 async function stateToCalling(state) {
   const createdCall = await prisma.callLog.create({
     data: {
+      tenantId: state.customer.tenantId,
       customerId: state.customer.id,
       status: CallStatus.INITIATED,
       mode: "AI",
@@ -66,6 +68,7 @@ async function stateToCalling(state) {
       lastContactedAt: new Date(),
     },
     idempotencyScope: { stage: "calling", customerId: state.customer.id, callLogId: createdCall.id },
+    tenantId: state.customer.tenantId,
   });
 
   return {
@@ -106,8 +109,8 @@ async function runCall(state) {
     vonageFallbackUrl: `${baseUrl}/api/vonage/voice/fallback`,
   });
 
-  await prisma.callLog.update({
-    where: { id: state.callLogId },
+  await prisma.callLog.updateMany({
+    where: { id: state.callLogId, tenantId: state.customer.tenantId },
     data: {
       providerCallId: telephonyOutput.result.providerCallId,
       telephonyProviderUsed: telephonyOutput.provider.name,

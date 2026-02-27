@@ -1,4 +1,4 @@
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { bulkCreateUsers } from "@/lib/users/user-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -11,9 +11,10 @@ export async function POST(request) {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
     const payload = await request.json();
     const rows = Array.isArray(payload?.rows) ? payload.rows : [];
-    const result = await bulkCreateUsers(rows, auth.session.user.id);
+    const result = await bulkCreateUsers(rows, auth.session.user.id, tenant.tenantId);
     return Response.json(result);
   } catch (error) {
     if (isDatabaseUnavailable(error)) {

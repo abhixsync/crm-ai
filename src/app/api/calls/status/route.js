@@ -53,12 +53,12 @@ export async function POST(request) {
 
     const callLog = await prisma.callLog.findFirst({
       where: { providerCallId: String(callSid) },
-      select: { id: true, customerId: true, mode: true },
+      select: { id: true, customerId: true, mode: true, tenantId: true },
     });
 
     if (callLog) {
-      await prisma.callLog.update({
-        where: { id: callLog.id },
+      await prisma.callLog.updateMany({
+        where: { id: callLog.id, tenantId: callLog.tenantId },
         data: {
           status: mappedStatus,
           durationSecs: duration ? Number(duration) : undefined,
@@ -91,10 +91,12 @@ export async function POST(request) {
             providerCallId: String(callSid),
             failureStatus: normalizedProviderStatus,
           },
+          tenantId: callLog.tenantId,
         });
 
         await scheduleRetryForFailure({
           customerId: callLog.customerId,
+          tenantId: callLog.tenantId,
           failureCode: normalizedProviderStatus,
           errorMessage: `Telephony callback reported ${normalizedProviderStatus}`,
         });

@@ -11,8 +11,13 @@ export function calculateBackoffMs(retryCount) {
   return Math.min(delay, 4 * 60 * 60 * 1000);
 }
 
-export async function scheduleRetryForFailure({ customerId, failureCode, errorMessage }) {
-  const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+export async function scheduleRetryForFailure({ customerId, tenantId, failureCode, errorMessage }) {
+  const customer = await prisma.customer.findFirst({
+    where: {
+      id: customerId,
+      ...(tenantId ? { tenantId } : {}),
+    },
+  });
 
   if (!customer || customer.archivedAt) {
     return { scheduled: false, reason: "customer_not_found" };
@@ -36,6 +41,7 @@ export async function scheduleRetryForFailure({ customerId, failureCode, errorMe
         errorReason: errorMessage || normalizedFailure,
       },
       idempotencyScope: { normalizedFailure, errorMessage, terminal: true },
+      tenantId: customer.tenantId,
     });
 
     return { scheduled: false, reason: "non_retryable" };
@@ -63,6 +69,7 @@ export async function scheduleRetryForFailure({ customerId, failureCode, errorMe
         attemptNumber: nextRetryCount,
       },
       idempotencyScope: { normalizedFailure, errorMessage, maxed: true, nextRetryCount },
+      tenantId: customer.tenantId,
     });
 
     return { scheduled: false, reason: "max_retries_reached", retryCount: nextRetryCount };
@@ -83,6 +90,7 @@ export async function scheduleRetryForFailure({ customerId, failureCode, errorMe
       lastContactedAt: new Date(),
     },
     idempotencyScope: { normalizedFailure, nextRetryCount, nextFollowUpAt: nextFollowUpAt.toISOString() },
+    tenantId: customer.tenantId,
   });
 
   const executionMode = resolveAutomationExecutionMode(settings);
@@ -98,6 +106,7 @@ export async function scheduleRetryForFailure({ customerId, failureCode, errorMe
 
   const queueResult = await enqueueAICampaignJob({
     customerId,
+    tenantId: customer.tenantId,
     reason: "retry",
     delayMs,
   });
@@ -123,6 +132,7 @@ export async function scheduleRetryForFailure({ customerId, failureCode, errorMe
       inActiveCall: false,
     },
     idempotencyScope: { toPendingAfterRetry: true, nextRetryCount, nextFollowUpAt: nextFollowUpAt.toISOString() },
+    tenantId: customer.tenantId,
   });
 
   return {

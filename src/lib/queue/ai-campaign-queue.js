@@ -81,7 +81,7 @@ async function getQueue() {
   return queueInstance;
 }
 
-export async function enqueueAICampaignJob({ customerId, reason = "automation", delayMs = 0 }) {
+export async function enqueueAICampaignJob({ customerId, tenantId, reason = "automation", delayMs = 0 }) {
   const queue = await getQueue();
 
   if (!queue) {
@@ -97,7 +97,7 @@ export async function enqueueAICampaignJob({ customerId, reason = "automation", 
 
     const job = await queue.add(
       "customer-call",
-      { customerId, reason },
+      { customerId, tenantId: tenantId || null, reason },
       {
         delay: Math.max(0, Number(delayMs || 0)),
         jobId: `ai-campaign-${customerId}-${normalizedReason}-${Date.now()}`,

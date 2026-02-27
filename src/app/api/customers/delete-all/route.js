@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/server/auth-guard";
+import { getTenantContext, requireSession } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function DELETE() {
@@ -11,6 +11,13 @@ export async function DELETE() {
   }
 
   try {
+    const tenant = getTenantContext(auth.session);
+    const tenantId = tenant.tenantId;
+
+    if (!tenantId) {
+      return Response.json({ error: "Tenant context required." }, { status: 400 });
+    }
+
     const [
       callResult,
       followUpResult,
@@ -18,11 +25,11 @@ export async function DELETE() {
       campaignJobResult,
       customerResult,
     ] = await prisma.$transaction([
-      prisma.callLog.deleteMany({}),
-      prisma.followUpTask.deleteMany({}),
-      prisma.customerTransition.deleteMany({}),
-      prisma.campaignJob.deleteMany({}),
-      prisma.customer.deleteMany({}),
+      prisma.callLog.deleteMany({ where: { tenantId } }),
+      prisma.followUpTask.deleteMany({ where: { customer: { tenantId } } }),
+      prisma.customerTransition.deleteMany({ where: { customer: { tenantId } } }),
+      prisma.campaignJob.deleteMany({ where: { customer: { tenantId } } }),
+      prisma.customer.deleteMany({ where: { tenantId } }),
     ]);
 
     return Response.json({
