@@ -1,20 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useTheme } from "@/core/theme/useTheme";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { theme } = useTheme();
+  const [theme, setTheme] = useState({ loginBackgroundUrl: null });
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Fetch public theme data for login background
+    const fetchPublicTheme = async () => {
+      try {
+        const response = await fetch("/api/theme/public");
+        const data = await response.json();
+        if (data.theme) {
+          setTheme(data.theme);
+        }
+      } catch (error) {
+        console.error("Failed to fetch public theme:", error);
+      }
+    };
+    fetchPublicTheme();
+  }, []);
 
   async function onSubmit(event) {
     event.preventDefault();

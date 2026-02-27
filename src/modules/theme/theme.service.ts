@@ -16,6 +16,7 @@ export type ActiveTheme = {
   logoUrl: string | null;
   faviconUrl: string | null;
   loginBackgroundUrl: string | null;
+  applicationBackgroundUrl: string | null;
   tenantId: string | null;
   source: "default" | "tenant";
   updatedAt: string | null;
@@ -28,6 +29,7 @@ export type ThemeUpdatePayload = {
   logoUrl?: string | null;
   faviconUrl?: string | null;
   loginBackgroundUrl?: string | null;
+  applicationBackgroundUrl?: string | null;
 };
 
 const DEFAULT_THEME: ActiveTheme = {
@@ -37,6 +39,7 @@ const DEFAULT_THEME: ActiveTheme = {
   logoUrl: null,
   faviconUrl: null,
   loginBackgroundUrl: null,
+  applicationBackgroundUrl: null,
   tenantId: null,
   source: "default",
   updatedAt: null,
@@ -68,6 +71,7 @@ function normalizeTheme(theme: any, tenantId: string | null): ActiveTheme {
     logoUrl: theme.logoUrl || null,
     faviconUrl: theme.faviconUrl || null,
     loginBackgroundUrl: theme.loginBackgroundUrl || null,
+    applicationBackgroundUrl: theme.applicationBackgroundUrl || null,
     tenantId,
     source: "tenant",
     updatedAt: theme.updatedAt ? new Date(theme.updatedAt).toISOString() : null,
@@ -182,6 +186,8 @@ export async function updateTenantTheme(tenantId: string, payload: ThemeUpdatePa
     faviconUrl: payload.faviconUrl !== undefined ? payload.faviconUrl : existing?.faviconUrl || null,
     loginBackgroundUrl:
       payload.loginBackgroundUrl !== undefined ? payload.loginBackgroundUrl : existing?.loginBackgroundUrl || null,
+    applicationBackgroundUrl:
+      payload.applicationBackgroundUrl !== undefined ? payload.applicationBackgroundUrl : existing?.applicationBackgroundUrl || null,
     isActive: true,
   };
 

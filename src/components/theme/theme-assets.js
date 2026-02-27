@@ -9,17 +9,34 @@ export function ThemeAssets() {
   const { theme } = useTheme();
 
   useEffect(() => {
-    // Update favicon
-    if (theme.faviconUrl) {
+    const applyFavicon = (url) => {
+      if (!url) return;
       let link = document.querySelector("link[rel='icon']");
       if (!link) {
         link = document.createElement("link");
         link.rel = "icon";
         document.head.appendChild(link);
       }
-      link.href = theme.faviconUrl;
+      link.href = url;
+    };
+
+    if (theme.faviconUrl) {
+      applyFavicon(theme.faviconUrl);
+      return;
     }
 
+    const fetchPublicTheme = async () => {
+      try {
+        const response = await fetch("/api/theme/public", { cache: "no-store" });
+        const data = await response.json();
+        applyFavicon(data?.theme?.faviconUrl || null);
+      } catch {}
+    };
+
+    fetchPublicTheme();
+  }, [theme.faviconUrl]);
+
+  useEffect(() => {
     // Update title
     if (session?.user) {
       // Try to get CRM name from settings or use tenant name
@@ -38,7 +55,7 @@ export function ThemeAssets() {
       };
       updateTitle();
     }
-  }, [theme.faviconUrl, session]);
+  }, [session]);
 
   return null;
 }

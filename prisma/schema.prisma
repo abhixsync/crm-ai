@@ -106,6 +106,7 @@ model TenantTheme {
   logoUrl              String?
   faviconUrl           String?
   loginBackgroundUrl   String?
+  applicationBackgroundUrl String?
   isActive             Boolean  @default(true)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

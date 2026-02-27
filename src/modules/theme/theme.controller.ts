@@ -68,6 +68,7 @@ export async function uploadThemeAssetController(
   if (assetKey === "logo") patch.logoUrl = url;
   if (assetKey === "favicon") patch.faviconUrl = url;
   if (assetKey === "loginBackground") patch.loginBackgroundUrl = url;
+  if (assetKey === "applicationBackground") patch.applicationBackgroundUrl = url;
 
   if (Object.keys(patch).length === 0) {
     return Response.json({ error: "Unsupported assetKey." }, { status: 400 });

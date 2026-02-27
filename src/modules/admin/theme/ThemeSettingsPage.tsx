@@ -108,7 +108,7 @@ export function ThemeSettingsPage() {
     }
   }
 
-  async function uploadAsset(assetKey: "logo" | "favicon" | "loginBackground", file: File | null) {
+  async function uploadAsset(assetKey: "logo" | "favicon" | "loginBackground" | "applicationBackground", file: File | null) {
     if (!file || !canManage || !selectedTenantId) return;
 
     setUploading(true);
@@ -138,7 +138,7 @@ export function ThemeSettingsPage() {
     }
   }
 
-  async function clearAsset(assetKey: "logo" | "favicon" | "loginBackground") {
+  async function clearAsset(assetKey: "logo" | "favicon" | "loginBackground" | "applicationBackground") {
     if (!canManage || !selectedTenantId) return;
 
     setSaving(true);
@@ -147,6 +147,7 @@ export function ThemeSettingsPage() {
       if (assetKey === "logo") patch.logoUrl = null;
       if (assetKey === "favicon") patch.faviconUrl = null;
       if (assetKey === "loginBackground") patch.loginBackgroundUrl = null;
+      if (assetKey === "applicationBackground") patch.applicationBackgroundUrl = null;
 
       const response = await fetch("/api/admin/theme", {
         method: "PUT",
@@ -237,7 +238,7 @@ export function ThemeSettingsPage() {
             </label>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="space-y-1 text-sm text-slate-700">
               <span>Logo</span>
               {theme.logoUrl && (
@@ -285,6 +286,22 @@ export function ThemeSettingsPage() {
                 </div>
               )}
               <Input type="file" accept="image/*" disabled={!canManage || uploading} onChange={(event) => uploadAsset("loginBackground", event.target.files?.[0] || null)} />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span>Application Background</span>
+              {theme.applicationBackgroundUrl && (
+                <div className="mb-2 flex items-center gap-2">
+                  <img src={theme.applicationBackgroundUrl} alt="Current application background" className="h-12 w-20 border rounded object-cover" />
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => clearAsset("applicationBackground")}
+                    disabled={!canManage || saving}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              )}
+              <Input type="file" accept="image/*" disabled={!canManage || uploading} onChange={(event) => uploadAsset("applicationBackground", event.target.files?.[0] || null)} />
             </label>
           </div>
 

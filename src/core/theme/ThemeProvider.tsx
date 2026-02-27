@@ -10,6 +10,7 @@ export type TenantTheme = {
   logoUrl?: string | null;
   faviconUrl?: string | null;
   loginBackgroundUrl?: string | null;
+  applicationBackgroundUrl?: string | null;
   source?: "default" | "tenant";
   tenantId?: string | null;
   updatedAt?: string | null;
@@ -30,6 +31,7 @@ const DEFAULT_THEME: TenantTheme = {
   logoUrl: null,
   faviconUrl: null,
   loginBackgroundUrl: null,
+  applicationBackgroundUrl: null,
   source: "default",
   tenantId: null,
   updatedAt: null,
@@ -47,6 +49,13 @@ function applyThemeVariables(theme: TenantTheme) {
   root.style.setProperty("--color-primary", theme.primaryColor || DEFAULT_THEME.primaryColor);
   root.style.setProperty("--color-secondary", theme.secondaryColor || DEFAULT_THEME.secondaryColor);
   root.style.setProperty("--color-accent", theme.accentColor || DEFAULT_THEME.accentColor);
+  
+  // Apply application background
+  if (theme.applicationBackgroundUrl) {
+    root.style.setProperty("--bg-application", `url(${theme.applicationBackgroundUrl})`);
+  } else {
+    root.style.setProperty("--bg-application", "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)");
+  }
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
