@@ -24,7 +24,7 @@ export async function POST(request) {
     const customer = await prisma.customer.findFirst({
       where: {
         id: customerId,
-        ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }),
+        tenantId: tenant.tenantId,
       },
     });
     if (!customer || customer.archivedAt) {

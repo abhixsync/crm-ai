@@ -20,7 +20,7 @@ export async function GET(request) {
     const tenant = getTenantContext(auth.session);
     const callLogs = await prisma.callLog.findMany({
       where: {
-        ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }),
+        tenantId: tenant.tenantId,
         ...(customerId ? { customerId } : {}),
         customer: {
           archivedAt: null,

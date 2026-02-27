@@ -24,7 +24,7 @@ export async function PATCH(request, { params }) {
     // Fetch the target user to check role
     const { prisma } = await import("@/lib/prisma");
     const targetUser = await prisma.user.findFirst({
-      where: { id: userId, ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }) },
+      where: { id: userId, tenantId: tenant.tenantId },
     });
     if (!targetUser) {
       return Response.json({ error: "User not found." }, { status: 404 });
@@ -73,7 +73,7 @@ export async function DELETE(_request, { params }) {
     // Fetch the target user to check role
     const { prisma } = await import("@/lib/prisma");
     const targetUser = await prisma.user.findFirst({
-      where: { id: userId, ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }) },
+      where: { id: userId, tenantId: tenant.tenantId },
     });
     if (!targetUser) {
       return Response.json({ error: "User not found." }, { status: 404 });

@@ -125,7 +125,7 @@ export function AccountSettingsPage() {
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">
-            CRM Name Override
+            CRM Name
           </label>
           <Input
             value={crmName}

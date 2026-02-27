@@ -42,10 +42,9 @@ export async function POST(request) {
   let customer;
   let callLog;
   const tenant = getTenantContext(auth.session);
-  const tenantWhere = tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId };
 
   try {
-    customer = await prisma.customer.findFirst({ where: { id: customerId, ...tenantWhere } });
+    customer = await prisma.customer.findFirst({ where: { id: customerId, tenantId: tenant.tenantId } });
 
     if (!customer) {
       return Response.json({ error: "Customer not found" }, { status: 404 });

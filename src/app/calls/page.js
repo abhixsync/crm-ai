@@ -27,11 +27,10 @@ export default async function CallsPage() {
   }
 
   const tenant = getTenantContext(session);
-  const tenantFilter = tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId };
 
   const callLogs = await prisma.callLog.findMany({
     where: {
-      ...tenantFilter,
+      tenantId: tenant.tenantId,
       customer: {
         archivedAt: null,
       },
@@ -52,7 +51,7 @@ export default async function CallsPage() {
 
   const customers = await prisma.customer.findMany({
     where: {
-      ...tenantFilter,
+      tenantId: tenant.tenantId,
       archivedAt: null,
       phone: { not: "" },
     },
