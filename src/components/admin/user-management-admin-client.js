@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -85,6 +85,7 @@ export function UserManagementAdminClient() {
   const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [showUserForm, setShowUserForm] = useState(false);
   const [showRoleForm, setShowRoleForm] = useState(false);
+  const [userCreationMode, setUserCreationMode] = useState("manual");
   const [userForm, setUserForm] = useState(EMPTY_USER_FORM);
   const [roleForm, setRoleForm] = useState(EMPTY_ROLE_FORM);
   const [bulkCsv, setBulkCsv] = useState(BULK_TEMPLATE);
@@ -521,6 +522,7 @@ export function UserManagementAdminClient() {
   function startCreateUser() {
     setSelectedUserId("");
     setShowUserForm(true);
+    setUserCreationMode("manual");
     setUserForm((prev) => ({
       ...EMPTY_USER_FORM,
       roleKey: prev.roleKey || roles[0]?.key || "",
@@ -535,6 +537,7 @@ export function UserManagementAdminClient() {
 
   function closeUserDialog() {
     setShowUserForm(false);
+    setUserCreationMode("manual");
     setSelectedUserId("");
   }
 
@@ -720,113 +723,148 @@ export function UserManagementAdminClient() {
         </CardContent>
       </Card>
 
-      <Modal
-        open={showUserForm}
-        onClose={closeUserDialog}
-        title={selectedUserId ? "Edit User" : "Add User"}
-        description={selectedUserId ? "Update existing user details and access." : "Create a new user with role and access overrides."}
-        ariaLabel="User dialog"
-        dialogRef={userDialogRef}
-      >
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Name</span>
-                  <Input value={userForm.name} onChange={(event) => updateUserForm("name", event.target.value)} />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Email</span>
-                  <Input type="email" value={userForm.email} onChange={(event) => updateUserForm("email", event.target.value)} />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Password {selectedUserId ? "(optional)" : ""}</span>
-                  <Input type="password" value={userForm.password} onChange={(event) => updateUserForm("password", event.target.value)} />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Role</span>
-                  <RoleSelect
-                    roles={roles.filter((role) => role.active)}
-                    value={userForm.roleKey}
-                    onChange={(event) => updateUserForm("roleKey", event.target.value)}
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Active</span>
-                  <select
-                    className="h-9 w-full rounded-md border border-slate-300/90 bg-white px-3 text-sm text-slate-900"
-                    value={userForm.isActive ? "yes" : "no"}
-                    onChange={(event) => updateUserForm("isActive", event.target.value === "yes")}
-                  >
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </select>
-                </label>
+      {showUserForm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+          onClick={closeUserDialog}
+          role="dialog"
+          aria-modal="true"
+          aria-label="User dialog"
+        >
+          <div
+            ref={userDialogRef}
+            className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">{selectedUserId ? "Edit User" : "Add User"}</h3>
+              <div className="flex flex-wrap gap-2">
+                {!selectedUserId ? (
+                  <>
+                    <Button variant={userCreationMode === "manual" ? "default" : "secondary"} onClick={() => setUserCreationMode("manual")}>
+                      Manual Entry
+                    </Button>
+                    <Button variant={userCreationMode === "upload" ? "default" : "secondary"} onClick={() => setUserCreationMode("upload")}>
+                      Bulk Upload
+                    </Button>
+                  </>
+                ) : null}
+                <Button variant="secondary" className="h-9 w-9 px-0" aria-label="Close dialog" title="Close" onClick={closeUserDialog}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
+            </div>
 
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Permission Overrides (CSV)</span>
-                  <Input
-                    value={userForm.permissions}
-                    placeholder="customers:read, customers:write"
-                    onChange={(event) => updateUserForm("permissions", event.target.value)}
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Module Overrides (CSV)</span>
-                  <Input
-                    value={userForm.modules}
-                    placeholder="dashboard, automation"
-                    onChange={(event) => updateUserForm("modules", event.target.value)}
-                  />
-                </label>
-              </div>
-
-              <label className="mt-3 block space-y-2">
-                <span className="text-sm font-medium text-slate-700">Feature Toggle Overrides (JSON)</span>
+            {userCreationMode === "upload" && !selectedUserId ? (
+              <div>
+                <p className="mb-2 text-sm text-slate-600">Upload users in CSV format. Use comma as column separator and pipe | inside modules/permissions.</p>
                 <textarea
-                  className="min-h-[90px] w-full rounded-md border border-slate-300/90 bg-white p-3 text-sm text-slate-900"
-                  value={userForm.featureToggles}
-                  onChange={(event) => updateUserForm("featureToggles", event.target.value)}
-                  placeholder='{"canBulkUserActions": true}'
+                  className="min-h-[180px] w-full rounded-md border border-slate-300/90 bg-white p-3 text-sm text-slate-900"
+                  value={bulkCsv}
+                  onChange={(event) => setBulkCsv(event.target.value)}
                 />
-              </label>
-
-              {selectedRole ? (
-                <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                  <p><span className="font-semibold">Role Template:</span> {selectedRole.name} ({selectedRole.key})</p>
-                  <p className="mt-1"><span className="font-semibold">Base Role:</span> {selectedRole.baseRole}</p>
-                  <p className="mt-1"><span className="font-semibold">Modules:</span> {toCsv(selectedRole.modules || []) || "-"}</p>
-                  <p className="mt-1"><span className="font-semibold">Permissions:</span> {toCsv(selectedRole.permissions || []) || "-"}</p>
-                  <p className="mt-1"><span className="font-semibold">Feature Toggles:</span> {JSON.stringify(selectedRole.featureToggles || {})}</p>
+                <div className="mt-3 flex gap-2">
+                  <Button onClick={runBulkUpload} disabled={bulkRunning}>{bulkRunning ? "Uploading..." : "Run Bulk Upload"}</Button>
                 </div>
-              ) : null}
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {selectedUserId ? (
-                  <Button onClick={updateSelectedUser} disabled={savingUser}>{savingUser ? "Saving..." : "Update User"}</Button>
-                ) : (
-                  <Button onClick={createUser} disabled={savingUser}>{savingUser ? "Saving..." : "Create User"}</Button>
-                )}
-                <Button variant="secondary" onClick={closeUserDialog}>Cancel</Button>
               </div>
-
-              {!selectedUserId ? (
-                <div className="mt-6 rounded-md border border-slate-200 p-4">
-                  <h4 className="text-sm font-semibold text-slate-800">Bulk User Upload</h4>
-                  <p className="mt-1 text-xs text-slate-600">
-                    Upload users in CSV format. Use comma as column separator and pipe | inside modules/permissions.
-                  </p>
-                  <textarea
-                    className="mt-3 min-h-[180px] w-full rounded-md border border-slate-300/90 bg-white p-3 text-sm text-slate-900"
-                    value={bulkCsv}
-                    onChange={(event) => setBulkCsv(event.target.value)}
-                  />
-                  <div className="mt-3 flex gap-2">
-                    <Button onClick={runBulkUpload} disabled={bulkRunning}>{bulkRunning ? "Uploading..." : "Run Bulk Upload"}</Button>
-                  </div>
+            ) : (
+              <>
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-slate-700">Name</span>
+                    <Input value={userForm.name} onChange={(event) => updateUserForm("name", event.target.value)} />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-slate-700">Email</span>
+                    <Input type="email" value={userForm.email} onChange={(event) => updateUserForm("email", event.target.value)} />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-slate-700">Password {selectedUserId ? "(optional)" : ""}</span>
+                    <Input type="password" value={userForm.password} onChange={(event) => updateUserForm("password", event.target.value)} />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-slate-700">Role</span>
+                    <RoleSelect
+                      roles={roles.filter((role) => role.active)}
+                      value={userForm.roleKey}
+                      onChange={(event) => updateUserForm("roleKey", event.target.value)}
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-slate-700">Active</span>
+                    <select
+                      className="h-9 w-full rounded-md border border-slate-300/90 bg-white px-3 text-sm text-slate-900"
+                      value={userForm.isActive ? "yes" : "no"}
+                      onChange={(event) => updateUserForm("isActive", event.target.value === "yes")}
+                    >
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </label>
                 </div>
-              ) : null}
-      </Modal>
+
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-slate-700">Permission Overrides (CSV)</span>
+                    <Input
+                      value={userForm.permissions}
+                      placeholder="customers:read, customers:write"
+                      onChange={(event) => updateUserForm("permissions", event.target.value)}
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-slate-700">Module Overrides (CSV)</span>
+                    <Input
+                      value={userForm.modules}
+                      placeholder="dashboard, automation"
+                      onChange={(event) => updateUserForm("modules", event.target.value)}
+                    />
+                  </label>
+                </div>
+
+                <label className="mt-3 block space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Feature Toggle Overrides (JSON)</span>
+                  <textarea
+                    className="min-h-[90px] w-full rounded-md border border-slate-300/90 bg-white p-3 text-sm text-slate-900"
+                    value={userForm.featureToggles}
+                    onChange={(event) => updateUserForm("featureToggles", event.target.value)}
+                    placeholder='{"canBulkUserActions": true}'
+                  />
+                </label>
+
+                {selectedRole ? (
+                  <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                    <p><span className="font-semibold">Role Template:</span> {selectedRole.name} ({selectedRole.key})</p>
+                    <p className="mt-1"><span className="font-semibold">Base Role:</span> {selectedRole.baseRole}</p>
+                    <p className="mt-1"><span className="font-semibold">Modules:</span> {toCsv(selectedRole.modules || []) || "-"}</p>
+                    <p className="mt-1"><span className="font-semibold">Permissions:</span> {toCsv(selectedRole.permissions || []) || "-"}</p>
+                    <p className="mt-1"><span className="font-semibold">Feature Toggles:</span> {JSON.stringify(selectedRole.featureToggles || {})}</p>
+                  </div>
+                ) : null}
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {selectedUserId ? (
+                    <Button onClick={updateSelectedUser} disabled={savingUser}>{savingUser ? "Saving..." : "Update User"}</Button>
+                  ) : (
+                    <Button onClick={createUser} disabled={savingUser}>{savingUser ? "Saving..." : "Create User"}</Button>
+                  )}
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setUserForm((prev) => ({
+                        ...EMPTY_USER_FORM,
+                        roleKey: prev.roleKey || roles[0]?.key || "",
+                      }));
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <Card>
         <CardHeader>
