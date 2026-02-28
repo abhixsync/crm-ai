@@ -9,7 +9,9 @@ export function Table({ className, ...props }) {
 }
 
 export function TableHeader(props) {
-  return <thead className="border-b" style={{ borderColor: "var(--color-border)" }} {...props} />;
+  return (
+    <thead className="border-b bg-card" style={{ borderColor: "var(--color-border)" }} {...props} />
+  );
 }
 
 export function TableBody(props) {
@@ -17,14 +19,20 @@ export function TableBody(props) {
 }
 
 export function TableRow(props) {
-  return <tr className="border-b transition-colors" style={{ borderColor: "var(--color-border)" }} {...props} />;
+  return (
+    <tr
+      className="border-b transition-colors hover:bg-background"
+      style={{ borderColor: "var(--color-border)" }}
+      {...props}
+    />
+  );
 }
 
 export function TableHead(props) {
   return (
     <th
       className="h-11 px-3.5 text-left align-middle text-sm font-medium tracking-normal"
-      style={{ color: "var(--color-accent)" }}
+      style={{ color: "var(--color-primary-dark)", backgroundColor: "var(--color-border)" }}
       {...props}
     />
   );

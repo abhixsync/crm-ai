@@ -8,8 +8,9 @@ export function Input({ className = undefined, ...props }) {
         className
       )}
       style={{
-        borderColor: "var(--color-secondary)",
-        backgroundColor: "var(--color-surface)",
+        borderWidth: "1px",
+        borderColor: "var(--color-border)",
+        backgroundColor: "var(--color-card)",
         color: "var(--color-text-primary)",
       }}
       {...props}

@@ -19,23 +19,31 @@ export function Button({
   disabled = undefined,
   ...props
 }) {
-  const baseClasses = "inline-flex h-9 items-center justify-center gap-1 rounded-md px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ring-offset-white disabled:cursor-not-allowed disabled:opacity-50";
+  const baseClasses = "inline-flex h-9 items-center justify-center gap-1 rounded-[var(--radius-default)] px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ring-offset-white disabled:cursor-not-allowed disabled:opacity-50";
   const variantClasses = variants[variant];
   
   const style =
     variant === "default"
-      ? { backgroundColor: "var(--color-primary)", color: "#ffffff" }
+      ? {
+          backgroundColor: "var(--color-primary)",
+          color: "#ffffff",
+          boxShadow: "var(--shadow-soft)",
+        }
       : variant === "secondary"
         ? {
-            backgroundColor: "var(--color-secondary)",
+            backgroundColor: "var(--color-card)",
             color: "var(--color-text-primary)",
-            borderColor: "var(--color-secondary)",
+            borderColor: "var(--color-border)",
           }
         : variant === "ghost"
           ? { color: "var(--color-text-primary)" }
           : variant === "accent"
-            ? { backgroundColor: "var(--color-accent)", color: "#ffffff" }
-          : undefined;
+            ? {
+                backgroundColor: "var(--color-accent)",
+                color: "#ffffff",
+                boxShadow: "var(--shadow-soft)",
+              }
+            : undefined;
 
   return (
     <button

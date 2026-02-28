@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 
 const badgeStyles = {
-  NEW: "bg-blue-100 text-blue-700",
-  INTERESTED: "bg-emerald-100 text-emerald-700",
-  FOLLOW_UP: "bg-amber-100 text-amber-700",
+  NEW: "bg-primary/10 text-primary-dark",
+  INTERESTED: "bg-success/10 text-success",
+  FOLLOW_UP: "bg-secondary/10 text-secondary",
   NOT_INTERESTED: "bg-slate-200 text-slate-700",
-  DO_NOT_CALL: "bg-red-100 text-red-700",
-  CONVERTED: "bg-purple-100 text-purple-700",
+  DO_NOT_CALL: "bg-danger/10 text-danger",
+  CONVERTED: "bg-secondary/10 text-secondary",
 };
 
 export function StatusBadge({ value }) {

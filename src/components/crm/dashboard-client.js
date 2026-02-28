@@ -36,11 +36,11 @@ const TERMINAL_CALL_STATUSES = ["COMPLETED", "FAILED", "NO_ANSWER"];
 const SOFTPHONE_PROVIDER_TYPES = ["TWILIO"];
 const STATUS_SELECT_CLASS = {
   NEW: "border-slate-300 bg-slate-50 text-slate-700",
-  INTERESTED: "border-emerald-300 bg-emerald-50 text-emerald-800",
-  FOLLOW_UP: "border-blue-300 bg-blue-50 text-blue-800",
-  NOT_INTERESTED: "border-amber-300 bg-amber-50 text-amber-800",
-  DO_NOT_CALL: "border-rose-300 bg-rose-50 text-rose-800",
-  CONVERTED: "border-teal-300 bg-teal-50 text-teal-800",
+  INTERESTED: "border-success bg-success/10 text-success",
+  FOLLOW_UP: "border-primary bg-primary/10 text-primary",
+  NOT_INTERESTED: "border-secondary bg-secondary/10 text-secondary",
+  DO_NOT_CALL: "border-danger bg-danger/10 text-danger",
+  CONVERTED: "border-secondary bg-secondary/10 text-secondary",
 };
 
 const EMPTY_CUSTOMER_FORM = {
@@ -976,8 +976,8 @@ export function DashboardClient({
           <p className="mt-1 text-sm text-slate-600">Welcome, {user.name} ({user.role})</p>
           {isSuperAdmin ? (
             <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
-              <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${automationHealth?.runtimeOnline ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-rose-300 bg-rose-50 text-rose-700"}`}>
-                {automationHealth?.runtimeKind === "WORKER" ? "Worker" : "Cron"}: {loadingAutomationHealth ? "Checking..." : automationHealth?.runtimeOnline ? "ONLINE" : "OFFLINE"}
+              <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${automationHealth?.runtimeOnline ? "border-success bg-success/10 text-success" : "border-danger bg-danger/10 text-danger"}`>`
+                {automationHealth?.runtimeKind === "WORKER" ? "Worker:" : "Cron:"} {' '}{loadingAutomationHealth ? "Checking..." : (automationHealth?.runtimeOnline ? "ONLINE" : "OFFLINE")}
               </span>
               <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
                 Waiting: {automationHealth?.queue?.waiting ?? 0}
@@ -1031,7 +1031,7 @@ export function DashboardClient({
                 variant="secondary"
                 onClick={() => {
                   if (activeCall.phone) {
-                    window.location.href = `tel:${activeCall.phone}`;
+                    window.location.href = "tel:" + activeCall.phone;
                   }
                 }}
               >
@@ -1057,8 +1057,8 @@ export function DashboardClient({
                 <CardTitle>{aiDialogState.mode === "manual" ? "Web Call" : "AI Call"}</CardTitle>
                 <CardDescription>
                   {aiDialogState.mode === "manual"
-                    ? `Manual softphone flow for ${softphoneCustomerName || "selected customer"}.`
-                    : `Active telephony provider: ${activeTelephonyProvider?.name || "-"}${activeTelephonyProvider?.type ? ` (${activeTelephonyProvider.type})` : ""}`}
+                    ? "Manual softphone flow for " + (softphoneCustomerName || "selected customer") + "."
+                    : "Active telephony provider: " + (activeTelephonyProvider?.name || "-") + (activeTelephonyProvider?.type ? " (" + activeTelephonyProvider.type + ")" : "")}
                 </CardDescription>
               </div>
               <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -1175,7 +1175,7 @@ export function DashboardClient({
             {!loadingActiveTelephony && !activeTelephonyError && activeTelephonyProvider && activeTelephonyProvider.type !== "TWILIO" ? (
               <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
                 Browser softphone is available only when Twilio is the active telephony provider. Current provider is
-                {` ${activeTelephonyProvider.name} (${activeTelephonyProvider.type}). `}
+                " " + activeTelephonyProvider.name + " (" + activeTelephonyProvider.type + "). "
                 Use the customer row Call action for AI calls with this provider.
               </div>
             ) : null}
@@ -1185,28 +1185,28 @@ export function DashboardClient({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="bg-gradient-to-b from-white to-slate-50">
+        <Card>
           <CardHeader>
             <CardDescription>Total Customers</CardDescription>
-            <CardTitle className="text-3xl">{metrics?.totalCustomers ?? 0}</CardTitle>
+            <CardTitle className="text-3xl text-primary-dark">{metrics?.totalCustomers ?? 0}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-gradient-to-b from-white to-slate-50">
+        <Card>
           <CardHeader>
             <CardDescription>Interested Leads</CardDescription>
-            <CardTitle className="text-3xl">{metrics?.interestedCustomers ?? 0}</CardTitle>
+            <CardTitle className="text-3xl text-primary-dark">{metrics?.interestedCustomers ?? 0}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-gradient-to-b from-white to-slate-50">
+        <Card>
           <CardHeader>
             <CardDescription>Follow Ups</CardDescription>
-            <CardTitle className="text-3xl">{metrics?.followUps ?? 0}</CardTitle>
+            <CardTitle className="text-3xl text-primary-dark">{metrics?.followUps ?? 0}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-gradient-to-b from-white to-slate-50">
+        <Card>
           <CardHeader>
             <CardDescription>Total Calls</CardDescription>
-            <CardTitle className="text-3xl">{metrics?.totalCalls ?? 0}</CardTitle>
+            <CardTitle className="text-3xl text-primary-dark">{metrics?.totalCalls ?? 0}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -1281,11 +1281,11 @@ export function DashboardClient({
                     <TableCell>{customer.phone}</TableCell>
                     <TableCell>
                       {customer.loanType || "N/A"}
-                      {customer.loanAmount ? ` • ₹${customer.loanAmount}` : ""}
+                      {customer.loanAmount ? " • ₹" + customer.loanAmount : ""}
                     </TableCell>
                     <TableCell>
                       <Select
-                        className={`h-8 w-full max-w-none font-medium sm:max-w-[180px] ${STATUS_SELECT_CLASS[customer.status] || STATUS_SELECT_CLASS.NEW}`}
+                        className={"h-8 w-full max-w-none font-medium sm:max-w-[180px] " + (STATUS_SELECT_CLASS[customer.status] || STATUS_SELECT_CLASS.NEW)}
                         value={customer.status}
                         onChange={(event) => updateStatus(customer.id, event.target.value)}
                       >

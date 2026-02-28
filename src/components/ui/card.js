@@ -5,12 +5,12 @@ export function Card({ className = undefined, ...props }) {
   return (
     <div
       className={cn(
-        "rounded-xl border p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.06)]",
+        "rounded-[var(--radius-default)] border p-6 shadow-soft",
         className
       )}
       style={{
         borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-surface)",
+        backgroundColor: "var(--color-card)",
         color: "var(--color-text-primary)",
       }}
       {...props}
@@ -23,7 +23,7 @@ export function CardHeader({ className = undefined, ...props }) {
 }
 
 export function CardTitle({ className = undefined, ...props }) {
-  return <h3 className={cn("text-lg font-semibold tracking-tight", className)} style={{ color: "var(--color-accent)" }} {...props} />;
+  return <h3 className={cn("text-lg font-semibold tracking-tight", className)} style={{ color: "var(--color-text-primary)" }} {...props} />;
 }
 
 export function CardDescription({ className = undefined, ...props }) {
