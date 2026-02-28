@@ -14,6 +14,9 @@
     "db:generate": "prisma generate",
     "db:seed": "node prisma/seed.js",
     "db:backfill:campaign-runtime": "node scripts/backfill-campaign-job-runtime.cjs",
+    "theme:assets:generate": "powershell -ExecutionPolicy Bypass -File ./scripts/generate-default-theme-pngs.ps1",
+    "theme:assets:apply": "node ./scripts/apply-default-theme-assets.cjs",
+    "theme:assets:defaults": "npm run theme:assets:generate && npm run theme:assets:apply",
     "postinstall": "prisma generate"
   },
   "prisma": {

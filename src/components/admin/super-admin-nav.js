@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 const SUPER_ADMIN_LINKS = [
+  { href: "/admin/global-appearance", label: "Global Appearance" },
   { href: "/admin/tenants", label: "Tenants" },
   { href: "/admin/user-management", label: "Users" },
 ];

@@ -94,26 +94,76 @@ model Tenant {
 }
 
 //////////////////////////////////////////////////////
-// 🎨 TENANT THEME (WHITE LABEL READY)
+// 🎨 TENANT THEME (ENTERPRISE THEMING SYSTEM)
 //////////////////////////////////////////////////////
 
 model TenantTheme {
   id                   String   @id @default(cuid())
-  tenantId             String
+  tenantId             String?  // NULL for base theme
+  isBaseTheme          Boolean  @default(false)
+  themeName            String   @default("Default Theme")
+
+  // 🎨 Core Colors
   primaryColor         String   @default("#2563eb")
   secondaryColor       String   @default("#64748b")
   accentColor          String   @default("#22c55e")
+  backgroundColor      String   @default("#f8fafc")
+  surfaceColor         String   @default("#ffffff")
+  sidebarColor         String   @default("#ffffff")
+  headerColor          String   @default("#ffffff")
+
+  // 📝 Text Colors
+  textPrimary          String   @default("#0f172a")
+  textSecondary        String   @default("#64748b")
+  borderColor          String   @default("#e2e8f0")
+
+  // ✅ Status Colors
+  successColor         String   @default("#22c55e")
+  warningColor         String   @default("#f59e0b")
+  errorColor           String   @default("#ef4444")
+  infoColor            String   @default("#3b82f6")
+
+  // 🔤 Typography
+  fontFamily           String   @default("Inter, system-ui, sans-serif")
+  fontScale            String   @default("medium") // small, medium, large
+
+  // 📐 Layout & Spacing
+  borderRadius         String   @default("8px")
+  buttonRadius         String   @default("6px")
+  cardRadius           String   @default("8px")
+  inputRadius          String   @default("6px")
+  shadowIntensity      String   @default("medium") // none, light, medium, heavy
+  layoutDensity        String   @default("comfortable") // compact, comfortable, spacious
+
+  // 🧭 Navigation
+  sidebarStyle         String   @default("default") // default, minimal, floating
+  tableStyle           String   @default("default") // default, striped, bordered
+
+  // 🌙 Dark Mode
+  darkMode             Boolean  @default(false)
+
+  // 🖼️ Assets
   logoUrl              String?
   faviconUrl           String?
   loginBackgroundUrl   String?
   applicationBackgroundUrl String?
+
+  // 🎨 Custom CSS
+  customCss            String?
+
+  // 🏷️ Metadata
   isActive             Boolean  @default(true)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  // 🔗 Relations
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
 
-  @@index([tenantId, isActive])
+  // 🗝️ Constraints & Indexes
+  @@unique([tenantId, isBaseTheme]) // Only one theme per tenant, and only one base theme
+  @@index([tenantId])
+  @@index([isBaseTheme])
+  @@index([isActive])
 }
 
 //////////////////////////////////////////////////////

@@ -2,33 +2,34 @@ import { cn } from "@/lib/utils";
 
 export function Table({ className, ...props }) {
   return (
-    <div className="w-full overflow-auto rounded-lg border border-slate-200/80 bg-white">
+    <div className="w-full overflow-auto rounded-lg border" style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}>
       <table className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
   );
 }
 
 export function TableHeader(props) {
-  return <thead className="border-b border-slate-200 bg-slate-50/60" {...props} />;
+  return <thead className="border-b" style={{ borderColor: "var(--color-border)" }} {...props} />;
 }
 
 export function TableBody(props) {
-  return <tbody className="[&_tr:last-child]:border-0 [&_tr:nth-child(even)]:bg-slate-50/40" {...props} />;
+  return <tbody className="[&_tr:last-child]:border-0" {...props} />;
 }
 
 export function TableRow(props) {
-  return <tr className="border-b border-slate-200/80 transition-colors hover:bg-slate-100/70" {...props} />;
+  return <tr className="border-b transition-colors" style={{ borderColor: "var(--color-border)" }} {...props} />;
 }
 
 export function TableHead(props) {
   return (
     <th
-      className="h-11 px-3.5 text-left align-middle text-sm font-medium tracking-normal text-slate-700"
+      className="h-11 px-3.5 text-left align-middle text-sm font-medium tracking-normal"
+      style={{ color: "var(--color-text-secondary)" }}
       {...props}
     />
   );
 }
 
 export function TableCell(props) {
-  return <td className="p-3.5 align-middle text-sm text-slate-800" {...props} />;
+  return <td className="p-3.5 align-middle text-sm" style={{ color: "var(--color-text-primary)" }} {...props} />;
 }

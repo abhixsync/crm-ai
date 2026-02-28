@@ -59,6 +59,26 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+## Theme Default Assets (Logo/Favicon/Backgrounds)
+
+Generate and apply platform default theme assets for all tenants in one command:
+
+```bash
+npm run theme:assets:defaults
+```
+
+This command does two things:
+
+1. Generates PNG assets under `public/theme/defaults/`.
+2. Applies those asset URLs to the base theme and clears tenant-level asset overrides so tenants inherit defaults.
+
+You can also run each step independently:
+
+```bash
+npm run theme:assets:generate
+npm run theme:assets:apply
+```
+
 ## Environment Variables
 
 - Core

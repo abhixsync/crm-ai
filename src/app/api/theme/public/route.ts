@@ -1,21 +1,8 @@
-import { UserRole } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
 import { getActiveTheme, getDefaultTheme } from "@/modules/theme/theme.service";
 
 export async function GET(request: Request) {
   try {
-    const superAdmin = await prisma.user.findFirst({
-      where: {
-        role: UserRole.SUPER_ADMIN,
-        tenantId: { not: null },
-        isActive: true,
-      },
-      select: { tenantId: true },
-      orderBy: { createdAt: "asc" },
-    });
-
-    const baseTenantId = superAdmin?.tenantId ?? null;
-    const theme = await getActiveTheme(baseTenantId);
+    const theme = await getActiveTheme(null);
 
     // Only return public fields
     const publicTheme = {

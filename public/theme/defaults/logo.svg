@@ -1,0 +1,23 @@
+<svg width="480" height="120" viewBox="0 0 480 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="50%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#22C55E"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="200%" height="200%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="104" height="104" rx="24" fill="url(#g1)" filter="url(#shadow)"/>
+  <path d="M36 69C36 48 52 33 73 33H84C88.4 33 92 36.6 92 41V79C92 83.4 88.4 87 84 87H73C52 87 36 90 36 69Z" fill="white" fill-opacity="0.97"/>
+  <path d="M58 62C58 53.7 64.7 47 73 47H78C80.2 47 82 48.8 82 51V71C82 73.2 80.2 75 78 75H73C64.7 75 58 68.3 58 62Z" fill="url(#g2)"/>
+
+  <text x="134" y="58" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="34" font-weight="800" fill="#0F172A">Loan Enterprise</text>
+  <text x="134" y="86" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24" font-weight="600" fill="#475569" letter-spacing="1.2">CRM</text>
+</svg>

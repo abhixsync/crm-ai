@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useTheme } from "@/core/theme/useTheme";
 import { Select } from "@/components/ui/select";
+import { SYSTEM_THEME_DEFAULT } from "@/core/theme/system-defaults";
 
 export function ThemeSettingsPage() {
   const { data: session } = useSession();
@@ -21,6 +22,8 @@ export function ThemeSettingsPage() {
     secondaryColor: "#64748b",
     accentColor: "#22c55e",
   });
+  const [hasCustomizations, setHasCustomizations] = useState(false);
+  const [themeStatus, setThemeStatus] = useState(null);
 
   const canManage = ["ADMIN", "SUPER_ADMIN"].includes((session as any)?.user?.role || "");
   const isSuperAdmin = (session as any)?.user?.role === "SUPER_ADMIN";
@@ -29,7 +32,7 @@ export function ThemeSettingsPage() {
     // Set default tenant for both admin and super admin
     const defaultTenantId = (session as any)?.user?.tenantId || "";
     setSelectedTenantId(defaultTenantId);
-    
+
     if (isSuperAdmin) {
       fetchTenants();
     }
@@ -45,14 +48,23 @@ export function ThemeSettingsPage() {
           const payload = await response.json();
           const loadedTheme = payload?.theme || {
             primaryColor: "#2563eb",
-            secondaryColor: "#64748b", 
-            accentColor: "#22c55e"
+            secondaryColor: "#64748b",
+            accentColor: "#22c55e",
+            source: "default"
           };
+
           setDraft({
             primaryColor: loadedTheme.primaryColor || "#2563eb",
             secondaryColor: loadedTheme.secondaryColor || "#64748b",
             accentColor: loadedTheme.accentColor || "#22c55e",
           });
+
+          // Check if tenant has customizations
+          setHasCustomizations(loadedTheme.source === "tenant");
+
+          // Load theme status
+          await loadThemeStatus();
+
           setThemeOptimistic(loadedTheme);
         } catch (error) {
           console.error("Failed to load theme:", error);
@@ -61,6 +73,21 @@ export function ThemeSettingsPage() {
       loadTheme();
     }
   }, [selectedTenantId, setThemeOptimistic]);
+
+  async function loadThemeStatus() {
+    if (!selectedTenantId) return;
+
+    try {
+      const query = `?tenantId=${encodeURIComponent(selectedTenantId)}`;
+      const response = await fetch(`/api/theme/status${query}`);
+      const data = await response.json();
+      if (response.ok) {
+        setThemeStatus(data.status);
+      }
+    } catch (error) {
+      console.error("Failed to load theme status:", error);
+    }
+  }
 
   async function fetchTenants() {
     try {
@@ -75,9 +102,35 @@ export function ThemeSettingsPage() {
     }
   }
 
-  useEffect(() => {
-    setThemeOptimistic(draft);
-  }, [draft, setThemeOptimistic]);
+  async function resetToDefault() {
+    if (!canManage || !selectedTenantId) return;
+
+    if (!confirm("Are you sure you want to reset this tenant's theme to platform defaults? This will remove all customizations.")) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const query = selectedTenantId ? `?tenantId=${encodeURIComponent(selectedTenantId)}` : "";
+      const response = await fetch(`/api/theme/reset${query}`, {
+        method: "POST",
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to reset theme");
+      }
+
+      await refreshTheme();
+      setHasCustomizations(false);
+      setThemeStatus(prev => prev ? { ...prev, hasCustomTheme: false, canReset: false } : null);
+      toast.success("Theme reset to platform defaults");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reset theme");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function saveTheme() {
     if (!canManage || !selectedTenantId) return;
@@ -198,8 +251,29 @@ export function ThemeSettingsPage() {
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Tenant Theme Settings</CardTitle>
-          <CardDescription>Configure brand colors and assets with live preview.</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                Theme Settings
+                {themeStatus ? (
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    themeStatus.hasCustomTheme
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {themeStatus.hasCustomTheme ? 'Custom Theme' : 'Inherits Platform Default'}
+                  </span>
+                ) : null}
+              </CardTitle>
+              <CardDescription>
+                {themeStatus?.hasCustomTheme
+                  ? `This tenant has custom theme settings that override platform defaults. Last updated: ${themeStatus.updatedAt ? new Date(themeStatus.updatedAt).toLocaleDateString() : 'Unknown'}`
+                  : "This tenant inherits platform default settings. Make changes to customize."
+                }
+              </CardDescription>
+            </div>
+            <div />
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {isSuperAdmin && (
@@ -207,8 +281,8 @@ export function ThemeSettingsPage() {
               <label className="text-sm font-medium text-slate-700">
                 Select Tenant
               </label>
-              <Select
-                className=""
+              <select
+                className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-sm"
                 value={selectedTenantId}
                 onChange={(e) => setSelectedTenantId(e.target.value)}
                 disabled={!canManage}
@@ -219,7 +293,7 @@ export function ThemeSettingsPage() {
                     {tenant.name}
                   </option>
                 ))}
-              </Select>
+              </select>
             </div>
           )}
 
@@ -238,7 +312,7 @@ export function ThemeSettingsPage() {
             </label>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 grid-cols-1">
             <label className="space-y-1 text-sm text-slate-700">
               <span>Logo</span>
               {theme.logoUrl && (
@@ -307,7 +381,7 @@ export function ThemeSettingsPage() {
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={saveTheme} disabled={!canManage || saving || !selectedTenantId}>{saving ? "Saving..." : "Save Theme"}</Button>
-            <Button variant="secondary" onClick={resetDefaultTheme} disabled={!canManage}>Reset to Default</Button>
+            <Button variant="secondary" onClick={resetToDefault} disabled={!canManage || saving || !selectedTenantId || !themeStatus?.canReset}>Reset to Default</Button>
           </div>
         </CardContent>
       </Card>

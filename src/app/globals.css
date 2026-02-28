@@ -6,6 +6,10 @@
   --color-primary: #2563eb;
   --color-secondary: #64748b;
   --color-accent: #22c55e;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #64748b;
 }
 
 @theme inline {
@@ -23,10 +27,44 @@ body {
     color-mix(in oklab, var(--foreground) 6%, var(--background)) 0%,
     var(--background) 45%
   );
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  color: var(--color-text-primary);
+  font-family: var(--font-family, var(--font-geist-sans), Arial, Helvetica, sans-serif);
   line-height: 1.5;
   text-rendering: optimizeLegibility;
+}
+
+/* Theme bridge for existing utility-heavy screens */
+.bg-white,
+.bg-white\/70,
+.bg-white\/80,
+.bg-white\/90 {
+  background-color: var(--color-surface) !important;
+}
+
+.text-slate-900,
+.text-slate-800,
+.text-slate-700,
+.text-gray-900,
+.text-gray-800,
+.text-gray-700 {
+  color: var(--color-text-primary) !important;
+}
+
+.text-slate-600,
+.text-slate-500,
+.text-gray-600,
+.text-gray-500 {
+  color: var(--color-text-secondary) !important;
+}
+
+.border-slate-300,
+.border-slate-200,
+.border-slate-200\/70,
+.border-slate-200\/80,
+.border-slate-300\/90,
+.border-gray-300,
+.border-gray-200 {
+  border-color: var(--color-border) !important;
 }
 
 * {

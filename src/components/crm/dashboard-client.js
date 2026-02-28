@@ -966,18 +966,16 @@ export function DashboardClient({
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-4">
-            {theme.logoUrl && (
-              <img src={theme.logoUrl} alt="Logo" className="h-10 w-auto" />
-            )}
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">{tenantName}</h1>
-              <p className="mt-1 text-sm text-slate-600">Welcome, {user.name} ({user.role})</p>
-            </div>
-          </div>
+        <div className="flex items-center">
+          {theme.logoUrl && (
+            <img src={theme.logoUrl} alt="Logo" className="h-20 w-auto" />
+          )}
+        </div>
+        <div className="flex flex-col items-end justify-end">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{tenantName}</h1>
+          <p className="mt-1 text-sm text-slate-600">Welcome, {user.name} ({user.role})</p>
           {isSuperAdmin ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
               <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${automationHealth?.runtimeOnline ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-rose-300 bg-rose-50 text-rose-700"}`}>
                 {automationHealth?.runtimeKind === "WORKER" ? "Worker" : "Cron"}: {loadingAutomationHealth ? "Checking..." : automationHealth?.runtimeOnline ? "ONLINE" : "OFFLINE"}
               </span>
@@ -993,7 +991,6 @@ export function DashboardClient({
             </div>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2" />
       </div>
 
       {activeCall ? (
