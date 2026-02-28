@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export default function LoginPage() {
   const router = useRouter();
-  const [theme, setTheme] = useState({ loginBackgroundUrl: null });
+  const [theme, setTheme] = useState({ loginBackgroundUrl: null, themeName: null, displayName: null, primaryColor: null, secondaryColor: null, accentColor: null });
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -58,7 +58,9 @@ export default function LoginPage() {
     >
       <Card className="w-full max-w-md">
         <CardHeader className="pb-4">
-          <CardTitle>Sign in to Loan CRM</CardTitle>
+          <CardTitle style={ theme?.accentColor ? { color: theme.accentColor } : undefined }>
+            Sign in to {process.env.APP_NAME || "Loan CRM"}
+          </CardTitle>
           <CardDescription>Use super admin/admin credentials from seed data or your own user.</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
