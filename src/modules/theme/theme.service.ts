@@ -209,6 +209,10 @@ function normalizeTheme(theme: any, tenantId: string | null): ActiveTheme {
 }
 
 async function getRedisClient() {
+  // Allow disabling Redis in development to avoid startup failures
+  if (process.env.DISABLE_REDIS === "true") {
+    return null;
+  }
   if (Date.now() < redisUnavailableUntil) {
     return null;
   }

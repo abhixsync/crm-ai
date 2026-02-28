@@ -4,10 +4,12 @@ const variants = {
   default:
     "text-white shadow-sm hover:opacity-90 focus-visible:ring-primary",
   secondary:
-    "border hover:opacity-90 focus-visible:ring-slate-400",
+    "border hover:opacity-90 focus-visible:ring-secondary",
   ghost: "hover:opacity-90 focus-visible:ring-slate-300",
   destructive:
     "bg-red-600 text-white shadow-sm hover:bg-red-500 focus-visible:ring-red-400",
+  accent:
+    "text-white shadow-sm hover:opacity-90 focus-visible:ring-accent",
 };
 
 export function Button({
@@ -25,12 +27,14 @@ export function Button({
       ? { backgroundColor: "var(--color-primary)", color: "#ffffff" }
       : variant === "secondary"
         ? {
-            backgroundColor: "var(--color-surface)",
+            backgroundColor: "var(--color-secondary)",
             color: "var(--color-text-primary)",
-            borderColor: "var(--color-border)",
+            borderColor: "var(--color-secondary)",
           }
         : variant === "ghost"
           ? { color: "var(--color-text-primary)" }
+          : variant === "accent"
+            ? { backgroundColor: "var(--color-accent)", color: "#ffffff" }
           : undefined;
 
   return (

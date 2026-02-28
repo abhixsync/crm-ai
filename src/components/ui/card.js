@@ -23,7 +23,7 @@ export function CardHeader({ className = undefined, ...props }) {
 }
 
 export function CardTitle({ className = undefined, ...props }) {
-  return <h3 className={cn("text-lg font-semibold tracking-tight", className)} style={{ color: "var(--color-text-primary)" }} {...props} />;
+  return <h3 className={cn("text-lg font-semibold tracking-tight", className)} style={{ color: "var(--color-accent)" }} {...props} />;
 }
 
 export function CardDescription({ className = undefined, ...props }) {

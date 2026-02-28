@@ -24,7 +24,7 @@ export function TableHead(props) {
   return (
     <th
       className="h-11 px-3.5 text-left align-middle text-sm font-medium tracking-normal"
-      style={{ color: "var(--color-text-secondary)" }}
+      style={{ color: "var(--color-accent)" }}
       {...props}
     />
   );

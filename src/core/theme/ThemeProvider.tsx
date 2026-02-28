@@ -93,6 +93,13 @@ function applyThemeVariables(theme: TenantTheme) {
       style.textContent = theme.customCss;
       document.head.appendChild(style);
     }
+    try {
+      // Debug: log applied accent color for troubleshooting
+      // eslint-disable-next-line no-console
+      console.debug("[ThemeProvider] applied accentColor:", theme.accentColor, "--color-accent value:", getComputedStyle(document.documentElement).getPropertyValue("--color-accent"));
+    } catch {
+      // ignore
+    }
   }
 }
 
