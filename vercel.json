@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/ai-campaign",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }
