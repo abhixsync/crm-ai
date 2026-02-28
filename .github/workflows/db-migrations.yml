@@ -1,0 +1,49 @@
+name: DB Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-seed:
+        description: 'Run db seed after migrations'
+        required: false
+        default: 'false'
+      apply-assets:
+        description: 'Run theme assets apply after seed'
+        required: false
+        default: 'false'
+  push:
+    branches:
+      - main
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Prisma migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed DB (optional)
+        if: github.event_name == 'workflow_dispatch' && inputs['run-seed'] == 'true'
+        run: npm run db:seed
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Apply theme assets (optional)
+        if: github.event_name == 'workflow_dispatch' && inputs['apply-assets'] == 'true'
+        run: npm run theme:assets:apply
+        env:
+          NODE_ENV: production
