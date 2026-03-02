@@ -982,8 +982,8 @@ export function DashboardClient({
           filterOptions: STATUS_OPTIONS.map((status) => ({ label: status, value: status })),
         },
         cell: ({ row }) => (
-          <Select
-            className={`h-8 w-full max-w-none font-medium sm:max-w-[180px] ${STATUS_SELECT_CLASS[row.original.status] || STATUS_SELECT_CLASS.NEW}`}
+          <select
+            className={`h-8 w-full max-w-none rounded-md border px-3 text-sm shadow-[0_1px_1px_rgba(15,23,42,0.03)] outline-none ring-offset-white focus-visible:ring-2 sm:max-w-[180px] ${STATUS_SELECT_CLASS[row.original.status] || STATUS_SELECT_CLASS.NEW}`}
             value={row.original.status}
             onChange={(event) => updateStatus(row.original.id, event.target.value)}
           >
@@ -992,7 +992,7 @@ export function DashboardClient({
                 {status}
               </option>
             ))}
-          </Select>
+          </select>
         ),
       },
       {
