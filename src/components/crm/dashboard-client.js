@@ -973,9 +973,14 @@ export function DashboardClient({
         cell: ({ row }) => `${row.original.loanType || "N/A"}${row.original.loanAmount ? ` • ₹${row.original.loanAmount}` : ""}`,
       },
       {
-        id: "status",
+        accessorKey: "status",
         header: "Status",
         enableSorting: false,
+        meta: {
+          label: "Status",
+          filterVariant: "select",
+          filterOptions: STATUS_OPTIONS.map((status) => ({ label: status, value: status })),
+        },
         cell: ({ row }) => (
           <Select
             className={`h-8 w-full max-w-none font-medium sm:max-w-[180px] ${STATUS_SELECT_CLASS[row.original.status] || STATUS_SELECT_CLASS.NEW}`}
@@ -1076,6 +1081,28 @@ export function DashboardClient({
       fetchCustomers(nextPage);
     },
     [fetchCustomers, tablePagination]
+  );
+
+  const tableColumnFilters = useMemo(
+    () => (statusFilter ? [{ id: "status", value: statusFilter }] : []),
+    [statusFilter]
+  );
+
+  const handleTableGlobalFilterChange = useCallback(
+    (updater) => {
+      const nextValue = typeof updater === "function" ? updater(query) : updater;
+      setQuery(String(nextValue || ""));
+    },
+    [query]
+  );
+
+  const handleTableColumnFiltersChange = useCallback(
+    (updater) => {
+      const nextFilters = typeof updater === "function" ? updater(tableColumnFilters) : updater;
+      const nextStatus = nextFilters.find((filter) => filter.id === "status")?.value;
+      setStatusFilter(String(nextStatus || ""));
+    },
+    [tableColumnFilters]
   );
 
   return (
@@ -1348,22 +1375,6 @@ export function DashboardClient({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <Input
-              placeholder="Search by name, phone, email"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="">All Statuses</option>
-              {STATUS_OPTIONS.map((status) => (
-                <option value={status} key={status}>
-                  {status}
-                </option>
-              ))}
-            </Select>
-          </div>
-
           <DataTable
             columns={customersColumns}
             data={customers}
@@ -1374,8 +1385,13 @@ export function DashboardClient({
             pagination={tablePagination}
             onPaginationChange={handleTablePaginationChange}
             pageSizeOptions={[pagination.pageSize || 10]}
-            enableGlobalFilter={false}
-            enableColumnFilters={false}
+            enableGlobalFilter
+            globalFilter={query}
+            onGlobalFilterChange={handleTableGlobalFilterChange}
+            globalFilterPlaceholder="Search by name, phone, email"
+            enableColumnFilters
+            columnFilters={tableColumnFilters}
+            onColumnFiltersChange={handleTableColumnFiltersChange}
           />
 
           <p className="text-sm text-slate-600">

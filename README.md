@@ -86,6 +86,8 @@ npm run theme:assets:apply
 	- `NEXTAUTH_SECRET`
 	- `NEXTAUTH_URL`
 	- `APP_BASE_URL`
+	- `NEXT_PUBLIC_HIDE_DATA_TABLE_COLUMNS_TOGGLE` (`true` to hide DataTable Columns visibility toggle)
+	- `NEXT_PUBLIC_HIDE_DATA_TABLE_FILTERS` (legacy alias for hiding Columns toggle)
 	- `ENABLE_CAMPAIGN_WORKER` (`true` to expose and allow worker mode, otherwise cron-only)
 
 - AI

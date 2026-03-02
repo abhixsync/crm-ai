@@ -44,6 +44,7 @@ export interface DataTableProps<TData, TValue> {
   onGlobalFilterChange?: OnChangeFn<string>;
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+  globalFilterPlaceholder?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -68,6 +69,7 @@ export function DataTable<TData, TValue>({
   onGlobalFilterChange,
   rowSelection,
   onRowSelectionChange,
+  globalFilterPlaceholder,
 }: DataTableProps<TData, TValue>) {
   const [internalPagination, setInternalPagination] = useState<PaginationState>(pagination ?? { pageIndex: 0, pageSize: 10 });
   const [internalSorting, setInternalSorting] = useState<SortingState>([]);
@@ -159,7 +161,11 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <DataTableToolbar table={table} enableGlobalFilter={enableGlobalFilter} />
+      <DataTableToolbar
+        table={table}
+        enableGlobalFilter={enableGlobalFilter}
+        globalFilterPlaceholder={globalFilterPlaceholder}
+      />
 
       <div className="rounded-lg border border-border bg-background">
         <div className="w-full overflow-x-auto" data-virtualization-ready="true">
