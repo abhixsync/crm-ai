@@ -7,17 +7,10 @@ import { Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { DataTable, formatDataTableDate } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { RoleSelect } from "@/components/admin/role-select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 const EMPTY_USER_FORM = {
   name: "",
@@ -674,6 +667,186 @@ export function UserManagementAdminClient() {
     };
   }, [showRoleForm, showUserForm]);
 
+  const userColumns = useMemo(
+    () => [
+      !isAdminOnly
+        ? {
+            id: "select",
+            enableSorting: false,
+            enableHiding: false,
+            header: () => (
+              <input
+                type="checkbox"
+                checked={visibleUsers.length > 0 && selectedUserIds.length === visibleUsers.length}
+                onChange={toggleSelectAllUsers}
+                aria-label="Select all users"
+              />
+            ),
+            cell: ({ row }) => (
+              <input
+                type="checkbox"
+                checked={selectedUserIds.includes(row.original.id)}
+                onChange={() => toggleUserSelection(row.original.id)}
+                aria-label="Select user"
+              />
+            ),
+          }
+        : null,
+      {
+        accessorKey: "name",
+        header: "Name",
+      },
+      {
+        accessorKey: "email",
+        header: "Email",
+      },
+      {
+        id: "role",
+        header: "Role",
+        cell: ({ row }) => row.original.roleKey || row.original.role,
+      },
+      {
+        accessorKey: "isActive",
+        header: "Active",
+        cell: ({ row }) => (row.original.isActive ? "Yes" : "No"),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        enableSorting: false,
+        enableHiding: false,
+        cell: ({ row }) => {
+          const user = row.original;
+          return (
+            <div className="flex flex-wrap gap-2">
+              {!isAdminOnly || user.id === currentUserId || (isAdminOnly && String(user.roleKey || user.role || "").toUpperCase() === "SALES") ? (
+                <Button
+                  className="h-8 px-2 sm:px-3"
+                  variant="secondary"
+                  onClick={() => hydrateUserForm(user)}
+                  aria-label="Edit"
+                  title="Edit"
+                >
+                  <Pencil className="h-3.5 w-3.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Edit</span>
+                </Button>
+              ) : null}
+              {!isAdminOnly || (isAdminOnly && String(user.roleKey || user.role || "").toUpperCase() === "SALES") ? (
+                <Button
+                  className="h-8 px-2 sm:px-3"
+                  variant="destructive"
+                  onClick={() => deleteUserById(user.id)}
+                  disabled={savingUser}
+                  aria-label="Delete"
+                  title="Delete"
+                >
+                  <Trash2 className="h-3.5 w-3.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Delete</span>
+                </Button>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ].filter(Boolean),
+    [
+      currentUserId,
+      isAdminOnly,
+      savingUser,
+      selectedUserIds,
+      visibleUsers.length,
+    ]
+  );
+
+  const roleColumns = useMemo(
+    () => [
+      { accessorKey: "name", header: "Name" },
+      { accessorKey: "key", header: "Key" },
+      { accessorKey: "baseRole", header: "Base Role" },
+      {
+        accessorKey: "isSystem",
+        header: "System",
+        cell: ({ row }) => (row.original.isSystem ? "Yes" : "No"),
+      },
+      {
+        accessorKey: "active",
+        header: "Active",
+        cell: ({ row }) => (row.original.active ? "Yes" : "No"),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        enableSorting: false,
+        enableHiding: false,
+        cell: ({ row }) => {
+          const role = row.original;
+          return (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                className="h-8 px-2 sm:px-3"
+                variant="secondary"
+                onClick={() => hydrateRoleForm(role)}
+                disabled={role.isSystem}
+                aria-label="Edit"
+                title={role.isSystem ? "System roles cannot be edited" : "Edit"}
+              >
+                <Pencil className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">Edit</span>
+              </Button>
+              <Button
+                className="h-8 px-2 sm:px-3"
+                variant="destructive"
+                onClick={() => deleteRoleById(role.id)}
+                disabled={savingRole || role.isSystem}
+                aria-label="Delete"
+                title={role.isSystem ? "System roles cannot be deleted" : "Delete"}
+              >
+                <Trash2 className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">Delete</span>
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [savingRole]
+  );
+
+  const auditColumns = useMemo(
+    () => [
+      {
+        accessorKey: "createdAt",
+        header: "Time",
+        cell: ({ row }) => formatDataTableDate(row.original.createdAt),
+      },
+      {
+        accessorKey: "action",
+        header: "Action",
+      },
+      {
+        id: "actor",
+        header: "Actor",
+        cell: ({ row }) => row.original.actor?.name || row.original.actor?.email || "System",
+      },
+      {
+        id: "target",
+        header: "Target",
+        cell: ({ row }) => row.original.targetUser?.email || "-",
+      },
+      {
+        id: "details",
+        header: "Details",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <pre className="max-w-[420px] whitespace-pre-wrap text-[11px] text-muted-foreground">
+            {JSON.stringify(row.original.metadata || {}, null, 2)}
+          </pre>
+        ),
+      },
+    ],
+    []
+  );
+
   return (
     <div className="space-y-6">
       <Card>
@@ -694,79 +867,14 @@ export function UserManagementAdminClient() {
         <CardContent className="space-y-4">
           {loading ? <p className="text-sm text-slate-600">Loading users...</p> : null}
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {!isAdminOnly ? (
-                  <TableHead className="w-10">
-                    <input
-                      type="checkbox"
-                      checked={visibleUsers.length > 0 && selectedUserIds.length === visibleUsers.length}
-                      onChange={toggleSelectAllUsers}
-                    />
-                  </TableHead>
-                ) : null}
-                <TableHead className="min-w-[180px]">Name</TableHead>
-                <TableHead className="min-w-[220px]">Email</TableHead>
-                <TableHead className="min-w-[140px]">Role</TableHead>
-                <TableHead className="min-w-[100px]">Active</TableHead>
-                <TableHead className="min-w-[180px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!loading && visibleUsers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={isAdminOnly ? 5 : 6}>No users found.</TableCell>
-                </TableRow>
-              ) : null}
-              {visibleUsers.map((user) => (
-                <TableRow key={user.id}>
-                  {!isAdminOnly ? (
-                    <TableCell>
-                      <input
-                        type="checkbox"
-                        checked={selectedUserIds.includes(user.id)}
-                        onChange={() => toggleUserSelection(user.id)}
-                      />
-                    </TableCell>
-                  ) : null}
-                  <TableCell>{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.roleKey || user.role}</TableCell>
-                  <TableCell>{user.isActive ? "Yes" : "No"}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      {!isAdminOnly || user.id === currentUserId || (isAdminOnly && String(user.roleKey || user.role || "").toUpperCase() === "SALES") ? (
-                        <Button
-                          className="h-8 px-2 sm:px-3"
-                          variant="secondary"
-                          onClick={() => hydrateUserForm(user)}
-                          aria-label="Edit"
-                          title="Edit"
-                        >
-                          <Pencil className="h-3.5 w-3.5 sm:mr-1" />
-                          <span className="hidden sm:inline">Edit</span>
-                        </Button>
-                      ) : null}
-                      {!isAdminOnly || (isAdminOnly && String(user.roleKey || user.role || "").toUpperCase() === "SALES") ? (
-                        <Button
-                          className="h-8 px-2 sm:px-3"
-                          variant="destructive"
-                          onClick={() => deleteUserById(user.id)}
-                          disabled={savingUser}
-                          aria-label="Delete"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 sm:mr-1" />
-                          <span className="hidden sm:inline">Delete</span>
-                        </Button>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={userColumns}
+            data={visibleUsers}
+            isLoading={loading}
+            emptyMessage="No users found."
+            enableGlobalFilter
+            enableColumnFilters={false}
+          />
 
           {!isAdminOnly ? (
             <div className="flex flex-wrap gap-2">
@@ -956,60 +1064,13 @@ export function UserManagementAdminClient() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[180px]">Name</TableHead>
-                <TableHead className="min-w-[120px]">Key</TableHead>
-                <TableHead className="min-w-[140px]">Base Role</TableHead>
-                <TableHead className="min-w-[100px]">System</TableHead>
-                <TableHead className="min-w-[100px]">Active</TableHead>
-                <TableHead className="min-w-[180px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {roles.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6}>No roles found.</TableCell>
-                </TableRow>
-              ) : null}
-              {roles.map((role) => (
-                <TableRow key={role.id}>
-                  <TableCell>{role.name}</TableCell>
-                  <TableCell>{role.key}</TableCell>
-                  <TableCell>{role.baseRole}</TableCell>
-                  <TableCell>{role.isSystem ? "Yes" : "No"}</TableCell>
-                  <TableCell>{role.active ? "Yes" : "No"}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        className="h-8 px-2 sm:px-3"
-                        variant="secondary"
-                        onClick={() => hydrateRoleForm(role)}
-                        disabled={role.isSystem}
-                        aria-label="Edit"
-                        title={role.isSystem ? "System roles cannot be edited" : "Edit"}
-                      >
-                        <Pencil className="h-3.5 w-3.5 sm:mr-1" />
-                        <span className="hidden sm:inline">Edit</span>
-                      </Button>
-                      <Button
-                        className="h-8 px-2 sm:px-3"
-                        variant="destructive"
-                        onClick={() => deleteRoleById(role.id)}
-                        disabled={savingRole || role.isSystem}
-                        aria-label="Delete"
-                        title={role.isSystem ? "System roles cannot be deleted" : "Delete"}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 sm:mr-1" />
-                        <span className="hidden sm:inline">Delete</span>
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={roleColumns}
+            data={roles}
+            emptyMessage="No roles found."
+            enableGlobalFilter
+            enableColumnFilters={false}
+          />
 
         </CardContent>
       </Card>
@@ -1102,37 +1163,13 @@ export function UserManagementAdminClient() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-md border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-3 py-2 text-left font-semibold text-slate-700">Time</th>
-                  <th className="px-3 py-2 text-left font-semibold text-slate-700">Action</th>
-                  <th className="px-3 py-2 text-left font-semibold text-slate-700">Actor</th>
-                  <th className="px-3 py-2 text-left font-semibold text-slate-700">Target</th>
-                  <th className="px-3 py-2 text-left font-semibold text-slate-700">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {logs.map((log) => (
-                  <tr key={log.id}>
-                    <td className="whitespace-nowrap px-3 py-2 text-slate-700">{new Date(log.createdAt).toLocaleString()}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-slate-700">{log.action}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-slate-700">{log.actor?.name || log.actor?.email || "System"}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-slate-700">{log.targetUser?.email || "-"}</td>
-                    <td className="px-3 py-2 text-slate-700">
-                      <pre className="max-w-[420px] whitespace-pre-wrap text-[11px]">{JSON.stringify(log.metadata || {}, null, 2)}</pre>
-                    </td>
-                  </tr>
-                ))}
-                {logs.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-4 text-sm text-slate-500" colSpan={5}>No audit entries yet.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={auditColumns}
+            data={logs}
+            emptyMessage="No audit entries yet."
+            enableGlobalFilter
+            enableColumnFilters={false}
+          />
         </CardContent>
       </Card>
       ) : null}

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
 
 const STATUS_OPTIONS = [
@@ -170,14 +171,111 @@ export function AutomationSettingsAdminClient() {
     }
   }
 
-  function goToJobPage(nextPage) {
-    fetchRecentJobs(nextPage, jobPagination.pageSize);
-  }
+  const jobColumns = useMemo(
+    () => [
+      {
+        id: "customer",
+        header: "Customer",
+        cell: ({ row }) => (
+          row.original.customer
+            ? `${row.original.customer.firstName || ""} ${row.original.customer.lastName || ""}`.trim() || row.original.customer.id
+            : "-"
+        ),
+      },
+      {
+        id: "customerDetails",
+        header: "Customer Details",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const job = row.original;
+          if (!job.customer) return "-";
 
-  function changeJobPageSize(nextPageSize) {
-    const parsed = Number(nextPageSize);
-    const safeSize = Number.isNaN(parsed) ? 25 : Math.min(Math.max(parsed, 5), 100);
-    fetchRecentJobs(1, safeSize);
+          return (
+            <details className="group">
+              <summary className="cursor-pointer text-sm text-foreground underline-offset-2 group-open:font-semibold">View</summary>
+              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <div><span className="font-medium">ID:</span> {job.customer.id}</div>
+                <div><span className="font-medium">Phone:</span> {job.customer.phone || "-"}</div>
+                <div><span className="font-medium">Email:</span> {job.customer.email || "-"}</div>
+                <div><span className="font-medium">City/State:</span> {job.customer.city || "-"} / {job.customer.state || "-"}</div>
+                <div><span className="font-medium">Source:</span> {job.customer.source || "-"}</div>
+                <div><span className="font-medium">Loan:</span> {job.customer.loanType || "-"}</div>
+                <div><span className="font-medium">Loan Amount:</span> {job.customer.loanAmount ?? "-"}</div>
+                <div><span className="font-medium">Monthly Income:</span> {job.customer.monthlyIncome ?? "-"}</div>
+                <div><span className="font-medium">Status:</span> {job.customer.status || "-"}</div>
+                <div><span className="font-medium">Retries:</span> {job.customer.retryCount ?? 0} / {job.customer.maxRetries ?? 0}</div>
+                <div><span className="font-medium">In Active Call:</span> {job.customer.inActiveCall ? "Yes" : "No"}</div>
+                <div><span className="font-medium">Next Follow-up:</span> {formatDateTime(job.customer.nextFollowUpAt)}</div>
+                <div><span className="font-medium">Manual Review:</span> {job.customer.manualReview ? "Yes" : "No"}</div>
+                <div><span className="font-medium">Last Contacted:</span> {formatDateTime(job.customer.lastContactedAt)}</div>
+                <div><span className="font-medium">Assignee:</span> {job.customer.assignedTo?.name || job.customer.assignedTo?.email || "-"}</div>
+              </div>
+            </details>
+          );
+        },
+      },
+      {
+        accessorKey: "reason",
+        header: "Reason",
+      },
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <span title={getCampaignStatusTooltip(row.original)}>{getCampaignStatusLabel(row.original)}</span>
+        ),
+      },
+      {
+        id: "jobDetails",
+        header: "Job Details",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const job = row.original;
+          return (
+            <details className="group">
+              <summary className="cursor-pointer text-sm text-foreground underline-offset-2 group-open:font-semibold">View</summary>
+              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <div><span className="font-medium">Status:</span> {job.status || "-"}</div>
+                <div><span className="font-medium">Runtime:</span> {getJobRuntime(job)}</div>
+                <div><span className="font-medium">Skip Reason:</span> {getCampaignStatusTooltip(job) || "-"}</div>
+                <div><span className="font-medium">Error:</span> {job.errorMessage || "-"}</div>
+                <div className="mt-2">
+                  <span className="font-medium">Result:</span>
+                  <pre className="mt-1 whitespace-pre-wrap rounded bg-muted p-2 text-[11px]">{formatJson(job.result)}</pre>
+                </div>
+                <div className="mt-2">
+                  <span className="font-medium">Metadata:</span>
+                  <pre className="mt-1 whitespace-pre-wrap rounded bg-muted p-2 text-[11px]">{formatJson(job.metadata)}</pre>
+                </div>
+              </div>
+            </details>
+          );
+        },
+      },
+      {
+        accessorKey: "enqueuedAt",
+        header: "Enqueued",
+        cell: ({ row }) => formatDateTime(row.original.enqueuedAt),
+      },
+      {
+        accessorKey: "updatedAt",
+        header: "Updated",
+        cell: ({ row }) => formatDateTime(row.original.updatedAt),
+      },
+    ],
+    []
+  );
+
+  const jobsTablePagination = useMemo(
+    () => ({ pageIndex: Math.max((jobPagination.page || 1) - 1, 0), pageSize: jobPagination.pageSize || 10 }),
+    [jobPagination.page, jobPagination.pageSize]
+  );
+
+  function onJobsTablePaginationChange(updater) {
+    const next = typeof updater === "function" ? updater(jobsTablePagination) : updater;
+    const nextPage = (next.pageIndex ?? 0) + 1;
+    const nextPageSize = next.pageSize ?? jobPagination.pageSize;
+    fetchRecentJobs(nextPage, nextPageSize);
   }
 
   async function fetchAutomationHealth() {
@@ -482,133 +580,23 @@ export function AutomationSettingsAdminClient() {
             <p className="text-sm text-slate-600">No campaign jobs found yet.</p>
           ) : null}
           {!loadingJobs && jobs.length > 0 ? (
-            <div className="overflow-x-auto rounded-md border border-slate-200">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Customer</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Customer Details</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Reason</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Status</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Job Details</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Enqueued</th>
-                    <th className="px-3 py-2 text-left font-semibold text-slate-700">Updated</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {jobs.map((job) => (
-                    <tr key={job.id}>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                        {job.customer
-                          ? `${job.customer.firstName || ""} ${job.customer.lastName || ""}`.trim() || job.customer.id
-                          : "-"}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                        {job.customer ? (
-                          <details className="group">
-                            <summary className="cursor-pointer text-sm text-slate-700 underline-offset-2 group-open:font-semibold">
-                              View
-                            </summary>
-                            <div className="mt-2 space-y-1 text-xs text-slate-600">
-                              <div><span className="font-medium">ID:</span> {job.customer.id}</div>
-                              <div><span className="font-medium">Phone:</span> {job.customer.phone || "-"}</div>
-                              <div><span className="font-medium">Email:</span> {job.customer.email || "-"}</div>
-                              <div><span className="font-medium">City/State:</span> {job.customer.city || "-"} / {job.customer.state || "-"}</div>
-                              <div><span className="font-medium">Source:</span> {job.customer.source || "-"}</div>
-                              <div><span className="font-medium">Loan:</span> {job.customer.loanType || "-"}</div>
-                              <div><span className="font-medium">Loan Amount:</span> {job.customer.loanAmount ?? "-"}</div>
-                              <div><span className="font-medium">Monthly Income:</span> {job.customer.monthlyIncome ?? "-"}</div>
-                              <div><span className="font-medium">Status:</span> {job.customer.status || "-"}</div>
-                              <div><span className="font-medium">Retries:</span> {job.customer.retryCount ?? 0} / {job.customer.maxRetries ?? 0}</div>
-                              <div><span className="font-medium">In Active Call:</span> {job.customer.inActiveCall ? "Yes" : "No"}</div>
-                              <div><span className="font-medium">Next Follow-up:</span> {formatDateTime(job.customer.nextFollowUpAt)}</div>
-                              <div><span className="font-medium">Manual Review:</span> {job.customer.manualReview ? "Yes" : "No"}</div>
-                              <div><span className="font-medium">Last Contacted:</span> {formatDateTime(job.customer.lastContactedAt)}</div>
-                              <div><span className="font-medium">Assignee:</span> {job.customer.assignedTo?.name || job.customer.assignedTo?.email || "-"}</div>
-                            </div>
-                          </details>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">{job.reason}</td>
-                      <td
-                        className="whitespace-nowrap px-3 py-2 text-slate-700"
-                        title={getCampaignStatusTooltip(job)}
-                      >
-                        {getCampaignStatusLabel(job)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                        <details className="group">
-                          <summary className="cursor-pointer text-sm text-slate-700 underline-offset-2 group-open:font-semibold">
-                            View
-                          </summary>
-                          <div className="mt-2 space-y-1 text-xs text-slate-600">
-                            <div><span className="font-medium">Status:</span> {job.status || "-"}</div>
-                            <div><span className="font-medium">Runtime:</span> {getJobRuntime(job)}</div>
-                            <div><span className="font-medium">Skip Reason:</span> {getCampaignStatusTooltip(job) || "-"}</div>
-                            <div><span className="font-medium">Error:</span> {job.errorMessage || "-"}</div>
-                            <div className="mt-2">
-                              <span className="font-medium">Result:</span>
-                              <pre className="mt-1 whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px]">
-                                {formatJson(job.result)}
-                              </pre>
-                            </div>
-                            <div className="mt-2">
-                              <span className="font-medium">Metadata:</span>
-                              <pre className="mt-1 whitespace-pre-wrap rounded bg-slate-50 p-2 text-[11px]">
-                                {formatJson(job.metadata)}
-                              </pre>
-                            </div>
-                          </div>
-                        </details>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                        {formatDateTime(job.enqueuedAt)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                        {formatDateTime(job.updatedAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={jobColumns}
+              data={jobs}
+              serverSide
+              pageCount={jobPagination.totalPages || 1}
+              pagination={jobsTablePagination}
+              onPaginationChange={onJobsTablePaginationChange}
+              pageSizeOptions={[10, 25, 50, 100]}
+              isLoading={loadingJobs}
+              emptyMessage="No campaign jobs found yet."
+              enableGlobalFilter
+              enableColumnFilters={false}
+            />
           ) : null}
-          {!loadingJobs && jobPagination.totalPages > 1 ? (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm text-slate-600">
-                Page {jobPagination.page} of {jobPagination.totalPages} · {jobPagination.total} jobs
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                  Page size
-                  <select
-                    className="h-8 rounded-md border border-slate-300/90 bg-white px-2 text-sm text-slate-900"
-                    value={jobPagination.pageSize}
-                    onChange={(event) => changeJobPageSize(event.target.value)}
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </label>
-                <Button
-                  variant="secondary"
-                  onClick={() => goToJobPage(Math.max(1, jobPagination.page - 1))}
-                  disabled={jobPagination.page <= 1 || loadingJobs}
-                >
-                  Prev
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => goToJobPage(Math.min(jobPagination.totalPages, jobPagination.page + 1))}
-                  disabled={jobPagination.page >= jobPagination.totalPages || loadingJobs}
-                >
-                  Next
-                </Button>
-              </div>
+          {!loadingJobs ? (
+            <div className="text-sm text-slate-600">
+              Page {jobPagination.page} of {jobPagination.totalPages} · {jobPagination.total} jobs
             </div>
           ) : null}
         </div>

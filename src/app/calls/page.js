@@ -4,15 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/server/auth-guard";
 import { CallsAiCallPanel } from "@/components/calls/calls-ai-call-panel";
+import { CallsHistoryTable } from "@/components/calls/calls-history-table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 function formatCustomerName(customer) {
   if (!customer) return "Unknown";
@@ -92,52 +85,7 @@ export default async function CallsPage() {
           <CardDescription>Showing latest 100 calls.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[200px]">Customer</TableHead>
-                  <TableHead className="min-w-[120px]">Status</TableHead>
-                  <TableHead className="min-w-[260px]">Summary</TableHead>
-                  <TableHead className="min-w-[160px]">Intent</TableHead>
-                  <TableHead className="min-w-[220px]">Next Action</TableHead>
-                  <TableHead className="min-w-[220px]">Transcript</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {callLogs.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6}>No call logs available yet.</TableCell>
-                  </TableRow>
-                )}
-
-                {callLogs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>
-                      <div className="font-medium text-slate-800">{formatCustomerName(log.customer)}</div>
-                      <div className="text-xs text-slate-500">{log.customer?.phone || ""}</div>
-                    </TableCell>
-                    <TableCell>{log.status}</TableCell>
-                    <TableCell>{log.summary || "-"}</TableCell>
-                    <TableCell>{log.intent || "-"}</TableCell>
-                    <TableCell>{log.nextAction || "-"}</TableCell>
-                    <TableCell>
-                      {log.transcript ? (
-                        <details className="max-w-[360px]">
-                          <summary className="cursor-pointer text-slate-700 underline underline-offset-2">View transcript</summary>
-                          <pre className="mt-2 max-h-52 overflow-auto whitespace-pre-wrap rounded-md bg-slate-50 p-2 text-xs text-slate-700">
-                            {log.transcript}
-                          </pre>
-                        </details>
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <CallsHistoryTable callLogs={callLogs} />
         </CardContent>
       </Card>
     </main>

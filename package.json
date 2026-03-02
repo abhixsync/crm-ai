@@ -29,6 +29,7 @@
     "@elevenlabs/elevenlabs-js": "^2.36.0",
     "@langchain/langgraph": "^0.2.74",
     "@prisma/client": "6.16.2",
+    "@tanstack/react-table": "^8.21.3",
     "@twilio/voice-sdk": "^2.18.0",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.58.1",

@@ -1,20 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable, formatDataTableDate } from "@/components/data-table";
 
 const EMPTY_FORM = {
   name: "",
@@ -172,6 +165,87 @@ export function TenantsAdminClient() {
 
   const showCreateAdminFields = form.existingAdminUserId === CREATE_NEW_ADMIN_OPTION;
 
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ row }) => row.original.name,
+      },
+      {
+        accessorKey: "slug",
+        header: "Slug",
+      },
+      {
+        accessorKey: "isActive",
+        header: "Active",
+        cell: ({ row }) => (row.original.isActive ? "Yes" : "No"),
+      },
+      {
+        id: "admins",
+        header: "Admins",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const tenant = row.original;
+          if (!Array.isArray(tenant.users) || tenant.users.length === 0) {
+            return <span className="text-xs text-muted-foreground">No assigned admin</span>;
+          }
+
+          return (
+            <div className="space-y-1">
+              {tenant.users.map((admin) => (
+                <p key={admin.id} className="text-xs text-muted-foreground">
+                  {(admin.name || "Unnamed")} ({admin.email}){admin.isActive ? "" : " • inactive"}
+                </p>
+              ))}
+            </div>
+          );
+        },
+      },
+      {
+        id: "users",
+        header: "Users",
+        cell: ({ row }) => row.original?._count?.users ?? 0,
+      },
+      {
+        id: "customers",
+        header: "Customers",
+        cell: ({ row }) => row.original?._count?.customers ?? 0,
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Created",
+        cell: ({ row }) => formatDataTableDate(row.original.createdAt),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        enableSorting: false,
+        enableHiding: false,
+        cell: ({ row }) => {
+          const tenant = row.original;
+          return (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" className="h-8 px-2 sm:px-3" onClick={() => openEditDialog(tenant)}>
+                <Pencil className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">Edit</span>
+              </Button>
+              <Button
+                variant={tenant.isActive ? "destructive" : "secondary"}
+                className="h-8 px-2 sm:px-3"
+                onClick={() => toggleTenantActive(tenant)}
+                disabled={saving}
+              >
+                {tenant.isActive ? "Deactivate" : "Activate"}
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [saving]
+  );
+
   async function toggleTenantActive(tenant) {
     setSaving(true);
     try {
@@ -211,67 +285,14 @@ export function TenantsAdminClient() {
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? <p className="text-sm text-slate-600">Loading tenants...</p> : null}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[200px]">Name</TableHead>
-                <TableHead className="min-w-[180px]">Slug</TableHead>
-                <TableHead className="min-w-[100px]">Active</TableHead>
-                <TableHead className="min-w-[220px]">Admins</TableHead>
-                <TableHead className="min-w-[100px]">Users</TableHead>
-                <TableHead className="min-w-[120px]">Customers</TableHead>
-                <TableHead className="min-w-[180px]">Created</TableHead>
-                <TableHead className="min-w-[180px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!loading && tenants.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8}>No tenants found.</TableCell>
-                </TableRow>
-              ) : null}
-              {tenants.map((tenant) => (
-                <TableRow key={tenant.id}>
-                  <TableCell>{tenant.name}</TableCell>
-                  <TableCell>{tenant.slug}</TableCell>
-                  <TableCell>{tenant.isActive ? "Yes" : "No"}</TableCell>
-                  <TableCell>
-                    {Array.isArray(tenant.users) && tenant.users.length > 0 ? (
-                      <div className="space-y-1">
-                        {tenant.users.map((admin) => (
-                          <p key={admin.id} className="text-xs text-slate-700">
-                            {(admin.name || "Unnamed")} ({admin.email}){admin.isActive ? "" : " • inactive"}
-                          </p>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-500">No assigned admin</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{tenant?._count?.users ?? 0}</TableCell>
-                  <TableCell>{tenant?._count?.customers ?? 0}</TableCell>
-                  <TableCell>{tenant.createdAt ? new Date(tenant.createdAt).toLocaleString() : "-"}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="secondary" className="h-8 px-2 sm:px-3" onClick={() => openEditDialog(tenant)}>
-                        <Pencil className="h-3.5 w-3.5 sm:mr-1" />
-                        <span className="hidden sm:inline">Edit</span>
-                      </Button>
-                      <Button
-                        variant={tenant.isActive ? "destructive" : "secondary"}
-                        className="h-8 px-2 sm:px-3"
-                        onClick={() => toggleTenantActive(tenant)}
-                        disabled={saving}
-                      >
-                        {tenant.isActive ? "Deactivate" : "Activate"}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={columns}
+            data={tenants}
+            isLoading={loading}
+            emptyMessage="No tenants found."
+            enableGlobalFilter
+            enableColumnFilters={false}
+          />
         </CardContent>
       </Card>
 

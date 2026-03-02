@@ -8,14 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable, DataTableStatusBadge } from "@/components/data-table";
 
 const PROVIDER_TYPES = ["OPENAI", "DIALOGFLOW", "RASA", "GENERIC_HTTP"];
 
@@ -305,6 +298,142 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
     setTestingAllConnections(false);
   }
 
+  const connectionColumns = useMemo(
+    () => [
+      {
+        id: "provider",
+        header: "Provider",
+        cell: ({ row }) => (
+          <div>
+            {row.original.provider?.name}
+            {row.original.provider?.isActive ? (
+              <p className="text-xs font-semibold text-primary">Active</p>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        id: "type",
+        header: "Type",
+        cell: ({ row }) => row.original.provider?.type,
+      },
+      {
+        id: "priority",
+        header: "Priority",
+        cell: ({ row }) => row.original.provider?.priority,
+      },
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <span className={row.original.ok ? "text-primary" : "text-destructive"}>
+            {row.original.ok ? "PASS" : "FAIL"}
+          </span>
+        ),
+      },
+      {
+        id: "latency",
+        header: "Latency",
+        cell: ({ row }) => `${row.original.latencyMs} ms`,
+      },
+      {
+        id: "details",
+        header: "Details",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">{row.original.ok ? row.original.message : row.original.error}</span>
+        ),
+      },
+    ],
+    []
+  );
+
+  const providerColumns = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ row }) => (
+          <div>
+            <p className="text-sm text-foreground">{row.original.name}</p>
+            {row.original.isActive ? <p className="mt-1 text-xs font-semibold text-primary">Active</p> : null}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "type",
+        header: "Type",
+      },
+      {
+        accessorKey: "priority",
+        header: "Priority",
+      },
+      {
+        id: "timeout",
+        header: "Timeout",
+        cell: ({ row }) => `${row.original.timeoutMs || 12000} ms`,
+      },
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => <DataTableStatusBadge value={row.original.isActive ? "ACTIVE" : "INACTIVE"} />,
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        enableSorting: false,
+        enableHiding: false,
+        cell: ({ row }) => {
+          const provider = row.original;
+          return (
+            <div>
+              <div className="flex min-w-[340px] flex-wrap gap-2">
+                <Button
+                  variant="secondary"
+                  className="h-8"
+                  onClick={() => openEditModal(provider)}
+                >
+                  <Pencil className="mr-1 h-3.5 w-3.5" />
+                  Edit
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="h-8"
+                  onClick={() => testProviderConnection(provider.id)}
+                  disabled={testingConnectionId === provider.id}
+                >
+                  <PlugZap className="mr-1 h-3.5 w-3.5" />
+                  {testingConnectionId === provider.id ? "Testing..." : "Test Connection"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="h-8"
+                  onClick={() => deleteProvider(provider.id)}
+                  disabled={deletingId === provider.id}
+                >
+                  <Trash2 className="mr-1 h-3.5 w-3.5" />
+                  {deletingId === provider.id ? "Deleting..." : "Delete"}
+                </Button>
+              </div>
+              {connectionResults[provider.id] ? (
+                <p
+                  className={`mt-2 text-xs ${
+                    connectionResults[provider.id].ok ? "text-primary" : "text-destructive"
+                  }`}
+                >
+                  {connectionResults[provider.id].ok
+                    ? `✓ ${connectionResults[provider.id].message} (${connectionResults[provider.id].latencyMs} ms)`
+                    : `✕ ${connectionResults[provider.id].error || "Connectivity check failed."}`}
+                </p>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ],
+    [connectionResults, deletingId, testingConnectionId]
+  );
+
   return (
     <main className={embedded ? "space-y-4" : "mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8"}>
       {!embedded ? (
@@ -337,40 +466,14 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
           </div>
 
           {allConnectionResults.length ? (
-            <div className="mt-4 overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[180px]">Provider</TableHead>
-                    <TableHead className="min-w-[120px]">Type</TableHead>
-                    <TableHead className="min-w-[90px]">Priority</TableHead>
-                    <TableHead className="min-w-[110px]">Status</TableHead>
-                    <TableHead className="min-w-[90px]">Latency</TableHead>
-                    <TableHead className="min-w-[320px]">Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allConnectionResults.map((result) => (
-                    <TableRow key={result.provider?.id || result.provider?.name}>
-                      <TableCell>
-                        {result.provider?.name}
-                        {result.provider?.isActive ? (
-                          <p className="text-xs font-semibold text-emerald-700">Active</p>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>{result.provider?.type}</TableCell>
-                      <TableCell>{result.provider?.priority}</TableCell>
-                      <TableCell className={result.ok ? "text-emerald-700" : "text-rose-700"}>
-                        {result.ok ? "PASS" : "FAIL"}
-                      </TableCell>
-                      <TableCell>{result.latencyMs} ms</TableCell>
-                      <TableCell className="text-xs text-slate-700">
-                        {result.ok ? result.message : result.error}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="mt-4">
+              <DataTable
+                columns={connectionColumns}
+                data={allConnectionResults}
+                enableGlobalFilter
+                enableColumnFilters={false}
+                pageSizeOptions={[5, 10, 20, 50]}
+              />
             </div>
           ) : null}
         </CardContent>
@@ -397,100 +500,14 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[180px]">Name</TableHead>
-                  <TableHead className="min-w-[140px]">Type</TableHead>
-                  <TableHead className="min-w-[110px]">Priority</TableHead>
-                  <TableHead className="min-w-[120px]">Timeout</TableHead>
-                  <TableHead className="min-w-[120px]">Status</TableHead>
-                  <TableHead className="min-w-[360px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6}>Loading provider configs...</TableCell>
-                  </TableRow>
-                ) : null}
-
-                {!loading && orderedProviders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6}>No AI providers configured.</TableCell>
-                  </TableRow>
-                ) : null}
-
-                {!loading &&
-                  orderedProviders.map((provider) => (
-                    <TableRow key={provider.id}>
-                      <TableCell>
-                        <p className="text-sm text-slate-900">{provider.name}</p>
-                        {provider.isActive ? (
-                          <p className="mt-1 text-xs font-semibold text-emerald-700">Active</p>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>{provider.type}</TableCell>
-                      <TableCell>{provider.priority}</TableCell>
-                      <TableCell>{provider.timeoutMs || 12000} ms</TableCell>
-                      <TableCell>
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                            provider.isActive
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {provider.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex min-w-[340px] flex-wrap gap-2">
-                          <Button
-                            variant="secondary"
-                            className="h-8"
-                            onClick={() => openEditModal(provider)}
-                          >
-                            <Pencil className="mr-1 h-3.5 w-3.5" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            className="h-8"
-                            onClick={() => testProviderConnection(provider.id)}
-                            disabled={testingConnectionId === provider.id}
-                          >
-                            <PlugZap className="mr-1 h-3.5 w-3.5" />
-                            {testingConnectionId === provider.id ? "Testing..." : "Test Connection"}
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            className="h-8"
-                            onClick={() => deleteProvider(provider.id)}
-                            disabled={deletingId === provider.id}
-                          >
-                            <Trash2 className="mr-1 h-3.5 w-3.5" />
-                            {deletingId === provider.id ? "Deleting..." : "Delete"}
-                          </Button>
-                        </div>
-                        {connectionResults[provider.id] ? (
-                          <p
-                            className={`mt-2 text-xs ${
-                              connectionResults[provider.id].ok ? "text-emerald-700" : "text-rose-700"
-                            }`}
-                          >
-                            {connectionResults[provider.id].ok
-                              ? `✓ ${connectionResults[provider.id].message} (${connectionResults[provider.id].latencyMs} ms)`
-                              : `✕ ${connectionResults[provider.id].error || "Connectivity check failed."}`}
-                          </p>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable
+            columns={providerColumns}
+            data={orderedProviders}
+            isLoading={loading}
+            emptyMessage="No AI providers configured."
+            enableGlobalFilter
+            enableColumnFilters={false}
+          />
         </CardContent>
       </Card>
 

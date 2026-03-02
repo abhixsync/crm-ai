@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -8,16 +8,9 @@ import { Pencil, Phone, PhoneCall, Plus, Trash2, Upload, X } from "lucide-react"
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useTheme } from "@/core/theme/useTheme";
 
 const STATUS_OPTIONS = [
@@ -963,6 +956,128 @@ export function DashboardClient({
     ? ""
     : "No supported telephony provider is available for Web Call.";
 
+  const customersColumns = useMemo(
+    () => [
+      {
+        id: "name",
+        header: "Name",
+        cell: ({ row }) => `${row.original.firstName} ${row.original.lastName || ""}`,
+      },
+      {
+        accessorKey: "phone",
+        header: "Phone",
+      },
+      {
+        id: "loan",
+        header: "Loan",
+        cell: ({ row }) => `${row.original.loanType || "N/A"}${row.original.loanAmount ? ` • ₹${row.original.loanAmount}` : ""}`,
+      },
+      {
+        id: "status",
+        header: "Status",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Select
+            className={`h-8 w-full max-w-none font-medium sm:max-w-[180px] ${STATUS_SELECT_CLASS[row.original.status] || STATUS_SELECT_CLASS.NEW}`}
+            value={row.original.status}
+            onChange={(event) => updateStatus(row.original.id, event.target.value)}
+          >
+            {STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </Select>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        enableSorting: false,
+        enableHiding: false,
+        cell: ({ row }) => {
+          const customer = row.original;
+
+          return (
+            <div className="grid min-w-[220px] grid-cols-2 gap-2 sm:flex sm:min-w-[320px] sm:flex-wrap sm:justify-start">
+              {canShowDirectCallButton ? (
+                <Button
+                  className="h-8 w-full justify-center px-2 sm:w-auto sm:px-3"
+                  variant="secondary"
+                  onClick={() => triggerCall(customer)}
+                  disabled={busyCallId === customer.id}
+                  aria-label={busyCallId === customer.id ? "Calling" : "Call"}
+                  title={busyCallId === customer.id ? "Calling" : "Call"}
+                >
+                  <Phone className="h-3.5 w-3.5 sm:mr-1" />
+                  <span className="hidden sm:inline">{busyCallId === customer.id ? "Calling..." : "Call"}</span>
+                </Button>
+              ) : null}
+              <span className="block w-full sm:w-auto" title={webCallDisabledReason || "Web Call"}>
+                <Button
+                  className="h-8 w-full justify-center px-2 sm:w-auto sm:px-3"
+                  variant="secondary"
+                  onClick={() => setSoftphoneTarget(customer)}
+                  aria-label="Web Call"
+                  title={webCallDisabledReason || "Web Call"}
+                  disabled={!hasSoftphoneProvider}
+                >
+                  <PhoneCall className="h-3.5 w-3.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Web Call</span>
+                </Button>
+              </span>
+              <Button
+                className="h-8 w-full justify-center px-2 sm:w-auto sm:px-3"
+                variant="secondary"
+                onClick={() => startEditCustomer(customer)}
+                aria-label="Edit"
+                title="Edit"
+              >
+                <Pencil className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">Edit</span>
+              </Button>
+              <Button
+                className="h-8 w-full justify-center px-2 sm:w-auto sm:px-3"
+                variant="destructive"
+                onClick={() => confirmDeleteCustomer(customer)}
+                disabled={deletingCustomerId === customer.id}
+                aria-label={deletingCustomerId === customer.id ? "Deleting" : "Delete"}
+                title={deletingCustomerId === customer.id ? "Deleting" : "Delete"}
+              >
+                <Trash2 className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">{deletingCustomerId === customer.id ? "Deleting..." : "Delete"}</span>
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [
+      busyCallId,
+      canShowDirectCallButton,
+      deletingCustomerId,
+      hasSoftphoneProvider,
+      webCallDisabledReason,
+    ]
+  );
+
+  const tablePagination = useMemo(
+    () => ({
+      pageIndex: Math.max((pagination.page || 1) - 1, 0),
+      pageSize: pagination.pageSize || 10,
+    }),
+    [pagination.page, pagination.pageSize]
+  );
+
+  const handleTablePaginationChange = useCallback(
+    (updater) => {
+      const nextPagination = typeof updater === "function" ? updater(tablePagination) : updater;
+      const nextPage = (nextPagination?.pageIndex ?? 0) + 1;
+      fetchCustomers(nextPage);
+    },
+    [fetchCustomers, tablePagination]
+  );
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1249,130 +1364,23 @@ export function DashboardClient({
             </Select>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[180px]">Name</TableHead>
-                <TableHead className="min-w-[140px]">Phone</TableHead>
-                <TableHead className="min-w-[180px]">Loan</TableHead>
-                <TableHead className="min-w-[180px]">Status</TableHead>
-                <TableHead className="min-w-[340px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loadingCustomers && (
-                <TableRow>
-                  <TableCell colSpan={5}>Loading customers...</TableCell>
-                </TableRow>
-              )}
+          <DataTable
+            columns={customersColumns}
+            data={customers}
+            isLoading={loadingCustomers}
+            emptyMessage="No customers found."
+            serverSide
+            pageCount={pagination.totalPages || 1}
+            pagination={tablePagination}
+            onPaginationChange={handleTablePaginationChange}
+            pageSizeOptions={[pagination.pageSize || 10]}
+            enableGlobalFilter={false}
+            enableColumnFilters={false}
+          />
 
-              {!loadingCustomers && customers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5}>No customers found.</TableCell>
-                </TableRow>
-              )}
-
-              {!loadingCustomers &&
-                customers.map((customer) => (
-                  <TableRow key={customer.id}>
-                    <TableCell>
-                      {customer.firstName} {customer.lastName || ""}
-                    </TableCell>
-                    <TableCell>{customer.phone}</TableCell>
-                    <TableCell>
-                      {customer.loanType || "N/A"}
-                      {customer.loanAmount ? ` • ₹${customer.loanAmount}` : ""}
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        className={`h-8 w-full max-w-none font-medium sm:max-w-[180px] ${STATUS_SELECT_CLASS[customer.status] || STATUS_SELECT_CLASS.NEW}`}
-                        value={customer.status}
-                        onChange={(event) => updateStatus(customer.id, event.target.value)}
-                      >
-                        {STATUS_OPTIONS.map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <div className="grid min-w-[220px] grid-cols-2 gap-2 sm:flex sm:min-w-[320px] sm:flex-wrap sm:justify-start">
-                        {canShowDirectCallButton ? (
-                          <Button
-                            className="h-8 w-full justify-center px-2 sm:w-auto sm:px-3"
-                            variant="secondary"
-                            onClick={() => triggerCall(customer)}
-                            disabled={busyCallId === customer.id}
-                            aria-label={busyCallId === customer.id ? "Calling" : "Call"}
-                            title={busyCallId === customer.id ? "Calling" : "Call"}
-                          >
-                            <Phone className="h-3.5 w-3.5 sm:mr-1" />
-                            <span className="hidden sm:inline">{busyCallId === customer.id ? "Calling..." : "Call"}</span>
-                          </Button>
-                        ) : null}
-                        <span className="block w-full sm:w-auto" title={webCallDisabledReason || "Web Call"}>
-                          <Button
-                            className="h-8 w-full justify-center px-2 sm:w-auto sm:px-3"
-                            variant="secondary"
-                            onClick={() => setSoftphoneTarget(customer)}
-                            aria-label="Web Call"
-                            title={webCallDisabledReason || "Web Call"}
-                            disabled={!hasSoftphoneProvider}
-                          >
-                            <PhoneCall className="h-3.5 w-3.5 sm:mr-1" />
-                            <span className="hidden sm:inline">Web Call</span>
-                          </Button>
-                        </span>
-                        <Button
-                          className="h-8 w-full justify-center px-2 sm:w-auto sm:px-3"
-                          variant="secondary"
-                          onClick={() => startEditCustomer(customer)}
-                          aria-label="Edit"
-                          title="Edit"
-                        >
-                          <Pencil className="h-3.5 w-3.5 sm:mr-1" />
-                          <span className="hidden sm:inline">Edit</span>
-                        </Button>
-                        <Button
-                          className="h-8 w-full justify-center px-2 sm:w-auto sm:px-3"
-                          variant="destructive"
-                          onClick={() => confirmDeleteCustomer(customer)}
-                          disabled={deletingCustomerId === customer.id}
-                          aria-label={deletingCustomerId === customer.id ? "Deleting" : "Delete"}
-                          title={deletingCustomerId === customer.id ? "Deleting" : "Delete"}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 sm:mr-1" />
-                          <span className="hidden sm:inline">{deletingCustomerId === customer.id ? "Deleting..." : "Delete"}</span>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-600">
-              Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} records)
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => fetchCustomers(pagination.page - 1)}
-                disabled={loadingCustomers || pagination.page <= 1}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => fetchCustomers(pagination.page + 1)}
-                disabled={loadingCustomers || pagination.page >= pagination.totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <p className="text-sm text-slate-600">
+            Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} records)
+          </p>
         </CardContent>
       </Card>
 
