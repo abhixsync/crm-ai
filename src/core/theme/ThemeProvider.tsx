@@ -82,6 +82,11 @@ export function ThemeProvider({ children, preloadedTheme = null, preloadedTenant
 
   const fetchTheme = useCallback(async () => {
     if (status === "loading") return;
+    if (status !== "authenticated") {
+      lastResolvedTenantRef.current = null;
+      setLoadingTheme(false);
+      return;
+    }
 
     const tenantId = String((session as { user?: { tenantId?: string | null } } | null)?.user?.tenantId || "");
 

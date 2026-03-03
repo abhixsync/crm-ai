@@ -16,10 +16,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Fetch public theme data for login background
     const fetchPublicTheme = async () => {
       try {
-        const response = await fetch("/api/theme/public");
+        const response = await fetch("/api/theme/public", { cache: "no-store" });
         const data = await response.json();
         if (data.theme) {
           setTheme(data.theme);
@@ -28,6 +27,7 @@ export default function LoginPage() {
         console.error("Failed to fetch public theme:", error);
       }
     };
+
     fetchPublicTheme();
   }, []);
 
@@ -52,13 +52,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main 
+    <main
       className="flex min-h-screen items-center justify-center p-4 sm:p-6"
-      style={theme.loginBackgroundUrl ? { backgroundImage: `url(${theme.loginBackgroundUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+      style={theme.loginBackgroundUrl ? { backgroundImage: `url(${theme.loginBackgroundUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
     >
       <Card className="w-full max-w-md">
         <CardHeader className="pb-4">
-          <CardTitle style={ theme?.accentColor ? { color: theme.accentColor } : undefined }>
+          <CardTitle style={{ color: "var(--accent)" }}>
             Sign in to {process.env.APP_NAME || "Loan CRM"}
           </CardTitle>
           <CardDescription>Use super admin/admin credentials from seed data or your own user.</CardDescription>

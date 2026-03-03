@@ -25,7 +25,8 @@ const geistMono = Geist_Mono({
 
 const getBootstrapData = cache(async () => {
   const session = await getServerSession(authOptions);
-  const tenantId = session?.user?.tenantId || null;
+  const isAuthenticated = Boolean(session?.user?.id);
+  const tenantId = isAuthenticated ? (session?.user?.tenantId || null) : null;
 
   let preloadedTheme = SYSTEM_THEME_DEFAULT;
   try {
@@ -34,7 +35,7 @@ const getBootstrapData = cache(async () => {
     preloadedTheme = SYSTEM_THEME_DEFAULT;
   }
 
-  let crmTitle = "CRM";
+  let crmTitle = "Loan Enterprise CRM";
   if (tenantId) {
     try {
       const tenant = await prisma.tenant.findUnique({

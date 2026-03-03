@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useTheme } from "@/core/theme/useTheme";
 
 export function ThemeAssets() {
+  const { status } = useSession();
   const { theme } = useTheme();
 
   useEffect(() => {
@@ -34,16 +36,18 @@ export function ThemeAssets() {
     }
 
     const fetchThemeForFavicon = async () => {
-      try {
-        const activeResponse = await fetch("/api/theme/active", { cache: "no-store" });
-        if (activeResponse.ok) {
-          const activeData = await activeResponse.json();
-          if (activeData?.theme?.faviconUrl) {
-            applyFavicon(activeData.theme.faviconUrl, activeData?.theme?.updatedAt);
-            return;
+      if (status === "authenticated") {
+        try {
+          const activeResponse = await fetch("/api/theme/active", { cache: "no-store" });
+          if (activeResponse.ok) {
+            const activeData = await activeResponse.json();
+            if (activeData?.theme?.faviconUrl) {
+              applyFavicon(activeData.theme.faviconUrl, activeData?.theme?.updatedAt);
+              return;
+            }
           }
-        }
-      } catch {}
+        } catch {}
+      }
 
       try {
         const publicResponse = await fetch("/api/theme/public", { cache: "no-store" });
@@ -52,8 +56,10 @@ export function ThemeAssets() {
       } catch {}
     };
 
-    fetchThemeForFavicon();
-  }, [theme.faviconUrl, theme.updatedAt]);
+    if (status !== "loading") {
+      fetchThemeForFavicon();
+    }
+  }, [theme.faviconUrl, theme.updatedAt, status]);
 
 
   return null;
