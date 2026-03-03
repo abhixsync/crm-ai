@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Pencil, Phone, PhoneCall, Plus, Trash2, Upload, X } from "lucide-react";
+import { Loader2, Pencil, Phone, PhoneCall, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +68,7 @@ export function DashboardClient({
   const [pagination, setPagination] = useState(initialPagination);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [statusUpdatingById, setStatusUpdatingById] = useState({});
   const [uploading, setUploading] = useState(false);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [busyCallId, setBusyCallId] = useState("");
@@ -317,8 +318,14 @@ export function DashboardClient({
     }
   }
 
-  const fetchCustomers = useCallback(async (nextPage = currentPageRef.current) => {
-    setLoadingCustomers(true);
+  const fetchCustomers = useCallback(async (
+    nextPage = currentPageRef.current,
+    options = { showLoading: true }
+  ) => {
+    const showLoading = options?.showLoading !== false;
+    if (showLoading) {
+      setLoadingCustomers(true);
+    }
     const params = new URLSearchParams();
     const targetPage = Number(nextPage) || 1;
 
@@ -327,13 +334,18 @@ export function DashboardClient({
     params.set("page", String(targetPage));
     params.set("pageSize", String(pagination.pageSize));
 
-    const response = await fetch(`/api/customers?${params.toString()}`);
-    const data = await response.json();
-    const nextPagination = data.pagination || initialPagination;
-    setCustomers(data.customers || []);
-    setPagination(nextPagination);
-    currentPageRef.current = Number(nextPagination.page) || targetPage;
-    setLoadingCustomers(false);
+    try {
+      const response = await fetch(`/api/customers?${params.toString()}`);
+      const data = await response.json();
+      const nextPagination = data.pagination || initialPagination;
+      setCustomers(data.customers || []);
+      setPagination(nextPagination);
+      currentPageRef.current = Number(nextPagination.page) || targetPage;
+    } finally {
+      if (showLoading) {
+        setLoadingCustomers(false);
+      }
+    }
   }, [initialPagination, pagination.pageSize, query, statusFilter]);
 
   useEffect(() => {
@@ -725,12 +737,71 @@ export function DashboardClient({
   }
 
   async function updateStatus(customerId, status) {
-    await fetch(`/api/customers/${customerId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    await fetchCustomers();
+    let previousStatus = "";
+
+    setCustomers((previousCustomers) =>
+      previousCustomers.map((customer) => {
+        if (customer.id !== customerId) {
+          return customer;
+        }
+
+        previousStatus = customer.status;
+
+        if (customer.status === status) {
+          return customer;
+        }
+
+        return {
+          ...customer,
+          status,
+        };
+      })
+    );
+
+    setStatusUpdatingById((previous) => ({
+      ...previous,
+      [customerId]: true,
+    }));
+
+    try {
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to update customer status.");
+      }
+
+      await Promise.all([
+        fetchMetrics(),
+        fetchCustomers(currentPageRef.current, { showLoading: false }),
+      ]);
+    } catch (error) {
+      setCustomers((previousCustomers) =>
+        previousCustomers.map((customer) => {
+          if (customer.id !== customerId) {
+            return customer;
+          }
+
+          return {
+            ...customer,
+            status: previousStatus || customer.status,
+          };
+        })
+      );
+
+      toast.error(error?.message || "Unable to update customer status.");
+    } finally {
+      setStatusUpdatingById((previous) => {
+        const next = { ...previous };
+        delete next[customerId];
+        return next;
+      });
+    }
   }
 
   function resetCustomerForm() {
@@ -982,17 +1053,26 @@ export function DashboardClient({
           filterOptions: STATUS_OPTIONS.map((status) => ({ label: status, value: status })),
         },
         cell: ({ row }) => (
-          <select
-            className={`h-8 w-full max-w-none rounded-md border px-3 text-sm shadow-[0_1px_1px_rgba(15,23,42,0.03)] outline-none ring-offset-white focus-visible:ring-2 sm:max-w-[180px] ${STATUS_SELECT_CLASS[row.original.status] || STATUS_SELECT_CLASS.NEW}`}
-            value={row.original.status}
-            onChange={(event) => updateStatus(row.original.id, event.target.value)}
-          >
-            {STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
+          <div className="relative w-full max-w-none sm:max-w-[180px]">
+            <select
+              className={`h-8 w-full appearance-none rounded-md border px-3 pr-8 text-sm shadow-[0_1px_1px_rgba(15,23,42,0.03)] outline-none ring-offset-white focus-visible:ring-2 ${STATUS_SELECT_CLASS[row.original.status] || STATUS_SELECT_CLASS.NEW}`}
+              value={row.original.status}
+              disabled={Boolean(statusUpdatingById[row.original.id])}
+              onChange={(event) => updateStatus(row.original.id, event.target.value)}
+            >
+              {STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden>
+              ▾
+            </span>
+            {statusUpdatingById[row.original.id] ? (
+              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-500" aria-label="Updating status" />
+            ) : null}
+          </div>
         ),
       },
       {
@@ -1062,6 +1142,8 @@ export function DashboardClient({
       canShowDirectCallButton,
       deletingCustomerId,
       hasSoftphoneProvider,
+      statusUpdatingById,
+      updateStatus,
       webCallDisabledReason,
     ]
   );
@@ -1272,13 +1354,26 @@ export function DashboardClient({
                     <p className="text-sm text-slate-700">
                       Manual call disposition for <span className="font-semibold">{softphoneCustomerName || "selected customer"}</span>
                     </p>
-                    <Select value={manualDisposition} onChange={(event) => setManualDisposition(event.target.value)}>
-                      <option value="interested">Interested</option>
-                      <option value="not_interested">Not Interested</option>
-                      <option value="follow_up">Follow Up</option>
-                      <option value="converted">Converted</option>
-                      <option value="do_not_call">Do Not Call</option>
-                    </Select>
+                    <div className="relative">
+                      <select
+                        className="h-9 w-full appearance-none rounded-md border border-slate-300/90 bg-white px-3 pr-8 text-sm text-slate-900"
+                        value={manualDisposition}
+                        disabled={completingManualCall}
+                        onChange={(event) => setManualDisposition(event.target.value)}
+                      >
+                        <option value="interested">Interested</option>
+                        <option value="not_interested">Not Interested</option>
+                        <option value="follow_up">Follow Up</option>
+                        <option value="converted">Converted</option>
+                        <option value="do_not_call">Do Not Call</option>
+                      </select>
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden>
+                        ▾
+                      </span>
+                      {completingManualCall ? (
+                        <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-500" aria-label="Saving call outcome" />
+                      ) : null}
+                    </div>
                     <span className="text-xs text-slate-600">
                       {completingManualCall ? "Saving outcome..." : "Outcome is saved when call ends."}
                     </span>

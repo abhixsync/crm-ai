@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { PhoneCall } from "lucide-react";
+import { Loader2, PhoneCall } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 
 const TERMINAL_CALL_STATUSES = ["COMPLETED", "FAILED", "NO_ANSWER"];
 const NEW_NUMBER_OPTION = "__new_number__";
@@ -405,13 +404,26 @@ export function CallsAiCallPanel({ customers, role }) {
                     <p className="text-sm text-slate-700">
                       Manual call disposition for <span className="font-semibold">{selectedCustomer?.name || "selected customer"}</span>
                     </p>
-                    <Select value={manualDisposition} onChange={(event) => setManualDisposition(event.target.value)}>
-                      <option value="interested">Interested</option>
-                      <option value="not_interested">Not Interested</option>
-                      <option value="follow_up">Follow Up</option>
-                      <option value="converted">Converted</option>
-                      <option value="do_not_call">Do Not Call</option>
-                    </Select>
+                    <div className="relative">
+                      <select
+                        className="h-9 w-full appearance-none rounded-md border border-slate-300/90 bg-white px-3 pr-8 text-sm text-slate-900"
+                        value={manualDisposition}
+                        disabled={completingManualCall}
+                        onChange={(event) => setManualDisposition(event.target.value)}
+                      >
+                        <option value="interested">Interested</option>
+                        <option value="not_interested">Not Interested</option>
+                        <option value="follow_up">Follow Up</option>
+                        <option value="converted">Converted</option>
+                        <option value="do_not_call">Do Not Call</option>
+                      </select>
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden>
+                        ▾
+                      </span>
+                      {completingManualCall ? (
+                        <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-500" aria-label="Saving call outcome" />
+                      ) : null}
+                    </div>
                     <span className="text-xs text-slate-600">
                       {completingManualCall ? "Saving outcome..." : "Outcome is saved when call ends."}
                     </span>
