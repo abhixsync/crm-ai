@@ -234,6 +234,8 @@ export function TenantsAdminClient() {
                 variant={tenant.isActive ? "destructive" : "secondary"}
                 className="h-8 px-2 sm:px-3"
                 onClick={() => toggleTenantActive(tenant)}
+                loading={saving}
+                loadingText={tenant.isActive ? "Deactivating..." : "Activating..."}
                 disabled={saving}
               >
                 {tenant.isActive ? "Deactivate" : "Activate"}
@@ -386,8 +388,13 @@ export function TenantsAdminClient() {
 
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={closeDialog} disabled={saving}>Cancel</Button>
-            <Button onClick={saveTenantFromDialog} disabled={saving}>
-              {saving ? "Saving..." : editingTenantId ? "Save Changes" : "Create Tenant"}
+            <Button
+              onClick={saveTenantFromDialog}
+              loading={saving}
+              loadingText="Saving..."
+              disabled={saving}
+            >
+              {editingTenantId ? "Save Changes" : "Create Tenant"}
             </Button>
           </div>
         </div>

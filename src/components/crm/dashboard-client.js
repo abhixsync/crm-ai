@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
+import { InlineLoader } from "@/components/ui/loader";
 import { Select } from "@/components/ui/select";
 import { useTheme } from "@/core/theme/useTheme";
 
@@ -25,10 +26,15 @@ const STATUS_OPTIONS = [
   "CALL_FAILED",
   "RETRY_SCHEDULED",
 ];
+const TERMINAL_CUSTOMER_STATUSES = new Set(["CONVERTED", "DO_NOT_CALL"]);
+const BLOCKED_STATUS_TRANSITIONS = {
+  CONVERTED: STATUS_OPTIONS.filter((status) => status !== "CONVERTED"),
+  DO_NOT_CALL: STATUS_OPTIONS.filter((status) => status !== "DO_NOT_CALL"),
+};
 const TERMINAL_CALL_STATUSES = ["COMPLETED", "FAILED", "NO_ANSWER"];
 const SOFTPHONE_PROVIDER_TYPES = ["TWILIO"];
 const STATUS_SELECT_CLASS = {
-  NEW: "border-slate-300 bg-slate-50 text-slate-700",
+  NEW: "border-border bg-muted text-muted-foreground",
   INTERESTED: "border-emerald-300 bg-emerald-50 text-emerald-800",
   FOLLOW_UP: "border-blue-300 bg-blue-50 text-blue-800",
   NOT_INTERESTED: "border-amber-300 bg-amber-50 text-amber-800",
@@ -51,8 +57,22 @@ const EMPTY_CUSTOMER_FORM = {
   notes: "",
 };
 
+function toStatusLabel(status) {
+  return String(status || "")
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getBlockedTransitionSet(currentStatus) {
+  const blocked = BLOCKED_STATUS_TRANSITIONS[currentStatus];
+  return blocked ? new Set(blocked) : new Set();
+}
+
 export function DashboardClient({
   user,
+  initialTenantName,
   initialMetrics,
   initialCustomers,
   initialPagination,
@@ -62,7 +82,7 @@ export function DashboardClient({
   const isSuperAdmin = user.role === "SUPER_ADMIN";
   const searchParams = useSearchParams();
 
-  const [tenantName, setTenantName] = useState("CRM");
+  const [tenantName, setTenantName] = useState(initialTenantName || "CRM");
   const [metrics, setMetrics] = useState(initialMetrics);
   const [customers, setCustomers] = useState(initialCustomers);
   const [pagination, setPagination] = useState(initialPagination);
@@ -70,7 +90,9 @@ export function DashboardClient({
   const [statusFilter, setStatusFilter] = useState("");
   const [statusUpdatingById, setStatusUpdatingById] = useState({});
   const [uploading, setUploading] = useState(false);
-  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [loadingCustomers, setLoadingCustomers] = useState(
+    Array.isArray(initialCustomers) && initialCustomers.length === 0 && Number(initialPagination?.total || 0) > 0
+  );
   const [busyCallId, setBusyCallId] = useState("");
   const [editingCustomerId, setEditingCustomerId] = useState("");
   const [savingCustomer, setSavingCustomer] = useState(false);
@@ -121,7 +143,7 @@ export function DashboardClient({
       setTenantName(data.crmName || data.tenantName || "CRM");
     } catch (error) {
       console.error("Failed to fetch tenant name:", error);
-      setTenantName("CRM");
+      setTenantName((previous) => previous || "CRM");
     }
   }, []);
 
@@ -347,6 +369,18 @@ export function DashboardClient({
       }
     }
   }, [initialPagination, pagination.pageSize, query, statusFilter]);
+
+  useEffect(() => {
+    if (!Array.isArray(initialCustomers) || initialCustomers.length > 0) {
+      return;
+    }
+
+    if (Number(initialPagination?.total || 0) <= 0) {
+      return;
+    }
+
+    fetchCustomers(1);
+  }, [fetchCustomers, initialCustomers, initialPagination?.total]);
 
   useEffect(() => {
     if (!filtersInitializedRef.current) {
@@ -737,17 +771,21 @@ export function DashboardClient({
   }
 
   async function updateStatus(customerId, status) {
-    let previousStatus = "";
+    const currentCustomer = customers.find((customer) => customer.id === customerId);
+    const previousStatus = currentCustomer?.status || "";
+
+    if (!currentCustomer || previousStatus === status) {
+      return;
+    }
+
+    if (TERMINAL_CUSTOMER_STATUSES.has(previousStatus) && previousStatus !== status) {
+      toast.error(`${toStatusLabel(previousStatus)} cannot be changed to ${toStatusLabel(status)}.`);
+      return;
+    }
 
     setCustomers((previousCustomers) =>
       previousCustomers.map((customer) => {
         if (customer.id !== customerId) {
-          return customer;
-        }
-
-        previousStatus = customer.status;
-
-        if (customer.status === status) {
           return customer;
         }
 
@@ -773,7 +811,10 @@ export function DashboardClient({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Unable to update customer status.");
+        if (response.status === 409 && data?.error) {
+          throw new Error(data.error);
+        }
+        throw new Error(data?.error || "Unable to update customer status.");
       }
 
       await Promise.all([
@@ -919,8 +960,8 @@ export function DashboardClient({
             <Trash2 className="h-4 w-4" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-slate-900">Delete this customer?</p>
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="text-sm font-semibold text-foreground">Delete this customer?</p>
+            <p className="mt-1 text-xs text-muted-foreground">
               {fullName || "Selected customer"} will be permanently removed from the CRM.
             </p>
           </div>
@@ -986,8 +1027,8 @@ export function DashboardClient({
             <Trash2 className="h-4 w-4" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-slate-900">Delete all customers?</p>
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="text-sm font-semibold text-foreground">Delete all customers?</p>
+            <p className="mt-1 text-xs text-muted-foreground">
               This will permanently remove all customers, call logs, follow-ups, transitions, and campaign jobs.
             </p>
           </div>
@@ -1054,23 +1095,31 @@ export function DashboardClient({
         },
         cell: ({ row }) => (
           <div className="relative w-full max-w-none sm:max-w-[180px]">
+            {(() => {
+              const isTerminalCurrentStatus = TERMINAL_CUSTOMER_STATUSES.has(row.original.status);
+              const blockedTransitionSet = getBlockedTransitionSet(row.original.status);
+
+              return (
             <select
-              className={`h-8 w-full appearance-none rounded-md border px-3 pr-8 text-sm shadow-[0_1px_1px_rgba(15,23,42,0.03)] outline-none ring-offset-white focus-visible:ring-2 ${STATUS_SELECT_CLASS[row.original.status] || STATUS_SELECT_CLASS.NEW}`}
+              className={`h-8 w-full appearance-none rounded-md border px-3 pr-8 text-sm shadow-[0_1px_1px_rgba(15,23,42,0.03)] outline-none ring-offset-white focus-visible:ring-2 ${STATUS_SELECT_CLASS[row.original.status] || STATUS_SELECT_CLASS.NEW} ${isTerminalCurrentStatus ? "cursor-not-allowed opacity-70" : ""}`}
               value={row.original.status}
-              disabled={Boolean(statusUpdatingById[row.original.id])}
+              disabled={Boolean(statusUpdatingById[row.original.id]) || isTerminalCurrentStatus}
+              title={isTerminalCurrentStatus ? "Terminal status cannot be changed." : "Update customer status"}
               onChange={(event) => updateStatus(row.original.id, event.target.value)}
             >
               {STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>
+                <option key={status} value={status} disabled={blockedTransitionSet.has(status)}>
                   {status}
                 </option>
               ))}
             </select>
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden>
+              );
+            })()}
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden>
               ▾
             </span>
             {statusUpdatingById[row.original.id] ? (
-              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-500" aria-label="Updating status" />
+              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-label="Updating status" />
             ) : null}
           </div>
         ),
@@ -1196,20 +1245,20 @@ export function DashboardClient({
           )}
         </div>
         <div className="flex flex-col items-end justify-end">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{tenantName}</h1>
-          <p className="mt-1 text-sm text-slate-600">Welcome, {user.name} ({user.role})</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">{tenantName}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Welcome, {user.name} ({user.role})</p>
           {isSuperAdmin ? (
             <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
               <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${automationHealth?.runtimeOnline ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-rose-300 bg-rose-50 text-rose-700"}`}>
                 {automationHealth?.runtimeKind === "WORKER" ? "Worker" : "Cron"}: {loadingAutomationHealth ? "Checking..." : automationHealth?.runtimeOnline ? "ONLINE" : "OFFLINE"}
               </span>
-              <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
+              <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
                 Waiting: {automationHealth?.queue?.waiting ?? 0}
               </span>
-              <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
+              <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
                 Active: {automationHealth?.queue?.active ?? 0}
               </span>
-              <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
+              <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
                 Failed: {automationHealth?.queue?.failed ?? 0}
               </span>
             </div>
@@ -1227,25 +1276,25 @@ export function DashboardClient({
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 md:grid-cols-4">
-              <p className="text-sm text-slate-700">
+              <p className="text-sm text-foreground">
                 <span className="font-semibold">Provider:</span> {activeCall.provider || "-"}
               </p>
-              <p className="text-sm text-slate-700">
+              <p className="text-sm text-foreground">
                 <span className="font-semibold">Status:</span> {activeCall.status || "-"}
               </p>
-              <p className="text-sm text-slate-700 md:col-span-2">
+              <p className="text-sm text-foreground md:col-span-2">
                 <span className="font-semibold">Next Action:</span> {activeCall.nextAction || "Awaiting call outcome"}
               </p>
             </div>
 
             {activeCall.summary ? (
-              <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <p className="mt-3 rounded-md bg-muted px-3 py-2 text-sm text-foreground">
                 <span className="font-semibold">Summary:</span> {activeCall.summary}
               </p>
             ) : null}
 
             {activeCall.intent ? (
-              <p className="mt-2 text-sm text-slate-700">
+              <p className="mt-2 text-sm text-foreground">
                 <span className="font-semibold">Intent:</span> {activeCall.intent}
               </p>
             ) : null}
@@ -1295,31 +1344,30 @@ export function DashboardClient({
                       <Button
                         variant={automationEnabled ? "default" : "secondary"}
                         onClick={() => toggleAutomation(!automationEnabled)}
-                        disabled={loadingAutomation}
+                        loading={loadingAutomation}
+                        loadingText="Updating AI toggle..."
                       >
-                        {loadingAutomation
-                          ? "Updating AI Toggle..."
-                          : automationEnabled
+                        {automationEnabled
                             ? "AI Automation ON"
                             : "AI Automation OFF"}
                       </Button>
                     ) : null}
                     {activeTelephonyProvider?.type === "TWILIO" ? (
                       <>
-                        <Button variant="secondary" onClick={initSoftphone} disabled={softphoneLoading}>
-                          {softphoneLoading ? "Initializing..." : softphoneReady ? "Reinitialize Softphone" : "Initialize Softphone"}
+                        <Button variant="secondary" onClick={initSoftphone} loading={softphoneLoading} loadingText="Initializing...">
+                          {softphoneReady ? "Reinitialize Softphone" : "Initialize Softphone"}
                         </Button>
                         {isSuperAdmin ? (
-                          <Button variant="secondary" onClick={runSoftphoneHealthCheck} disabled={softphoneHealthLoading}>
-                            {softphoneHealthLoading ? "Checking Status..." : "Check Status"}
+                          <Button variant="secondary" onClick={runSoftphoneHealthCheck} loading={softphoneHealthLoading} loadingText="Checking status...">
+                            Check Status
                           </Button>
                         ) : null}
                       </>
                     ) : null}
                   </>
                 ) : (
-                  <Button variant="secondary" onClick={initSoftphone} disabled={softphoneLoading}>
-                    {softphoneLoading ? "Initializing..." : softphoneReady ? "Reinitialize Softphone" : "Initialize Softphone"}
+                  <Button variant="secondary" onClick={initSoftphone} loading={softphoneLoading} loadingText="Initializing...">
+                    {softphoneReady ? "Reinitialize Softphone" : "Initialize Softphone"}
                   </Button>
                 )}
                 <Button variant="secondary" onClick={closeAiDialog} className="h-9 w-9 px-0" aria-label="Close dialog" title="Close">
@@ -1330,11 +1378,11 @@ export function DashboardClient({
           </CardHeader>
           <CardContent>
             {loadingActiveTelephony ? (
-              <p className="text-sm text-slate-600">Loading active telephony provider...</p>
+              <InlineLoader label="Loading active telephony provider..." />
             ) : null}
 
             {!loadingActiveTelephony && !activeTelephonyError && !activeTelephonyProvider ? (
-              <p className="text-sm text-slate-600">No active telephony provider found.</p>
+              <p className="text-sm text-muted-foreground">No active telephony provider found.</p>
             ) : null}
 
             {!loadingActiveTelephony && !activeTelephonyError && activeTelephonyProvider?.type === "TWILIO" ? (
@@ -1350,13 +1398,13 @@ export function DashboardClient({
                 </div>
 
                 {manualCallContext?.customerId ? (
-                  <div className="mt-3 grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-center">
-                    <p className="text-sm text-slate-700">
+                  <div className="mt-3 grid gap-3 rounded-md border border-border bg-muted p-3 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-center">
+                    <p className="text-sm text-foreground">
                       Manual call disposition for <span className="font-semibold">{softphoneCustomerName || "selected customer"}</span>
                     </p>
                     <div className="relative">
                       <select
-                        className="h-9 w-full appearance-none rounded-md border border-slate-300/90 bg-white px-3 pr-8 text-sm text-slate-900"
+                        className="h-9 w-full appearance-none rounded-md border border-border bg-card px-3 pr-8 text-sm text-foreground"
                         value={manualDisposition}
                         disabled={completingManualCall}
                         onChange={(event) => setManualDisposition(event.target.value)}
@@ -1367,14 +1415,14 @@ export function DashboardClient({
                         <option value="converted">Converted</option>
                         <option value="do_not_call">Do Not Call</option>
                       </select>
-                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden>
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden>
                         ▾
                       </span>
                       {completingManualCall ? (
-                        <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-500" aria-label="Saving call outcome" />
+                        <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-label="Saving call outcome" />
                       ) : null}
                     </div>
-                    <span className="text-xs text-slate-600">
+                    <span className="text-xs text-muted-foreground">
                       {completingManualCall ? "Saving outcome..." : "Outcome is saved when call ends."}
                     </span>
                   </div>
@@ -1393,13 +1441,13 @@ export function DashboardClient({
                 </div>
 
                 {softphoneHealth ? (
-                  <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-sm font-semibold text-slate-800">
+                  <div className="mt-4 rounded-md border border-border bg-muted p-3">
+                    <p className="text-sm font-semibold text-foreground">
                       Setup Check: {softphoneHealth.ok ? "Ready" : "Action Required"}
                     </p>
                     <div className="mt-2 space-y-1">
                       {softphoneHealth.checks?.map((check) => (
-                        <p key={check.name} className="text-xs text-slate-700">
+                        <p key={check.name} className="text-xs text-foreground">
                           <span className="font-semibold">{check.ok ? "✓" : "✕"} {check.name}:</span> {check.message}
                         </p>
                       ))}
@@ -1410,7 +1458,7 @@ export function DashboardClient({
             ) : null}
 
             {!loadingActiveTelephony && !activeTelephonyError && activeTelephonyProvider && activeTelephonyProvider.type !== "TWILIO" ? (
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+              <div className="rounded-md border border-border bg-muted px-3 py-3 text-sm text-foreground">
                 Browser softphone is available only when Twilio is the active telephony provider. Current provider is
                 {` ${activeTelephonyProvider.name} (${activeTelephonyProvider.type}). `}
                 Use the customer row Call action for AI calls with this provider.
@@ -1422,25 +1470,25 @@ export function DashboardClient({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="bg-gradient-to-b from-white to-slate-50">
+        <Card className="bg-gradient-to-b from-card to-muted">
           <CardHeader>
             <CardDescription>Total Customers</CardDescription>
             <CardTitle className="text-3xl">{metrics?.totalCustomers ?? 0}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-gradient-to-b from-white to-slate-50">
+        <Card className="bg-gradient-to-b from-card to-muted">
           <CardHeader>
             <CardDescription>Interested Leads</CardDescription>
             <CardTitle className="text-3xl">{metrics?.interestedCustomers ?? 0}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-gradient-to-b from-white to-slate-50">
+        <Card className="bg-gradient-to-b from-card to-muted">
           <CardHeader>
             <CardDescription>Follow Ups</CardDescription>
             <CardTitle className="text-3xl">{metrics?.followUps ?? 0}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-gradient-to-b from-white to-slate-50">
+        <Card className="bg-gradient-to-b from-card to-muted">
           <CardHeader>
             <CardDescription>Total Calls</CardDescription>
             <CardTitle className="text-3xl">{metrics?.totalCalls ?? 0}</CardTitle>
@@ -1470,6 +1518,8 @@ export function DashboardClient({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {loadingCustomers ? <InlineLoader label="Loading customers..." /> : null}
+
           <DataTable
             columns={customersColumns}
             data={customers}
@@ -1489,7 +1539,7 @@ export function DashboardClient({
             onColumnFiltersChange={handleTableColumnFiltersChange}
           />
 
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} records)
           </p>
         </CardContent>
@@ -1539,14 +1589,14 @@ export function DashboardClient({
             {creationMode === "upload" && !editingCustomerId ? (
               <div>
                 <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-muted-foreground">
                     Download sample Excel file, fill in your customer data, and upload it. Accepted formats: .xlsx, .xls, .csv.
                   </p>
                   <Link href="/samples/sample.xlsx" target="_blank" rel="noopener noreferrer">
                     <Button variant="secondary" className="w-fit">Download (sample.xlsx)</Button>
                   </Link>
                 </div>
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">
                   <Upload className="h-4 w-4" />
                   {uploading ? "Uploading..." : "Select Excel File"}
                   <input
@@ -1600,11 +1650,14 @@ export function DashboardClient({
                     value={customerForm.status}
                     onChange={(event) => handleFormChange("status", event.target.value)}
                   >
-                    {STATUS_OPTIONS.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
+                    {STATUS_OPTIONS.map((status) => {
+                      const blockedTransitionSet = getBlockedTransitionSet(customerForm.status);
+                      return (
+                        <option key={status} value={status} disabled={blockedTransitionSet.has(status)}>
+                          {status}
+                        </option>
+                      );
+                    })}
                   </Select>
                   <Input
                     placeholder="Loan Amount"

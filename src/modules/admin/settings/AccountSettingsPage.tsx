@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { PageLoader } from "@/components/ui/loader";
 
 export function AccountSettingsPage() {
   const { data: session } = useSession();
@@ -93,7 +94,7 @@ export function AccountSettingsPage() {
   }
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <PageLoader label="Loading account settings..." />;
   }
 
   return (
@@ -139,8 +140,13 @@ export function AccountSettingsPage() {
         </div>
 
         <div className="flex gap-2">
-          <Button onClick={saveSettings} disabled={!canManage || saving || !selectedTenantId}>
-            {saving ? "Saving..." : "Save Settings"}
+          <Button
+            onClick={saveSettings}
+            disabled={!canManage || !selectedTenantId}
+            loading={saving}
+            loadingText="Saving settings..."
+          >
+            Save Settings
           </Button>
         </div>
       </CardContent>

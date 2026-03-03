@@ -1,8 +1,13 @@
 "use client";
 
-import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { SYSTEM_THEME_DEFAULT, type ThemeTokens } from "./system-defaults";
+import {
+  getThemeCssVariables,
+  getThemeFingerprint,
+  sanitizeThemeCustomCss,
+} from "@/core/theme/theme-utils";
 
 export type TenantTheme = ThemeTokens & {
   source: "default" | "base" | "tenant";
@@ -32,109 +37,122 @@ export const ThemeContext = createContext<ThemeContextValue>({
 function applyThemeVariables(theme: TenantTheme) {
   const root = document.documentElement;
 
-  // Bridge legacy/global tokens used across app styles
-  root.style.setProperty("--background", theme.backgroundColor);
-  root.style.setProperty("--foreground", theme.textPrimary);
+  const cssVariables = getThemeCssVariables(theme);
+  const serializedVariables = Object.entries(cssVariables)
+    .map(([key, value]) => `${key}:${value}`)
+    .join(";");
+  root.style.cssText = `${root.style.cssText};${serializedVariables}`;
 
-  // 🎨 Core Colors
-  root.style.setProperty("--color-primary", theme.primaryColor);
-  root.style.setProperty("--color-secondary", theme.secondaryColor);
-  root.style.setProperty("--color-accent", theme.accentColor);
-  root.style.setProperty("--color-background", theme.backgroundColor);
-  root.style.setProperty("--color-surface", theme.surfaceColor);
-  root.style.setProperty("--color-sidebar", theme.sidebarColor);
-  root.style.setProperty("--color-header", theme.headerColor);
+  const safeCustomCss = sanitizeThemeCustomCss(theme.customCss);
+  const existingStyle = document.getElementById("theme-custom-css");
 
-  // 📝 Text Colors
-  root.style.setProperty("--color-text-primary", theme.textPrimary);
-  root.style.setProperty("--color-text-secondary", theme.textSecondary);
-  root.style.setProperty("--color-border", theme.borderColor);
-
-  // ✅ Status Colors
-  root.style.setProperty("--color-success", theme.successColor);
-  root.style.setProperty("--color-warning", theme.warningColor);
-  root.style.setProperty("--color-error", theme.errorColor);
-  root.style.setProperty("--color-info", theme.infoColor);
-
-  // 🔤 Typography
-  root.style.setProperty("--font-family", theme.fontFamily);
-  root.style.setProperty("--font-scale", theme.fontScale);
-
-  // 📐 Layout & Spacing
-  root.style.setProperty("--border-radius", theme.borderRadius);
-  root.style.setProperty("--button-radius", theme.buttonRadius);
-  root.style.setProperty("--card-radius", theme.cardRadius);
-  root.style.setProperty("--input-radius", theme.inputRadius);
-  root.style.setProperty("--shadow-intensity", theme.shadowIntensity);
-  root.style.setProperty("--layout-density", theme.layoutDensity);
-
-  // 🧭 Navigation
-  root.style.setProperty("--sidebar-style", theme.sidebarStyle);
-  root.style.setProperty("--table-style", theme.tableStyle);
-
-  // 🌙 Dark Mode
-  root.style.setProperty("--dark-mode", theme.darkMode ? "true" : "false");
-
-  // 🖼️ Backgrounds (with fallbacks)
-  if (theme.applicationBackgroundUrl) {
-    root.style.setProperty("--bg-application", `url(${theme.applicationBackgroundUrl})`);
-  } else {
-    root.style.setProperty("--bg-application", `linear-gradient(135deg, ${theme.backgroundColor} 0%, ${theme.surfaceColor} 100%)`);
-  }
-
-  // 🎨 Custom CSS
-  if (theme.customCss) {
-    const existingStyle = document.getElementById("theme-custom-css");
+  if (safeCustomCss) {
     if (existingStyle) {
-      existingStyle.textContent = theme.customCss;
+      existingStyle.textContent = safeCustomCss;
     } else {
       const style = document.createElement("style");
       style.id = "theme-custom-css";
-      style.textContent = theme.customCss;
+      style.textContent = safeCustomCss;
       document.head.appendChild(style);
     }
-    try {
-      // Debug: log applied accent color for troubleshooting
-      // eslint-disable-next-line no-console
-      console.debug("[ThemeProvider] applied accentColor:", theme.accentColor, "--color-accent value:", getComputedStyle(document.documentElement).getPropertyValue("--color-accent"));
-    } catch {
-      // ignore
-    }
+  } else if (existingStyle) {
+    existingStyle.remove();
   }
+
+  root.setAttribute("data-theme-ready", "true");
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+type ThemeProviderProps = {
+  children: React.ReactNode;
+  preloadedTheme?: Partial<TenantTheme> | null;
+  preloadedTenantId?: string | null;
+};
+
+export function ThemeProvider({ children, preloadedTheme = null, preloadedTenantId = null }: ThemeProviderProps) {
   const { data: session, status } = useSession();
-  const [theme, setTheme] = useState<TenantTheme>(DEFAULT_THEME);
+  const [theme, setTheme] = useState<TenantTheme>(() =>
+    preloadedTheme ? ({ ...DEFAULT_THEME, ...preloadedTheme } as TenantTheme) : DEFAULT_THEME
+  );
   const [loadingTheme, setLoadingTheme] = useState(false);
+  const requestSequenceRef = useRef(0);
+  const mountedRef = useRef(true);
+  const lastResolvedTenantRef = useRef<string | null>(preloadedTenantId);
+  const skipInitialFetchRef = useRef(Boolean(preloadedTheme));
+  const appliedFingerprintRef = useRef<string>("");
 
   const fetchTheme = useCallback(async () => {
     if (status === "loading") return;
 
+    const tenantId = String((session as { user?: { tenantId?: string | null } } | null)?.user?.tenantId || "");
+
+    if (skipInitialFetchRef.current && lastResolvedTenantRef.current === tenantId) {
+      skipInitialFetchRef.current = false;
+      return;
+    }
+
+    if (lastResolvedTenantRef.current === tenantId && !loadingTheme) {
+      return;
+    }
+
+    const requestId = requestSequenceRef.current + 1;
+    requestSequenceRef.current = requestId;
+
     setLoadingTheme(true);
     try {
-      const tenantId = (session as any)?.user?.tenantId || "";
       const query = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : "";
-      const response = await fetch(`/api/theme/active${query}`, { cache: "no-store" });
+      const response = await fetch(`/api/theme/active${query}`, {
+        cache: "no-store",
+      });
+
+      if (!mountedRef.current || requestId !== requestSequenceRef.current) {
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Unable to load theme");
+      }
+
       const payload = await response.json();
-      const nextTheme = payload?.theme || DEFAULT_THEME;
-      setTheme(nextTheme);
-    } catch {
+
+      if (!mountedRef.current || requestId !== requestSequenceRef.current) {
+        return;
+      }
+
+      const nextTheme = (payload?.theme || DEFAULT_THEME) as TenantTheme;
+      setTheme((current) => ({ ...current, ...nextTheme }));
+      lastResolvedTenantRef.current = tenantId;
+    } catch (error) {
+      if (!mountedRef.current || requestId !== requestSequenceRef.current) return;
       setTheme(DEFAULT_THEME);
     } finally {
-      setLoadingTheme(false);
+      if (mountedRef.current && requestId === requestSequenceRef.current) {
+        setLoadingTheme(false);
+      }
     }
-  }, [session, status]);
+  }, [loadingTheme, session, status]);
 
   useEffect(() => {
     fetchTheme();
   }, [fetchTheme]);
 
   useEffect(() => {
+    const fingerprint = getThemeFingerprint(theme);
+    if (fingerprint === appliedFingerprintRef.current) {
+      return;
+    }
+
     applyThemeVariables(theme);
+    appliedFingerprintRef.current = fingerprint;
   }, [theme]);
 
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const refreshTheme = useCallback(async () => {
+    lastResolvedTenantRef.current = null;
     await fetchTheme();
   }, [fetchTheme]);
 

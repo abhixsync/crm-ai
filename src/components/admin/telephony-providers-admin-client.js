@@ -27,6 +27,7 @@ export function TelephonyProvidersAdminClient({ initialProviders, embedded = fal
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState("");
   const [deletingId, setDeletingId] = useState("");
+  const [creatingProvider, setCreatingProvider] = useState(false);
   const [testingConnectionId, setTestingConnectionId] = useState("");
   const [testingAllConnections, setTestingAllConnections] = useState(false);
   const [connectionResults, setConnectionResults] = useState({});
@@ -177,39 +178,45 @@ export function TelephonyProvidersAdminClient({ initialProviders, embedded = fal
       return;
     }
 
+    setCreatingProvider(true);
+
     const method = editingProviderId ? "PATCH" : "POST";
     const url = editingProviderId
       ? `/api/admin/telephony-providers/${editingProviderId}`
       : "/api/admin/telephony-providers";
 
-    const response = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...createForm,
-        priority: Number(createForm.priority),
-        timeoutMs: Number(createForm.timeoutMs),
-        enabled: Boolean(createForm.enabled),
-        isActive: Boolean(createForm.isActive),
-      }),
-    });
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...createForm,
+          priority: Number(createForm.priority),
+          timeoutMs: Number(createForm.timeoutMs),
+          enabled: Boolean(createForm.enabled),
+          isActive: Boolean(createForm.isActive),
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      toast.error(data.error || (editingProviderId ? "Failed to update provider." : "Failed to create provider."));
-      return;
+      if (!response.ok) {
+        toast.error(data.error || (editingProviderId ? "Failed to update provider." : "Failed to create provider."));
+        return;
+      }
+
+      setCreateForm(EMPTY_FORM);
+      setEditingProviderId("");
+      setShowCreateForm(false);
+      toast.success(
+        editingProviderId
+          ? `Provider updated: ${data.provider.name}`
+          : `Provider created: ${data.provider.name}`
+      );
+      await fetchProviders();
+    } finally {
+      setCreatingProvider(false);
     }
-
-    setCreateForm(EMPTY_FORM);
-    setEditingProviderId("");
-    setShowCreateForm(false);
-    toast.success(
-      editingProviderId
-        ? `Provider updated: ${data.provider.name}`
-        : `Provider created: ${data.provider.name}`
-    );
-    await fetchProviders();
   }
 
   function openCreateModal() {
@@ -390,19 +397,23 @@ export function TelephonyProvidersAdminClient({ initialProviders, embedded = fal
                   variant="secondary"
                   className="h-8"
                   onClick={() => testProviderConnection(provider.id)}
+                  loading={testingConnectionId === provider.id}
+                  loadingText="Testing..."
                   disabled={testingConnectionId === provider.id}
                 >
                   <PlugZap className="mr-1 h-3.5 w-3.5" />
-                  {testingConnectionId === provider.id ? "Testing..." : "Test Connection"}
+                  Test Connection
                 </Button>
                 <Button
                   variant="destructive"
                   className="h-8"
                   onClick={() => deleteProvider(provider.id)}
+                  loading={deletingId === provider.id}
+                  loadingText="Deleting..."
                   disabled={deletingId === provider.id}
                 >
                   <Trash2 className="mr-1 h-3.5 w-3.5" />
-                  {deletingId === provider.id ? "Deleting..." : "Delete"}
+                  Delete
                 </Button>
               </div>
               {connectionResults[provider.id] ? (
@@ -429,8 +440,8 @@ export function TelephonyProvidersAdminClient({ initialProviders, embedded = fal
       {!embedded ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Telephony Providers</h1>
-            <p className="mt-1 text-sm text-slate-600">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Telephony Providers</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               Manage active telephony provider, priorities, and runtime connectivity.
             </p>
           </div>
@@ -450,8 +461,14 @@ export function TelephonyProvidersAdminClient({ initialProviders, embedded = fal
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" onClick={testAllProviderConnections} disabled={testingAllConnections}>
-              {testingAllConnections ? "Testing All..." : "Test All Providers"}
+            <Button
+              variant="secondary"
+              onClick={testAllProviderConnections}
+              loading={testingAllConnections}
+              loadingText="Testing All..."
+              disabled={testingAllConnections}
+            >
+              Test All Providers
             </Button>
           </div>
 
@@ -480,8 +497,14 @@ export function TelephonyProvidersAdminClient({ initialProviders, embedded = fal
               </CardDescription>
             </div>
             <div className="flex flex-wrap gap-2 sm:justify-end">
-              <Button variant="secondary" onClick={testAllProviderConnections} disabled={testingAllConnections}>
-                {testingAllConnections ? "Testing All..." : "Test All Connections"}
+              <Button
+                variant="secondary"
+                onClick={testAllProviderConnections}
+                loading={testingAllConnections}
+                loadingText="Testing All..."
+                disabled={testingAllConnections}
+              >
+                Test All Connections
               </Button>
               <Button variant="secondary" onClick={openCreateModal}>
                 Add Provider
@@ -505,7 +528,7 @@ export function TelephonyProvidersAdminClient({ initialProviders, embedded = fal
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
           <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-foreground">
                 {editingProviderId ? "Edit Telephony Provider" : "Add Telephony Provider"}
               </h3>
               <Button
@@ -553,32 +576,37 @@ export function TelephonyProvidersAdminClient({ initialProviders, embedded = fal
                 value={createForm.timeoutMs}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, timeoutMs: event.target.value }))}
               />
-              <div className="flex items-center gap-2 rounded-md border border-slate-200 px-3">
+              <div className="flex items-center gap-2 rounded-md border border-border px-3">
                 <input
                   id="create-telephony-enabled"
                   type="checkbox"
                   checked={createForm.enabled}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, enabled: event.target.checked }))}
                 />
-                <label htmlFor="create-telephony-enabled" className="text-sm text-slate-700">
+                <label htmlFor="create-telephony-enabled" className="text-sm text-muted-foreground">
                   Enabled
                 </label>
               </div>
-              <div className="flex items-center gap-2 rounded-md border border-slate-200 px-3">
+              <div className="flex items-center gap-2 rounded-md border border-border px-3">
                 <input
                   id="create-telephony-active"
                   type="checkbox"
                   checked={createForm.isActive}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, isActive: event.target.checked }))}
                 />
-                <label htmlFor="create-telephony-active" className="text-sm text-slate-700">
+                <label htmlFor="create-telephony-active" className="text-sm text-muted-foreground">
                   Active
                 </label>
               </div>
             </div>
 
             <div className="mt-3 flex gap-2">
-              <Button onClick={createProvider}>
+              <Button
+                onClick={createProvider}
+                loading={creatingProvider}
+                loadingText={editingProviderId ? "Updating..." : "Creating..."}
+                disabled={creatingProvider}
+              >
                 {editingProviderId ? "Update Provider" : "Create Provider"}
               </Button>
             </div>

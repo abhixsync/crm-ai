@@ -11,6 +11,7 @@ import { DataTable, formatDataTableDate } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { RoleSelect } from "@/components/admin/role-select";
+import { InlineLoader } from "@/components/ui/loader";
 
 const EMPTY_USER_FORM = {
   name: "",
@@ -865,7 +866,7 @@ export function UserManagementAdminClient() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {loading ? <p className="text-sm text-slate-600">Loading users...</p> : null}
+          {loading ? <InlineLoader label="Loading users..." /> : null}
 
           <DataTable
             columns={userColumns}
@@ -900,7 +901,7 @@ export function UserManagementAdminClient() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">{selectedUserId ? "Edit User" : "Add User"}</h3>
+              <h3 className="text-lg font-semibold text-foreground">{selectedUserId ? "Edit User" : "Add User"}</h3>
               <div className="flex flex-wrap gap-2">
                 {!selectedUserId ? (
                   <>
@@ -925,14 +926,14 @@ export function UserManagementAdminClient() {
             {userCreationMode === "upload" && !selectedUserId && !isAdminOnly ? (
               <div>
                 <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-muted-foreground">
                     Download sample file, fill in your user data, and upload it. Accepted formats: .xlsx, .xls, .csv.
                   </p>
                   <Link href="/samples/sample-users.xlsx" target="_blank" rel="noopener noreferrer">
                     <Button variant="secondary" className="w-fit">Download (sample-users.xlsx)</Button>
                   </Link>
                 </div>
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">
                   <Upload className="h-4 w-4" />
                   {bulkRunning ? "Uploading..." : "Select Excel File"}
                   <input
@@ -948,19 +949,19 @@ export function UserManagementAdminClient() {
               <>
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Name</span>
+                    <span className="text-sm font-medium text-muted-foreground">Name</span>
                     <Input value={userForm.name} onChange={(event) => updateUserForm("name", event.target.value)} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Email</span>
+                    <span className="text-sm font-medium text-muted-foreground">Email</span>
                     <Input type="email" value={userForm.email} onChange={(event) => updateUserForm("email", event.target.value)} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Password {selectedUserId ? "(optional)" : ""}</span>
+                    <span className="text-sm font-medium text-muted-foreground">Password {selectedUserId ? "(optional)" : ""}</span>
                     <Input type="password" value={userForm.password} onChange={(event) => updateUserForm("password", event.target.value)} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Role</span>
+                    <span className="text-sm font-medium text-muted-foreground">Role</span>
                     <RoleSelect
                       roles={roleOptionsForUserForm}
                       value={userForm.roleKey}
@@ -968,9 +969,9 @@ export function UserManagementAdminClient() {
                     />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-slate-700">Active</span>
+                    <span className="text-sm font-medium text-muted-foreground">Active</span>
                     <select
-                      className="h-9 w-full rounded-md border border-slate-300/90 bg-white px-3 text-sm text-slate-900"
+                      className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
                       value={userForm.isActive ? "yes" : "no"}
                       onChange={(event) => updateUserForm("isActive", event.target.value === "yes")}
                     >
@@ -984,7 +985,7 @@ export function UserManagementAdminClient() {
                   <>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                       <label className="space-y-2">
-                        <span className="text-sm font-medium text-slate-700">Permission Overrides (CSV)</span>
+                        <span className="text-sm font-medium text-muted-foreground">Permission Overrides (CSV)</span>
                         <Input
                           value={userForm.permissions}
                           placeholder="customers:read, customers:write"
@@ -992,7 +993,7 @@ export function UserManagementAdminClient() {
                         />
                       </label>
                       <label className="space-y-2">
-                        <span className="text-sm font-medium text-slate-700">Module Overrides (CSV)</span>
+                        <span className="text-sm font-medium text-muted-foreground">Module Overrides (CSV)</span>
                         <Input
                           value={userForm.modules}
                           placeholder="dashboard, automation"
@@ -1002,9 +1003,9 @@ export function UserManagementAdminClient() {
                     </div>
 
                     <label className="mt-3 block space-y-2">
-                      <span className="text-sm font-medium text-slate-700">Feature Toggle Overrides (JSON)</span>
+                      <span className="text-sm font-medium text-muted-foreground">Feature Toggle Overrides (JSON)</span>
                       <textarea
-                        className="min-h-[90px] w-full rounded-md border border-slate-300/90 bg-white p-3 text-sm text-slate-900"
+                        className="min-h-[90px] w-full rounded-md border border-border bg-card p-3 text-sm text-foreground"
                         value={userForm.featureToggles}
                         onChange={(event) => updateUserForm("featureToggles", event.target.value)}
                         placeholder='{"canBulkUserActions": true}'
@@ -1012,7 +1013,7 @@ export function UserManagementAdminClient() {
                     </label>
 
                     {selectedRole ? (
-                      <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                      <div className="mt-3 rounded-md border border-border bg-muted p-3 text-xs text-muted-foreground">
                         <p><span className="font-semibold">Role Template:</span> {selectedRole.name} ({selectedRole.key})</p>
                         <p className="mt-1"><span className="font-semibold">Base Role:</span> {selectedRole.baseRole}</p>
                         <p className="mt-1"><span className="font-semibold">Modules:</span> {toCsv(selectedRole.modules || []) || "-"}</p>
@@ -1025,9 +1026,23 @@ export function UserManagementAdminClient() {
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {selectedUserId ? (
-                    <Button onClick={updateSelectedUser} disabled={savingUser}>{savingUser ? "Saving..." : "Update User"}</Button>
+                    <Button
+                      onClick={updateSelectedUser}
+                      loading={savingUser}
+                      loadingText="Saving..."
+                      disabled={savingUser}
+                    >
+                      Update User
+                    </Button>
                   ) : (
-                    <Button onClick={createUser} disabled={savingUser}>{savingUser ? "Saving..." : "Create User"}</Button>
+                    <Button
+                      onClick={createUser}
+                      loading={savingUser}
+                      loadingText="Saving..."
+                      disabled={savingUser}
+                    >
+                      Create User
+                    </Button>
                   )}
                   <Button
                     variant="secondary"
@@ -1145,9 +1160,23 @@ export function UserManagementAdminClient() {
 
               <div className="mt-4 flex gap-2">
                 {selectedRoleId ? (
-                  <Button onClick={updateSelectedRole} disabled={savingRole}>{savingRole ? "Saving..." : "Update Role"}</Button>
+                  <Button
+                    onClick={updateSelectedRole}
+                    loading={savingRole}
+                    loadingText="Saving..."
+                    disabled={savingRole}
+                  >
+                    Update Role
+                  </Button>
                 ) : (
-                  <Button onClick={createRole} disabled={savingRole}>{savingRole ? "Saving..." : "Create Role"}</Button>
+                  <Button
+                    onClick={createRole}
+                    loading={savingRole}
+                    loadingText="Saving..."
+                    disabled={savingRole}
+                  >
+                    Create Role
+                  </Button>
                 )}
                 <Button variant="secondary" onClick={closeRoleDialog}>Cancel</Button>
               </div>

@@ -1,136 +1,377 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import { Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useTheme } from "@/core/theme/useTheme";
+import { PageLoader } from "@/components/ui/loader";
+import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
+import { useTheme } from "@/core/theme/useTheme";
 import { SYSTEM_THEME_DEFAULT } from "@/core/theme/system-defaults";
+import { getContrastHint, sanitizeThemeCustomCss } from "@/core/theme/theme-utils";
+
+type SessionUser = {
+  role?: "SUPER_ADMIN" | "ADMIN" | "SALES";
+  tenantId?: string | null;
+};
+
+type TenantOption = {
+  id: string;
+  name: string;
+};
+
+type ThemeStatus = {
+  hasCustomTheme: boolean;
+  source: "default" | "base" | "tenant";
+  updatedAt: string | null;
+  canReset: boolean;
+};
+
+type ThemeDraft = {
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  surfaceColor: string;
+  textPrimary: string;
+  textSecondary: string;
+  borderColor: string;
+  fontFamily: string;
+  fontScale: string;
+  layoutDensity: string;
+  customCss: string;
+};
+
+type PreviewMode = "light" | "dark";
+
+type SectionKey = "colors" | "typography" | "layout" | "advanced";
+
+const FONT_OPTIONS = [
+  "Inter, system-ui, sans-serif",
+  "Roboto, system-ui, sans-serif",
+  "Open Sans, system-ui, sans-serif",
+  "Lato, system-ui, sans-serif",
+  "Manrope, system-ui, sans-serif",
+];
+
+const HEX_REGEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+function toHexColor(input: string, fallback: string) {
+  const value = String(input || "").trim();
+  return HEX_REGEX.test(value) ? value : fallback;
+}
+
+function hexToHsl(hex: string) {
+  const normalized = hex.length === 4
+    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+    : hex;
+
+  const r = Number.parseInt(normalized.slice(1, 3), 16) / 255;
+  const g = Number.parseInt(normalized.slice(3, 5), 16) / 255;
+  const b = Number.parseInt(normalized.slice(5, 7), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+
+  if (max === min) {
+    return { h: 0, s: 0, l: Math.round(l * 100) };
+  }
+
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+  let h = 0;
+  if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+  if (max === g) h = (b - r) / d + 2;
+  if (max === b) h = (r - g) / d + 4;
+
+  h /= 6;
+
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100),
+  };
+}
+
+function hslToHex(h: number, s: number, l: number) {
+  const hue = ((h % 360) + 360) % 360;
+  const sat = Math.min(100, Math.max(0, s)) / 100;
+  const lig = Math.min(100, Math.max(0, l)) / 100;
+
+  const c = (1 - Math.abs(2 * lig - 1)) * sat;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = lig - c / 2;
+
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+  if (hue < 60) [r, g, b] = [c, x, 0];
+  else if (hue < 120) [r, g, b] = [x, c, 0];
+  else if (hue < 180) [r, g, b] = [0, c, x];
+  else if (hue < 240) [r, g, b] = [0, x, c];
+  else if (hue < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+
+  const toHex = (channel: number) => {
+    const value = Math.round((channel + m) * 255);
+    return value.toString(16).padStart(2, "0");
+  };
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function buildDraftFromTheme(theme: Record<string, unknown>): ThemeDraft {
+  return {
+    primaryColor: toHexColor(String(theme.primaryColor || ""), SYSTEM_THEME_DEFAULT.primaryColor),
+    secondaryColor: toHexColor(String(theme.secondaryColor || ""), SYSTEM_THEME_DEFAULT.secondaryColor),
+    accentColor: toHexColor(String(theme.accentColor || ""), SYSTEM_THEME_DEFAULT.accentColor),
+    backgroundColor: toHexColor(String(theme.backgroundColor || ""), SYSTEM_THEME_DEFAULT.backgroundColor),
+    surfaceColor: toHexColor(String(theme.surfaceColor || ""), SYSTEM_THEME_DEFAULT.surfaceColor),
+    textPrimary: toHexColor(String(theme.textPrimary || ""), SYSTEM_THEME_DEFAULT.textPrimary),
+    textSecondary: toHexColor(String(theme.textSecondary || ""), SYSTEM_THEME_DEFAULT.textSecondary),
+    borderColor: toHexColor(String(theme.borderColor || ""), SYSTEM_THEME_DEFAULT.borderColor),
+    fontFamily: String(theme.fontFamily || SYSTEM_THEME_DEFAULT.fontFamily),
+    fontScale: String(theme.fontScale || SYSTEM_THEME_DEFAULT.fontScale),
+    layoutDensity: String(theme.layoutDensity || SYSTEM_THEME_DEFAULT.layoutDensity),
+    customCss: String(theme.customCss || ""),
+  };
+}
+
+function ColorControl({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const hsl = useMemo(() => hexToHsl(value), [value]);
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-muted-foreground">{label}</label>
+      <div className="grid grid-cols-[42px_1fr] gap-2">
+        <Input
+          type="color"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          aria-label={`${label} color picker`}
+          className="w-[42px] p-1"
+        />
+        <Input
+          value={value}
+          onChange={(event) => onChange(toHexColor(event.target.value, value))}
+          aria-label={`${label} hex value`}
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <Input
+          type="number"
+          min={0}
+          max={360}
+          value={hsl.h}
+          onChange={(event) => onChange(hslToHex(Number(event.target.value), hsl.s, hsl.l))}
+          aria-label={`${label} hue`}
+        />
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          value={hsl.s}
+          onChange={(event) => onChange(hslToHex(hsl.h, Number(event.target.value), hsl.l))}
+          aria-label={`${label} saturation`}
+        />
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          value={hsl.l}
+          onChange={(event) => onChange(hslToHex(hsl.h, hsl.s, Number(event.target.value)))}
+          aria-label={`${label} lightness`}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function ThemeSettingsPage() {
   const { data: session } = useSession();
   const { theme, setThemeOptimistic, refreshTheme } = useTheme();
+
+  const user = (session?.user || {}) as SessionUser;
+  const canManage = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
+
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [tenants, setTenants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState("");
-  const [draft, setDraft] = useState({
-    primaryColor: "#2563eb",
-    secondaryColor: "#64748b",
-    accentColor: "#22c55e",
-  });
-  const [hasCustomizations, setHasCustomizations] = useState(false);
-  const [themeStatus, setThemeStatus] = useState(null);
+  const [themeStatus, setThemeStatus] = useState<ThemeStatus | null>(null);
+  const [inheritedDraft, setInheritedDraft] = useState<ThemeDraft>(() => buildDraftFromTheme(SYSTEM_THEME_DEFAULT));
+  const [draft, setDraft] = useState<ThemeDraft>(() => buildDraftFromTheme(SYSTEM_THEME_DEFAULT));
+  const [savedSnapshot, setSavedSnapshot] = useState<ThemeDraft>(() => buildDraftFromTheme(SYSTEM_THEME_DEFAULT));
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("light");
+  const [applyRecommendedOpen, setApplyRecommendedOpen] = useState(false);
+  const [applyingRecommended, setApplyingRecommended] = useState(false);
 
-  const canManage = ["ADMIN", "SUPER_ADMIN"].includes((session as any)?.user?.role || "");
-  const isSuperAdmin = (session as any)?.user?.role === "SUPER_ADMIN";
+  const importRef = useRef<HTMLInputElement | null>(null);
+  const applyModalRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    // Set default tenant for both admin and super admin
-    const defaultTenantId = (session as any)?.user?.tenantId || "";
-    setSelectedTenantId(defaultTenantId);
+  const hasUnsavedChanges = useMemo(
+    () => JSON.stringify(draft) !== JSON.stringify(savedSnapshot),
+    [draft, savedSnapshot]
+  );
+
+  const selectedTenant = useMemo(
+    () => tenants.find((tenant) => tenant.id === selectedTenantId) || null,
+    [tenants, selectedTenantId]
+  );
+
+  const applyTarget = useMemo(() => {
+    if (!canManage) return null;
 
     if (isSuperAdmin) {
-      fetchTenants();
+      if (selectedTenantId) {
+        return {
+          tenantId: selectedTenantId,
+          isBaseTheme: false,
+          label: selectedTenant?.name || "selected tenant",
+          overwritesTenantTheme: Boolean(themeStatus?.hasCustomTheme),
+          description: "Apply recommended tokens directly to the selected tenant.",
+        };
+      }
+
+      return {
+        tenantId: null,
+        isBaseTheme: true,
+        label: "Base theme",
+        overwritesTenantTheme: false,
+        description: "Apply recommended tokens to the base theme inherited by tenants without custom overrides.",
+      };
     }
-  }, [isSuperAdmin, session]);
+
+    return {
+      tenantId: selectedTenantId || String(user.tenantId || ""),
+      isBaseTheme: false,
+      label: "your tenant",
+      overwritesTenantTheme: Boolean(themeStatus?.hasCustomTheme),
+      description: "Apply recommended tokens to your tenant theme.",
+    };
+  }, [canManage, isSuperAdmin, selectedTenant, selectedTenantId, themeStatus?.hasCustomTheme, user.tenantId]);
+
+  const textContrast = useMemo(() => getContrastHint(draft.textPrimary, draft.backgroundColor), [draft]);
+
+  const previewStyle = useMemo(
+    () => ({
+      background: previewMode === "dark" ? "#0b1220" : `linear-gradient(135deg, ${draft.backgroundColor}, ${draft.surfaceColor})`,
+      color: previewMode === "dark" ? "#e2e8f0" : draft.textPrimary,
+      borderColor: draft.borderColor,
+      fontFamily: draft.fontFamily,
+    }),
+    [draft, previewMode]
+  );
 
   useEffect(() => {
-    if (selectedTenantId) {
-      // Load theme for selected tenant
-      const loadTheme = async () => {
-        try {
-          const query = selectedTenantId ? `?tenantId=${encodeURIComponent(selectedTenantId)}` : "";
-          const response = await fetch(`/api/theme/active${query}`);
-          const payload = await response.json();
-          const loadedTheme = payload?.theme || {
-            primaryColor: "#2563eb",
-            secondaryColor: "#64748b",
-            accentColor: "#22c55e",
-            source: "default"
-          };
+    setSelectedTenantId(String(user.tenantId || ""));
+  }, [user.tenantId]);
 
-          setDraft({
-            primaryColor: loadedTheme.primaryColor || "#2563eb",
-            secondaryColor: loadedTheme.secondaryColor || "#64748b",
-            accentColor: loadedTheme.accentColor || "#22c55e",
-          });
+  useEffect(() => {
+    if (!isSuperAdmin) return;
 
-          // Check if tenant has customizations
-          setHasCustomizations(loadedTheme.source === "tenant");
-
-          // Load theme status
-          await loadThemeStatus();
-
-          setThemeOptimistic(loadedTheme);
-        } catch (error) {
-          console.error("Failed to load theme:", error);
-        }
-      };
-      loadTheme();
-    }
-  }, [selectedTenantId, setThemeOptimistic]);
-
-  async function loadThemeStatus() {
-    if (!selectedTenantId) return;
-
-    try {
-      const query = `?tenantId=${encodeURIComponent(selectedTenantId)}`;
-      const response = await fetch(`/api/theme/status${query}`);
-      const data = await response.json();
-      if (response.ok) {
-        setThemeStatus(data.status);
+    const loadTenants = async () => {
+      try {
+        const response = await fetch("/api/admin/tenants", { cache: "no-store" });
+        const payload = await response.json();
+        const nextTenants = Array.isArray(payload?.tenants)
+          ? payload.tenants.map((tenant: { id: string; name: string }) => ({ id: tenant.id, name: tenant.name }))
+          : [];
+        setTenants(nextTenants);
+      } catch {
+        setTenants([]);
       }
-    } catch (error) {
-      console.error("Failed to load theme status:", error);
-    }
-  }
+    };
 
-  async function fetchTenants() {
-    try {
-      const response = await fetch("/api/admin/tenants");
-      const data = await response.json();
-      if (response.ok) {
-        setTenants(data.tenants || []);
-        // selectedTenantId is already set to super admin's tenant
-      }
-    } catch (error) {
-      console.error("Failed to fetch tenants:", error);
-    }
-  }
+    loadTenants();
+  }, [isSuperAdmin]);
 
-  async function resetToDefault() {
-    if (!canManage || !selectedTenantId) return;
-
-    if (!confirm("Are you sure you want to reset this tenant's theme to platform defaults? This will remove all customizations.")) {
+  useEffect(() => {
+    if (!canManage) {
+      setLoading(false);
       return;
     }
 
-    setSaving(true);
-    try {
-      const query = selectedTenantId ? `?tenantId=${encodeURIComponent(selectedTenantId)}` : "";
-      const response = await fetch(`/api/theme/reset${query}`, {
-        method: "POST",
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || "Failed to reset theme");
-      }
-
-      await refreshTheme();
-      setHasCustomizations(false);
-      setThemeStatus(prev => prev ? { ...prev, hasCustomTheme: false, canReset: false } : null);
-      toast.success("Theme reset to platform defaults");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to reset theme");
-    } finally {
-      setSaving(false);
+    if (!selectedTenantId) {
+      const fallback = buildDraftFromTheme(SYSTEM_THEME_DEFAULT);
+      setDraft(fallback);
+      setSavedSnapshot(fallback);
+      setThemeStatus(null);
+      setInheritedDraft(buildDraftFromTheme(SYSTEM_THEME_DEFAULT));
+      setLoading(false);
+      return;
     }
-  }
+
+    const loadThemeState = async () => {
+      setLoading(true);
+      try {
+        const activeRes = await fetch(`/api/theme/active?tenantId=${encodeURIComponent(selectedTenantId)}`, { cache: "no-store" });
+        const activePayload = await activeRes.json();
+        const activeTheme = activePayload?.theme || SYSTEM_THEME_DEFAULT;
+
+        const statusRes = await fetch(`/api/theme/status?tenantId=${encodeURIComponent(selectedTenantId)}`, { cache: "no-store" });
+        const statusPayload = await statusRes.json();
+
+        const inheritedRes = await fetch("/api/theme/inherited", { cache: "no-store" });
+        const inheritedPayload = await inheritedRes.json();
+
+        const nextDraft = buildDraftFromTheme(activeTheme);
+        setDraft(nextDraft);
+        setSavedSnapshot(nextDraft);
+        setThemeStatus(statusPayload?.status || null);
+        setInheritedDraft(buildDraftFromTheme(inheritedPayload?.theme || SYSTEM_THEME_DEFAULT));
+        setThemeOptimistic(activeTheme);
+      } catch {
+        const fallback = buildDraftFromTheme(SYSTEM_THEME_DEFAULT);
+        setDraft(fallback);
+        setSavedSnapshot(fallback);
+        setThemeStatus(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadThemeState();
+  }, [canManage, selectedTenantId, setThemeOptimistic]);
+
+  useEffect(() => {
+    if (!canManage) return;
+
+    const timeout = setTimeout(() => {
+      setThemeOptimistic({
+        primaryColor: draft.primaryColor,
+        secondaryColor: draft.secondaryColor,
+        accentColor: draft.accentColor,
+        backgroundColor: draft.backgroundColor,
+        surfaceColor: draft.surfaceColor,
+        textPrimary: draft.textPrimary,
+        textSecondary: draft.textSecondary,
+        borderColor: draft.borderColor,
+        fontFamily: draft.fontFamily,
+        fontScale: draft.fontScale,
+        layoutDensity: draft.layoutDensity,
+      });
+    }, 120);
+
+    return () => clearTimeout(timeout);
+  }, [canManage, draft, setThemeOptimistic]);
 
   async function saveTheme() {
     if (!canManage || !selectedTenantId) return;
@@ -143,25 +384,148 @@ export function ThemeSettingsPage() {
         body: JSON.stringify({
           tenantId: selectedTenantId,
           ...draft,
+          customCss: sanitizeThemeCustomCss(draft.customCss),
         }),
       });
 
-      const data = await response.json();
+      const payload = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error || "Unable to save theme.");
+        throw new Error(payload?.error || "Unable to save theme.");
       }
 
-      setThemeOptimistic(data.theme || draft);
+      const nextDraft = buildDraftFromTheme(payload?.theme || draft);
+      setDraft(nextDraft);
+      setSavedSnapshot(nextDraft);
       toast.success("Theme saved.");
       await refreshTheme();
-    } catch (error: any) {
-      toast.error(error?.message || "Unable to save theme.");
+    } catch (error) {
+      toast.error((error as Error).message || "Unable to save theme.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function uploadAsset(assetKey: "logo" | "favicon" | "loginBackground" | "applicationBackground", file: File | null) {
+  async function resetTenantTheme() {
+    if (!canManage || !selectedTenantId || !themeStatus?.canReset) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/theme/reset?tenantId=${encodeURIComponent(selectedTenantId)}`, {
+        method: "POST",
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to reset theme");
+      }
+
+      const nextDraft = buildDraftFromTheme(payload?.theme || inheritedDraft);
+      setDraft(nextDraft);
+      setSavedSnapshot(nextDraft);
+      setThemeStatus((previous) => previous ? { ...previous, hasCustomTheme: false, canReset: false, source: payload?.theme?.source || "base" } : previous);
+      toast.success("Theme reset to inherited defaults.");
+      await refreshTheme();
+    } catch (error) {
+      toast.error((error as Error).message || "Failed to reset theme");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function applyRecommendedTheme() {
+    if (!canManage || !applyTarget) return;
+
+    const recommendedDraft = buildDraftFromTheme(SYSTEM_THEME_DEFAULT);
+
+    setApplyingRecommended(true);
+    try {
+      const response = await fetch("/api/admin/theme", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(applyTarget.tenantId ? { tenantId: applyTarget.tenantId } : {}),
+          ...(applyTarget.isBaseTheme ? { isBaseTheme: true } : {}),
+          ...recommendedDraft,
+          customCss: sanitizeThemeCustomCss(recommendedDraft.customCss),
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Unable to apply recommended theme.");
+      }
+
+      const nextDraft = buildDraftFromTheme(payload?.theme || recommendedDraft);
+      setDraft(nextDraft);
+      setSavedSnapshot(nextDraft);
+      setApplyRecommendedOpen(false);
+
+      if (applyTarget.isBaseTheme) {
+        setThemeStatus(null);
+        toast.success("Recommended theme applied to base theme.");
+      } else {
+        setThemeStatus((previous) => previous
+          ? { ...previous, hasCustomTheme: true, canReset: true, source: "tenant" }
+          : {
+            hasCustomTheme: true,
+            canReset: true,
+            source: "tenant",
+            updatedAt: new Date().toISOString(),
+          });
+        toast.success(`Recommended theme applied to ${applyTarget.label}.`);
+      }
+
+      await refreshTheme();
+    } catch (error) {
+      toast.error((error as Error).message || "Unable to apply recommended theme.");
+    } finally {
+      setApplyingRecommended(false);
+    }
+  }
+
+  function resetSection(section: SectionKey) {
+    const source = inheritedDraft;
+
+    setDraft((current) => {
+      if (section === "colors") {
+        return {
+          ...current,
+          primaryColor: source.primaryColor,
+          secondaryColor: source.secondaryColor,
+          accentColor: source.accentColor,
+          backgroundColor: source.backgroundColor,
+          surfaceColor: source.surfaceColor,
+          textPrimary: source.textPrimary,
+          textSecondary: source.textSecondary,
+          borderColor: source.borderColor,
+        };
+      }
+
+      if (section === "typography") {
+        return {
+          ...current,
+          fontFamily: source.fontFamily,
+          fontScale: source.fontScale,
+        };
+      }
+
+      if (section === "layout") {
+        return {
+          ...current,
+          layoutDensity: source.layoutDensity,
+        };
+      }
+
+      return {
+        ...current,
+        customCss: source.customCss,
+      };
+    });
+  }
+
+  async function uploadAsset(
+    assetKey: "logo" | "favicon" | "loginBackground" | "applicationBackground",
+    file: File | null
+  ) {
     if (!file || !canManage || !selectedTenantId) return;
 
     setUploading(true);
@@ -176,16 +540,16 @@ export function ThemeSettingsPage() {
         body: formData,
       });
 
-      const data = await response.json();
+      const payload = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error || "Unable to upload asset.");
+        throw new Error(payload?.error || "Unable to upload asset.");
       }
 
-      setThemeOptimistic(data.theme || {});
-      toast.success("Asset uploaded.");
+      toast.success(`${assetKey} uploaded.`);
+      setThemeOptimistic(payload?.theme || {});
       await refreshTheme();
-    } catch (error: any) {
-      toast.error(error?.message || "Unable to upload asset.");
+    } catch (error) {
+      toast.error((error as Error).message || "Unable to upload asset.");
     } finally {
       setUploading(false);
     }
@@ -196,7 +560,7 @@ export function ThemeSettingsPage() {
 
     setSaving(true);
     try {
-      const patch: any = {};
+      const patch: Record<string, string | null> = {};
       if (assetKey === "logo") patch.logoUrl = null;
       if (assetKey === "favicon") patch.faviconUrl = null;
       if (assetKey === "loginBackground") patch.loginBackgroundUrl = null;
@@ -205,208 +569,406 @@ export function ThemeSettingsPage() {
       const response = await fetch("/api/admin/theme", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tenantId: selectedTenantId,
-          ...patch,
-        }),
+        body: JSON.stringify({ tenantId: selectedTenantId, ...patch }),
       });
 
-      const data = await response.json();
+      const payload = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error || "Unable to clear asset.");
+        throw new Error(payload?.error || "Unable to clear asset.");
       }
 
-      setThemeOptimistic(data.theme || {});
-      toast.success("Asset cleared.");
+      toast.success(`${assetKey} cleared.`);
+      setThemeOptimistic(payload?.theme || {});
       await refreshTheme();
-    } catch (error: any) {
-      toast.error(error?.message || "Unable to clear asset.");
+    } catch (error) {
+      toast.error((error as Error).message || "Unable to clear asset.");
     } finally {
       setSaving(false);
     }
   }
 
-  function resetDefaultTheme() {
-    setDraft({
-      primaryColor: "#2563eb",
-      secondaryColor: "#64748b",
-      accentColor: "#22c55e",
-    });
-    setThemeOptimistic({
-      primaryColor: "#2563eb",
-      secondaryColor: "#64748b",
-      accentColor: "#22c55e",
-    });
+  function exportThemeJson() {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      draft,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `tenant-theme-${selectedTenantId || "draft"}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
-  const previewStyle = useMemo(
-    () => ({
-      background: `linear-gradient(135deg, ${draft.primaryColor}, ${draft.secondaryColor})`,
-      borderColor: draft.accentColor,
-    }),
-    [draft]
-  );
+  async function importThemeJson(file: File | null) {
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text) as { draft?: Partial<ThemeDraft> };
+      const incoming = payload?.draft || {};
+
+      setDraft((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          Object.entries(incoming).filter(([key]) => key in current)
+        ),
+      }));
+
+      toast.success("Theme JSON imported into draft.");
+    } catch {
+      toast.error("Invalid theme JSON file.");
+    }
+  }
+
+  if (loading) {
+    return <PageLoader label="Loading theme settings..." />;
+  }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                Theme Settings
-                {themeStatus ? (
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    themeStatus.hasCustomTheme
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {themeStatus.hasCustomTheme ? 'Custom Theme' : 'Inherits Platform Default'}
-                  </span>
-                ) : null}
-              </CardTitle>
-              <CardDescription>
-                {themeStatus?.hasCustomTheme
-                  ? `This tenant has custom theme settings that override platform defaults. Last updated: ${themeStatus.updatedAt ? new Date(themeStatus.updatedAt).toLocaleDateString() : 'Unknown'}`
-                  : "This tenant inherits platform default settings. Make changes to customize."
-                }
-              </CardDescription>
-            </div>
-            <div />
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isSuperAdmin && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">
-                Select Tenant
+    <div className="space-y-6 pb-28">
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              Tenant Theme Editor
+              {themeStatus ? (
+                <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${themeStatus.hasCustomTheme ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>
+                  {themeStatus.hasCustomTheme ? "Custom" : "Inherited"}
+                </span>
+              ) : null}
+              {hasUnsavedChanges ? (
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">
+                  Unsaved changes
+                </span>
+              ) : null}
+            </CardTitle>
+            <CardDescription>
+              Enterprise theming with safe inheritance, white-label controls, and token-level editing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {isSuperAdmin ? (
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-muted-foreground">Target Scope</span>
+                <Select
+                  className="w-full"
+                  value={selectedTenantId}
+                  onChange={(event) => setSelectedTenantId(event.target.value)}
+                  aria-label="Select tenant for theme editing"
+                >
+                  <option value="">Base theme (all tenants without custom overrides)</option>
+                  {tenants.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </option>
+                  ))}
+                </Select>
+                <span className="text-xs text-muted-foreground">
+                  Choose a tenant to edit only that tenant, or keep Base theme selected to manage inherited defaults.
+                </span>
               </label>
-              <select
-                className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 text-sm"
-                value={selectedTenantId}
-                onChange={(e) => setSelectedTenantId(e.target.value)}
-                disabled={!canManage}
-              >
-                <option value="">Select a tenant...</option>
-                {tenants.map((tenant) => (
-                  <option key={tenant.id} value={tenant.id}>
-                    {tenant.name}
-                  </option>
-                ))}
-              </select>
+            ) : null}
+
+            {applyTarget?.overwritesTenantTheme ? (
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                This tenant currently has a custom theme. Applying recommended tokens will overwrite tenant-specific values.
+              </div>
+            ) : null}
+
+            <section className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Color Tokens</h3>
+                <Button variant="secondary" onClick={() => resetSection("colors")} disabled={!canManage}>
+                  Reset to inherit
+                </Button>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <ColorControl label="Primary" value={draft.primaryColor} onChange={(next) => setDraft((prev) => ({ ...prev, primaryColor: next }))} />
+                <ColorControl label="Secondary" value={draft.secondaryColor} onChange={(next) => setDraft((prev) => ({ ...prev, secondaryColor: next }))} />
+                <ColorControl label="Accent" value={draft.accentColor} onChange={(next) => setDraft((prev) => ({ ...prev, accentColor: next }))} />
+                <ColorControl label="Background" value={draft.backgroundColor} onChange={(next) => setDraft((prev) => ({ ...prev, backgroundColor: next }))} />
+                <ColorControl label="Surface" value={draft.surfaceColor} onChange={(next) => setDraft((prev) => ({ ...prev, surfaceColor: next }))} />
+                <ColorControl label="Text Primary" value={draft.textPrimary} onChange={(next) => setDraft((prev) => ({ ...prev, textPrimary: next }))} />
+                <ColorControl label="Text Secondary" value={draft.textSecondary} onChange={(next) => setDraft((prev) => ({ ...prev, textSecondary: next }))} />
+                <ColorControl label="Border" value={draft.borderColor} onChange={(next) => setDraft((prev) => ({ ...prev, borderColor: next }))} />
+              </div>
+              <p className={`text-xs ${textContrast.level === "FAIL" ? "text-rose-600" : "text-muted-foreground"}`}>
+                Contrast hint: {textContrast.level} ({textContrast.ratio.toFixed(2)}:1) for text-primary on background.
+              </p>
+            </section>
+
+            <section className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Typography</h3>
+                <Button variant="secondary" onClick={() => resetSection("typography")} disabled={!canManage}>
+                  Reset to inherit
+                </Button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-2 text-sm text-muted-foreground">
+                  <span>Font Family</span>
+                  <Select
+                    className="w-full"
+                    value={draft.fontFamily}
+                    onChange={(event) => setDraft((prev) => ({ ...prev, fontFamily: event.target.value }))}
+                  >
+                    {FONT_OPTIONS.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </Select>
+                </label>
+                <label className="space-y-2 text-sm text-muted-foreground">
+                  <span>Font Scale</span>
+                  <Select
+                    className="w-full"
+                    value={draft.fontScale}
+                    onChange={(event) => setDraft((prev) => ({ ...prev, fontScale: event.target.value }))}
+                  >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </Select>
+                </label>
+              </div>
+            </section>
+
+            <section className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Layout & Density</h3>
+                <Button variant="secondary" onClick={() => resetSection("layout")} disabled={!canManage}>
+                  Reset to inherit
+                </Button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-2 text-sm text-muted-foreground">
+                  <span>Density</span>
+                  <Select
+                    className="w-full"
+                    value={draft.layoutDensity}
+                    onChange={(event) => setDraft((prev) => ({ ...prev, layoutDensity: event.target.value }))}
+                  >
+                    <option value="compact">Compact</option>
+                    <option value="comfortable">Comfortable</option>
+                    <option value="spacious">Spacious</option>
+                  </Select>
+                </label>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <span>Theme Mode Preview</span>
+                  <div className="flex gap-2">
+                    <Button variant={previewMode === "light" ? "default" : "secondary"} onClick={() => setPreviewMode("light")}>Light</Button>
+                    <Button variant={previewMode === "dark" ? "default" : "secondary"} onClick={() => setPreviewMode("dark")}>Dark</Button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Assets</h3>
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={exportThemeJson}>
+                    <Download className="h-4 w-4" /> Export JSON
+                  </Button>
+                  <Button variant="secondary" onClick={() => importRef.current?.click()}>
+                    <Upload className="h-4 w-4" /> Import JSON
+                  </Button>
+                  <input
+                    ref={importRef}
+                    type="file"
+                    accept="application/json"
+                    className="hidden"
+                    onChange={(event) => importThemeJson(event.target.files?.[0] || null)}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1 text-sm text-muted-foreground">
+                  <span>Logo</span>
+                  {theme.logoUrl ? (
+                    <div className="mb-2 flex items-center gap-2">
+                      <img src={theme.logoUrl} alt="Current logo" className="h-8 w-auto rounded border" />
+                      <Button variant="secondary" onClick={() => clearAsset("logo")} disabled={saving}>Clear</Button>
+                    </div>
+                  ) : null}
+                  <Input type="file" accept="image/*" disabled={uploading} onChange={(event) => uploadAsset("logo", event.target.files?.[0] || null)} />
+                </label>
+                <label className="space-y-1 text-sm text-muted-foreground">
+                  <span>Favicon</span>
+                  {theme.faviconUrl ? (
+                    <div className="mb-2 flex items-center gap-2">
+                      <img src={theme.faviconUrl} alt="Current favicon" className="h-6 w-6 rounded border" />
+                      <Button variant="secondary" onClick={() => clearAsset("favicon")} disabled={saving}>Clear</Button>
+                    </div>
+                  ) : null}
+                  <Input type="file" accept="image/*" disabled={uploading} onChange={(event) => uploadAsset("favicon", event.target.files?.[0] || null)} />
+                </label>
+                <label className="space-y-1 text-sm text-muted-foreground">
+                  <span>Login Background</span>
+                  {theme.loginBackgroundUrl ? (
+                    <div className="mb-2 flex items-center gap-2">
+                      <img src={theme.loginBackgroundUrl} alt="Current login background" className="h-12 w-20 rounded border object-cover" />
+                      <Button variant="secondary" onClick={() => clearAsset("loginBackground")} disabled={saving}>Clear</Button>
+                    </div>
+                  ) : null}
+                  <Input type="file" accept="image/*" disabled={uploading} onChange={(event) => uploadAsset("loginBackground", event.target.files?.[0] || null)} />
+                </label>
+                <label className="space-y-1 text-sm text-muted-foreground">
+                  <span>Application Background</span>
+                  {theme.applicationBackgroundUrl ? (
+                    <div className="mb-2 flex items-center gap-2">
+                      <img src={theme.applicationBackgroundUrl} alt="Current application background" className="h-12 w-20 rounded border object-cover" />
+                      <Button variant="secondary" onClick={() => clearAsset("applicationBackground")} disabled={saving}>Clear</Button>
+                    </div>
+                  ) : null}
+                  <Input type="file" accept="image/*" disabled={uploading} onChange={(event) => uploadAsset("applicationBackground", event.target.files?.[0] || null)} />
+                </label>
+              </div>
+            </section>
+
+            <section className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Advanced</h3>
+                <Button variant="secondary" onClick={() => resetSection("advanced")} disabled={!canManage}>
+                  Reset to inherit
+                </Button>
+              </div>
+              <label className="space-y-1 text-sm text-muted-foreground">
+                <span>Custom CSS (sanitized)</span>
+                <textarea
+                  className="min-h-[120px] w-full rounded-md border border-border bg-background p-3 text-sm text-foreground"
+                  value={draft.customCss}
+                  onChange={(event) => setDraft((prev) => ({ ...prev, customCss: event.target.value }))}
+                  placeholder=".my-brand-widget { border-radius: 14px; }"
+                />
+                <span className="text-xs text-muted-foreground">
+                  For safety, script tags, @import and javascript: URL patterns are removed before apply/save.
+                </span>
+              </label>
+            </section>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Live Preview</CardTitle>
+            <CardDescription>Theme preview for card, button, and table behaviors.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 rounded-lg border p-4" style={previewStyle}>
+              <div className="rounded-md border p-4" style={{ background: draft.surfaceColor, borderColor: draft.borderColor }}>
+                <h4 className="text-sm font-semibold" style={{ color: draft.textPrimary }}>Themed Card</h4>
+                <p className="mt-1 text-sm" style={{ color: draft.textSecondary }}>
+                  This card previews typography, background/surface, and border tokens.
+                </p>
+                <Button
+                  className="mt-3"
+                  style={{ backgroundColor: draft.primaryColor, borderColor: draft.primaryColor, color: "#fff" }}
+                >
+                  Themed Button
+                </Button>
+              </div>
+
+              <div className="themed-table overflow-hidden rounded-md border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-3 py-2 text-left">Lead</th>
+                      <th className="px-3 py-2 text-left">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="px-3 py-2">Aarav Singh</td>
+                      <td className="px-3 py-2">Interested</td>
+                    </tr>
+                    <tr data-state="selected">
+                      <td className="px-3 py-2">Neha Sharma</td>
+                      <td className="px-3 py-2">Follow Up</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
+          </CardContent>
+        </Card>
+      </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Primary</span>
-              <Input type="color" value={draft.primaryColor} onChange={(event) => setDraft((prev) => ({ ...prev, primaryColor: event.target.value }))} disabled={!canManage} />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Secondary</span>
-              <Input type="color" value={draft.secondaryColor} onChange={(event) => setDraft((prev) => ({ ...prev, secondaryColor: event.target.value }))} disabled={!canManage} />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Accent</span>
-              <Input type="color" value={draft.accentColor} onChange={(event) => setDraft((prev) => ({ ...prev, accentColor: event.target.value }))} disabled={!canManage} />
-            </label>
-          </div>
-
-          <div className="grid gap-3 grid-cols-1">
-            <label className="space-y-1 text-sm text-slate-700">
-              <span>Logo</span>
-              {theme.logoUrl && (
-                <div className="mb-2 flex items-center gap-2">
-                  <img src={theme.logoUrl} alt="Current logo" className="h-8 w-auto border rounded" />
-                  <Button 
-                    variant="secondary" 
-                    onClick={() => clearAsset("logo")}
-                    disabled={!canManage || saving}
-                  >
-                    Clear
-                  </Button>
-                </div>
-              )}
-              <Input type="file" accept="image/*" disabled={!canManage || uploading} onChange={(event) => uploadAsset("logo", event.target.files?.[0] || null)} />
-            </label>
-            <label className="space-y-1 text-sm text-slate-700">
-              <span>Favicon</span>
-              {theme.faviconUrl && (
-                <div className="mb-2 flex items-center gap-2">
-                  <img src={theme.faviconUrl} alt="Current favicon" className="h-6 w-6 border rounded" />
-                  <Button 
-                    variant="secondary" 
-                    onClick={() => clearAsset("favicon")}
-                    disabled={!canManage || saving}
-                  >
-                    Clear
-                  </Button>
-                </div>
-              )}
-              <Input type="file" accept="image/*" disabled={!canManage || uploading} onChange={(event) => uploadAsset("favicon", event.target.files?.[0] || null)} />
-            </label>
-            <label className="space-y-1 text-sm text-slate-700">
-              <span>Login Background</span>
-              {theme.loginBackgroundUrl && (
-                <div className="mb-2 flex items-center gap-2">
-                  <img src={theme.loginBackgroundUrl} alt="Current login background" className="h-12 w-20 border rounded object-cover" />
-                  <Button 
-                    variant="secondary" 
-                    onClick={() => clearAsset("loginBackground")}
-                    disabled={!canManage || saving}
-                  >
-                    Clear
-                  </Button>
-                </div>
-              )}
-              <Input type="file" accept="image/*" disabled={!canManage || uploading} onChange={(event) => uploadAsset("loginBackground", event.target.files?.[0] || null)} />
-            </label>
-            <label className="space-y-1 text-sm text-slate-700">
-              <span>Application Background</span>
-              {theme.applicationBackgroundUrl && (
-                <div className="mb-2 flex items-center gap-2">
-                  <img src={theme.applicationBackgroundUrl} alt="Current application background" className="h-12 w-20 border rounded object-cover" />
-                  <Button 
-                    variant="secondary" 
-                    onClick={() => clearAsset("applicationBackground")}
-                    disabled={!canManage || saving}
-                  >
-                    Clear
-                  </Button>
-                </div>
-              )}
-              <Input type="file" accept="image/*" disabled={!canManage || uploading} onChange={(event) => uploadAsset("applicationBackground", event.target.files?.[0] || null)} />
-            </label>
-          </div>
-
+      <div className="theme-savebar fixed inset-x-0 bottom-0 z-40 border-t px-4 py-3 backdrop-blur sm:px-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {hasUnsavedChanges ? "You have unsaved theme changes." : "All changes saved."}
+          </p>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={saveTheme} disabled={!canManage || saving || !selectedTenantId}>{saving ? "Saving..." : "Save Theme"}</Button>
-            <Button variant="secondary" onClick={resetToDefault} disabled={!canManage || saving || !selectedTenantId || !themeStatus?.canReset}>Reset to Default</Button>
+            <Button
+              variant="secondary"
+              onClick={() => setApplyRecommendedOpen(true)}
+              disabled={!canManage || saving || applyingRecommended || !applyTarget}
+              loading={applyingRecommended}
+              loadingText="Applying..."
+            >
+              Apply Recommended Theme
+            </Button>
+            <Button variant="secondary" onClick={() => setDraft(savedSnapshot)} disabled={!hasUnsavedChanges || saving}>
+              Discard
+            </Button>
+            <Button variant="secondary" onClick={resetTenantTheme} disabled={!themeStatus?.canReset} loading={saving} loadingText="Resetting...">
+              Reset Tenant Theme
+            </Button>
+            <Button
+              onClick={saveTheme}
+              disabled={!canManage || !selectedTenantId || !hasUnsavedChanges || applyingRecommended}
+              loading={saving}
+              loadingText="Saving theme..."
+            >
+              Save Theme
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Live Preview</CardTitle>
-          <CardDescription>Debounced preview of current theme settings.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-xl border p-4" style={previewStyle as any}>
-            <div className="rounded-lg bg-white/90 p-4 shadow-sm">
-              <p className="text-sm font-semibold" style={{ color: draft.primaryColor }}>Primary text preview</p>
-              <p className="mt-1 text-sm" style={{ color: draft.secondaryColor }}>Secondary text preview</p>
-              <Button 
-                className="mt-3" 
-                style={{ backgroundColor: draft.accentColor, borderColor: draft.accentColor }}
-                onClick={() => toast.success("Accent button clicked! Theme is working.")}
-              >
-                Accent Action
-              </Button>
-            </div>
+      <Modal
+        open={applyRecommendedOpen}
+        onClose={() => {
+          if (!applyingRecommended) {
+            setApplyRecommendedOpen(false);
+          }
+        }}
+        title="Apply Recommended Theme"
+        description={applyTarget?.description}
+        ariaLabel="Apply recommended theme confirmation"
+        dialogRef={applyModalRef}
+        maxWidthClass="max-w-xl"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Target: <span className="font-medium text-foreground">{applyTarget?.label || "-"}</span>
+          </p>
+          {applyTarget?.isBaseTheme ? (
+            <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              This updates inherited defaults for tenants that do not have active custom themes.
+            </p>
+          ) : null}
+          {applyTarget?.overwritesTenantTheme ? (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Warning: this replaces the selected tenant's current custom theme values.
+            </p>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setApplyRecommendedOpen(false)} disabled={applyingRecommended}>
+              Cancel
+            </Button>
+            <Button onClick={applyRecommendedTheme} loading={applyingRecommended} loadingText="Applying theme...">
+              Confirm Apply
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </Modal>
     </div>
   );
 }

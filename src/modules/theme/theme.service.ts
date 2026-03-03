@@ -78,8 +78,7 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
 // 🎯 THEME RESOLVER - CORE INHERITANCE LOGIC
 export async function resolveTenantTheme(tenantId: string | null): Promise<ActiveTheme> {
   // 1️⃣ Try cache first
-  const cacheKey = getCacheKey(tenantId);
-  const cached = await readCache(cacheKey);
+  const cached = await readCache(tenantId || "null");
   if (cached) return cached;
 
   // 2️⃣ Load tenant override (if tenantId provided)
@@ -167,7 +166,7 @@ export async function resolveTenantTheme(tenantId: string | null): Promise<Activ
   };
 
   // 6️⃣ Cache and return
-  await writeCache(cacheKey, activeTheme);
+  await writeCache(tenantId || "null", activeTheme);
   return activeTheme;
 }
 

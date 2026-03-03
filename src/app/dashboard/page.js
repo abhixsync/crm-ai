@@ -25,11 +25,13 @@ export default async function DashboardPage() {
   let followUps = 0;
   let totalCalls = 0;
   let customers = [];
+  let initialTenantName = "CRM";
+  let initialTenant = null;
   const tenantId = session.user.tenantId || null;
   const tenantFilter = tenantId ? { tenantId } : {};
 
   try {
-    [totalCustomers, interestedCustomers, followUps, totalCalls, customers] = await Promise.all([
+    [totalCustomers, interestedCustomers, followUps, totalCalls, customers, initialTenant] = await Promise.all([
       prisma.customer.count({ where: { ...tenantFilter, archivedAt: null } }),
       prisma.customer.count({ where: { ...tenantFilter, status: CustomerStatus.INTERESTED, archivedAt: null } }),
       prisma.customer.count({ where: { ...tenantFilter, status: CustomerStatus.FOLLOW_UP, archivedAt: null } }),
@@ -45,7 +47,15 @@ export default async function DashboardPage() {
         orderBy: { createdAt: "desc" },
         take: PAGE_SIZE,
       }),
+      tenantId
+        ? prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { crmName: true, name: true },
+        })
+        : Promise.resolve(null),
     ]);
+
+    initialTenantName = initialTenant?.crmName || initialTenant?.name || "CRM";
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
       console.warn("[dashboard] Database unavailable; rendering empty dashboard state.");
@@ -59,6 +69,7 @@ export default async function DashboardPage() {
   return (
     <DashboardClient
       user={session.user}
+      initialTenantName={initialTenantName}
       initialMetrics={{ totalCustomers, interestedCustomers, followUps, totalCalls }}
       initialCustomers={customers}
       initialPagination={{ page: 1, pageSize: PAGE_SIZE, total: totalCustomers, totalPages }}

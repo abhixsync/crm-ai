@@ -21,7 +21,7 @@ export function DataTablePagination<TData>({
   const canNextPage = table.getCanNextPage();
 
   return (
-    <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="themed-table-pagination flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="text-sm text-muted-foreground">
         Page {pageIndex + 1} of {Math.max(pageCount, 1)}
         {!serverSide ? ` • ${table.getFilteredRowModel().rows.length} rows` : ""}

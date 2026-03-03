@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { Input } from "@/components/ui/input";
+import { InlineLoader } from "@/components/ui/loader";
 
 const STATUS_OPTIONS = [
   "NEW",
@@ -104,7 +105,7 @@ export function AutomationSettingsAdminClient() {
   const [saving, setSaving] = useState(false);
   const [runningBatch, setRunningBatch] = useState(false);
   const [jobs, setJobs] = useState([]);
-  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [loadingJobs, setLoadingJobs] = useState(true);
   const [jobPagination, setJobPagination] = useState({
     page: 1,
     pageSize: 25,
@@ -112,7 +113,7 @@ export function AutomationSettingsAdminClient() {
     totalPages: 1,
   });
   const [health, setHealth] = useState(null);
-  const [loadingHealth, setLoadingHealth] = useState(false);
+  const [loadingHealth, setLoadingHealth] = useState(true);
 
   useEffect(() => {
     fetchSettings();
@@ -389,7 +390,7 @@ export function AutomationSettingsAdminClient() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        {loading ? <p className="text-sm text-slate-600">Loading automation settings...</p> : null}
+        {loading ? <InlineLoader label="Loading automation settings..." /> : null}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <label className="space-y-2">
@@ -519,26 +520,44 @@ export function AutomationSettingsAdminClient() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={saveSettings} disabled={saving || loading}>
-            {saving ? "Saving..." : "Save Settings"}
+          <Button onClick={saveSettings} loading={saving} loadingText="Saving settings..." disabled={saving || loading}>
+            Save Settings
           </Button>
-          <Button variant="secondary" onClick={runBatchNow} disabled={runningBatch || loading || !form.enabled}>
-            {runningBatch ? "Running Batch..." : "Run Campaign Batch Now"}
+          <Button
+            variant="secondary"
+            onClick={runBatchNow}
+            loading={runningBatch}
+            loadingText="Running batch..."
+            disabled={runningBatch || loading || !form.enabled}
+          >
+            Run Campaign Batch Now
           </Button>
           {/* <Button variant="secondary" onClick={fetchSettings} disabled={loading}>
             Refresh
           </Button> */}
-          <Button variant="secondary" onClick={() => fetchRecentJobs()} disabled={loadingJobs}>
-            {loadingJobs ? "Refreshing..." : "Refresh"}
+          <Button
+            variant="secondary"
+            onClick={() => fetchRecentJobs()}
+            loading={loadingJobs}
+            loadingText="Refreshing jobs..."
+            disabled={loadingJobs}
+          >
+            Refresh
           </Button>
-          <Button variant="secondary" onClick={fetchAutomationHealth} disabled={loadingHealth}>
-            {loadingHealth ? "Refreshing Health..." : "Refresh Health"}
+          <Button
+            variant="secondary"
+            onClick={fetchAutomationHealth}
+            loading={loadingHealth}
+            loadingText="Refreshing health..."
+            disabled={loadingHealth}
+          >
+            Refresh Health
           </Button>
         </div>
 
         <div className="space-y-3">
           <h3 className="text-base font-semibold text-slate-900">Automation Runtime Health</h3>
-          {loadingHealth ? <p className="text-sm text-slate-600">Loading health...</p> : null}
+          {loadingHealth ? <InlineLoader label="Loading health..." /> : null}
           {!loadingHealth && health ? (
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-md border border-slate-200 bg-white p-3">
@@ -575,25 +594,19 @@ export function AutomationSettingsAdminClient() {
 
         <div className="space-y-3">
           <h3 className="text-base font-semibold text-slate-900">Campaign Job Status</h3>
-          {loadingJobs ? <p className="text-sm text-slate-600">Loading jobs...</p> : null}
-          {!loadingJobs && jobs.length === 0 ? (
-            <p className="text-sm text-slate-600">No campaign jobs found yet.</p>
-          ) : null}
-          {!loadingJobs && jobs.length > 0 ? (
-            <DataTable
-              columns={jobColumns}
-              data={jobs}
-              serverSide
-              pageCount={jobPagination.totalPages || 1}
-              pagination={jobsTablePagination}
-              onPaginationChange={onJobsTablePaginationChange}
-              pageSizeOptions={[10, 25, 50, 100]}
-              isLoading={loadingJobs}
-              emptyMessage="No campaign jobs found yet."
-              enableGlobalFilter
-              enableColumnFilters={false}
-            />
-          ) : null}
+          <DataTable
+            columns={jobColumns}
+            data={jobs}
+            serverSide
+            pageCount={jobPagination.totalPages || 1}
+            pagination={jobsTablePagination}
+            onPaginationChange={onJobsTablePaginationChange}
+            pageSizeOptions={[10, 25, 50, 100]}
+            isLoading={loadingJobs}
+            emptyMessage="No campaign jobs found yet."
+            enableGlobalFilter
+            enableColumnFilters={false}
+          />
           {!loadingJobs ? (
             <div className="text-sm text-slate-600">
               Page {jobPagination.page} of {jobPagination.totalPages} · {jobPagination.total} jobs

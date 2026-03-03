@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
+import { isTerminalState } from "@/lib/journey/constants";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 export async function PATCH(request, { params }) {
@@ -50,15 +51,29 @@ export async function PATCH(request, { params }) {
     const requestedStatus = body.status !== undefined ? body.status : undefined;
     if (body.notes !== undefined) data.notes = body.notes || null;
 
+    if (requestedStatus && requestedStatus !== existing.status && isTerminalState(existing.status)) {
+      return Response.json(
+        {
+          error: `${existing.status} cannot be changed to ${requestedStatus}.`,
+          code: "INVALID_STATUS_TRANSITION",
+          fromStatus: existing.status,
+          toStatus: requestedStatus,
+        },
+        { status: 409 }
+      );
+    }
+
     data.lastContactedAt = new Date();
 
-    const customer = await prisma.customer.update({
+    const updatedCustomer = await prisma.customer.update({
       where: { id: customerId },
       data,
     });
 
+    let customer = updatedCustomer;
+
     if (requestedStatus && requestedStatus !== existing.status) {
-      await applyCustomerTransition({
+      const transitionResult = await applyCustomerTransition({
         customerId,
         toStatus: requestedStatus,
         reason: "Manual status update from customer edit",
@@ -72,6 +87,22 @@ export async function PATCH(request, { params }) {
         },
         tenantId,
       });
+
+      if (transitionResult?.skipped && transitionResult?.reason === "terminal_state") {
+        return Response.json(
+          {
+            error: `${existing.status} cannot be changed to ${requestedStatus}.`,
+            code: "INVALID_STATUS_TRANSITION",
+            fromStatus: existing.status,
+            toStatus: requestedStatus,
+          },
+          { status: 409 }
+        );
+      }
+
+      if (transitionResult?.customer) {
+        customer = transitionResult.customer;
+      }
     }
 
     return Response.json({ customer });

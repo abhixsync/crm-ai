@@ -1,36 +1,121 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222 47% 11%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222 47% 11%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222 47% 11%);
+  --primary: hsl(221 83% 53%);
+  --primary-foreground: hsl(210 40% 98%);
+  --secondary: hsl(215 16% 47%);
+  --secondary-foreground: hsl(210 40% 98%);
+  --accent: hsl(221 83% 96%);
+  --accent-foreground: hsl(221 83% 30%);
+  --muted: hsl(220 14% 96%);
+  --muted-foreground: hsl(220 9% 46%);
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(210 40% 98%);
+  --border: hsl(220 13% 91%);
+  --input: hsl(220 13% 91%);
+  --ring: hsl(221 83% 53%);
+  --radius: 0.75rem;
   --color-primary: #2563eb;
   --color-secondary: #64748b;
-  --color-accent: #22c55e;
+  --color-accent: #dbeafe;
   --color-surface: #ffffff;
-  --color-border: #e2e8f0;
+  --color-border: #e5e7eb;
   --color-text-primary: #0f172a;
-  --color-text-secondary: #64748b;
+  --color-text-secondary: #6b7280;
+  --font-sans: var(--font-geist-sans);
+  --font-heading: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 12px;
+  --spacing-unit: 1rem;
+}
+
+.dark {
+  --background: hsl(222 47% 11%);
+  --foreground: hsl(210 40% 98%);
+  --card: hsl(222 47% 13%);
+  --card-foreground: hsl(210 40% 98%);
+  --popover: hsl(222 47% 13%);
+  --popover-foreground: hsl(210 40% 98%);
+  --primary: hsl(217 91% 60%);
+  --primary-foreground: hsl(222 47% 11%);
+  --secondary: hsl(217 32% 17%);
+  --secondary-foreground: hsl(210 40% 98%);
+  --accent: hsl(217 32% 17%);
+  --accent-foreground: hsl(210 40% 98%);
+  --muted: hsl(217 32% 17%);
+  --muted-foreground: hsl(215 20% 65%);
+  --destructive: hsl(0 63% 31%);
+  --destructive-foreground: hsl(210 40% 98%);
+  --border: hsl(217 32% 20%);
+  --input: hsl(217 32% 20%);
+  --ring: hsl(224 76% 48%);
+}
+
+html:not([data-theme-ready="true"]) {
+  visibility: hidden;
+}
+
+html[data-theme-ready="true"] {
+  visibility: visible;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --font-sans: var(--font-geist-sans);
+  --font-heading: var(--font-heading);
   --font-mono: var(--font-geist-mono);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
 }
 
 body {
   min-height: 100vh;
-  background: var(--background);
+  background: var(--background, var(--color-background));
   background-image: radial-gradient(
     circle at top,
     color-mix(in oklab, var(--foreground) 6%, var(--background)) 0%,
     var(--background) 45%
   );
   color: var(--color-text-primary);
-  font-family: var(--font-family, var(--font-geist-sans), Arial, Helvetica, sans-serif);
+  font-family: var(--font-family, var(--font-sans), Arial, Helvetica, sans-serif);
   line-height: 1.5;
   text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading, var(--font-sans), Arial, Helvetica, sans-serif);
 }
 
 /* Theme bridge for existing utility-heavy screens */
@@ -64,7 +149,7 @@ body {
 .border-slate-300\/90,
 .border-gray-300,
 .border-gray-200 {
-  border-color: var(--color-border) !important;
+  border-color: var(--border) !important;
 }
 
 * {
@@ -81,6 +166,59 @@ select:focus,
 textarea:focus,
 button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px var(--color-accent);
-  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 42%, transparent);
+  border-color: var(--ring);
+}
+
+input,
+select,
+textarea,
+button {
+  border-radius: var(--radius, 0.75rem);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.92;
+}
+
+/* TanStack DataTable harmony */
+.themed-table {
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+.themed-table thead {
+  background: color-mix(in oklab, var(--muted) 84%, var(--card));
+}
+
+.themed-table thead th {
+  color: var(--muted-foreground);
+}
+
+.themed-table tbody tr {
+  border-color: var(--border);
+}
+
+.themed-table tbody tr:hover {
+  background: color-mix(in oklab, var(--muted) 62%, transparent);
+}
+
+.themed-table.zebra tbody tr:nth-child(even) {
+  background: color-mix(in oklab, var(--muted) 34%, var(--card));
+}
+
+.themed-table tbody tr[data-state="selected"] {
+  background: color-mix(in oklab, var(--primary) 12%, var(--card));
+}
+
+.themed-table-pagination {
+  border-color: var(--border);
+}
+
+.theme-savebar {
+  background: color-mix(in oklab, var(--card) 92%, var(--background));
+  border-color: var(--border);
 }

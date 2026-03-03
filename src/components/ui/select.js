@@ -8,9 +8,9 @@ export function Select({ className, children, ...props }) {
         className
       )}
       style={{
-        borderColor: "var(--color-secondary)",
-        backgroundColor: "var(--color-surface)",
-        color: "var(--color-text-primary)",
+        borderColor: "var(--input)",
+        backgroundColor: "var(--card)",
+        color: "var(--foreground)",
       }}
       {...props}
     >

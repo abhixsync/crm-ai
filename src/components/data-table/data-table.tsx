@@ -167,7 +167,7 @@ export function DataTable<TData, TValue>({
         globalFilterPlaceholder={globalFilterPlaceholder}
       />
 
-      <div className="rounded-lg border border-border bg-background">
+      <div className="themed-table rounded-lg border border-border bg-background">
         <div className="w-full overflow-x-auto" data-virtualization-ready="true">
           <table className="w-full caption-bottom text-sm text-foreground" role="table" aria-busy={isLoading}>
             <thead className="border-b border-border">

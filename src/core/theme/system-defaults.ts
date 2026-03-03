@@ -10,16 +10,16 @@ export const SYSTEM_THEME_DEFAULT = {
   // 🎨 Core Colors
   primaryColor: "#2563eb",
   secondaryColor: "#64748b",
-  accentColor: "#22c55e",
-  backgroundColor: "#f8fafc",
+  accentColor: "#dbeafe",
+  backgroundColor: "#ffffff",
   surfaceColor: "#ffffff",
   sidebarColor: "#ffffff",
   headerColor: "#ffffff",
 
   // 📝 Text Colors
   textPrimary: "#0f172a",
-  textSecondary: "#64748b",
-  borderColor: "#e2e8f0",
+  textSecondary: "#6b7280",
+  borderColor: "#e5e7eb",
 
   // ✅ Status Colors
   successColor: "#22c55e",
@@ -32,10 +32,10 @@ export const SYSTEM_THEME_DEFAULT = {
   fontScale: "medium",
 
   // 📐 Layout & Spacing
-  borderRadius: "8px",
-  buttonRadius: "6px",
-  cardRadius: "8px",
-  inputRadius: "6px",
+  borderRadius: "0.75rem",
+  buttonRadius: "0.75rem",
+  cardRadius: "0.75rem",
+  inputRadius: "0.75rem",
   shadowIntensity: "medium",
   layoutDensity: "comfortable",
 

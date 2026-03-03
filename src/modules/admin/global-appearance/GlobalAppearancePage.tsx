@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PageLoader } from "@/components/ui/loader";
 import { SYSTEM_THEME_DEFAULT, EditableTheme } from "@/core/theme/system-defaults";
 
 export function GlobalAppearancePage() {
@@ -96,7 +97,7 @@ export function GlobalAppearancePage() {
   }
 
   if (loading) {
-    return <div className="flex justify-center py-8">Loading base theme...</div>;
+    return <PageLoader label="Loading base theme..." />;
   }
 
   return (
@@ -154,10 +155,11 @@ export function GlobalAppearancePage() {
                   accentColor: baseTheme.accentColor,
                   backgroundColor: baseTheme.backgroundColor,
                 })}
-                disabled={saving}
                 className="mt-4"
+                loading={saving}
+                loadingText="Saving colors..."
               >
-                {saving ? "Saving..." : "Save Colors"}
+                Save Colors
               </Button>
             </div>
 
@@ -196,10 +198,11 @@ export function GlobalAppearancePage() {
                   fontFamily: baseTheme.fontFamily,
                   fontScale: baseTheme.fontScale,
                 })}
-                disabled={saving}
                 className="mt-4"
+                loading={saving}
+                loadingText="Saving typography..."
               >
-                {saving ? "Saving..." : "Save Typography"}
+                Save Typography
               </Button>
             </div>
 

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { InlineLoader } from "@/components/ui/loader";
 
 const TERMINAL_CALL_STATUSES = ["COMPLETED", "FAILED", "NO_ANSWER"];
 const NEW_NUMBER_OPTION = "__new_number__";
@@ -338,22 +339,23 @@ export function CallsAiCallPanel({ customers, role }) {
           <Button
             variant="secondary"
             onClick={initSoftphone}
-            disabled={softphoneLoading}
+            loading={softphoneLoading}
+            loadingText="Initializing..."
           >
-            {softphoneLoading ? "Initializing..." : "Reinitialize Softphone"}
+            Reinitialize Softphone
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {customers.length === 0 ? (
-          <p className="text-sm text-slate-600">No customers available for AI call yet.</p>
+          <p className="text-sm text-muted-foreground">No customers available for AI call yet.</p>
         ) : (
           <>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-2">
-                <span className="text-sm font-medium text-slate-700">Select customer / number</span>
+                <span className="text-sm font-medium text-muted-foreground">Select customer / number</span>
                 <select
-                  className="h-9 w-full rounded-md border border-slate-300/90 bg-white px-3 text-sm text-slate-900"
+                  className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
                   value={customerId}
                   onChange={(event) => {
                     const nextId = event.target.value;
@@ -380,7 +382,7 @@ export function CallsAiCallPanel({ customers, role }) {
 
               {isNewNumberMode ? (
                 <label className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">New Number</span>
+                  <span className="text-sm font-medium text-muted-foreground">New Number</span>
                   <Input
                     ref={newNumberInputRef}
                     value={softphoneTo}
@@ -392,7 +394,7 @@ export function CallsAiCallPanel({ customers, role }) {
             </div>
 
             {selectedCustomer ? (
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-muted-foreground">
                 Selected: {selectedCustomer.name} • Status: {selectedCustomer.status}
               </p>
             ) : null}
@@ -400,13 +402,13 @@ export function CallsAiCallPanel({ customers, role }) {
             {!loadingActiveTelephony && activeTelephonyProvider?.type === "TWILIO" ? (
               <>
                 {manualCallContext?.customerId ? (
-                  <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-center">
-                    <p className="text-sm text-slate-700">
+                  <div className="grid gap-2 rounded-md border border-border bg-muted p-3 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-center">
+                    <p className="text-sm text-foreground">
                       Manual call disposition for <span className="font-semibold">{selectedCustomer?.name || "selected customer"}</span>
                     </p>
                     <div className="relative">
                       <select
-                        className="h-9 w-full appearance-none rounded-md border border-slate-300/90 bg-white px-3 pr-8 text-sm text-slate-900"
+                        className="h-9 w-full appearance-none rounded-md border border-border bg-card px-3 pr-8 text-sm text-foreground"
                         value={manualDisposition}
                         disabled={completingManualCall}
                         onChange={(event) => setManualDisposition(event.target.value)}
@@ -417,14 +419,14 @@ export function CallsAiCallPanel({ customers, role }) {
                         <option value="converted">Converted</option>
                         <option value="do_not_call">Do Not Call</option>
                       </select>
-                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden>
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden>
                         ▾
                       </span>
                       {completingManualCall ? (
-                        <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-500" aria-label="Saving call outcome" />
+                        <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-label="Saving call outcome" />
                       ) : null}
                     </div>
-                    <span className="text-xs text-slate-600">
+                    <span className="text-xs text-muted-foreground">
                       {completingManualCall ? "Saving outcome..." : "Outcome is saved when call ends."}
                     </span>
                   </div>
@@ -445,8 +447,12 @@ export function CallsAiCallPanel({ customers, role }) {
               </>
             ) : null}
 
+            {loadingActiveTelephony ? (
+              <InlineLoader label="Loading active telephony provider..." className="mt-1" />
+            ) : null}
+
             {!loadingActiveTelephony && activeTelephonyProvider && activeTelephonyProvider.type !== "TWILIO" ? (
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+              <div className="rounded-md border border-border bg-muted px-3 py-3 text-sm text-foreground">
                 Browser softphone is available only when Twilio is the active telephony provider. Current provider is
                 {` ${activeTelephonyProvider.name} (${activeTelephonyProvider.type}).`}
               </div>
@@ -460,7 +466,7 @@ export function CallsAiCallPanel({ customers, role }) {
               ) : null}
             </div>
 
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-muted-foreground">
               Softphone status: {softphoneStatus}{softphoneReady ? " (ready)" : ""}
             </p>
             {softphoneError ? <p className="text-xs text-rose-700">{softphoneError}</p> : null}
