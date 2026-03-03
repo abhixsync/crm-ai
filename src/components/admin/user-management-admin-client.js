@@ -854,7 +854,7 @@ export function UserManagementAdminClient() {
         <CardHeader>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>User Management</CardTitle>
+              <CardTitle>Users</CardTitle>
               <CardDescription>
                 Create, edit, and remove users with role-driven configuration and override controls.
               </CardDescription>
@@ -1067,7 +1067,7 @@ export function UserManagementAdminClient() {
         <CardHeader>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>Role Definitions</CardTitle>
+              <CardTitle>Roles</CardTitle>
               <CardDescription>
                 Define custom roles with module and permission templates for future expansion.
               </CardDescription>
@@ -1079,9 +1079,12 @@ export function UserManagementAdminClient() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {loading ? <InlineLoader label="Loading roles..." /> : null}
+
           <DataTable
             columns={roleColumns}
             data={roles}
+            isLoading={loading}
             emptyMessage="No roles found."
             enableGlobalFilter
             enableColumnFilters={false}
@@ -1191,10 +1194,13 @@ export function UserManagementAdminClient() {
             Key super-admin actions for user and role changes.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {loading ? <InlineLoader label="Loading audit trails..." /> : null}
+
           <DataTable
             columns={auditColumns}
             data={logs}
+            isLoading={loading}
             emptyMessage="No audit entries yet."
             enableGlobalFilter
             enableColumnFilters={false}

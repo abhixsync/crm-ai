@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { InlineLoader } from "@/components/ui/loader";
 import { Modal } from "@/components/ui/modal";
 import { DataTable, formatDataTableDate } from "@/components/data-table";
 
@@ -287,6 +288,7 @@ export function TenantsAdminClient() {
           </div>
         </CardHeader>
         <CardContent>
+          {loading ? <InlineLoader label="Loading tenants..." className="mb-3" /> : null}
           <DataTable
             columns={columns}
             data={tenants}

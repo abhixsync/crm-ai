@@ -1241,7 +1241,9 @@ export function DashboardClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center">
           {theme.logoUrl && (
-            <img src={theme.logoUrl} alt="Logo" className="h-20 w-auto" />
+            <Link href="/dashboard" aria-label="Go to dashboard" title="Dashboard">
+              <img src={theme.logoUrl} alt="Logo" className="h-[calc(var(--spacing)*23)] w-auto" />
+            </Link>
           )}
         </div>
         <div className="flex flex-col items-end justify-end">
