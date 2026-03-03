@@ -66,11 +66,11 @@ export function GlobalHamburgerMenu() {
   const items = buildMenuItems(role);
 
   return (
-    <div ref={rootRef} className="fixed right-4 top-4 z-50">
+    <div ref={rootRef} className="fixed right-3 top-3 z-50 sm:right-4 sm:top-4">
       <div className="relative">
         <Button
           variant="outline"
-          className="h-10 w-10 px-0 border-slate-300 bg-white/80 backdrop-blur-sm hover:bg-white"
+          className="h-10 w-10 px-0 border-slate-300 bg-white/90 backdrop-blur-sm hover:bg-white"
           onClick={() => setOpen((previous) => !previous)}
           aria-label={open ? "Close menu" : "Open menu"}
           title={open ? "Close menu" : "Open menu"}
@@ -79,7 +79,7 @@ export function GlobalHamburgerMenu() {
         </Button>
 
         {open ? (
-          <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+          <div className="absolute right-0 top-full mt-1 w-[calc(100vw-1.5rem)] max-w-56 max-h-[calc(100vh-4.5rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg sm:w-56 sm:max-h-[70vh]">
             <div className="mb-2 px-2 pt-1 text-xs text-slate-500">
               {session.user.name || session.user.email || "User"}
             </div>

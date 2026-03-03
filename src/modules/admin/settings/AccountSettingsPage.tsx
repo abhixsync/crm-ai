@@ -139,12 +139,13 @@ export function AccountSettingsPage() {
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             onClick={saveSettings}
             disabled={!canManage || !selectedTenantId}
             loading={saving}
             loadingText="Saving settings..."
+            className="w-full sm:w-auto"
           >
             Save Settings
           </Button>

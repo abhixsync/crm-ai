@@ -525,8 +525,8 @@ export function TelephonyProvidersAdminClient({ initialProviders, embedded = fal
       </Card>
 
       {showCreateForm ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:items-center">
+          <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm max-h-[90vh] overflow-y-auto">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-lg font-semibold text-foreground">
                 {editingProviderId ? "Edit Telephony Provider" : "Add Telephony Provider"}

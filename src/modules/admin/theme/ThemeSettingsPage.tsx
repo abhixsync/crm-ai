@@ -635,7 +635,7 @@ export function ThemeSettingsPage() {
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex flex-wrap items-center gap-2">
               Tenant Theme Editor
               {themeStatus ? (
                 <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${themeStatus.hasCustomTheme ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>
@@ -682,9 +682,9 @@ export function ThemeSettingsPage() {
             ) : null}
 
             <section className="space-y-3 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Color Tokens</h3>
-                <Button variant="secondary" onClick={() => resetSection("colors")} disabled={!canManage}>
+                <Button className="w-full sm:w-auto" variant="secondary" onClick={() => resetSection("colors")} disabled={!canManage}>
                   Reset to inherit
                 </Button>
               </div>
@@ -704,9 +704,9 @@ export function ThemeSettingsPage() {
             </section>
 
             <section className="space-y-3 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Typography</h3>
-                <Button variant="secondary" onClick={() => resetSection("typography")} disabled={!canManage}>
+                <Button className="w-full sm:w-auto" variant="secondary" onClick={() => resetSection("typography")} disabled={!canManage}>
                   Reset to inherit
                 </Button>
               </div>
@@ -739,9 +739,9 @@ export function ThemeSettingsPage() {
             </section>
 
             <section className="space-y-3 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Layout & Density</h3>
-                <Button variant="secondary" onClick={() => resetSection("layout")} disabled={!canManage}>
+                <Button className="w-full sm:w-auto" variant="secondary" onClick={() => resetSection("layout")} disabled={!canManage}>
                   Reset to inherit
                 </Button>
               </div>
@@ -769,13 +769,13 @@ export function ThemeSettingsPage() {
             </section>
 
             <section className="space-y-3 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Assets</h3>
-                <div className="flex gap-2">
-                  <Button variant="secondary" onClick={exportThemeJson}>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button className="w-full sm:w-auto" variant="secondary" onClick={exportThemeJson}>
                     <Download className="h-4 w-4" /> Export JSON
                   </Button>
-                  <Button variant="secondary" onClick={() => importRef.current?.click()}>
+                  <Button className="w-full sm:w-auto" variant="secondary" onClick={() => importRef.current?.click()}>
                     <Upload className="h-4 w-4" /> Import JSON
                   </Button>
                   <input
@@ -832,9 +832,9 @@ export function ThemeSettingsPage() {
             </section>
 
             <section className="space-y-3 rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Advanced</h3>
-                <Button variant="secondary" onClick={() => resetSection("advanced")} disabled={!canManage}>
+                <Button className="w-full sm:w-auto" variant="secondary" onClick={() => resetSection("advanced")} disabled={!canManage}>
                   Reset to inherit
                 </Button>
               </div>

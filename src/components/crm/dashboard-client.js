@@ -125,6 +125,7 @@ export function DashboardClient({
   const [manualCallContext, setManualCallContext] = useState(null);
   const [manualDisposition, setManualDisposition] = useState("follow_up");
   const [completingManualCall, setCompletingManualCall] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const deviceRef = useRef(null);
   const connectionRef = useRef(null);
@@ -159,6 +160,23 @@ export function DashboardClient({
         deviceRef.current = null;
       }
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(max-width: 639px)");
+    const applyViewportFlag = () => setIsMobileViewport(mediaQuery.matches);
+
+    applyViewportFlag();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", applyViewportFlag);
+      return () => mediaQuery.removeEventListener("change", applyViewportFlag);
+    }
+
+    mediaQuery.addListener(applyViewportFlag);
+    return () => mediaQuery.removeListener(applyViewportFlag);
   }, []);
 
   useEffect(() => {
@@ -1069,22 +1087,28 @@ export function DashboardClient({
     : "No supported telephony provider is available for Web Call.";
 
   const customersColumns = useMemo(
-    () => [
-      {
-        id: "name",
-        header: "Name",
-        cell: ({ row }) => `${row.original.firstName} ${row.original.lastName || ""}`,
-      },
-      {
-        accessorKey: "phone",
-        header: "Phone",
-      },
-      {
-        id: "loan",
-        header: "Loan",
-        cell: ({ row }) => `${row.original.loanType || "N/A"}${row.original.loanAmount ? ` • ₹${row.original.loanAmount}` : ""}`,
-      },
-      {
+    () => {
+      const baseColumns = [
+        {
+          id: "name",
+          header: "Name",
+          cell: ({ row }) => `${row.original.firstName} ${row.original.lastName || ""}`,
+        },
+        {
+          accessorKey: "phone",
+          header: "Phone",
+        },
+      ];
+
+      if (!isMobileViewport) {
+        baseColumns.push({
+          id: "loan",
+          header: "Loan",
+          cell: ({ row }) => `${row.original.loanType || "N/A"}${row.original.loanAmount ? ` • ₹${row.original.loanAmount}` : ""}`,
+        });
+      }
+
+      baseColumns.push({
         accessorKey: "status",
         header: "Status",
         enableSorting: false,
@@ -1093,38 +1117,37 @@ export function DashboardClient({
           filterVariant: "select",
           filterOptions: STATUS_OPTIONS.map((status) => ({ label: status, value: status })),
         },
-        cell: ({ row }) => (
-          <div className="relative w-full max-w-none sm:max-w-[180px]">
-            {(() => {
-              const isTerminalCurrentStatus = TERMINAL_CUSTOMER_STATUSES.has(row.original.status);
-              const blockedTransitionSet = getBlockedTransitionSet(row.original.status);
+        cell: ({ row }) => {
+          const isTerminalCurrentStatus = TERMINAL_CUSTOMER_STATUSES.has(row.original.status);
+          const blockedTransitionSet = getBlockedTransitionSet(row.original.status);
 
-              return (
-            <select
-              className={`h-8 w-full appearance-none rounded-md border px-3 pr-8 text-sm shadow-[0_1px_1px_rgba(15,23,42,0.03)] outline-none ring-offset-white focus-visible:ring-2 ${STATUS_SELECT_CLASS[row.original.status] || STATUS_SELECT_CLASS.NEW} ${isTerminalCurrentStatus ? "cursor-not-allowed opacity-70" : ""}`}
-              value={row.original.status}
-              disabled={Boolean(statusUpdatingById[row.original.id]) || isTerminalCurrentStatus}
-              title={isTerminalCurrentStatus ? "Terminal status cannot be changed." : "Update customer status"}
-              onChange={(event) => updateStatus(row.original.id, event.target.value)}
-            >
-              {STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status} disabled={blockedTransitionSet.has(status)}>
-                  {status}
-                </option>
-              ))}
-            </select>
-              );
-            })()}
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden>
-              ▾
-            </span>
-            {statusUpdatingById[row.original.id] ? (
-              <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-label="Updating status" />
-            ) : null}
-          </div>
-        ),
-      },
-      {
+          return (
+            <div className="relative min-w-[140px] w-full max-w-none sm:min-w-0 sm:max-w-[180px]">
+              <select
+                className={`h-9 w-full appearance-none rounded-md border px-2.5 pr-8 text-xs sm:px-3 sm:text-sm shadow-[0_1px_1px_rgba(15,23,42,0.03)] outline-none ring-offset-white focus-visible:ring-2 ${STATUS_SELECT_CLASS[row.original.status] || STATUS_SELECT_CLASS.NEW} ${isTerminalCurrentStatus ? "cursor-not-allowed opacity-70" : ""}`}
+                value={row.original.status}
+                disabled={Boolean(statusUpdatingById[row.original.id]) || isTerminalCurrentStatus}
+                title={isTerminalCurrentStatus ? "Terminal status cannot be changed." : "Update customer status"}
+                onChange={(event) => updateStatus(row.original.id, event.target.value)}
+              >
+                {STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status} disabled={blockedTransitionSet.has(status)}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden>
+                ▾
+              </span>
+              {statusUpdatingById[row.original.id] ? (
+                <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-label="Updating status" />
+              ) : null}
+            </div>
+          );
+        },
+      });
+
+      baseColumns.push({
         id: "actions",
         header: "Actions",
         enableSorting: false,
@@ -1133,7 +1156,7 @@ export function DashboardClient({
           const customer = row.original;
 
           return (
-            <div className="grid min-w-[220px] grid-cols-2 gap-2 sm:flex sm:min-w-[320px] sm:flex-wrap sm:justify-start">
+            <div className="grid min-w-[160px] grid-cols-2 gap-2 sm:flex sm:min-w-[320px] sm:flex-wrap sm:justify-start">
               {canShowDirectCallButton ? (
                 <Button
                   className="h-8 w-full justify-center px-2 sm:w-auto sm:px-3"
@@ -1184,9 +1207,12 @@ export function DashboardClient({
             </div>
           );
         },
-      },
-    ],
+      });
+
+      return baseColumns;
+    },
     [
+      isMobileViewport,
       busyCallId,
       canShowDirectCallButton,
       deletingCustomerId,
@@ -1238,19 +1264,19 @@ export function DashboardClient({
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 pr-12 sm:flex-row sm:items-center sm:justify-between sm:pr-0">
         <div className="flex items-center">
           {theme.logoUrl && (
             <Link href="/dashboard" aria-label="Go to dashboard" title="Dashboard">
-              <img src={theme.logoUrl} alt="Logo" className="h-[calc(var(--spacing)*23)] w-auto" />
+              <img src={theme.logoUrl} alt="Logo" className="h-14 w-auto sm:h-[calc(var(--spacing)*23)]" />
             </Link>
           )}
         </div>
-        <div className="flex flex-col items-end justify-end">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">{tenantName}</h1>
+        <div className="flex flex-col items-start justify-end sm:items-end">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{tenantName}</h1>
           <p className="mt-1 text-sm text-muted-foreground">Welcome, {user.name} ({user.role})</p>
           {isSuperAdmin ? (
-            <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+            <div className="mt-2 flex flex-wrap items-center justify-start gap-2 sm:justify-end">
               <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium ${automationHealth?.runtimeOnline ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-rose-300 bg-rose-50 text-rose-700"}`}>
                 {automationHealth?.runtimeKind === "WORKER" ? "Worker" : "Cron"}: {loadingAutomationHealth ? "Checking..." : automationHealth?.runtimeOnline ? "ONLINE" : "OFFLINE"}
               </span>
@@ -1324,7 +1350,7 @@ export function DashboardClient({
       ) : null}
 
       {aiDialogState.open ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:items-center">
           <Card className="w-full max-w-5xl max-h-[90vh] overflow-y-auto">
           <CardHeader>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1548,8 +1574,8 @@ export function DashboardClient({
       </Card>
 
       {showAddCustomerModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:items-center">
+          <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm max-h-[90vh] overflow-y-auto">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-lg font-semibold text-slate-900">
                 {editingCustomerId ? "Edit Customer" : "Add Customer"}

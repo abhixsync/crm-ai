@@ -889,7 +889,7 @@ export function UserManagementAdminClient() {
 
       {showUserForm ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:items-center"
           onClick={closeUserDialog}
           role="dialog"
           aria-modal="true"
@@ -897,7 +897,7 @@ export function UserManagementAdminClient() {
         >
           <div
             ref={userDialogRef}
-            className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+            className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm max-h-[90vh] overflow-y-auto"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
