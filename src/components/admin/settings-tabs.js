@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { AccountSettingsPage } from "@/modules/admin/settings/AccountSettingsPage";
 import { ThemeSettingsPage } from "@/modules/admin/theme/ThemeSettingsPage";
+import { LoanAssistantAdmin } from "@/components/loan-assistant/loan-assistant-admin";
 
 export function SettingsTabs() {
   const [activeTab, setActiveTab] = useState("account");
@@ -31,12 +32,23 @@ export function SettingsTabs() {
           >
             Theme Settings
           </button>
+          <button
+            onClick={() => setActiveTab("loan-assistant")}
+            className={`shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium lg:w-full lg:text-left ${
+              activeTab === "loan-assistant"
+                ? "bg-muted text-foreground border-b-2 border-primary lg:border-b-0 lg:border-r-2"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            🤖 Loan Assistant
+          </button>
         </nav>
       </div>
 
       <div className="min-w-0 flex-1">
         {activeTab === "account" && <AccountSettingsPage />}
         {activeTab === "theme" && <ThemeSettingsPage />}
+        {activeTab === "loan-assistant" && <LoanAssistantAdmin />}
       </div>
     </div>
   );
