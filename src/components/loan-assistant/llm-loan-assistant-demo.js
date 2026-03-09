@@ -27,22 +27,62 @@ export function LLMLoanAssistantDemo() {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isCallActive, setIsCallActive] = useState(false);
   const [autoPlayVoice, setAutoPlayVoice] = useState(true);
   const recognitionRef = useRef(null);
   const activeUtteranceRef = useRef(null);  // Track which utterance is currently active
   const recognitionRestartScheduledRef = useRef(false);  // Prevent multiple restart timeouts
   const isAISpeakingRef = useRef(false);  // Track if AI audio is actively playing
+  const callActiveRef = useRef(false); // Single source of truth for whether listening is allowed
 
   const getStatusText = () => {
     if (!sessionId) return "Idle";
+    if (!isCallActive) return "Call ended";
     if (isSpeaking) return "AI talking…";
     if (isListening) return "Listening…";
     if (isLoading) return "Thinking…";
-    return isVoiceMode ? "Waiting for you…" : "Chat active";
+    return "Chat active";
   };
 
   const canUseBrowserTTS =
     typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+
+  const updateCallActive = (active) => {
+    callActiveRef.current = active;
+    setIsCallActive(active);
+  };
+
+  const stopVoiceIO = () => {
+    setIsListening(false);
+    setIsSpeaking(false);
+    recognitionRestartScheduledRef.current = false;
+    isAISpeakingRef.current = false;
+    activeUtteranceRef.current = null;
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {
+        // ignore
+      }
+      recognitionRef.current = null;
+    }
+
+    if (canUseBrowserTTS) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const handleEndCall = () => {
+    updateCallActive(false);
+    stopVoiceIO();
+    setSessionId(null);
+    setConversation([]);
+  };
 
   const startVoiceRecognition = (sessionIdParam, isVoiceModeParam, isSpeakingParam) => {
     // Use parameters if provided, otherwise use state (for backward compatibility)
@@ -66,6 +106,11 @@ export function LLMLoanAssistantDemo() {
     
     if (!effectiveIsVoiceMode || !effectiveSessionId) {
       console.log(`[VOICE] ❌ Not in voice mode or no session - isVoiceMode: ${effectiveIsVoiceMode}, sessionId: ${effectiveSessionId}`);
+      return;
+    }
+
+    if (!callActiveRef.current) {
+      console.log("[VOICE] ❌ Call is not active - skipping recognition start");
       return;
     }
     
@@ -124,6 +169,11 @@ export function LLMLoanAssistantDemo() {
 
       console.log("[VOICE] 📝 Final Transcript:", transcript);
       setCustomerMessage(transcript);
+
+      if (!callActiveRef.current) {
+        console.log("[VOICE] ⏹️ Ignoring transcript because call is no longer active");
+        return;
+      }
 
       // Automatically send the customer's speech as their message
       // Pass the sessionId explicitly to avoid closure issues
@@ -184,12 +234,16 @@ export function LLMLoanAssistantDemo() {
       console.warn("  4. No speech detected (timeout)");
 
       // Only auto-restart if we're definitely not during AI speech
-      if (effectiveIsVoiceMode && effectiveSessionId && !isAISpeakingRef.current) {
+      if (effectiveIsVoiceMode && effectiveSessionId && !isAISpeakingRef.current && callActiveRef.current) {
         if (!recognitionRestartScheduledRef.current) {
           recognitionRestartScheduledRef.current = true;
           console.log("[VOICE] ⏱️  Waiting 1s before restarting (browser needs gap between attempts)");
           setTimeout(() => {
             recognitionRestartScheduledRef.current = false;
+            if (!callActiveRef.current) {
+              console.log("[VOICE] ⏹️ Call ended before scheduled restart - not restarting recognition");
+              return;
+            }
             console.log("[VOICE] 🔁 AUTO-RESTARTING recognition for continuous listening");
             startVoiceRecognition(effectiveSessionId, effectiveIsVoiceMode, false);
           }, 1000);
@@ -232,7 +286,7 @@ export function LLMLoanAssistantDemo() {
     }
   };
 
-  const speakText = (text, sessionIdForCallback, isVoiceModeForCallback) => {
+  const speakText = (text, sessionIdForCallback, isVoiceModeForCallback, shouldRestartListening = true) => {
     console.log(`[VOICE] speakText() called - canUseBrowserTTS: ${canUseBrowserTTS}, text length: ${text?.length || 0}`);
     console.log(`[VOICE] Parameters - sessionId: ${sessionIdForCallback}, isVoiceMode: ${isVoiceModeForCallback}`);
     
@@ -282,9 +336,11 @@ export function LLMLoanAssistantDemo() {
             
             // NOW start listening after audio has truly finished
             console.log(`[VOICE] Checking restart conditions - isVoiceMode: ${isVoiceModeForCallback}, sessionId: ${sessionIdForCallback}`);
-            if (isVoiceModeForCallback && sessionIdForCallback) {
+            if (shouldRestartListening && callActiveRef.current && isVoiceModeForCallback && sessionIdForCallback) {
               console.log("[VOICE] 🔄 Starting recognition for customer input");
               startVoiceRecognition(sessionIdForCallback, isVoiceModeForCallback, false);
+            } else {
+              console.log("[VOICE] ⏹️ Not restarting recognition after speech end");
             }
           }, 2000);  // 2 second delay to ensure audio completely finished
         }
@@ -300,7 +356,7 @@ export function LLMLoanAssistantDemo() {
           // Mark AI audio as done
           isAISpeakingRef.current = false;
           
-          if (isVoiceModeForCallback && sessionIdForCallback) {
+          if (shouldRestartListening && callActiveRef.current && isVoiceModeForCallback && sessionIdForCallback) {
             console.log("[VOICE] 🔄 Recovering - starting recognition after TTS error");
             setTimeout(() => {
               startVoiceRecognition(sessionIdForCallback, isVoiceModeForCallback, false);
@@ -347,12 +403,14 @@ export function LLMLoanAssistantDemo() {
 
       if (!data.success) {
         console.log("[CALL] ❌ Failed to initialize:", data.error);
+        updateCallActive(false);
         setError(data.error || "Failed to initialize conversation");
         return;
       }
 
       console.log("[CALL] ✅ Conversation initialized");
       setSessionId(data.session_id);
+      updateCallActive(true);
       const openingTurn = {
         type: "ai",
         message: data.ai_response.ai_message,
@@ -367,7 +425,7 @@ export function LLMLoanAssistantDemo() {
       if (isVoiceMode) {
         if (autoPlayVoice && canUseBrowserTTS) {
           console.log("[CALL] 🔊 Voice mode + autoplay ON - speaking opening message");
-          speakText(openingTurn.message, data.session_id, true);
+          speakText(openingTurn.message, data.session_id, true, true);
         } else {
           console.log("[CALL] 🎤 Voice mode + autoplay OFF - starting immediate recognition");
           startVoiceRecognition(data.session_id, true, false);
@@ -379,6 +437,7 @@ export function LLMLoanAssistantDemo() {
       console.log("[CALL] ✅ Conversation initialized:", data);
     } catch (err) {
       console.log("[CALL] ❌ Network error:", err.message);
+      updateCallActive(false);
       setError("Network error: " + err.message);
       console.error(err);
     } finally {
@@ -446,34 +505,33 @@ export function LLMLoanAssistantDemo() {
 
       setConversation((prev) => [...prev, aiTurn]);
 
-      if (effectiveIsVoiceMode) {
-        console.log(`[MSG] Voice mode processing - autoPlayVoice: ${autoPlayVoice}, canUseBrowserTTS: ${canUseBrowserTTS}`);
-        // In voice mode:
-        // - If autoplay is ON, speak the AI reply and let speakText() restart recognition in onend.
-        // - If autoplay is OFF, immediately start listening for the next customer turn.
-        if (autoPlayVoice && canUseBrowserTTS) {
-          console.log("[MSG] 🔊 Speaking AI response");
-          speakText(aiTurn.message, effectiveSessionId, effectiveIsVoiceMode);
-        } else {
-          console.log("[MSG] 🎤 Starting recognition for next customer turn");
-          startVoiceRecognition(effectiveSessionId, effectiveIsVoiceMode, false);
-        }
-      } else {
-        console.log("[MSG] 💬 Chat mode - no voice processing");
+      const conversationStage = String(data.ai_response?.conversation_stage || "").toLowerCase();
+      const isClosingStage = conversationStage === "closing";
+      const shouldEndSession = data.is_session_active === false || isClosingStage;
+
+      if (shouldEndSession) {
+        console.log("[MSG] 🛑 Conversation closing/session ended - disabling microphone restarts");
+        updateCallActive(false);
       }
 
-      // If session ended, reset
-      if (!data.is_session_active) {
-        console.log("[MSG] ❌ Session ended by server");
-        setSessionId(null);
-        // Stop any ongoing recognition when call ends
-        if (recognitionRef.current) {
-          try {
-            recognitionRef.current.abort();
-          } catch {
-            // ignore
-          }
+      if (effectiveIsVoiceMode) {
+        console.log(`[MSG] Voice mode processing - autoPlayVoice: ${autoPlayVoice}, canUseBrowserTTS: ${canUseBrowserTTS}`);
+
+        if (autoPlayVoice && canUseBrowserTTS) {
+          console.log("[MSG] 🔊 Speaking AI response");
+          speakText(aiTurn.message, effectiveSessionId, effectiveIsVoiceMode, !shouldEndSession);
+        } else if (!shouldEndSession) {
+          console.log("[MSG] 🎤 Starting recognition for next customer turn");
+          startVoiceRecognition(effectiveSessionId, effectiveIsVoiceMode, false);
+        } else {
+          stopVoiceIO();
         }
+      } else {
+        console.log("[MSG] 💬 Chat mode or conversation closed - no voice processing");
+      }
+
+      if (shouldEndSession) {
+        console.log("[MSG] ✅ Session has ended. Click End Call to clear this conversation.");
         console.log("✅ Conversation ended:", data.call_summary);
       }
 
@@ -573,18 +631,7 @@ export function LLMLoanAssistantDemo() {
           </Button>
           {sessionId && (
             <Button
-              onClick={() => {
-                setSessionId(null);
-                setConversation([]);
-                // Stop any ongoing recognition when call is manually ended
-                if (recognitionRef.current) {
-                  try {
-                    recognitionRef.current.abort();
-                  } catch {
-                    // ignore
-                  }
-                }
-              }}
+              onClick={handleEndCall}
               variant="outline"
             >
               End Call
@@ -607,9 +654,14 @@ export function LLMLoanAssistantDemo() {
             <h2 className="text-lg font-semibold">
               {isVoiceMode ? "🎤 Voice Call" : "💬 Chat"}
             </h2>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-              {getStatusText()}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                {getStatusText()}
+              </span>
+              <Button onClick={handleEndCall} variant="outline">
+                End Call
+              </Button>
+            </div>
           </div>
 
           {/* Conversation History */}
@@ -652,11 +704,11 @@ export function LLMLoanAssistantDemo() {
                   onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
                   placeholder="Type your response..."
                   className="flex-1 rounded border px-3 py-2"
-                  disabled={isLoading}
+                  disabled={isLoading || !isCallActive}
                 />
                 <Button
                   onClick={handleSendMessage}
-                  disabled={!customerMessage.trim() || isLoading}
+                  disabled={!customerMessage.trim() || isLoading || !isCallActive}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   {isLoading ? "..." : "Send"}
@@ -671,7 +723,7 @@ export function LLMLoanAssistantDemo() {
                 onClick={() => {
                   const lastAiTurn = [...conversation].reverse().find((t) => t.type === "ai");
                   if (lastAiTurn) {
-                    speakText(lastAiTurn.message, sessionId, isVoiceMode);
+                    speakText(lastAiTurn.message, sessionId, isVoiceMode, false);
                   }
                 }}
                 variant="outline"

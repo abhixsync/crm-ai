@@ -9,7 +9,7 @@
  *   session_id?: string (for "next" action)
  *   customer_profile?: {...} (for "init" action)
  *   customer_message?: string (for "next" action)
- *   tenant_id?: string (for "init" action - to fetch CRM name and AI agent name)
+ *   tenant_id?: string (for "init" action - to fetch CRM name and AI agent name, auto-detected from session if not provided)
  *   company_name?: string (fallback if tenant_id not provided)
  *   ai_agent_name?: string (fallback if tenant_id not provided)
  *   is_voice_call?: boolean (true for voice, false for chat)
@@ -18,6 +18,8 @@
 
 import { LLMConversationManager } from '@/modules/loan-assistant/llm-conversation-manager.js';
 import { prisma } from '@/lib/prisma.js';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth.js';
 
 // In-memory session storage (production: use Redis)
 const activeSessions = new Map();
@@ -37,7 +39,7 @@ export async function POST(request) {
     console.log('Is Voice Call:', body.is_voice_call || false);
     console.log('Session ID:', body.session_id?.substring(0, 20) + '...' || 'N/A');
 
-    const {
+    let {
       action = 'next',
       customer_profile,
       customer_message,
@@ -47,6 +49,29 @@ export async function POST(request) {
       ai_agent_name,
       is_voice_call = false,
     } = body;
+
+    // For init action, try to auto-detect tenant_id from session if not provided
+    if (action === 'init' && !tenant_id) {
+      try {
+        const session = await getServerSession(authOptions);
+        if (session?.user?.tenantId) {
+          tenant_id = session.user.tenantId;
+          console.log('ℹ️ Tenant ID auto-detected from session:', tenant_id);
+        } else if (session?.user) {
+          // Super admin - fetch super admin tenant
+          const superAdminTenant = await prisma.tenant.findFirst({
+            where: { slug: 'super-admin' },
+            select: { id: true },
+          });
+          if (superAdminTenant) {
+            tenant_id = superAdminTenant.id;
+            console.log('ℹ️ Super admin tenant auto-detected:', tenant_id);
+          }
+        }
+      } catch (sessionErr) {
+        console.log('ℹ️ Could not extract tenant from session:', sessionErr.message);
+      }
+    }
 
     // Validate init action
     if (action === 'init' && !customer_profile) {

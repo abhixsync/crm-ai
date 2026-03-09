@@ -8,7 +8,7 @@
  *   customer_profile: { name, city, monthly_income, employment_type, credit_score, existing_loans, loan_interest_type },
  *   customer_message?: string (for "next" action)
  *   session_id?: string (for "next" action)
- *   tenant_id?: string (for "init" action - to fetch CRM name and AI agent name)
+ *   tenant_id?: string (for "init" action - to fetch CRM name and AI agent name, auto-detected from session if not provided)
  *   company_name?: string (fallback if tenant_id not provided)
  *   ai_agent_name?: string (fallback if tenant_id not provided)
  * }
@@ -16,6 +16,8 @@
 
 import { ConversationManager } from '@/modules/loan-assistant/conversation-manager.js';
 import { prisma } from '@/lib/prisma.js';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth.js';
 
 // Simple in-memory session storage (in production, use Redis or DB)
 const activeSessions = new Map();
@@ -59,7 +61,7 @@ export async function POST(request) {
       );
     }
 
-    const {
+    let {
       customer_profile,
       customer_message,
       session_id,
@@ -76,6 +78,29 @@ export async function POST(request) {
     console.log('customer_profile IS PRESENT:', typeof customer_profile !== 'undefined');
     console.log('customer_profile VALUE:', customer_profile);
     console.log('customer_profile KEYS:', customer_profile && Object.keys(customer_profile));
+
+    // For init action, try to auto-detect tenant_id from session if not provided
+    if (action === 'init' && !tenant_id) {
+      try {
+        const session = await getServerSession(authOptions);
+        if (session?.user?.tenantId) {
+          tenant_id = session.user.tenantId;
+          console.log('ℹ️ Tenant ID auto-detected from session:', tenant_id);
+        } else if (session?.user) {
+          // Super admin - fetch super admin tenant
+          const superAdminTenant = await prisma.tenant.findFirst({
+            where: { slug: 'super-admin' },
+            select: { id: true },
+          });
+          if (superAdminTenant) {
+            tenant_id = superAdminTenant.id;
+            console.log('ℹ️ Super admin tenant auto-detected:', tenant_id);
+          }
+        }
+      } catch (sessionErr) {
+        console.log('ℹ️ Could not extract tenant from session:', sessionErr.message);
+      }
+    }
 
     // Only require customer_profile for 'init' action
     if (action === 'init' && !customer_profile) {

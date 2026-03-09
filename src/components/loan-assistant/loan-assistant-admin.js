@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import {
 import Link from "next/link";
 
 export function LoanAssistantAdmin() {
+  const { data: session } = useSession();
   const [companyName, setCompanyName] = useState("");
   const [aiAgentName, setAiAgentName] = useState("Priya");
   const [tenantName, setTenantName] = useState("");
@@ -25,28 +27,45 @@ export function LoanAssistantAdmin() {
 
   // Load settings on mount
   useEffect(() => {
-    loadSettings();
-  }, []);
+    if (session?.user) {
+      loadSettings();
+    }
+  }, [session?.user]);
 
   const loadSettings = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Get tenant ID from localStorage or session
-      const storedTenantId = localStorage.getItem('tenantId');
-      if (!storedTenantId) {
-        setError("Tenant ID not found. Please log in again.");
-        setIsLoading(false);
-        return;
+      // Get tenant ID from session - for super admin, get from API
+      let finalTenantId = session?.user?.tenantId;
+
+      // For super admins (tenantId is null), fetch the super admin tenant
+      if (!finalTenantId) {
+        const tenantResponse = await fetch('/api/tenant/super-admin-tenant', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const tenantData = await tenantResponse.json();
+
+        if (tenantData.success && tenantData.data?.id) {
+          finalTenantId = tenantData.data.id;
+        } else {
+          setError("Super admin tenant not found. Please contact administrator.");
+          setIsLoading(false);
+          return;
+        }
       }
 
-      setTenantId(storedTenantId);
+      setTenantId(finalTenantId);
 
       const response = await fetch('/api/tenant/loan-assistant-settings', {
         method: 'GET',
         headers: {
-          'X-Tenant-ID': storedTenantId,
+          'X-Tenant-ID': finalTenantId,
         },
       });
 
@@ -207,7 +226,7 @@ export function LoanAssistantAdmin() {
           <CardDescription>Common tasks for managing the loan assistant</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <Link href="/loan-assistant-demo">
+          <Link href="/llm-loan-assistant-demo">
             <Button variant="outline" className="w-full">
               → Test Call Demo
             </Button>
