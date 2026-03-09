@@ -17,6 +17,7 @@ import Link from "next/link";
 export function LoanAssistantAdmin() {
   const { data: session } = useSession();
   const [companyName, setCompanyName] = useState("");
+  const [callbackPhone, setCallbackPhone] = useState("");
   const [aiAgentName, setAiAgentName] = useState("Priya");
   const [tenantName, setTenantName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -73,6 +74,7 @@ export function LoanAssistantAdmin() {
 
       if (data.success && data.data) {
         setCompanyName(data.data.loanAssistantCompanyName || "");
+        setCallbackPhone(data.data.loanAssistantCallbackPhone || "");
         setAiAgentName(data.data.aiAgentName || "Priya");
         setTenantName(data.data.tenantName);
       } else {
@@ -99,6 +101,7 @@ export function LoanAssistantAdmin() {
         },
         body: JSON.stringify({
           loanAssistantCompanyName: companyName || null,
+          loanAssistantCallbackPhone: callbackPhone || null,
           aiAgentName: aiAgentName || "Priya",
         }),
       });
@@ -188,6 +191,21 @@ export function LoanAssistantAdmin() {
               />
               <p className="text-xs text-slate-500">
                 The name of the AI agent customers will interact with.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="callback-phone" className="text-sm font-medium text-slate-700">
+                Callback Phone Number
+              </label>
+              <Input
+                id="callback-phone"
+                placeholder="e.g., +91-XXXXXXXXXX"
+                value={callbackPhone}
+                onChange={(e) => setCallbackPhone(e.target.value)}
+              />
+              <p className="text-xs text-slate-500">
+                Customers will hear this number in the closing message to call your team back.
               </p>
             </div>
 

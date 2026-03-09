@@ -47,6 +47,11 @@ export function LLMLoanAssistantDemo() {
   const canUseBrowserTTS =
     typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 
+  const parsedAiToListenDelayMs = Number(process.env.NEXT_PUBLIC_AI_TO_LISTEN_DELAY_MS);
+  const aiToListenDelayMs = Number.isFinite(parsedAiToListenDelayMs) && parsedAiToListenDelayMs >= 0
+    ? parsedAiToListenDelayMs
+    : 2000;
+
   const updateCallActive = (active) => {
     callActiveRef.current = active;
     setIsCallActive(active);
@@ -326,9 +331,8 @@ export function LLMLoanAssistantDemo() {
           setIsSpeaking(false);
           activeUtteranceRef.current = null;
           
-          // CRITICAL: Keep isAISpeakingRef true for 2 more seconds
-          // This prevents recognition from picking up residual audio/speaker feedback
-          console.log("[VOICE] ⏳ AI audio still playing - waiting 2s to ensure complete playback");
+          // Keep isAISpeakingRef true for a configurable delay to avoid feedback pickup.
+          console.log(`[VOICE] ⏳ AI audio still playing - waiting ${aiToListenDelayMs}ms before listening`);
           
           setTimeout(() => {
             isAISpeakingRef.current = false;
@@ -342,7 +346,7 @@ export function LLMLoanAssistantDemo() {
             } else {
               console.log("[VOICE] ⏹️ Not restarting recognition after speech end");
             }
-          }, 2000);  // 2 second delay to ensure audio completely finished
+          }, aiToListenDelayMs);
         }
       };
       
@@ -507,7 +511,9 @@ export function LLMLoanAssistantDemo() {
 
       const conversationStage = String(data.ai_response?.conversation_stage || "").toLowerCase();
       const isClosingStage = conversationStage === "closing";
-      const shouldEndSession = data.is_session_active === false || isClosingStage;
+      const customerIntent = String(data.customer_analysis?.intent || "").toLowerCase();
+      const shouldEndByIntent = ["not_interested", "do_not_call", "busy", "call_back_later", "converted"].includes(customerIntent);
+      const shouldEndSession = data.is_session_active === false || isClosingStage || shouldEndByIntent;
 
       if (shouldEndSession) {
         console.log("[MSG] 🛑 Conversation closing/session ended - disabling microphone restarts");

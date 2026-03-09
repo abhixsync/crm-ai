@@ -76,10 +76,11 @@ function getFallbackProvider() {
 }
 
 export class LLMConversationManager {
-  constructor(customerProfile, companyName = 'XYZ Finance', aiAgentName = 'Priya') {
+  constructor(customerProfile, companyName = 'XYZ Finance', aiAgentName = 'Priya', callbackPhone = null) {
     this.customerProfile = customerProfile;
     this.companyName = companyName;
     this.aiAgentName = aiAgentName;
+    this.callbackPhone = callbackPhone;
     this.conversationHistory = [];
     this.currentStage = CONVERSATION_STAGES.OPENING;
     this.extractedData = {
@@ -166,7 +167,7 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
    * Get closing greeting with callback number
    */
   getClosingGreeting() {
-    const callbackNumber = process.env.COMPANY_CALLBACK_PHONE || '+91-XXXXXXXXXX';
+    const callbackNumber = this.callbackPhone || process.env.COMPANY_CALLBACK_PHONE || '+91-XXXXXXXXXX';
     return `Dhanyavaad! Aapko call karne ke liye.\n\nAgar aap bhavishy mein kisi bhi prakar ke loan ke liye contact karna chahte hain, to aap humare agents ko is number par call kar sakte hain: ${callbackNumber}\n\nHamari team aapki madad karne ke liye hamesha tayyar hai. Shukriya!`;
   }
 
@@ -537,7 +538,7 @@ Respond ONLY with valid JSON (no markdown, no extra text):
   determineNextStage(intent, shouldEnd = false) {
     // If AI explicitly decides the call must end (e.g. strong do-not-call),
     // or we have a clear do_not_call intent, always close.
-    if (shouldEnd || intent === 'do_not_call') {
+    if (shouldEnd || intent === 'do_not_call' || intent === 'not_interested') {
       return CONVERSATION_STAGES.CLOSING;
     }
 

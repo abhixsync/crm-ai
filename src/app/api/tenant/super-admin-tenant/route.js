@@ -17,6 +17,7 @@ export async function GET(request) {
         name: true,
         slug: true,
         loanAssistantCompanyName: true,
+        loanAssistantCallbackPhone: true,
         aiAgentName: true,
       },
     });
@@ -35,6 +36,7 @@ export async function GET(request) {
           name: true,
           slug: true,
           loanAssistantCompanyName: true,
+          loanAssistantCallbackPhone: true,
           aiAgentName: true,
         },
       });

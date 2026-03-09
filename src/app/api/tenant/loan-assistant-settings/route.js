@@ -24,6 +24,7 @@ export async function GET(request) {
         id: true,
         name: true,
         loanAssistantCompanyName: true,
+        loanAssistantCallbackPhone: true,
         aiAgentName: true,
       },
     });
@@ -41,6 +42,7 @@ export async function GET(request) {
         tenantId: tenant.id,
         tenantName: tenant.name,
         loanAssistantCompanyName: tenant.loanAssistantCompanyName,
+        loanAssistantCallbackPhone: tenant.loanAssistantCallbackPhone,
         aiAgentName: tenant.aiAgentName,
         // Resolved company name - use loanAssistantCompanyName, fallback to tenantName
         resolvedCompanyName: tenant.loanAssistantCompanyName || tenant.name,
@@ -65,6 +67,7 @@ export async function GET(request) {
  * Body:
  *   {
  *     loanAssistantCompanyName?: string
+ *     loanAssistantCallbackPhone?: string
  *     aiAgentName?: string
  *   }
  */
@@ -80,7 +83,7 @@ export async function PUT(request) {
     }
 
     const body = await request.json();
-    const { loanAssistantCompanyName, aiAgentName } = body;
+    const { loanAssistantCompanyName, loanAssistantCallbackPhone, aiAgentName } = body;
 
     // Validate tenant exists
     const tenant = await prisma.tenant.findUnique({
@@ -99,6 +102,9 @@ export async function PUT(request) {
     if (loanAssistantCompanyName !== undefined) {
       updateData.loanAssistantCompanyName = loanAssistantCompanyName || null;
     }
+    if (loanAssistantCallbackPhone !== undefined) {
+      updateData.loanAssistantCallbackPhone = loanAssistantCallbackPhone || null;
+    }
     if (aiAgentName !== undefined) {
       updateData.aiAgentName = aiAgentName;
     }
@@ -110,6 +116,7 @@ export async function PUT(request) {
         id: true,
         name: true,
         loanAssistantCompanyName: true,
+        loanAssistantCallbackPhone: true,
         aiAgentName: true,
       },
     });
@@ -120,6 +127,7 @@ export async function PUT(request) {
         tenantId: updatedTenant.id,
         tenantName: updatedTenant.name,
         loanAssistantCompanyName: updatedTenant.loanAssistantCompanyName,
+        loanAssistantCallbackPhone: updatedTenant.loanAssistantCallbackPhone,
         aiAgentName: updatedTenant.aiAgentName,
         resolvedCompanyName: updatedTenant.loanAssistantCompanyName || updatedTenant.name,
       },

@@ -237,9 +237,10 @@ export async function POST(request) {
     const aiMessage = manager.generateAIResponse();
 
     // Check if should end session
-    const shouldEndSession =
-      manager.currentStage === 'closing' ||
-      analysisResult.intent === 'do_not_call';
+      const shouldEndSession =
+        manager.currentStage === 'closing' ||
+        analysisResult.shouldEnd ||
+        ['do_not_call', 'not_interested', 'busy', 'call_back_later', 'converted'].includes(analysisResult.intent);
 
     console.log('📊 Analysis:', analysisResult);
     console.log('Should end session:', shouldEndSession);
