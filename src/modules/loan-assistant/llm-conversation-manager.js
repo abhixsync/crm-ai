@@ -102,7 +102,7 @@ Respond in natural Hinglish. Keep voice responses SHORT (max 50 words).`;
    */
   getOpeningGreeting() {
     const name = this.customerProfile?.name || 'Friend';
-    return `Namaste ${name} ji,\n\nMain ${this.companyName} se bol raha hoon.\nKya abhi 30 seconds baat karna convenient hai?`;
+    return `Namaste ${name} ji,\n\nMain ${this.companyName} se bol rahi hoon.\nKya abhi 30 seconds baat karna convenient hai?`;
   }
 
   /**
