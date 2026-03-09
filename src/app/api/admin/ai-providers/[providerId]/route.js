@@ -45,22 +45,49 @@ export async function PATCH(request, { params }) {
   const makeActive = body.isActive === true;
 
   try {
-    const updated = await prisma.$transaction(async (tx) => {
-      if (makeActive) {
-        await tx.aiProviderConfig.updateMany({ data: { isActive: false } });
-      }
+    const finalUpdateData = {
+      ...updateData,
+      ...(body.isActive !== undefined ? { isActive: Boolean(body.isActive) } : {}),
+    };
 
-      return tx.aiProviderConfig.update({
+    let updated;
+
+    if (makeActive) {
+      try {
+        const [, updatedProvider] = await prisma.$transaction([
+          prisma.aiProviderConfig.updateMany({ data: { isActive: false } }),
+          prisma.aiProviderConfig.update({
+            where: { id: providerId },
+            data: finalUpdateData,
+          }),
+        ]);
+
+        updated = updatedProvider;
+      } catch (error) {
+        // Fallback for pooled DB contention (e.g., Neon) where transaction start can timeout.
+        if (error?.code === "P2028") {
+          await prisma.aiProviderConfig.updateMany({ data: { isActive: false } });
+          updated = await prisma.aiProviderConfig.update({
+            where: { id: providerId },
+            data: finalUpdateData,
+          });
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      updated = await prisma.aiProviderConfig.update({
         where: { id: providerId },
-        data: {
-          ...updateData,
-          ...(body.isActive !== undefined ? { isActive: Boolean(body.isActive) } : {}),
-        },
+        data: finalUpdateData,
       });
-    });
+    }
 
     return Response.json({ provider: updated });
   } catch (error) {
+    if (error?.code === "P2025") {
+      return Response.json({ error: "Provider not found" }, { status: 404 });
+    }
+
     if (isDatabaseUnavailable(error)) {
       console.warn("[api/admin/ai-providers/[providerId]] Database unavailable during update.");
       return databaseUnavailableResponse();

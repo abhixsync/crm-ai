@@ -68,7 +68,7 @@ async function main() {
     });
   }
 
-  const providerName = "OpenAI Default";
+  const providerName = "OpenAI";
   const existingProvider = await prisma.aiProviderConfig.findUnique({
     where: { name: providerName },
   });
@@ -127,7 +127,27 @@ async function main() {
     });
   }
 
-  const telephonyProviderName = "Twilio Default";
+  // Add Dialogflow provider
+  const dialogflowProviderName = "Dialogflow AI";
+  const existingDialogflowProvider = await prisma.aiProviderConfig.findUnique({
+    where: { name: dialogflowProviderName },
+  });
+
+  if (!existingDialogflowProvider) {
+    await prisma.aiProviderConfig.create({
+      data: {
+        name: dialogflowProviderName,
+        type: AiProviderType.DIALOGFLOW,
+        endpoint: "https://dialogflow.googleapis.com/v2",
+        model: "dialogflow-es",
+        priority: 4,
+        enabled: true,
+        isActive: false,
+      },
+    });
+  }
+
+  const telephonyProviderName = "Twilio";
   const existingTelephonyProvider = await prisma.telephonyProviderConfig.findUnique({
     where: { name: telephonyProviderName },
   });
