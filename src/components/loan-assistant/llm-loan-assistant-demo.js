@@ -140,7 +140,28 @@ export function LLMLoanAssistantDemo() {
         console.log("[VOICE] 🎤 Recognition aborted (expected - AI was speaking)");
       } else {
         console.error("[VOICE] 🎤 Speech recognition error:", event.error);
-        setError("Voice input failed: " + event.error);
+        
+        // Provide friendly error messages based on the error type
+        let userMessage = "";
+        switch(event.error) {
+          case "no-speech":
+            userMessage = "🎤 I didn't hear anything. Please speak clearly!";
+            break;
+          case "audio-capture":
+            userMessage = "🎙️ Microphone issue. Please check your microphone and try again.";
+            break;
+          case "permission-denied":
+          case "not-allowed":
+            userMessage = "🔐 Microphone permission denied. Please enable microphone access in browser settings.";
+            break;
+          case "network":
+            userMessage = "🌐 Connection issue. Please check your internet and try again.";
+            break;
+          default:
+            userMessage = `🎤 Please speak clearly. If this continues, try refreshing the page. (Error: ${event.error})`;
+        }
+        
+        setError(userMessage);
       }
       setIsListening(false);
     };
@@ -189,6 +210,9 @@ export function LLMLoanAssistantDemo() {
           console.warn(`[VOICE] ⏱️  TIMEOUT: No audio detected after 3 seconds (instance: ${instanceId})`);
           console.warn("   → Microphone may not be working or permission denied");
           console.warn("   → Check your browser microphone access settings");
+          
+          // Show a friendly message to the user
+          setError("🎤 Please speak - I'm not hearing anything. If the microphone is on, try speaking louder!");
         }
       }, 3000);
       
@@ -199,8 +223,11 @@ export function LLMLoanAssistantDemo() {
       console.error("[VOICE] Error message:", err.message);
       console.error("[VOICE] Error code:", err.code);
       setIsListening(false);
+      
       if (err.message.includes("permission")) {
-        setError("❌ Microphone permission denied. Check browser settings.");
+        setError("🔐 Microphone permission denied. Please enable microphone access in your browser settings and try again.");
+      } else {
+        setError("🎤 Unable to start microphone. Please check your microphone and try again.");
       }
     }
   };
@@ -304,15 +331,16 @@ export function LLMLoanAssistantDemo() {
 
     try {
       console.log("[CALL] 📡 Sending init request to /api/loan-assistant/voice-conversation");
+      const requestBody = {
+        action: "init",
+        customer_profile: profile,
+        is_voice_call: isVoiceMode,
+      };
+
       const response = await fetch("/api/loan-assistant/voice-conversation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "init",
-          customer_profile: profile,
-          company_name: "XYZ Finance",
-          is_voice_call: isVoiceMode,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -393,6 +421,7 @@ export function LLMLoanAssistantDemo() {
           action: "next",
           session_id: effectiveSessionId,
           customer_message: userMsg,
+          is_voice_call: effectiveIsVoiceMode,
         }),
       });
 

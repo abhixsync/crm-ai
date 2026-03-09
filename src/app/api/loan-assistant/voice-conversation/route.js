@@ -9,12 +9,15 @@
  *   session_id?: string (for "next" action)
  *   customer_profile?: {...} (for "init" action)
  *   customer_message?: string (for "next" action)
- *   company_name?: string
+ *   tenant_id?: string (for "init" action - to fetch CRM name and AI agent name)
+ *   company_name?: string (fallback if tenant_id not provided)
+ *   ai_agent_name?: string (fallback if tenant_id not provided)
  *   is_voice_call?: boolean (true for voice, false for chat)
  * }
  */
 
 import { LLMConversationManager } from '@/modules/loan-assistant/llm-conversation-manager.js';
+import { prisma } from '@/lib/prisma.js';
 
 // In-memory session storage (production: use Redis)
 const activeSessions = new Map();
@@ -39,7 +42,9 @@ export async function POST(request) {
       customer_profile,
       customer_message,
       session_id,
-      company_name = 'XYZ Finance',
+      tenant_id,
+      company_name,
+      ai_agent_name,
       is_voice_call = false,
     } = body;
 
@@ -73,7 +78,38 @@ export async function POST(request) {
     // INIT: Create new conversation session
     if (action === 'init') {
       console.log('\n📍 Creating new LLM conversation session...');
-      manager = new LLMConversationManager(customer_profile, company_name);
+      
+      // Determine company name and AI agent name
+      let finalCompanyName = company_name || 'XYZ Finance';
+      let finalAiAgentName = ai_agent_name || 'Priya';
+      
+      // If tenant_id provided, fetch tenant config (priority: loanAssistantCompanyName > tenant.name)
+      if (tenant_id) {
+        try {
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: tenant_id },
+          });
+          
+          if (tenant) {
+            // Priority: loanAssistantCompanyName (if set in settings) > tenantName
+            finalCompanyName = tenant.loanAssistantCompanyName || tenant.name || finalCompanyName;
+            finalAiAgentName = tenant.aiAgentName || finalAiAgentName;
+            console.log('📦 Tenant Config:', {
+              tenantId: tenant_id,
+              loanAssistantCompanyName: tenant.loanAssistantCompanyName,
+              tenantName: tenant.name,
+              resolvedCompanyName: finalCompanyName,
+              aiAgentName: finalAiAgentName,
+            });
+          } else {
+            console.warn('⚠️ Tenant not found:', tenant_id);
+          }
+        } catch (error) {
+          console.warn('⚠️ Error fetching tenant:', error.message);
+        }
+      }
+      
+      manager = new LLMConversationManager(customer_profile, finalCompanyName, finalAiAgentName);
       manager.callMeta.isVoiceCall = is_voice_call;
       isNewSession = true;
       
@@ -86,6 +122,8 @@ export async function POST(request) {
       console.log('✅ LLM Session initialized');
       console.log('Session ID:', newSessionId);
       console.log('Is Voice:', is_voice_call);
+      console.log('Company:', finalCompanyName);
+      console.log('AI Agent:', finalAiAgentName);
       console.log('Opening Message:', aiMessage.substring(0, 100) + '...');
 
       return Response.json(
@@ -130,6 +168,10 @@ export async function POST(request) {
 
     console.log('✅ Session found');
     console.log('Customer message:', customer_message.substring(0, 50));
+    
+    // Ensure is_voice_call flag is maintained throughout conversation
+    manager.callMeta.isVoiceCall = is_voice_call;
+    console.log('Is Voice Call:', is_voice_call);
 
     // Process customer message using LLM
     const analysisResult = await manager.processCustomerResponse(customer_message);

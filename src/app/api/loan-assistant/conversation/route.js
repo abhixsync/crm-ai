@@ -4,15 +4,18 @@
  * 
  * POST /api/loan-assistant/conversation
  * Body: {
- *   customer_id?: string,
+ *   action: "init" | "next"
  *   customer_profile: { name, city, monthly_income, employment_type, credit_score, existing_loans, loan_interest_type },
- *   customer_message?: string,
- *   session_id?: string,
- *   company_name?: string
+ *   customer_message?: string (for "next" action)
+ *   session_id?: string (for "next" action)
+ *   tenant_id?: string (for "init" action - to fetch CRM name and AI agent name)
+ *   company_name?: string (fallback if tenant_id not provided)
+ *   ai_agent_name?: string (fallback if tenant_id not provided)
  * }
  */
 
 import { ConversationManager } from '@/modules/loan-assistant/conversation-manager.js';
+import { prisma } from '@/lib/prisma.js';
 
 // Simple in-memory session storage (in production, use Redis or DB)
 const activeSessions = new Map();
@@ -60,13 +63,16 @@ export async function POST(request) {
       customer_profile,
       customer_message,
       session_id,
-      company_name = 'XYZ Finance',
+      tenant_id,
+      company_name,
+      ai_agent_name,
       action = 'next',
     } = body;
 
     console.log('\n🔍 DESTRUCTURED VALUES:');
     console.log('action:', action);
     console.log('company_name:', company_name);
+    console.log('tenant_id:', tenant_id);
     console.log('customer_profile IS PRESENT:', typeof customer_profile !== 'undefined');
     console.log('customer_profile VALUE:', customer_profile);
     console.log('customer_profile KEYS:', customer_profile && Object.keys(customer_profile));
@@ -112,7 +118,38 @@ export async function POST(request) {
     // Handle init action - create new conversation
     if (action === 'init') {
       console.log('📍 Creating new conversation (init)...');
-      manager = new ConversationManager(customer_profile, company_name);
+      
+      // Determine company name and AI agent name
+      let finalCompanyName = company_name || 'XYZ Finance';
+      let finalAiAgentName = ai_agent_name || 'Priya';
+      
+      // If tenant_id provided, fetch tenant config (priority: loanAssistantCompanyName > tenant.name)
+      if (tenant_id) {
+        try {
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: tenant_id },
+          });
+          
+          if (tenant) {
+            // Priority: loanAssistantCompanyName (if set in settings) > tenantName
+            finalCompanyName = tenant.loanAssistantCompanyName || tenant.name || finalCompanyName;
+            finalAiAgentName = tenant.aiAgentName || finalAiAgentName;
+            console.log('📦 Tenant Config:', {
+              tenantId: tenant_id,
+              loanAssistantCompanyName: tenant.loanAssistantCompanyName,
+              tenantName: tenant.name,
+              resolvedCompanyName: finalCompanyName,
+              aiAgentName: finalAiAgentName,
+            });
+          } else {
+            console.warn('⚠️ Tenant not found:', tenant_id);
+          }
+        } catch (error) {
+          console.warn('⚠️ Error fetching tenant:', error.message);
+        }
+      }
+      
+      manager = new ConversationManager(customer_profile, finalCompanyName);
       isNewSession = true;
       const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       activeSessions.set(newSessionId, manager);
@@ -122,6 +159,7 @@ export async function POST(request) {
 
       console.log('\n✅ SUCCESS - Conversation initialized!');
       console.log('Session ID:', newSessionId);
+      console.log('Company Name:', finalCompanyName);
       console.log('AI Message:', aiMessage.substring(0, 100) + '...');
 
       return Response.json(

@@ -71,7 +71,6 @@ export function LoanAssistantDemo() {
       
       const payload = {
         action: "init",
-        company_name: "XYZ Finance",
         customer_profile: profile,
       };
 
