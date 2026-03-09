@@ -58,7 +58,8 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     message.includes("don't need") ||
     message.includes("zaroorat nahi") ||
     message.includes("interest nahi") ||
-    message.includes("nhi") && (message.includes("chahiye") || message.includes("interest") || message.includes("loan"))
+    message.includes("nhi lena") ||
+    message.includes("nhi ") && (message.includes("lena") || message.includes("chahiye") || message.includes("interest") || message.includes("loan"))
   ) {
     return {
       intent: INTENT_TYPES.NOT_INTERESTED,

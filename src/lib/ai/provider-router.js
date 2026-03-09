@@ -1,6 +1,7 @@
 import { AiProviderType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createOpenAIEngine } from "@/lib/ai/adapters/openai-adapter";
+import { createClaudeEngine } from "@/lib/ai/adapters/claude-adapter";
 import { createHttpEngine } from "@/lib/ai/adapters/http-adapter";
 import { createDialogflowEngine } from "@/lib/ai/adapters/dialogflow-adapter";
 import { AIEngineRegistry } from "@/lib/ai/engine-registry";
@@ -8,6 +9,7 @@ import { createEngineInput } from "@/lib/ai/engine-contract";
 
 const registry = new AIEngineRegistry();
 registry.register(AiProviderType.OPENAI, createOpenAIEngine());
+registry.register("CLAUDE", createClaudeEngine());
 registry.register(AiProviderType.DIALOGFLOW, createDialogflowEngine());
 registry.register(AiProviderType.RASA, createHttpEngine("rasa-engine"));
 registry.register(AiProviderType.GENERIC_HTTP, createHttpEngine("generic-http-engine"));
@@ -53,6 +55,25 @@ async function resolveProviders() {
     return providers;
   }
 
+  // Fallback to Claude (free tier available) or OpenAI
+  if (process.env.ANTHROPIC_API_KEY) {
+    return [
+      {
+        id: "implicit-claude",
+        name: "Implicit Claude",
+        type: "CLAUDE",
+        endpoint: null,
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        model: "claude-3-5-sonnet-20241022",
+        priority: 1,
+        enabled: true,
+        isActive: true,
+        timeoutMs: 12000,
+        metadata: null,
+      },
+    ];
+  }
+
   return [
     {
       id: "implicit-openai",
@@ -87,7 +108,9 @@ async function callProvider(provider, task, payload) {
           ? "Rasa adapter"
           : provider.type === AiProviderType.GENERIC_HTTP
             ? "Generic HTTP adapter"
-            : "OpenAI adapter",
+            : provider.type === "CLAUDE"
+              ? "Claude AI adapter"
+              : "OpenAI adapter",
   };
 
   const output = await engine.run({

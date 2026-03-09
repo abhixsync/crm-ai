@@ -25,6 +25,7 @@
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@deepgram/sdk": "^4.11.3",
     "@elevenlabs/elevenlabs-js": "^2.36.0",
     "@langchain/langgraph": "^0.2.74",
