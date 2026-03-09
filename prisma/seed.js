@@ -87,6 +87,46 @@ async function main() {
     });
   }
 
+  // Add Claude provider
+  const claudeProviderName = "Claude AI";
+  const existingClaudeProvider = await prisma.aiProviderConfig.findUnique({
+    where: { name: claudeProviderName },
+  });
+
+  if (!existingClaudeProvider) {
+    await prisma.aiProviderConfig.create({
+      data: {
+        name: claudeProviderName,
+        type: AiProviderType.CLAUDE,
+        model: "claude-3-5-sonnet-20241022",
+        apiKey: process.env.ANTHROPIC_API_KEY || null,
+        priority: 2,
+        enabled: true,
+        isActive: false,
+      },
+    });
+  }
+
+  // Add Groq provider
+  const groqProviderName = "Groq AI";
+  const existingGroqProvider = await prisma.aiProviderConfig.findUnique({
+    where: { name: groqProviderName },
+  });
+
+  if (!existingGroqProvider) {
+    await prisma.aiProviderConfig.create({
+      data: {
+        name: groqProviderName,
+        type: AiProviderType.GROQ,
+        model: "mixtral-8x7b-32768",
+        apiKey: process.env.GROQ_API_KEY || null,
+        priority: 3,
+        enabled: true,
+        isActive: false,
+      },
+    });
+  }
+
   const telephonyProviderName = "Twilio Default";
   const existingTelephonyProvider = await prisma.telephonyProviderConfig.findUnique({
     where: { name: telephonyProviderName },

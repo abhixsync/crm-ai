@@ -146,8 +146,7 @@ export async function POST(request) {
     const shouldEndSession = 
       manager.currentStage === 'closing' ||
       analysisResult.shouldEnd ||
-      analysisResult.intent === 'do_not_call' ||
-      analysisResult.intent === 'not_interested';
+      analysisResult.intent === 'do_not_call';
 
     console.log('Session ending:', shouldEndSession);
 

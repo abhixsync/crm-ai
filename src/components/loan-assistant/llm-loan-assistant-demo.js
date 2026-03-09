@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +26,138 @@ export function LLMLoanAssistantDemo() {
   const [error, setError] = useState(null);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [autoPlayVoice, setAutoPlayVoice] = useState(true);
+  const recognitionRef = useRef(null);
+
+  const getStatusText = () => {
+    if (!sessionId) return "Idle";
+    if (isSpeaking) return "AI talking…";
+    if (isListening) return "Listening…";
+    if (isLoading) return "Thinking…";
+    return isVoiceMode ? "Waiting for you…" : "Chat active";
+  };
+
+  const canUseBrowserTTS =
+    typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+
+  const startVoiceRecognition = () => {
+    if (typeof window === "undefined") return;
+    if (!isVoiceMode || !sessionId) return;
+    // Don't start listening while AI is speaking, to avoid AI hearing itself
+    if (isSpeaking) {
+      console.log("⏸️ Skipping recognition start because AI is speaking");
+      return;
+    }
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      console.warn("Speech Recognition not supported in this browser");
+      setError(
+        "Voice listening is not supported in this browser. Please use the latest Chrome or Edge for full voice demo."
+      );
+      return;
+    }
+
+    // Avoid multiple parallel recognitions
+    if (recognitionRef.current && isListening) {
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "hi-IN"; // Hindi for Hinglish support
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      console.log("🎤 Listening...");
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0].transcript)
+        .join("");
+
+      console.log("📝 Transcript:", transcript);
+      setCustomerMessage(transcript);
+
+      // Automatically send the customer's speech as their message
+      if (transcript.trim()) {
+        sendMessageToServer(transcript);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      // "aborted" is expected when we intentionally stop() during AI speech
+      if (event.error === "aborted") {
+        console.log("🎤 Recognition aborted (expected)");
+      } else {
+        console.error("Speech recognition error:", event.error);
+        setError("Voice input failed: " + event.error);
+      }
+      setIsListening(false);
+      console.log("🎤 Listening stopped (error)");
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      console.log("🎤 Listening stopped (natural end)");
+
+      // If the call is still active and AI is not speaking,
+      // keep listening continuously like a real phone call.
+      if (isVoiceMode && sessionId && !isSpeaking) {
+        console.log("🔁 Restarting recognition after natural end");
+        startVoiceRecognition();
+      }
+    };
+
+    recognition.start();
+  };
+
+  const speakText = (text) => {
+    if (!canUseBrowserTTS || !text) return;
+
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new window.SpeechSynthesisUtterance(text);
+      utterance.lang = "hi-IN";
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        // If we were listening, stop so the AI doesn't hear its own voice
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.abort();
+          } catch {
+            // ignore
+          }
+        }
+      };
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        // After AI finishes speaking, start listening for the customer
+        if (isVoiceMode && sessionId) {
+          console.log("🔁 Starting recognition after AI speech");
+          startVoiceRecognition();
+        }
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        if (isVoiceMode && sessionId) {
+          console.log("🔁 Recovering recognition after TTS error");
+          startVoiceRecognition();
+        }
+      };
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error("Speech synthesis failed:", e);
+      setIsSpeaking(false);
+    }
+  };
 
   /**
    * Initialize conversation
@@ -55,13 +187,25 @@ export function LLMLoanAssistantDemo() {
       }
 
       setSessionId(data.session_id);
-      setConversation([
-        {
-          type: "ai",
-          message: data.ai_response.ai_message,
-          stage: data.ai_response.conversation_stage,
-        },
-      ]);
+      const openingTurn = {
+        type: "ai",
+        message: data.ai_response.ai_message,
+        stage: data.ai_response.conversation_stage,
+      };
+
+      setConversation([openingTurn]);
+
+      // In voice mode:
+      // - If autoplay is ON, let AI speak first, then speakText() will start recognition in onend.
+      // - If autoplay is OFF, start listening immediately.
+      if (isVoiceMode) {
+        if (autoPlayVoice && canUseBrowserTTS) {
+          speakText(openingTurn.message);
+        } else {
+          console.log("🔁 Starting initial voice recognition after init (no autoplay)");
+          startVoiceRecognition();
+        }
+      }
 
       console.log("✅ Conversation initialized:", data);
     } catch (err) {
@@ -73,15 +217,13 @@ export function LLMLoanAssistantDemo() {
   };
 
   /**
-   * Send customer message
+   * Core send logic shared by text and voice
    */
-  const handleSendMessage = async () => {
-    if (!customerMessage.trim() || !sessionId) return;
+  const sendMessageToServer = async (userMsg) => {
+    if (!userMsg.trim() || !sessionId) return;
 
     setError(null);
     setIsLoading(true);
-    const userMsg = customerMessage;
-    setCustomerMessage("");
 
     // Add user message to conversation
     setConversation((prev) => [
@@ -108,20 +250,39 @@ export function LLMLoanAssistantDemo() {
       }
 
       // Add AI response
-      setConversation((prev) => [
-        ...prev,
-        {
-          type: "ai",
-          message: data.ai_response.ai_message,
-          stage: data.ai_response.conversation_stage,
-          intent: data.customer_analysis.intent,
-          confidence: data.customer_analysis.confidence,
-        },
-      ]);
+      const aiTurn = {
+        type: "ai",
+        message: data.ai_response.ai_message,
+        stage: data.ai_response.conversation_stage,
+        intent: data.customer_analysis.intent,
+        confidence: data.customer_analysis.confidence,
+      };
+
+      setConversation((prev) => [...prev, aiTurn]);
+
+      if (isVoiceMode) {
+        // In voice mode:
+        // - If autoplay is ON, speak the AI reply and let speakText() restart recognition in onend.
+        // - If autoplay is OFF, immediately start listening for the next customer turn.
+        if (autoPlayVoice && canUseBrowserTTS) {
+          speakText(aiTurn.message);
+        } else {
+          console.log("🔁 Starting recognition for next customer turn (no autoplay)");
+          startVoiceRecognition();
+        }
+      }
 
       // If session ended, reset
       if (!data.is_session_active) {
         setSessionId(null);
+        // Stop any ongoing recognition when call ends
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.abort();
+          } catch {
+            // ignore
+          }
+        }
         console.log("✅ Conversation ended:", data.call_summary);
       }
 
@@ -135,45 +296,13 @@ export function LLMLoanAssistantDemo() {
   };
 
   /**
-   * Voice input using browser Speech Recognition API
+   * Send customer message from text input (chat-style)
    */
-  const handleVoiceInput = async () => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-      alert("Speech Recognition not supported in this browser");
-      return;
-    }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "hi-IN"; // Hindi for Hinglish support
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      console.log("🎤 Listening...");
-    };
-
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map((result) => result[0].transcript)
-        .join("");
-
-      setCustomerMessage(transcript);
-      console.log("📝 Transcript:", transcript);
-    };
-
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      setError("Voice input failed: " + event.error);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
+  const handleSendMessage = async () => {
+    if (!customerMessage.trim() || !sessionId) return;
+    const userMsg = customerMessage;
+    setCustomerMessage("");
+    await sendMessageToServer(userMsg);
   };
 
   return (
@@ -226,6 +355,19 @@ export function LLMLoanAssistantDemo() {
             />
             <span className="ml-2">Voice Mode</span>
           </label>
+          {isVoiceMode && (
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={autoPlayVoice}
+                onChange={(e) => setAutoPlayVoice(e.target.checked)}
+                disabled={!canUseBrowserTTS}
+              />
+              <span className="ml-2">
+                Play AI voice{!canUseBrowserTTS ? " (not supported in this browser)" : ""}
+              </span>
+            </label>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -242,6 +384,14 @@ export function LLMLoanAssistantDemo() {
               onClick={() => {
                 setSessionId(null);
                 setConversation([]);
+                // Stop any ongoing recognition when call is manually ended
+                if (recognitionRef.current) {
+                  try {
+                    recognitionRef.current.abort();
+                  } catch {
+                    // ignore
+                  }
+                }
               }}
               variant="outline"
             >
@@ -261,9 +411,14 @@ export function LLMLoanAssistantDemo() {
       {/* Conversation Display */}
       {sessionId && (
         <Card className="p-6">
-          <h2 className="mb-4 text-lg font-semibold">
-            {isVoiceMode ? "🎤 Voice Call" : "💬 Chat"}
-          </h2>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">
+              {isVoiceMode ? "🎤 Voice Call" : "💬 Chat"}
+            </h2>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+              {getStatusText()}
+            </span>
+          </div>
 
           {/* Conversation History */}
           <div className="mb-4 max-h-96 space-y-3 overflow-y-auto rounded bg-gray-50 p-4">
@@ -293,39 +448,46 @@ export function LLMLoanAssistantDemo() {
             )}
           </div>
 
-          {/* Message Input */}
+          {/* Message Input / Voice Controls */}
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={customerMessage}
-              onChange={(e) => setCustomerMessage(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-              placeholder="Type your response..."
-              className="flex-1 rounded border px-3 py-2"
-              disabled={isLoading || isListening}
-            />
-
-            {isVoiceMode && (
-              <Button
-                onClick={handleVoiceInput}
-                disabled={isLoading || !sessionId}
-                className={`${
-                  isListening
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-green-600 hover:bg-green-700"
-                }`}
-              >
-                {isListening ? "🎤 Listening..." : "🎤"}
-              </Button>
+            {/* Chat mode: show text input + Send button */}
+            {!isVoiceMode && (
+              <>
+                <input
+                  type="text"
+                  value={customerMessage}
+                  onChange={(e) => setCustomerMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                  placeholder="Type your response..."
+                  className="flex-1 rounded border px-3 py-2"
+                  disabled={isLoading}
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!customerMessage.trim() || isLoading}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isLoading ? "..." : "Send"}
+                </Button>
+              </>
             )}
 
-            <Button
-              onClick={handleSendMessage}
-              disabled={!customerMessage.trim() || isLoading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {isLoading ? "..." : "Send"}
-            </Button>
+            {/* Voice mode: hide text input/send, keep optional Replay button */}
+            {isVoiceMode && canUseBrowserTTS && (
+              <Button
+                type="button"
+                onClick={() => {
+                  const lastAiTurn = [...conversation].reverse().find((t) => t.type === "ai");
+                  if (lastAiTurn) {
+                    speakText(lastAiTurn.message);
+                  }
+                }}
+                variant="outline"
+                disabled={!conversation.some((t) => t.type === "ai") || isSpeaking}
+              >
+                {isSpeaking ? "🔊 Playing..." : "🔊 Replay"}
+              </Button>
+            )}
           </div>
         </Card>
       )}

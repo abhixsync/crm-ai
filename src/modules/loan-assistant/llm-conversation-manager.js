@@ -1,21 +1,30 @@
 /**
  * LLM-Powered Loan Assistant Conversation Manager
- * Uses Claude (free tier) or OpenAI's smart AI to understand context naturally
+ * Uses Groq (free) → Claude (free tier) → OpenAI's AI to understand context naturally
  * Supports voice interactions for calling customers
  */
 
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import Groq from 'groq-sdk';
 import {
   CONVERSATION_STAGES,
   EMPLOYMENT_TYPES,
   LOAN_TYPES,
 } from './system-prompt.js';
 
-// Get the appropriate AI client (Claude first - free tier, then OpenAI)
+// Get the appropriate AI client (Groq free → Claude free tier → OpenAI)
 function initializeAIClient() {
+  const hasGroqKey = !!process.env.GROQ_API_KEY?.trim();
   const hasClaudeKey = !!process.env.ANTHROPIC_API_KEY?.trim();
   const hasOpenAIKey = !!process.env.OPENAI_API_KEY?.trim();
+
+  if (hasGroqKey) {
+    return {
+      type: 'groq',
+      client: new Groq({ apiKey: process.env.GROQ_API_KEY }),
+    };
+  }
 
   if (hasClaudeKey) {
     return {
@@ -34,8 +43,37 @@ function initializeAIClient() {
   return { type: null, client: null };
 }
 
-const aiProvider = initializeAIClient();
-console.log(`[LLMConversationManager] Initialized with provider:`, aiProvider.type || 'NONE', aiProvider.type === 'claude' ? '✓ Claude (FREE)' : aiProvider.type === 'openai' ? '✓ OpenAI' : '');
+let aiProvider = initializeAIClient();
+console.log(`[LLMConversationManager] Initialized with provider:`, aiProvider.type || 'NONE', aiProvider.type === 'groq' ? '✓ Groq (FREE)' : aiProvider.type === 'claude' ? '✓ Claude (FREE)' : aiProvider.type === 'openai' ? '✓ OpenAI' : '');
+
+// Helper function to get a fallback provider if current one fails
+function getFallbackProvider() {
+  // If using Groq, try Claude next
+  if (aiProvider.type === 'groq') {
+    const hasClaudeKey = !!process.env.ANTHROPIC_API_KEY?.trim();
+    if (hasClaudeKey) {
+      console.warn('[LLMConversationManager] Falling back to Claude due to Groq API error...');
+      return {
+        type: 'claude',
+        client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
+      };
+    }
+  }
+
+  // If using Claude or Groq failed to fallback, try OpenAI
+  if (aiProvider.type === 'claude' || aiProvider.type === 'groq') {
+    const hasOpenAIKey = !!process.env.OPENAI_API_KEY?.trim();
+    if (hasOpenAIKey) {
+      console.warn('[LLMConversationManager] Falling back to OpenAI due to Claude/Groq API error...');
+      return {
+        type: 'openai',
+        client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+      };
+    }
+  }
+
+  return null;
+}
 
 export class LLMConversationManager {
   constructor(customerProfile, companyName = 'XYZ Finance') {
@@ -102,7 +140,15 @@ Respond in natural Hinglish. Keep voice responses SHORT (max 50 words).`;
    */
   getOpeningGreeting() {
     const name = this.customerProfile?.name || 'Friend';
-    return `Namaste ${name} ji,\n\nMain ${this.companyName} se bol raha hoon.\nKya abhi 30 seconds baat karna convenient hai?`;
+    return `Namaste ${name} ji,\n\nMain ${this.companyName} se bol rahi hoon.\nKya abhi 30 seconds baat karna convenient hai?`;
+  }
+
+  /**
+   * Get closing greeting with callback number
+   */
+  getClosingGreeting() {
+    const callbackNumber = process.env.COMPANY_CALLBACK_PHONE || '+91-XXXXXXXXXX';
+    return `Dhanyavaad! Aapko call karne ke liye.\n\nAgar aap bhavishy mein kisi bhi prakar ke loan ke liye contact karna chahte hain, to aap humare agents ko is number par call kar sakte hain: ${callbackNumber}\n\nHamari team aapki madad karne ke liye hamesha tayyar hai. Shukriya!`;
   }
 
   /**
@@ -110,6 +156,12 @@ Respond in natural Hinglish. Keep voice responses SHORT (max 50 words).`;
    * This provides ChatGPT/Claude-level intelligence
    */
   async generateAIResponse(customerMessage = null) {
+    // If at closing stage, return closing greeting
+    if (this.currentStage === CONVERSATION_STAGES.CLOSING) {
+      console.log('📞 [Closing Stage] Generating closing greeting with callback number');
+      return this.getClosingGreeting();
+    }
+
     // If no AI API key, return opening greeting
     if (!aiProvider.client) {
       return this.getOpeningGreeting();
@@ -135,15 +187,110 @@ Respond in natural Hinglish. Keep voice responses SHORT (max 50 words).`;
 
       let aiMessage;
 
-      if (aiProvider.type === 'claude') {
-        // Call Claude API
-        const response = await aiProvider.client.messages.create({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 150,
-          system: this.getSystemPrompt(),
-          messages,
-        });
-        aiMessage = response.content[0]?.type === 'text' ? response.content[0].text : this.getOpeningGreeting();
+      if (aiProvider.type === 'groq') {
+        // Call Groq API (uses chat.completions)
+        try {
+          const response = await aiProvider.client.chat.completions.create({
+            model: 'llama-3.1-8b-instant',
+            max_tokens: 150,
+            messages: [
+              {
+                role: 'system',
+                content: this.getSystemPrompt(),
+              },
+              ...messages,
+            ],
+          });
+          aiMessage = response.choices[0]?.message?.content || this.getOpeningGreeting();
+        } catch (providerError) {
+          // If Groq fails, try fallback
+          const fallback = getFallbackProvider();
+          if (fallback) {
+            let aiMessage_fallback;
+            
+            if (fallback.type === 'claude') {
+              // Claude uses .messages.create()
+              const response = await fallback.client.messages.create({
+                model: 'claude-3-5-sonnet-20241022',
+                max_tokens: 150,
+                system: this.getSystemPrompt(),
+                messages,
+              });
+              aiMessage_fallback = response.content[0]?.type === 'text' ? response.content[0].text : this.getOpeningGreeting();
+            } else {
+              // OpenAI uses .chat.completions.create()
+              const response = await fallback.client.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                  {
+                    role: 'system',
+                    content: this.getSystemPrompt(),
+                  },
+                  ...messages,
+                ],
+                temperature: 0.7,
+                max_tokens: 150,
+              });
+              aiMessage_fallback = response.choices[0]?.message?.content || this.getOpeningGreeting();
+            }
+            
+            aiMessage = aiMessage_fallback;
+          } else {
+            throw providerError;
+          }
+        }
+      } else if (aiProvider.type === 'claude') {
+        // Call Claude API (uses messages.create)
+        try {
+          const response = await aiProvider.client.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 150,
+            system: this.getSystemPrompt(),
+            messages,
+          });
+          aiMessage = response.content[0]?.type === 'text' ? response.content[0].text : this.getOpeningGreeting();
+        } catch (providerError) {
+          // If Claude fails, try fallback
+          const fallback = getFallbackProvider();
+          if (fallback) {
+            let aiMessage_fallback;
+            
+            if (fallback.type === 'groq') {
+              // Groq uses .chat.completions.create()
+              const response = await fallback.client.chat.completions.create({
+                model: 'llama-3.1-8b-instant',
+                max_tokens: 150,
+                messages: [
+                  {
+                    role: 'system',
+                    content: this.getSystemPrompt(),
+                  },
+                  ...messages,
+                ],
+              });
+              aiMessage_fallback = response.choices[0]?.message?.content || this.getOpeningGreeting();
+            } else {
+              // OpenAI uses .chat.completions.create()
+              const response = await fallback.client.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                  {
+                    role: 'system',
+                    content: this.getSystemPrompt(),
+                  },
+                  ...messages,
+                ],
+                temperature: 0.7,
+                max_tokens: 150,
+              });
+              aiMessage_fallback = response.choices[0]?.message?.content || this.getOpeningGreeting();
+            }
+            
+            aiMessage = aiMessage_fallback;
+          } else {
+            throw providerError;
+          }
+        }
       } else {
         // Call OpenAI Chat API
         const response = await aiProvider.client.chat.completions.create({
@@ -223,19 +370,71 @@ Respond ONLY with valid JSON (no markdown, no extra text):
       const systemPrompt = 'You are an expert loan sales analyst. Extract intent and data from customer messages. Respond ONLY with clean JSON.';
       let analysisText;
 
-      if (aiProvider.type === 'claude') {
-        const response = await aiProvider.client.messages.create({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 200,
-          system: systemPrompt,
-          messages: [
-            {
-              role: 'user',
-              content: analysisPrompt,
-            },
-          ],
-        });
-        analysisText = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
+      if (aiProvider.type === 'groq') {
+        // Call Groq API (uses chat.completions)
+        try {
+          const response = await aiProvider.client.chat.completions.create({
+            model: 'llama-3.1-8b-instant',
+            max_tokens: 200,
+            messages: [
+              {
+                role: 'system',
+                content: systemPrompt,
+              },
+              {
+                role: 'user',
+                content: analysisPrompt,
+              },
+            ],
+            temperature: 0.3,
+          });
+          analysisText = response.choices[0]?.message?.content || '{}';
+        } catch (providerError) {
+          console.error('[Groq Analysis Error]', {
+            message: providerError.message,
+            status: providerError.status,
+            error: providerError.error || providerError.toString(),
+          });
+          // If Groq fails, try fallback
+          const fallback = getFallbackProvider();
+          if (fallback) {
+            if (fallback.type === 'claude') {
+              // Claude uses .messages.create()
+              const response = await fallback.client.messages.create({
+                model: 'claude-3-5-sonnet-20241022',
+                max_tokens: 200,
+                system: systemPrompt,
+                messages: [
+                  {
+                    role: 'user',
+                    content: analysisPrompt,
+                  },
+                ],
+              });
+              analysisText = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
+            } else {
+              // OpenAI uses .chat.completions.create()
+              const response = await fallback.client.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                  {
+                    role: 'system',
+                    content: systemPrompt,
+                  },
+                  {
+                    role: 'user',
+                    content: analysisPrompt,
+                  },
+                ],
+                temperature: 0.3,
+                max_tokens: 200,
+              });
+              analysisText = response.choices[0]?.message?.content || '{}';
+            }
+          } else {
+            throw providerError;
+          }
+        }
       } else {
         const response = await aiProvider.client.chat.completions.create({
           model: 'gpt-4o-mini',
@@ -317,8 +516,9 @@ Respond ONLY with valid JSON (no markdown, no extra text):
    * Determine next conversation stage
    */
   determineNextStage(intent, shouldEnd = false) {
-    // If customer explicitly declined, end immediately
-    if (shouldEnd || intent === 'not_interested' || intent === 'do_not_call') {
+    // If AI explicitly decides the call must end (e.g. strong do-not-call),
+    // or we have a clear do_not_call intent, always close.
+    if (shouldEnd || intent === 'do_not_call') {
       return CONVERSATION_STAGES.CLOSING;
     }
 

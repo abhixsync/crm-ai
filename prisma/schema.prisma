@@ -52,6 +52,8 @@ enum TaskStatus {
 
 enum AiProviderType {
   OPENAI
+  CLAUDE
+  GROQ
   DIALOGFLOW
   RASA
   GENERIC_HTTP
