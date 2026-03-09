@@ -137,6 +137,7 @@ export async function POST(request) {
     const customerId = url.searchParams.get("customerId");
     const callLogId = url.searchParams.get("callLogId");
     const turn = Number(url.searchParams.get("turn") || "0");
+    const failedAttempts = Number(url.searchParams.get("failedAttempts") || "0");
 
     const formData = await request.formData();
     const callSid = String(formData.get("CallSid") || "");
@@ -185,6 +186,30 @@ export async function POST(request) {
       });
     }
 
+    // Handle speech timeout - retry listening instead of ending call
+    if (!speechResult && turn > 0) {
+      const maxRetries = 2;
+      if (failedAttempts >= maxRetries) {
+        // After max retries, end the call gracefully
+        await finishCall(callLogId, customer.id, tenantId);
+        return twimlResponse(`<Say voice="alice">I apologize, I couldn't hear your response clearly. Thank you for your time. Our loan advisor will contact you shortly.</Say><Hangup/>`);
+      }
+
+      // Retry listening with a helpful prompt
+      const retryPrompt = failedAttempts === 0 
+        ? "I apologize, I didn't catch that. Could you please repeat?"
+        : "I'm still having trouble hearing you. Let me try once more.";
+      
+      await appendTranscript(callLogId, "Agent", retryPrompt);
+
+      const nextAttempt = failedAttempts + 1;
+      const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn}&failedAttempts=${nextAttempt}`;
+
+      return twimlResponse(
+        `<Gather input="speech" language="en-IN" speechTimeout="auto" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="alice">${xmlEscape(retryPrompt)}</Say></Gather><Say voice="alice">Thank you, we will follow up later.</Say><Hangup/>`
+      );
+    }
+
     if (speechResult) {
       await appendTranscript(callLogId, "Customer", speechResult);
     }
@@ -228,7 +253,8 @@ export async function POST(request) {
       });
     }
 
-    const shouldEnd = aiTurn.shouldEnd || turn >= 3 || !speechResult;
+    // Determine if call should end
+    const shouldEnd = aiTurn.shouldEnd || turn >= 3;
 
     if (shouldEnd) {
       const closing = `${aiTurn.reply} Thank you for your time. Our loan advisor will contact you shortly.`;
@@ -236,8 +262,9 @@ export async function POST(request) {
       return twimlResponse(`<Say voice="alice">${xmlEscape(closing)}</Say><Hangup/>`);
     }
 
+    // Continue conversation: Play AI response and listen for customer reply
     const nextTurn = turn + 1;
-    const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}`;
+    const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}&failedAttempts=0`;
 
     return twimlResponse(
       `<Gather input="speech" language="en-IN" speechTimeout="auto" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="alice">${xmlEscape(
