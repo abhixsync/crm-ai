@@ -144,17 +144,23 @@ async function callProvider(provider, task, payload) {
   return output.result;
 }
 
-export async function runAIWithFailover({ task, payload }) {
+export async function runAIWithFailover({ task, payload, activeOnly = false }) {
   const providers = await resolveProviders();
+  const candidates = activeOnly
+    ? (() => {
+        const active = providers.find((provider) => provider.isActive);
+        return active ? [active] : providers.slice(0, 1);
+      })()
+    : providers;
   const errors = [];
 
-  for (const provider of providers) {
+  for (const provider of candidates) {
     try {
       const result = await callProvider(provider, task, payload);
       return {
         provider,
         result,
-        attempted: providers.map((candidate) => candidate.name),
+        attempted: candidates.map((candidate) => candidate.name),
         errors,
       };
     } catch (error) {

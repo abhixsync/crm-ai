@@ -1,78 +1,50 @@
 /**
  * LLM-Powered Loan Assistant Conversation Manager
- * Uses Groq (free) → Claude (free tier) → OpenAI's AI to understand context naturally
- * Supports voice interactions for calling customers
+ * Uses provider router so active provider from AI Providers table is honored.
  */
 
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
-import Groq from 'groq-sdk';
+import { CONVERSATION_STAGES } from './system-prompt.js';
 import {
-  CONVERSATION_STAGES,
-  EMPLOYMENT_TYPES,
-  LOAN_TYPES,
-} from './system-prompt.js';
+  detectIntent,
+  detectEmploymentType,
+  extractLoanDetails,
+} from './intent-detector.js';
+import { runAIWithFailover } from '@/lib/ai/provider-router';
 
-// Get the appropriate AI client (Groq free → Claude free tier → OpenAI)
-function initializeAIClient() {
-  const hasGroqKey = !!process.env.GROQ_API_KEY?.trim();
-  const hasClaudeKey = !!process.env.ANTHROPIC_API_KEY?.trim();
-  const hasOpenAIKey = !!process.env.OPENAI_API_KEY?.trim();
+const END_INTENTS = new Set([
+  'do_not_call',
+  'not_interested',
+  'busy',
+  'call_back_later',
+  'converted',
+]);
 
-  if (hasGroqKey) {
-    return {
-      type: 'groq',
-      client: new Groq({ apiKey: process.env.GROQ_API_KEY }),
-    };
+function normalizeProviderIntent(rawIntent) {
+  const text = String(rawIntent || '').trim().toLowerCase();
+  if (!text) return 'neutral';
+
+  if (text.includes('do_not_call') || text.includes('dont_call') || text.includes('stop_call')) {
+    return 'do_not_call';
   }
-
-  if (hasClaudeKey) {
-    return {
-      type: 'claude',
-      client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
-    };
+  if (text.includes('not_interested') || text.includes('not interested') || text.includes('declin')) {
+    return 'not_interested';
   }
-
-  if (hasOpenAIKey) {
-    return {
-      type: 'openai',
-      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-    };
+  if (text.includes('call_back_later') || text.includes('call back') || text.includes('callback') || text.includes('later')) {
+    return 'call_back_later';
   }
+  if (text.includes('busy')) return 'busy';
+  if (text.includes('converted') || text.includes('qualified') || text.includes('booked')) return 'converted';
+  if (text.includes('interested') || text.includes('positive')) return 'interested';
 
-  return { type: null, client: null };
+  return 'neutral';
 }
 
-let aiProvider = initializeAIClient();
-console.log(`[LLMConversationManager] Initialized with provider:`, aiProvider.type || 'NONE', aiProvider.type === 'groq' ? '✓ Groq (FREE)' : aiProvider.type === 'claude' ? '✓ Claude (FREE)' : aiProvider.type === 'openai' ? '✓ OpenAI' : '');
-
-// Helper function to get a fallback provider if current one fails
-function getFallbackProvider() {
-  // If using Groq, try Claude next
-  if (aiProvider.type === 'groq') {
-    const hasClaudeKey = !!process.env.ANTHROPIC_API_KEY?.trim();
-    if (hasClaudeKey) {
-      console.warn('[LLMConversationManager] Falling back to Claude due to Groq API error...');
-      return {
-        type: 'claude',
-        client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
-      };
-    }
-  }
-
-  // If using Claude or Groq failed to fallback, try OpenAI
-  if (aiProvider.type === 'claude' || aiProvider.type === 'groq') {
-    const hasOpenAIKey = !!process.env.OPENAI_API_KEY?.trim();
-    if (hasOpenAIKey) {
-      console.warn('[LLMConversationManager] Falling back to OpenAI due to Claude/Groq API error...');
-      return {
-        type: 'openai',
-        client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-      };
-    }
-  }
-
-  return null;
+function normalizeConfidence(value, fallback = 0.5) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed < 0) return 0;
+  if (parsed > 1) return 1;
+  return parsed;
 }
 
 export class LLMConversationManager {
@@ -95,7 +67,31 @@ export class LLMConversationManager {
       confidence: 1.0,
       callbackTime: null,
       isVoiceCall: false,
+      aiProviderUsed: null,
     };
+  }
+
+  toProviderCustomerProfile() {
+    const fullName = String(this.customerProfile?.name || 'Customer').trim();
+    const [firstName = 'Customer'] = fullName.split(/\s+/);
+
+    return {
+      id: this.customerProfile?.id || null,
+      firstName,
+      city: this.customerProfile?.city || null,
+      loanType: this.customerProfile?.loan_interest_type || this.extractedData.loanType || null,
+      loanAmount: this.extractedData.amount || null,
+      monthlyIncome: this.customerProfile?.monthly_income || null,
+      employmentType: this.customerProfile?.employment_type || this.extractedData.employmentType || null,
+      creditScore: this.customerProfile?.credit_score || null,
+      existingLoans: this.customerProfile?.existing_loans || null,
+    };
+  }
+
+  getTranscriptText() {
+    return this.conversationHistory
+      .map((turn) => `${turn.role === 'ai' ? 'Agent' : 'Customer'}: ${turn.message}`)
+      .join('\n');
   }
 
   /**
@@ -182,151 +178,32 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
       return this.getClosingGreeting();
     }
 
-    // If no AI API key, return opening greeting
-    if (!aiProvider.client) {
-      return this.getOpeningGreeting();
-    }
-
     try {
-      // Build conversation history for context
-      const messages = this.conversationHistory.map(turn => ({
-        role: turn.role === 'customer' ? 'user' : 'assistant',
-        content: turn.message,
-      }));
-
-      // If we have a customer message, add it
-      if (customerMessage) {
-        messages.push({
-          role: 'user',
-          content: customerMessage,
-        });
-      } else if (this.conversationHistory.length === 0) {
+      if (!customerMessage && this.conversationHistory.length === 0) {
         // First message - return opening greeting
         return this.getOpeningGreeting();
       }
 
-      let aiMessage;
+      const aiOutput = await runAIWithFailover({
+        task: 'CALL_TURN',
+        payload: {
+          customer: this.toProviderCustomerProfile(),
+          transcript: this.getTranscriptText(),
+          turn: this.conversationHistory.length,
+          context: {
+            conversationStage: this.currentStage,
+            companyName: this.companyName,
+            aiAgentName: this.aiAgentName,
+            systemPrompt: this.getSystemPrompt(),
+          },
+        },
+        activeOnly: true,
+      });
 
-      if (aiProvider.type === 'groq') {
-        // Call Groq API (uses chat.completions)
-        try {
-          const response = await aiProvider.client.chat.completions.create({
-            model: 'llama-3.1-8b-instant',
-            max_tokens: 150,
-            messages: [
-              {
-                role: 'system',
-                content: this.getSystemPrompt(),
-              },
-              ...messages,
-            ],
-          });
-          aiMessage = response.choices[0]?.message?.content || this.getOpeningGreeting();
-        } catch (providerError) {
-          // If Groq fails, try fallback
-          const fallback = getFallbackProvider();
-          if (fallback) {
-            let aiMessage_fallback;
-            
-            if (fallback.type === 'claude') {
-              // Claude uses .messages.create()
-              const response = await fallback.client.messages.create({
-                model: 'claude-3-5-sonnet-20241022',
-                max_tokens: 150,
-                system: this.getSystemPrompt(),
-                messages,
-              });
-              aiMessage_fallback = response.content[0]?.type === 'text' ? response.content[0].text : this.getOpeningGreeting();
-            } else {
-              // OpenAI uses .chat.completions.create()
-              const response = await fallback.client.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: [
-                  {
-                    role: 'system',
-                    content: this.getSystemPrompt(),
-                  },
-                  ...messages,
-                ],
-                temperature: 0.7,
-                max_tokens: 150,
-              });
-              aiMessage_fallback = response.choices[0]?.message?.content || this.getOpeningGreeting();
-            }
-            
-            aiMessage = aiMessage_fallback;
-          } else {
-            throw providerError;
-          }
-        }
-      } else if (aiProvider.type === 'claude') {
-        // Call Claude API (uses messages.create)
-        try {
-          const response = await aiProvider.client.messages.create({
-            model: 'claude-3-5-sonnet-20241022',
-            max_tokens: 150,
-            system: this.getSystemPrompt(),
-            messages,
-          });
-          aiMessage = response.content[0]?.type === 'text' ? response.content[0].text : this.getOpeningGreeting();
-        } catch (providerError) {
-          // If Claude fails, try fallback
-          const fallback = getFallbackProvider();
-          if (fallback) {
-            let aiMessage_fallback;
-            
-            if (fallback.type === 'groq') {
-              // Groq uses .chat.completions.create()
-              const response = await fallback.client.chat.completions.create({
-                model: 'llama-3.1-8b-instant',
-                max_tokens: 150,
-                messages: [
-                  {
-                    role: 'system',
-                    content: this.getSystemPrompt(),
-                  },
-                  ...messages,
-                ],
-              });
-              aiMessage_fallback = response.choices[0]?.message?.content || this.getOpeningGreeting();
-            } else {
-              // OpenAI uses .chat.completions.create()
-              const response = await fallback.client.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: [
-                  {
-                    role: 'system',
-                    content: this.getSystemPrompt(),
-                  },
-                  ...messages,
-                ],
-                temperature: 0.7,
-                max_tokens: 150,
-              });
-              aiMessage_fallback = response.choices[0]?.message?.content || this.getOpeningGreeting();
-            }
-            
-            aiMessage = aiMessage_fallback;
-          } else {
-            throw providerError;
-          }
-        }
-      } else {
-        // Call OpenAI Chat API
-        const response = await aiProvider.client.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: this.getSystemPrompt(),
-            },
-            ...messages,
-          ],
-          temperature: 0.7,
-          max_tokens: 150,
-        });
-        aiMessage = response.choices[0]?.message?.content || this.getOpeningGreeting();
-      }
+      this.callMeta.aiProviderUsed = aiOutput?.provider?.name || aiOutput?.provider?.type || null;
+      console.log('[LLMConversationManager] CALL_TURN provider used:', this.callMeta.aiProviderUsed);
+
+      const aiMessage = String(aiOutput?.result?.reply || '').trim() || this.getOpeningGreeting();
       
       // Add to history
       this.conversationHistory.push({
@@ -338,7 +215,17 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
       return aiMessage;
     } catch (error) {
       console.error('Error calling AI API:', error.message);
-      return this.getOpeningGreeting();
+      const fallbackMessage = this.currentStage === CONVERSATION_STAGES.OPENING
+        ? this.getOpeningGreeting()
+        : 'Ji samajh gaya. Agar aap chahen to main short mein dobara explain kar sakti hoon.';
+
+      this.conversationHistory.push({
+        role: 'ai',
+        message: fallbackMessage,
+        timestamp: new Date(),
+      });
+
+      return fallbackMessage;
     }
   }
 
@@ -355,170 +242,63 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
         timestamp: new Date(),
       });
 
-      // Use AI to analyze intent and extract data
-      if (!aiProvider.client) {
-        return {
-          intent: 'neutral',
-          confidence: 0.5,
-          extractedData: { ...this.extractedData },
-          nextStage: CONVERSATION_STAGES.DISCOVERY,
-        };
-      }
+      const detectedIntent = detectIntent(customerMessage, this.conversationHistory);
+      const extracted = extractLoanDetails(customerMessage);
+      const employmentType = detectEmploymentType(customerMessage);
 
-      const analysisPrompt = `Analyze this customer message and extract:
-1. Intent: "interested", "not_interested", "busy", "do_not_call", "neutral", "converted"
-2. Confidence: 0.0-1.0
-3. Extracted data: { loanType, amount, timeline, employmentType }
-4. shouldEnd: true if customer declined or asked not to be called
+      if (extracted.loanType) this.extractedData.loanType = extracted.loanType;
+      if (extracted.amount) this.extractedData.amount = extracted.amount;
+      if (extracted.timeline) this.extractedData.timeline = extracted.timeline;
+      if (employmentType) this.extractedData.employmentType = employmentType;
 
-Customer message: "${customerMessage}"
+      let finalIntent = String(detectedIntent.intent || 'neutral').toLowerCase();
+      let finalConfidence = normalizeConfidence(detectedIntent.confidence, 0.5);
+      let reasoning = detectedIntent?.details?.reason || 'rule-based intent detection';
 
-Respond ONLY with valid JSON (no markdown, no extra text):
-{
-  "intent": "...",
-  "confidence": 0.8,
-  "extractedData": {
-    "loanType": null,
-    "amount": null,
-    "timeline": null,
-    "employmentType": null
-  },
-  "shouldEnd": false,
-  "reasoning": "..."
-}`;
-
-      const systemPrompt = 'You are an expert loan sales analyst. Extract intent and data from customer messages. Respond ONLY with clean JSON.';
-      let analysisText;
-
-      if (aiProvider.type === 'groq') {
-        // Call Groq API (uses chat.completions)
-        try {
-          const response = await aiProvider.client.chat.completions.create({
-            model: 'llama-3.1-8b-instant',
-            max_tokens: 200,
-            messages: [
-              {
-                role: 'system',
-                content: systemPrompt,
-              },
-              {
-                role: 'user',
-                content: analysisPrompt,
-              },
-            ],
-            temperature: 0.3,
-          });
-          analysisText = response.choices[0]?.message?.content || '{}';
-        } catch (providerError) {
-          console.error('[Groq Analysis Error]', {
-            message: providerError.message,
-            status: providerError.status,
-            error: providerError.error || providerError.toString(),
-          });
-          // If Groq fails, try fallback
-          const fallback = getFallbackProvider();
-          if (fallback) {
-            if (fallback.type === 'claude') {
-              // Claude uses .messages.create()
-              const response = await fallback.client.messages.create({
-                model: 'claude-3-5-sonnet-20241022',
-                max_tokens: 200,
-                system: systemPrompt,
-                messages: [
-                  {
-                    role: 'user',
-                    content: analysisPrompt,
-                  },
-                ],
-              });
-              analysisText = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
-            } else {
-              // OpenAI uses .chat.completions.create()
-              const response = await fallback.client.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: [
-                  {
-                    role: 'system',
-                    content: systemPrompt,
-                  },
-                  {
-                    role: 'user',
-                    content: analysisPrompt,
-                  },
-                ],
-                temperature: 0.3,
-                max_tokens: 200,
-              });
-              analysisText = response.choices[0]?.message?.content || '{}';
-            }
-          } else {
-            throw providerError;
-          }
-        }
-      } else {
-        const response = await aiProvider.client.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt,
-            },
-            {
-              role: 'user',
-              content: analysisPrompt,
-            },
-          ],
-          temperature: 0.3,
-          max_tokens: 200,
-        });
-        analysisText = response.choices[0]?.message?.content || '{}';
-      }
-
-      // Parse JSON response
-      let analysis = {};
       try {
-        // Remove markdown code blocks if present
-        const cleanedText = analysisText.replace(/```json\n?|\n?```/g, '').trim();
-        analysis = JSON.parse(cleanedText);
-      } catch (parseError) {
-        console.error('Failed to parse AI analysis:', parseError.message);
-        analysis = {
-          intent: 'neutral',
-          confidence: 0.5,
-          extractedData: { ...this.extractedData },
-          shouldEnd: false,
-        };
+        const summaryOutput = await runAIWithFailover({
+          task: 'CALL_SUMMARY',
+          payload: {
+            customer: this.toProviderCustomerProfile(),
+            transcript: this.getTranscriptText(),
+            turn: this.conversationHistory.length,
+            context: {
+              conversationStage: this.currentStage,
+            },
+          },
+          activeOnly: true,
+        });
+
+        this.callMeta.aiProviderUsed = summaryOutput?.provider?.name || summaryOutput?.provider?.type || this.callMeta.aiProviderUsed;
+        console.log('[LLMConversationManager] CALL_SUMMARY provider used:', this.callMeta.aiProviderUsed);
+
+        const providerIntent = normalizeProviderIntent(summaryOutput?.result?.intent);
+        if (providerIntent && providerIntent !== 'neutral') {
+          finalIntent = providerIntent;
+          finalConfidence = Math.max(finalConfidence, 0.8);
+          reasoning = `provider-intent:${summaryOutput.provider?.name || 'unknown'}`;
+        }
+      } catch (summaryError) {
+        console.warn('[LLMConversationManager] Provider summary fallback to rule-based intent:', summaryError.message);
       }
 
-      // Update extracted data
-      if (analysis.extractedData?.loanType) {
-        this.extractedData.loanType = analysis.extractedData.loanType;
-      }
-      if (analysis.extractedData?.amount) {
-        this.extractedData.amount = analysis.extractedData.amount;
-      }
-      if (analysis.extractedData?.timeline) {
-        this.extractedData.timeline = analysis.extractedData.timeline;
-      }
-      if (analysis.extractedData?.employmentType) {
-        this.extractedData.employmentType = analysis.extractedData.employmentType;
-      }
+      const shouldEnd = END_INTENTS.has(finalIntent);
 
       // Determine next stage
-      const nextStage = this.determineNextStage(analysis.intent, analysis.shouldEnd);
+      const nextStage = this.determineNextStage(finalIntent, shouldEnd);
       this.currentStage = nextStage;
 
       // Update call meta
-      this.callMeta.intent = analysis.intent;
-      this.callMeta.confidence = analysis.confidence || 0.5;
+      this.callMeta.intent = finalIntent;
+      this.callMeta.confidence = finalConfidence;
 
       return {
-        intent: analysis.intent || 'neutral',
-        confidence: analysis.confidence || 0.5,
+        intent: finalIntent,
+        confidence: finalConfidence,
         extractedData: { ...this.extractedData },
         nextStage,
-        shouldEnd: analysis.shouldEnd || false,
-        reasoning: analysis.reasoning || '',
+        shouldEnd,
+        reasoning,
       };
     } catch (error) {
       console.error('Error processing customer response:', error.message);
@@ -548,7 +328,7 @@ Respond ONLY with valid JSON (no markdown, no extra text):
     }
 
     // If busy, also close (callback will be scheduled)
-    if (intent === 'busy') {
+    if (intent === 'busy' || intent === 'call_back_later') {
       return CONVERSATION_STAGES.CLOSING;
     }
 
@@ -591,6 +371,7 @@ Respond ONLY with valid JSON (no markdown, no extra text):
       ai_message: aiMessage,
       intent: this.callMeta.intent,
       confidence: this.callMeta.confidence,
+      ai_provider_used: this.callMeta.aiProviderUsed,
       conversation_stage: this.currentStage,
       extracted_data: this.extractedData,
       conversation_length: this.conversationHistory.length,
@@ -618,6 +399,7 @@ Respond ONLY with valid JSON (no markdown, no extra text):
       duration: (new Date() - this.callMeta.startTime) / 1000,
       intent: this.callMeta.intent,
       confidence: this.callMeta.confidence,
+      aiProviderUsed: this.callMeta.aiProviderUsed,
       extractedData: this.extractedData,
       turnCount: this.conversationHistory.length,
     };

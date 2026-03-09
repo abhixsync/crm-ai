@@ -202,14 +202,31 @@ function buildDialogflowInputText(task, input) {
   return "";
 }
 
-function normalizeTurnResponse(replyText) {
+function normalizeTurnResponse(replyText, intentName) {
   const reply = String(replyText || "Please continue.").trim();
   const lower = reply.toLowerCase();
+  const normalizedIntent = String(intentName || "").trim().toLowerCase();
   const shouldEnd =
+    normalizedIntent.includes("do_not_call") ||
+    normalizedIntent.includes("not_interested") ||
+    normalizedIntent.includes("decline") ||
+    normalizedIntent.includes("converted") ||
+    normalizedIntent.includes("call_back_later") ||
+    normalizedIntent.includes("busy") ||
     lower.includes("thank you for your time") ||
     lower.includes("we will call you back") ||
     lower.includes("goodbye") ||
-    lower.includes("not interested");
+    lower.includes("not interested") ||
+    lower.includes("don't call") ||
+    lower.includes("dont call") ||
+    lower.includes("no thanks") ||
+    lower.includes("nahi chahiye") ||
+    lower.includes("nhi chahiye") ||
+    lower.includes("nhi lena") ||
+    lower.includes("loan nahi") ||
+    lower.includes("mat call") ||
+    lower.includes("baad mein") ||
+    lower.includes("abhi busy");
 
   return { reply, shouldEnd };
 }
@@ -283,7 +300,7 @@ async function invokeDialogflow({ task, input, config }) {
   }
 
   if (task === AI_TASKS.CALL_TURN) {
-    return normalizeTurnResponse(fulfillmentText);
+    return normalizeTurnResponse(fulfillmentText, intentName);
   }
 
   throw new Error(`Dialogflow does not support task: ${task}`);
