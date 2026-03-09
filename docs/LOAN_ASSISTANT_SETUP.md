@@ -42,9 +42,9 @@ Content-Type: application/json
   "action": "init",
   "company_name": "XYZ Finance",
   "customer_profile": {
-    "name": "Rahul",
-    "city": "Delhi",
-    "monthly_income": 50000,
+    "name": "Abhishek Shukla",
+    "city": "Meerut",
+    "monthly_income": 500000,
     "employment_type": "salaried",
     "credit_score": 720,
     "existing_loans": "none",

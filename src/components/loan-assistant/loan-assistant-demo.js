@@ -44,9 +44,9 @@ export function LoanAssistantDemo() {
 
   // Customer profile form state
   const [profile, setProfile] = useState({
-    name: "Rahul",
-    city: "Delhi",
-    monthly_income: 50000,
+    name: "Abhishek Shukla",
+    city: "Meerut",
+    monthly_income: 500000,
     employment_type: "salaried",
     credit_score: 720,
     existing_loans: "none",
