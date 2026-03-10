@@ -365,6 +365,13 @@ If Dialogflow keeps returning `Default Fallback Intent` for normal loan phrases,
 node scripts/seed-dialogflow-intents.cjs
 ```
 
+Seed Hindi (`hi`) phrases/responses too (without removing English):
+
+```bash
+node scripts/enable-dialogflow-language.cjs hi
+node scripts/seed-dialogflow-intents.cjs --pack docs/dialogflow-intent-training-pack-hi.json --language hi --replace true
+```
+
 Optional flags:
 
 - `--pack docs/dialogflow-intent-training-pack.json`
@@ -383,6 +390,12 @@ Quick direct probe (bypasses app logic):
 
 ```bash
 node scripts/check-dialogflow-detect-intent.cjs
+```
+
+Hindi probe example:
+
+```bash
+DIALOGFLOW_LANGUAGE_CODE=hi node scripts/check-dialogflow-detect-intent.cjs "मुझे पर्सनल लोन चाहिए" "बाद में कॉल करें" "मुझे दिलचस्पी नहीं है"
 ```
 
 ### Swap testing checklist

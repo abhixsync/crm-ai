@@ -6,6 +6,7 @@
  * Usage:
  *   node scripts/seed-dialogflow-intents.cjs
  *   node scripts/seed-dialogflow-intents.cjs --pack docs/dialogflow-intent-training-pack.json --replace true
+ *   node scripts/seed-dialogflow-intents.cjs --pack docs/dialogflow-intent-training-pack-hi.json --language hi --replace true
  *
  * Env priority for credentials:
  * 1) DIALOGFLOW_SERVICE_ACCOUNT_JSON
@@ -220,9 +221,10 @@ function toDialogflowIntent(intentDef) {
 }
 
 async function listIntents({ projectId, accessToken, languageCode }) {
-  const endpoint = `https://dialogflow.googleapis.com/v2/projects/${projectId}/agent/intents?pageSize=500&languageCode=${encodeURIComponent(
-    languageCode
-  )}`;
+  let endpoint = `https://dialogflow.googleapis.com/v2/projects/${projectId}/agent/intents?pageSize=500`;
+  if (languageCode) {
+    endpoint += `&languageCode=${encodeURIComponent(languageCode)}`;
+  }
 
   const response = await fetch(endpoint, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -234,20 +236,6 @@ async function listIntents({ projectId, accessToken, languageCode }) {
   }
 
   return data.intents || [];
-}
-
-async function deleteIntentByName({ intentName, accessToken }) {
-  const endpoint = `https://dialogflow.googleapis.com/v2/${intentName}`;
-  const response = await fetch(endpoint, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (response.status === 404) return;
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(`Failed to delete intent ${intentName}: ${JSON.stringify(data)}`);
-  }
 }
 
 async function createIntent({ projectId, accessToken, languageCode, intentBody }) {
@@ -272,6 +260,45 @@ async function createIntent({ projectId, accessToken, languageCode, intentBody }
   return data;
 }
 
+async function updateIntentLanguage({ intentName, accessToken, languageCode, intentBody }) {
+  const masksToTry = ["training_phrases,messages", "trainingPhrases,messages"];
+  let lastError = null;
+
+  for (const updateMask of masksToTry) {
+    const endpoint = `https://dialogflow.googleapis.com/v2/${intentName}?languageCode=${encodeURIComponent(
+      languageCode
+    )}&updateMask=${encodeURIComponent(updateMask)}`;
+
+    const response = await fetch(endpoint, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: intentName,
+        displayName: intentBody.displayName,
+        trainingPhrases: intentBody.trainingPhrases,
+        messages: intentBody.messages,
+      }),
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      return data;
+    }
+
+    lastError = data;
+    const errorText = JSON.stringify(data).toLowerCase();
+    const isMaskError = errorText.includes("field mask") || errorText.includes("update mask");
+    if (!isMaskError) {
+      break;
+    }
+  }
+
+  throw new Error(`Failed to update intent language for ${intentBody.displayName}: ${JSON.stringify(lastError)}`);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const serviceAccount = loadServiceAccount();
@@ -285,11 +312,11 @@ async function main() {
   }
 
   const accessToken = await getAccessToken(serviceAccount);
-  const existingIntents = await listIntents({ projectId, accessToken, languageCode });
+  const existingIntents = await listIntents({ projectId, accessToken });
   const existingByName = new Map(existingIntents.map((intent) => [intent.displayName, intent]));
 
   let created = 0;
-  let replaced = 0;
+  let updated = 0;
   let skipped = 0;
 
   for (const intentDef of pack.intents) {
@@ -309,28 +336,31 @@ async function main() {
     }
 
     if (existing && args.replace) {
-      await deleteIntentByName({ intentName: existing.name, accessToken });
-      replaced += 1;
-      console.log(`REPLACED intent: ${intentBody.displayName}`);
+      await updateIntentLanguage({
+        intentName: existing.name,
+        accessToken,
+        languageCode,
+        intentBody,
+      });
+      updated += 1;
+      console.log(`UPDATED intent (${languageCode}): ${intentBody.displayName}`);
     } else {
       console.log(`CREATED intent: ${intentBody.displayName}`);
+      await createIntent({
+        projectId,
+        accessToken,
+        languageCode,
+        intentBody,
+      });
+      created += 1;
     }
-
-    await createIntent({
-      projectId,
-      accessToken,
-      languageCode,
-      intentBody,
-    });
-
-    created += 1;
   }
 
   console.log("\nDialogflow intent seeding complete.");
   console.log(`Project: ${projectId}`);
   console.log(`Language: ${languageCode}`);
-  console.log(`Created/Updated: ${created}`);
-  console.log(`Replaced: ${replaced}`);
+  console.log(`Created: ${created}`);
+  console.log(`Updated: ${updated}`);
   console.log(`Skipped: ${skipped}`);
   console.log("\nNext: open Dialogflow console and test detectIntent with your sample phrases.");
 }
