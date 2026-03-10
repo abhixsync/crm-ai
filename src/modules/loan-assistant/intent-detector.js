@@ -23,6 +23,20 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   }
 
   const message = customerMessage.toLowerCase().trim();
+  const hasInterestedWord =
+    message.includes("interest") ||
+    /\b(interested|interetsed|intrested|interestd|intrsted)\b/.test(message);
+  const hasNotInterestedPhrase =
+    message.includes("not interested") ||
+    /\bnot\s+(interested|interetsed|intrested|interestd|intrsted)\b/.test(message);
+  const hasAmountSignal =
+    /\b\d{2,}\b/.test(message) ||
+    /\b(amount|lakh|lac|thousand|k|rupees|rs)\b/.test(message);
+  const hasLoanDeclineContext =
+    message.includes("loan") ||
+    message.includes("interest") ||
+    message.includes("chahiye") ||
+    message.includes("lena");
 
   // DO NOT CALL keywords (highest priority)
   if (
@@ -43,8 +57,7 @@ export function detectIntent(customerMessage, conversationHistory = []) {
 
   // NOT INTERESTED keywords (high priority, before neutral/interested)
   if (
-    message.includes("not interested") ||
-    message.includes("nahi") ||
+    hasNotInterestedPhrase ||
     message.includes("interested nahi") ||
     message.includes("chahiye nahi") ||
     message.includes("nhi chahiye") ||
@@ -59,7 +72,8 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     message.includes("zaroorat nahi") ||
     message.includes("interest nahi") ||
     message.includes("nhi lena") ||
-    message.includes("nhi ") && (message.includes("lena") || message.includes("chahiye") || message.includes("interest") || message.includes("loan"))
+    (message.includes("nhi ") && hasLoanDeclineContext) ||
+    (/\b(nahi|nahin|nhi)\b/.test(message) && hasLoanDeclineContext)
   ) {
     return {
       intent: INTENT_TYPES.NOT_INTERESTED,
@@ -90,10 +104,9 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     (message.includes("yes") ||
       message.includes("haan") ||
       message.includes("bilkul") ||
-      message.includes("interest hai")) &&
-    (message.match(/\d{5,}/) || // Contains amount
-      message.includes("amount") ||
-      message.includes("loan"))
+      message.includes("interest hai") ||
+      hasInterestedWord) &&
+    hasAmountSignal
   ) {
     return {
       intent: INTENT_TYPES.CONVERTED,
@@ -106,13 +119,17 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   if (
     message.includes("yes") ||
     message.includes("haan") ||
-    message.includes("interest") ||
+    hasInterestedWord ||
     message.includes("bilkul") ||
     message.includes("chalega") ||
     message.includes("ok") ||
     message.includes("think about it") ||
     message.includes("batao na") ||
-    message.includes("tell me more")
+    message.includes("tell me more") ||
+    message.includes("details") ||
+    message.includes("tell me details") ||
+    message.includes("emi") ||
+    message.includes("interest rate")
   ) {
     return {
       intent: INTENT_TYPES.INTERESTED,
@@ -250,7 +267,10 @@ export function determineNextStage(currentStage, intent, extractedData) {
 
   // If converted, end with closing
   if (intent === INTENT_TYPES.CONVERTED) {
-    return CONVERSATION_STAGES.CLOSING;
+    if (extractedData?.loanType && extractedData?.amount) {
+      return CONVERSATION_STAGES.CLOSING;
+    }
+    intent = INTENT_TYPES.INTERESTED;
   }
 
   // Progress through stages

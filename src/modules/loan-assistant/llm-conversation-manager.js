@@ -11,6 +11,7 @@ import {
 } from './intent-detector.js';
 import { runAIWithFailover } from '@/lib/ai/provider-router';
 import {
+  detectLanguagePreferenceCommand,
   detectLanguageStyleFromText,
   getLanguageMirroringInstruction,
   getLanguageStyleLabel,
@@ -23,7 +24,6 @@ const END_INTENTS = new Set([
   'not_interested',
   'busy',
   'call_back_later',
-  'converted',
 ]);
 
 function normalizeProviderIntent(rawIntent) {
@@ -52,6 +52,44 @@ function normalizeConfidence(value, fallback = 0.5) {
   if (parsed < 0) return 0;
   if (parsed > 1) return 1;
   return parsed;
+}
+
+function hasInquirySignal(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) return false;
+
+  return (
+    text.includes('details') ||
+    text.includes('tell me') ||
+    text.includes('tell me more') ||
+    text.includes('batao') ||
+    text.includes('bataye') ||
+    text.includes('explain') ||
+    text.includes('emi') ||
+    text.includes('interest rate') ||
+    text.includes('eligibility') ||
+    text.includes('process')
+  );
+}
+
+function hasExplicitNegativeSignal(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) return false;
+
+  return (
+    text.includes('not interested') ||
+    text.includes('interested nahi') ||
+    text.includes('nahi chahiye') ||
+    text.includes('nhi chahiye') ||
+    text.includes('dont need') ||
+    text.includes("don't need") ||
+    text.includes('no thanks') ||
+    text.includes('do not call') ||
+    text.includes("don't call") ||
+    text.includes('stop calling') ||
+    text.includes('mat call') ||
+    text.includes('call back later')
+  );
 }
 
 export class LLMConversationManager {
@@ -147,6 +185,24 @@ export class LLMConversationManager {
       hindi: 'Ji samjha. Agar aap chahein to main sankshipt me zaruri details bata sakti hoon.',
       defaultText: 'Understood. I can quickly explain the key details in one line if you want.',
     });
+  }
+
+  getLanguageSwitchAcknowledgement(signal) {
+    const normalized = normalizeLanguageSignal(signal || this.getLanguageSignal());
+
+    if (normalized.style === LANGUAGE_STYLES.HINDI) {
+      return 'Ji, theek hai, main ab Hindi me baat karungi.';
+    }
+
+    if (normalized.style === LANGUAGE_STYLES.HINGLISH) {
+      return 'Done ji, main ab Hinglish me baat karungi.';
+    }
+
+    if (normalized.style === LANGUAGE_STYLES.ENGLISH) {
+      return 'Sure, I will continue in English.';
+    }
+
+    return 'Sure, I will continue in your preferred language.';
   }
 
   toProviderCustomerProfile() {
@@ -283,9 +339,27 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
         return this.getOpeningGreeting();
       }
 
-      const activeLanguageSignal = customerMessage
-        ? this.updateLanguageSignal(customerMessage)
-        : this.getLanguageSignal();
+      let languagePreferenceCommand = null;
+      let activeLanguageSignal = this.getLanguageSignal();
+      if (customerMessage) {
+        languagePreferenceCommand = detectLanguagePreferenceCommand(customerMessage);
+        if (languagePreferenceCommand) {
+          this.callMeta.languageSignal = normalizeLanguageSignal(languagePreferenceCommand);
+          activeLanguageSignal = this.getLanguageSignal();
+        } else {
+          activeLanguageSignal = this.updateLanguageSignal(customerMessage);
+        }
+      }
+
+      if (languagePreferenceCommand) {
+        const acknowledgementMessage = this.getLanguageSwitchAcknowledgement(languagePreferenceCommand);
+        this.conversationHistory.push({
+          role: 'ai',
+          message: acknowledgementMessage,
+          timestamp: new Date(),
+        });
+        return acknowledgementMessage;
+      }
 
       const aiOutput = await runAIWithFailover({
         task: 'CALL_TURN',
@@ -343,7 +417,12 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
    */
   async processCustomerResponse(customerMessage) {
     try {
+      const languagePreferenceCommand = detectLanguagePreferenceCommand(customerMessage);
       const activeLanguageSignal = this.updateLanguageSignal(customerMessage);
+
+      if (languagePreferenceCommand) {
+        this.callMeta.languageSignal = normalizeLanguageSignal(languagePreferenceCommand);
+      }
 
       // Add customer message to history
       this.conversationHistory.push({
@@ -364,35 +443,81 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
       let finalIntent = String(detectedIntent.intent || 'neutral').toLowerCase();
       let finalConfidence = normalizeConfidence(detectedIntent.confidence, 0.5);
       let reasoning = detectedIntent?.details?.reason || 'rule-based intent detection';
+      const isHardStopIntent = finalIntent === 'do_not_call';
+      const ruleBasedIntent = String(detectedIntent.intent || 'neutral').toLowerCase();
+      let providerIntent = null;
+
+      if (languagePreferenceCommand && !isHardStopIntent) {
+        finalIntent = 'neutral';
+        finalConfidence = Math.max(finalConfidence, 0.9);
+        reasoning = `language-preference:${languagePreferenceCommand.style}`;
+      }
 
       try {
-        const summaryOutput = await runAIWithFailover({
-          task: 'CALL_SUMMARY',
-          payload: {
-            customer: this.toProviderCustomerProfile(),
-            transcript: this.getTranscriptText(),
-            turn: this.conversationHistory.length,
-            metadata: this.getProviderMetadata(),
-            context: {
-              conversationStage: this.currentStage,
-              languageSignal: activeLanguageSignal,
-              languageInstruction: getLanguageMirroringInstruction(activeLanguageSignal),
+        // If this turn is a pure language-switch request, skip provider intent override
+        // to avoid accidental close intents from short correction phrases.
+        if (!languagePreferenceCommand || isHardStopIntent) {
+          const summaryOutput = await runAIWithFailover({
+            task: 'CALL_SUMMARY',
+            payload: {
+              customer: this.toProviderCustomerProfile(),
+              transcript: this.getTranscriptText(),
+              turn: this.conversationHistory.length,
+              metadata: this.getProviderMetadata(),
+              context: {
+                conversationStage: this.currentStage,
+                languageSignal: activeLanguageSignal,
+                languageInstruction: getLanguageMirroringInstruction(activeLanguageSignal),
+              },
             },
-          },
-          activeOnly: true,
-        });
+            activeOnly: true,
+          });
 
-        this.callMeta.aiProviderUsed = summaryOutput?.provider?.name || summaryOutput?.provider?.type || this.callMeta.aiProviderUsed;
-        console.log('[LLMConversationManager] CALL_SUMMARY provider used:', this.callMeta.aiProviderUsed);
+          this.callMeta.aiProviderUsed = summaryOutput?.provider?.name || summaryOutput?.provider?.type || this.callMeta.aiProviderUsed;
+          console.log('[LLMConversationManager] CALL_SUMMARY provider used:', this.callMeta.aiProviderUsed);
 
-        const providerIntent = normalizeProviderIntent(summaryOutput?.result?.intent);
-        if (providerIntent && providerIntent !== 'neutral') {
-          finalIntent = providerIntent;
-          finalConfidence = Math.max(finalConfidence, 0.8);
-          reasoning = `provider-intent:${summaryOutput.provider?.name || 'unknown'}`;
+          providerIntent = normalizeProviderIntent(summaryOutput?.result?.intent);
+          if (providerIntent && providerIntent !== 'neutral') {
+            finalIntent = providerIntent;
+            finalConfidence = Math.max(finalConfidence, 0.8);
+            reasoning = `provider-intent:${summaryOutput.provider?.name || 'unknown'}`;
+          }
         }
       } catch (summaryError) {
         console.warn('[LLMConversationManager] Provider summary fallback to rule-based intent:', summaryError.message);
+      }
+
+      const ruleBasedTerminalIntent = ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(ruleBasedIntent);
+      const currentTerminalIntent = ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(finalIntent);
+      if (ruleBasedTerminalIntent && !currentTerminalIntent) {
+        finalIntent = ruleBasedIntent;
+        finalConfidence = Math.max(finalConfidence, normalizeConfidence(detectedIntent.confidence, 0.9));
+        reasoning = `${reasoning}:rule_terminal_priority`;
+      }
+
+      // Guard against premature conversion: require at least loan type and amount.
+      const hasConversionSignals = Boolean(this.extractedData.loanType && this.extractedData.amount);
+      if (finalIntent === 'converted' && !hasConversionSignals) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.78);
+        reasoning = `${reasoning}:downgraded_pre_qualification`;
+      }
+
+      // Guard against accidental terminal intents on inquiry-style customer replies.
+      // If the customer is asking for details and did not express a negative signal,
+      // keep the conversation open.
+      const inquirySignal = hasInquirySignal(customerMessage);
+      const explicitNegativeSignal = hasExplicitNegativeSignal(customerMessage);
+      if (
+        providerIntent &&
+        ['not_interested', 'busy', 'call_back_later'].includes(finalIntent) &&
+        inquirySignal &&
+        !explicitNegativeSignal &&
+        ['neutral', 'interested'].includes(String(detectedIntent.intent || '').toLowerCase())
+      ) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.76);
+        reasoning = `${reasoning}:inquiry_guard`;
       }
 
       const shouldEnd = END_INTENTS.has(finalIntent);
@@ -435,9 +560,12 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
       return CONVERSATION_STAGES.CLOSING;
     }
 
-    // If converted, move to closing
+    // Converted should only close once key qualification details are captured.
     if (intent === 'converted') {
-      return CONVERSATION_STAGES.CLOSING;
+      if (this.extractedData.loanType && this.extractedData.amount) {
+        return CONVERSATION_STAGES.CLOSING;
+      }
+      intent = 'interested';
     }
 
     // If busy, also close (callback will be scheduled)

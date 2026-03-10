@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { detectLanguageStyleFromText } from "@/lib/ai/language-style";
@@ -32,11 +32,66 @@ export function LLMLoanAssistantDemo() {
   const [autoPlayVoice, setAutoPlayVoice] = useState(true);
   const [languageStyle, setLanguageStyle] = useState("unknown");
   const [languageScript, setLanguageScript] = useState("unknown");
+  const [voicePersonaPolicy, setVoicePersonaPolicy] = useState(() => {
+    const policyFromEnv = String(process.env.NEXT_PUBLIC_TTS_VOICE_PERSONA_POLICY || "").toLowerCase();
+    if (
+      policyFromEnv === "female_both" ||
+      policyFromEnv === "male_both" ||
+      policyFromEnv === "male_en_female_hi" ||
+      policyFromEnv === "female_en_male_hi"
+    ) {
+      return policyFromEnv;
+    }
+
+    const normalizePersona = (value) =>
+      String(value || "female").toLowerCase() === "male" ? "male" : "female";
+    const defaultPersona = normalizePersona(process.env.NEXT_PUBLIC_TTS_VOICE_PERSONA || "female");
+    const englishPersona = normalizePersona(process.env.NEXT_PUBLIC_TTS_VOICE_PERSONA_EN || defaultPersona);
+    const hindiPersona = normalizePersona(process.env.NEXT_PUBLIC_TTS_VOICE_PERSONA_HI || defaultPersona);
+
+    if (englishPersona === "male" && hindiPersona === "female") {
+      return "male_en_female_hi";
+    }
+
+    if (englishPersona === "female" && hindiPersona === "male") {
+      return "female_en_male_hi";
+    }
+
+    return englishPersona === "male" ? "male_both" : "female_both";
+  });
   const recognitionRef = useRef(null);
+  const availableVoicesRef = useRef([]);
+  const selectedVoiceCacheRef = useRef({});
   const activeUtteranceRef = useRef(null);  // Track which utterance is currently active
   const recognitionRestartScheduledRef = useRef(false);  // Prevent multiple restart timeouts
   const isAISpeakingRef = useRef(false);  // Track if AI audio is actively playing
   const callActiveRef = useRef(false); // Single source of truth for whether listening is allowed
+
+  const VOICE_PERSONA_POLICIES = {
+    female_both: {
+      label: "Female for English + Hindi",
+      english: "female",
+      hindi: "female",
+    },
+    male_both: {
+      label: "Male for English + Hindi",
+      english: "male",
+      hindi: "male",
+    },
+    male_en_female_hi: {
+      label: "Male English + Female Hindi",
+      english: "male",
+      hindi: "female",
+    },
+    female_en_male_hi: {
+      label: "Female English + Male Hindi",
+      english: "female",
+      hindi: "male",
+    },
+  };
+
+  const FEMALE_VOICE_HINTS = /female|woman|zira|samantha|aria|heera|kalpana|veena|swara|neural.*female|google uk english female|google hindi/i;
+  const MALE_VOICE_HINTS = /male|man|david|alex|daniel|ravi|arjun|neural.*male|google uk english male|google us english/i;
 
   const getStatusText = () => {
     if (!sessionId) return "Idle";
@@ -54,6 +109,43 @@ export function LLMLoanAssistantDemo() {
   const aiToListenDelayMs = Number.isFinite(parsedAiToListenDelayMs) && parsedAiToListenDelayMs >= 0
     ? parsedAiToListenDelayMs
     : 2000;
+
+  useEffect(() => {
+    if (!canUseBrowserTTS) {
+      return undefined;
+    }
+
+    const synth = window.speechSynthesis;
+    const syncVoices = () => {
+      const voices = synth.getVoices() || [];
+      if (voices.length) {
+        availableVoicesRef.current = voices;
+        selectedVoiceCacheRef.current = {};
+        console.log(`[VOICE] Loaded ${voices.length} speech synthesis voices`);
+      }
+    };
+
+    syncVoices();
+
+    if (typeof synth.addEventListener === "function") {
+      synth.addEventListener("voiceschanged", syncVoices);
+      return () => {
+        synth.removeEventListener("voiceschanged", syncVoices);
+      };
+    }
+
+    const prevHandler = synth.onvoiceschanged;
+    synth.onvoiceschanged = () => {
+      if (typeof prevHandler === "function") {
+        prevHandler();
+      }
+      syncVoices();
+    };
+
+    return () => {
+      synth.onvoiceschanged = prevHandler || null;
+    };
+  }, [canUseBrowserTTS]);
 
   const updateCallActive = (active) => {
     callActiveRef.current = active;
@@ -73,6 +165,90 @@ export function LLMLoanAssistantDemo() {
     }
 
     return "en-IN";
+  };
+
+  const getVoicePersonaForLang = (speechLang) => {
+    const policyConfig =
+      VOICE_PERSONA_POLICIES[voicePersonaPolicy] || VOICE_PERSONA_POLICIES.female_both;
+    const base = String(speechLang || "").toLowerCase().split("-")[0];
+    return base === "hi" ? policyConfig.hindi : policyConfig.english;
+  };
+
+  const getAvailableVoices = () => {
+    if (!canUseBrowserTTS) return [];
+
+    const latestVoices = window.speechSynthesis.getVoices() || [];
+    if (latestVoices.length) {
+      availableVoicesRef.current = latestVoices;
+    }
+
+    return availableVoicesRef.current;
+  };
+
+  const hasPersonaMatch = (voice, persona) => {
+    const voiceLabel = `${voice?.name || ""} ${voice?.voiceURI || ""}`;
+    if (persona === "male") {
+      return MALE_VOICE_HINTS.test(voiceLabel);
+    }
+    return FEMALE_VOICE_HINTS.test(voiceLabel);
+  };
+
+  const pickVoiceForLang = (speechLang, persona) => {
+    const voices = getAvailableVoices();
+    if (!voices.length) return null;
+
+    const targetLang = String(speechLang || "").toLowerCase();
+    const targetBase = targetLang.split("-")[0];
+    const cacheKey = `${targetLang}|${persona}`;
+    const cached = selectedVoiceCacheRef.current[cacheKey];
+
+    if (cached) {
+      const cachedVoice = voices.find((voice) => voice.name === cached.name && voice.lang === cached.lang);
+      if (cachedVoice) {
+        return cachedVoice;
+      }
+    }
+
+    let selected = null;
+    let bestScore = -1;
+
+    for (const voice of voices) {
+      const voiceLang = String(voice.lang || "").toLowerCase();
+      const voiceBase = voiceLang.split("-")[0];
+      let score = 0;
+
+      if (voiceLang === targetLang) {
+        score += 60;
+      } else if (voiceBase === targetBase) {
+        score += 45;
+      }
+
+      if (hasPersonaMatch(voice, persona)) {
+        score += 20;
+      }
+
+      if (voice.localService) {
+        score += 3;
+      }
+
+      if (voice.default) {
+        score += 2;
+      }
+
+      if (score > bestScore) {
+        selected = voice;
+        bestScore = score;
+      }
+    }
+
+    if (selected) {
+      selectedVoiceCacheRef.current[cacheKey] = {
+        name: selected.name,
+        lang: selected.lang,
+      };
+    }
+
+    return selected;
   };
 
   const stopVoiceIO = () => {
@@ -342,6 +518,17 @@ export function LLMLoanAssistantDemo() {
           ? textSignal.script
           : languageScript;
       utterance.lang = getSpeechLangFromStyle(effectiveStyle, effectiveScript);
+      const preferredPersona = getVoicePersonaForLang(utterance.lang);
+      const selectedVoice = pickVoiceForLang(utterance.lang, preferredPersona);
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang || utterance.lang;
+        console.log(`[VOICE] 🎙️ Using ${preferredPersona} voice: ${selectedVoice.name} (${selectedVoice.lang})`);
+      } else {
+        console.log(`[VOICE] ⚠️ Voice list not ready for ${utterance.lang}; using browser default voice`);
+      }
+
       activeUtteranceRef.current = utterance;  // Track this as the active utterance
       
       utterance.onstart = () => {
@@ -553,15 +740,20 @@ export function LLMLoanAssistantDemo() {
 
       setConversation((prev) => [...prev, aiTurn]);
 
-      const conversationStage = String(data.ai_response?.conversation_stage || "").toLowerCase();
-      const isClosingStage = conversationStage === "closing";
-      const customerIntent = String(data.customer_analysis?.intent || "").toLowerCase();
-      const shouldEndByIntent = ["not_interested", "do_not_call", "busy", "call_back_later", "converted"].includes(customerIntent);
-      const shouldEndSession = data.is_session_active === false || isClosingStage || shouldEndByIntent;
+      const shouldEndSession = data.is_session_active === false;
 
       if (shouldEndSession) {
         console.log("[MSG] 🛑 Conversation closing/session ended - disabling microphone restarts");
         updateCallActive(false);
+        setIsListening(false);
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.abort();
+          } catch {
+            // ignore
+          }
+          recognitionRef.current = null;
+        }
       }
 
       if (effectiveIsVoiceMode) {
@@ -656,17 +848,37 @@ export function LLMLoanAssistantDemo() {
             <span className="ml-2">Voice Mode</span>
           </label>
           {isVoiceMode && (
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={autoPlayVoice}
-                onChange={(e) => setAutoPlayVoice(e.target.checked)}
-                disabled={!canUseBrowserTTS}
-              />
-              <span className="ml-2">
-                Play AI voice{!canUseBrowserTTS ? " (not supported in this browser)" : ""}
-              </span>
-            </label>
+            <>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={autoPlayVoice}
+                  onChange={(e) => setAutoPlayVoice(e.target.checked)}
+                  disabled={!canUseBrowserTTS}
+                />
+                <span className="ml-2">
+                  Play AI voice{!canUseBrowserTTS ? " (not supported in this browser)" : ""}
+                </span>
+              </label>
+              <label className="flex items-center gap-2">
+                <span className="text-sm">Voice persona</span>
+                <select
+                  value={voicePersonaPolicy}
+                  onChange={(e) => {
+                    setVoicePersonaPolicy(e.target.value);
+                    selectedVoiceCacheRef.current = {};
+                  }}
+                  disabled={!!sessionId || !canUseBrowserTTS}
+                  className="rounded border px-2 py-1 text-sm"
+                >
+                  {Object.entries(VOICE_PERSONA_POLICIES).map(([value, config]) => (
+                    <option key={value} value={value}>
+                      {config.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
           )}
         </div>
 
@@ -789,7 +1001,7 @@ export function LLMLoanAssistantDemo() {
       {/* Info Box */}
       <Card className="border-blue-200 bg-blue-50 p-4">
         <p className="text-sm text-blue-900">
-          ℹ️ This uses OpenAI's intelligent API (like ChatGPT) to understand
+          ℹ️ This uses OpenAI&apos;s intelligent API (like ChatGPT) to understand
           context naturally - not just keywords.{isVoiceMode && " Voice mode uses browser speech recognition and can be integrated with Twilio for real phone calls."}
         </p>
       </Card>

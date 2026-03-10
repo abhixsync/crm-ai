@@ -206,6 +206,55 @@ export function getLanguageMirroringInstruction(signal) {
   return "Customer language style is not clear yet. Use simple English first, then mirror the customer's language in the next turn.";
 }
 
+/**
+ * Detect explicit customer requests to switch agent response language.
+ */
+export function detectLanguagePreferenceCommand(text) {
+  const raw = String(text || "").trim().toLowerCase();
+  if (!raw) return null;
+
+  const asksToSpeak =
+    /\b(speak|talk|reply|respond|switch|change|use|bolo|boliye|bolna|baat|language|lang)\b/.test(raw) ||
+    /\b(me|mein)\s*(bolo|boliye|baat)\b/.test(raw);
+
+  if (!asksToSpeak) return null;
+
+  const asksHinglish =
+    /\bhinglish\b/.test(raw) ||
+    /\b(hindi\s*english|english\s*hindi)\b.*\bmix\b/.test(raw);
+  if (asksHinglish) {
+    return normalizeLanguageSignal({
+      style: LANGUAGE_STYLES.HINGLISH,
+      script: "roman",
+      confidence: 0.98,
+    });
+  }
+
+  const asksHindi =
+    /\bhindi\b/.test(raw) ||
+    /\benglish\s*mat\s*bolo\b/.test(raw);
+  if (asksHindi) {
+    return normalizeLanguageSignal({
+      style: LANGUAGE_STYLES.HINDI,
+      script: "roman",
+      confidence: 0.98,
+    });
+  }
+
+  const asksEnglish =
+    /\benglish\b/.test(raw) ||
+    /\bhindi\s*mat\s*bolo\b/.test(raw);
+  if (asksEnglish) {
+    return normalizeLanguageSignal({
+      style: LANGUAGE_STYLES.ENGLISH,
+      script: "latin",
+      confidence: 0.98,
+    });
+  }
+
+  return null;
+}
+
 export function mergeLanguageSignals(...signals) {
   const normalizedSignals = signals
     .map((signal) => normalizeLanguageSignal(signal))
