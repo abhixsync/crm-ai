@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { detectLanguageStyleFromText } from "@/lib/ai/language-style";
 
 /**
  * LLM Loan Assistant Demo with Voice Support
@@ -29,6 +30,8 @@ export function LLMLoanAssistantDemo() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isCallActive, setIsCallActive] = useState(false);
   const [autoPlayVoice, setAutoPlayVoice] = useState(true);
+  const [languageStyle, setLanguageStyle] = useState("unknown");
+  const [languageScript, setLanguageScript] = useState("unknown");
   const recognitionRef = useRef(null);
   const activeUtteranceRef = useRef(null);  // Track which utterance is currently active
   const recognitionRestartScheduledRef = useRef(false);  // Prevent multiple restart timeouts
@@ -55,6 +58,21 @@ export function LLMLoanAssistantDemo() {
   const updateCallActive = (active) => {
     callActiveRef.current = active;
     setIsCallActive(active);
+  };
+
+  const getSpeechLangFromStyle = (style, script = "unknown") => {
+    const normalizedStyle = String(style || "").toLowerCase();
+    const normalizedScript = String(script || "").toLowerCase();
+
+    if (normalizedStyle === "hindi") {
+      return "hi-IN";
+    }
+
+    if (normalizedStyle === "hinglish") {
+      return normalizedScript === "devanagari" ? "hi-IN" : "en-IN";
+    }
+
+    return "en-IN";
   };
 
   const stopVoiceIO = () => {
@@ -87,6 +105,8 @@ export function LLMLoanAssistantDemo() {
     stopVoiceIO();
     setSessionId(null);
     setConversation([]);
+    setLanguageStyle("unknown");
+    setLanguageScript("unknown");
   };
 
   const startVoiceRecognition = (sessionIdParam, isVoiceModeParam, isSpeakingParam) => {
@@ -150,7 +170,7 @@ export function LLMLoanAssistantDemo() {
 
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.lang = "hi-IN"; // Hindi for Hinglish support
+    recognition.lang = getSpeechLangFromStyle(languageStyle, languageScript);
 
     recognition.onstart = () => {
       console.log(`[VOICE] ✅ Recognition STARTED (instance: ${instanceId}) - now listening for speech`);
@@ -174,6 +194,12 @@ export function LLMLoanAssistantDemo() {
 
       console.log("[VOICE] 📝 Final Transcript:", transcript);
       setCustomerMessage(transcript);
+
+      const localSignal = detectLanguageStyleFromText(transcript);
+      if (localSignal.style && localSignal.style !== "unknown") {
+        setLanguageStyle(localSignal.style);
+        setLanguageScript(localSignal.script || "unknown");
+      }
 
       if (!callActiveRef.current) {
         console.log("[VOICE] ⏹️ Ignoring transcript because call is no longer active");
@@ -306,7 +332,16 @@ export function LLMLoanAssistantDemo() {
       isAISpeakingRef.current = false;  // Reset the flag
       
       const utterance = new window.SpeechSynthesisUtterance(text);
-      utterance.lang = "hi-IN";
+      const textSignal = detectLanguageStyleFromText(text);
+      const effectiveStyle =
+        textSignal.style && textSignal.style !== "unknown"
+          ? textSignal.style
+          : languageStyle;
+      const effectiveScript =
+        textSignal.style && textSignal.style !== "unknown"
+          ? textSignal.script
+          : languageScript;
+      utterance.lang = getSpeechLangFromStyle(effectiveStyle, effectiveScript);
       activeUtteranceRef.current = utterance;  // Track this as the active utterance
       
       utterance.onstart = () => {
@@ -415,6 +450,8 @@ export function LLMLoanAssistantDemo() {
       console.log("[CALL] ✅ Conversation initialized");
       setSessionId(data.session_id);
       updateCallActive(true);
+      setLanguageStyle(data.ai_response?.language_style || "unknown");
+      setLanguageScript(data.ai_response?.language_script || "unknown");
       const openingTurn = {
         type: "ai",
         message: data.ai_response.ai_message,
@@ -506,6 +543,13 @@ export function LLMLoanAssistantDemo() {
         intent: data.customer_analysis.intent,
         confidence: data.customer_analysis.confidence,
       };
+
+      if (data.ai_response?.language_style) {
+        setLanguageStyle(data.ai_response.language_style);
+      }
+      if (data.ai_response?.language_script) {
+        setLanguageScript(data.ai_response.language_script);
+      }
 
       setConversation((prev) => [...prev, aiTurn]);
 

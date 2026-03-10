@@ -10,6 +10,13 @@ import {
   extractLoanDetails,
 } from './intent-detector.js';
 import { runAIWithFailover } from '@/lib/ai/provider-router';
+import {
+  detectLanguageStyleFromText,
+  getLanguageMirroringInstruction,
+  getLanguageStyleLabel,
+  LANGUAGE_STYLES,
+  normalizeLanguageSignal,
+} from '@/lib/ai/language-style';
 
 const END_INTENTS = new Set([
   'do_not_call',
@@ -68,7 +75,78 @@ export class LLMConversationManager {
       callbackTime: null,
       isVoiceCall: false,
       aiProviderUsed: null,
+      providerSessionId: this.buildProviderSessionId(),
+      languageSignal: normalizeLanguageSignal({
+        style: LANGUAGE_STYLES.UNKNOWN,
+        script: 'unknown',
+        confidence: 0,
+      }),
     };
+  }
+
+  buildProviderSessionId() {
+    const customerId = String(this.customerProfile?.id || this.customerProfile?.phone || 'anon').replace(/[^a-zA-Z0-9_-]/g, '');
+    const timestamp = Date.now();
+    return `loan-${customerId}-${timestamp}`;
+  }
+
+  getProviderMetadata() {
+    return {
+      sessionId: this.callMeta.providerSessionId,
+    };
+  }
+
+  getLanguageSignal() {
+    return normalizeLanguageSignal(this.callMeta.languageSignal);
+  }
+
+  updateLanguageSignal(customerMessage) {
+    const detected = detectLanguageStyleFromText(customerMessage);
+    if (detected.style !== LANGUAGE_STYLES.UNKNOWN) {
+      this.callMeta.languageSignal = detected;
+      return detected;
+    }
+
+    return this.getLanguageSignal();
+  }
+
+  getLanguageText(variants) {
+    const signal = this.getLanguageSignal();
+
+    if (signal.style === LANGUAGE_STYLES.HINDI) {
+      if (signal.script === 'roman' && variants.hindiRoman) return variants.hindiRoman;
+      return variants.hindi || variants.hinglish || variants.english || variants.defaultText || '';
+    }
+
+    if (signal.style === LANGUAGE_STYLES.HINGLISH) {
+      return variants.hinglish || variants.hindiRoman || variants.hindi || variants.english || variants.defaultText || '';
+    }
+
+    if (signal.style === LANGUAGE_STYLES.ENGLISH) {
+      return variants.english || variants.hinglish || variants.hindiRoman || variants.hindi || variants.defaultText || '';
+    }
+
+    return variants.defaultText || variants.english || variants.hinglish || variants.hindiRoman || variants.hindi || '';
+  }
+
+  getIdentityCorrectionLine() {
+    return this.getLanguageText({
+      english: `No, I am ${this.aiAgentName} from ${this.companyName}. You are ${this.customerProfile?.name || 'the customer'}.`,
+      hinglish: `Nahi ji, main ${this.aiAgentName} bol rahi hoon ${this.companyName} se. Aap ${this.customerProfile?.name || 'customer'} hain.`,
+      hindiRoman: `Nahi ji, main ${this.aiAgentName} hoon ${this.companyName} se. Aap ${this.customerProfile?.name || 'grahak'} hain.`,
+      hindi: `Nahi ji, main ${this.aiAgentName} hoon ${this.companyName} se. Aap ${this.customerProfile?.name || 'grahak'} hain.`,
+      defaultText: `I am ${this.aiAgentName} from ${this.companyName}.`,
+    });
+  }
+
+  getFallbackClarificationMessage() {
+    return this.getLanguageText({
+      english: 'Understood. I can quickly explain the key details in one line if you want.',
+      hinglish: 'Ji samjha. Agar aap chahen to main short me key details bata sakti hoon.',
+      hindiRoman: 'Ji samjha. Agar aap chahein to main sankshipt me zaruri details bata sakti hoon.',
+      hindi: 'Ji samjha. Agar aap chahein to main sankshipt me zaruri details bata sakti hoon.',
+      defaultText: 'Understood. I can quickly explain the key details in one line if you want.',
+    });
   }
 
   toProviderCustomerProfile() {
@@ -94,11 +172,22 @@ export class LLMConversationManager {
       .join('\n');
   }
 
+  getLatestCustomerMessage() {
+    const latestCustomerTurn = [...this.conversationHistory]
+      .reverse()
+      .find((turn) => turn.role === 'customer' && String(turn.message || '').trim());
+    return latestCustomerTurn?.message || null;
+  }
+
   /**
    * System prompt for the AI loan assistant
    * This controls how the AI behaves during the entire conversation
    */
   getSystemPrompt() {
+    const languageSignal = this.getLanguageSignal();
+    const languageInstruction = getLanguageMirroringInstruction(languageSignal);
+    const languageLabel = getLanguageStyleLabel(languageSignal);
+
     const customerInfo = `
 Customer Profile:
 - Name: ${this.customerProfile?.name || 'Unknown'}
@@ -116,11 +205,11 @@ YOUR IDENTITY & CONSTRAINTS:
 - Your name is ${this.aiAgentName}, an AI assistant representing ${this.companyName}
 - YOU ARE NOT the customer - you are a professional loan specialist
 - You will NEVER accept any claim that you are the customer or anyone else
-- If customer says "You are [customer name]", respond with: "Nahi ji, main ${this.aiAgentName} hoon, ${this.companyName} se. Aap ${this.customerProfile?.name || 'Friend'} hain. Dono alag-alag hain." (No, I am ${this.aiAgentName} from ${this.companyName}. You are ${this.customerProfile?.name || 'Friend'}. We are different people.)
+- If customer says "You are [customer name]", correct politely using this style: "${this.getIdentityCorrectionLine()}"
 - Always maintain this boundary clearly and professionally
 
 YOUR ROLE:
-1. Have friendly, natural conversations in Hinglish (mixing proper Hindi and English)
+1. Have friendly, natural conversations that mirror the customer's language style
 2. Understand customer intent from context, not just keywords
 3. Gracefully handle objections and respect customer decisions
 4. Extract loan requirements (amount, type, timeline)
@@ -128,18 +217,16 @@ YOUR ROLE:
 
 ${customerInfo}
 
-HINDI LANGUAGE GUIDELINES:
-- Use proper Hindi grammar and vocabulary, not Hinglish slang
-- Correct phrasing: "Main ${this.aiAgentName} hoon" (not "I'm ${this.aiAgentName}")
-- Correct phrasing: "Aapka naam?" (not "Aapka kya naam?")
-- Use formal respect: "ji", "Namaste", "Dhanyavaad", "Sukriya"
-- Speak clearly and naturally, like a real person, not robotic
-- Avoid machine-like translations - use natural Hindi expressions
+LANGUAGE MIRRORING (MANDATORY):
+- Current detected customer language: ${languageLabel}
+- ${languageInstruction}
+- Mirror the customer's language style turn-by-turn (English/Hindi/Hinglish)
+- Never force Hindi or Hinglish if customer is speaking English
+- If language is unclear, ask one short language-neutral clarifying question
 
 IMPORTANT BEHAVIORS:
 - If customer says they're not interested (any variation like "nhi chahiye", "nhi lena", "mat karo"), IMMEDIATELY acknowledge and end the call politely
 - If customer is busy or wants callback, ask for a suitable time
-- Always speak in natural Hinglish with proper respect
 - Keep responses concise (2-3 sentences max for voice calls)
 - Extract: loan type, amount, timeline from conversation naturally
 - Be conversational, empathetic, and respectful
@@ -148,7 +235,7 @@ IMPORTANT BEHAVIORS:
 Current Conversation Stage: ${this.currentStage}
 Extracted Data So Far: ${JSON.stringify(this.extractedData)}
 
-CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice responses SHORT (max 50 words).`;
+CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the customer.`;
   }
 
   /**
@@ -156,7 +243,13 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
    */
   getOpeningGreeting() {
     const name = this.customerProfile?.name || 'Friend';
-    return `Namaste ${name} ji,\n\nMain ${this.aiAgentName} hoon, ${this.companyName} se.\nKya abhi 30 seconds baat karna convenient hai?`;
+    return this.getLanguageText({
+      english: `Hello ${name}, this is ${this.aiAgentName} from ${this.companyName}. Is this a good time for a quick 30-second loan discussion?`,
+      hinglish: `Namaste ${name} ji, main ${this.aiAgentName} bol rahi hoon ${this.companyName} se. Kya abhi 30 seconds baat karna convenient hai?`,
+      hindiRoman: `Namaste ${name} ji, main ${this.aiAgentName} ${this.companyName} se bol rahi hoon. Kya abhi 30 second baat karna theek rahega?`,
+      hindi: `Namaste ${name} ji, main ${this.aiAgentName} ${this.companyName} se bol rahi hoon. Kya abhi 30 second baat karna theek rahega?`,
+      defaultText: `Hello ${name}, this is ${this.aiAgentName} from ${this.companyName}. Is this a good time for a quick 30-second loan discussion?`,
+    });
   }
 
   /**
@@ -164,7 +257,13 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
    */
   getClosingGreeting() {
     const callbackNumber = this.callbackPhone || process.env.COMPANY_CALLBACK_PHONE || '+91-XXXXXXXXXX';
-    return `Dhanyavaad! Aapko call karne ke liye.\n\nAgar aap bhavishy mein kisi bhi prakar ke loan ke liye contact karna chahte hain, to aap humare agents ko is number par call kar sakte hain: ${callbackNumber}\n\nHamari team aapki madad karne ke liye hamesha tayyar hai. Shukriya!`;
+    return this.getLanguageText({
+      english: `Thank you for your time. If you need any loan assistance in future, please call our team on ${callbackNumber}. We are always happy to help.`,
+      hinglish: `Dhanyavaad ji, aapke time ke liye. Future me loan assistance ke liye aap hume ${callbackNumber} par call kar sakte hain. Humari team help ke liye available hai.`,
+      hindiRoman: `Dhanyavaad ji, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${callbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
+      hindi: `Dhanyavaad ji, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${callbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
+      defaultText: `Thank you for your time. If you need any loan assistance in future, please call our team on ${callbackNumber}. We are always happy to help.`,
+    });
   }
 
   /**
@@ -184,17 +283,26 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
         return this.getOpeningGreeting();
       }
 
+      const activeLanguageSignal = customerMessage
+        ? this.updateLanguageSignal(customerMessage)
+        : this.getLanguageSignal();
+
       const aiOutput = await runAIWithFailover({
         task: 'CALL_TURN',
         payload: {
           customer: this.toProviderCustomerProfile(),
           transcript: this.getTranscriptText(),
+          latestCustomerMessage: customerMessage || this.getLatestCustomerMessage(),
           turn: this.conversationHistory.length,
+          metadata: this.getProviderMetadata(),
           context: {
             conversationStage: this.currentStage,
             companyName: this.companyName,
             aiAgentName: this.aiAgentName,
             systemPrompt: this.getSystemPrompt(),
+            languageSignal: activeLanguageSignal,
+            languageInstruction: getLanguageMirroringInstruction(activeLanguageSignal),
+            languageStyleLabel: getLanguageStyleLabel(activeLanguageSignal),
           },
         },
         activeOnly: true,
@@ -217,7 +325,7 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
       console.error('Error calling AI API:', error.message);
       const fallbackMessage = this.currentStage === CONVERSATION_STAGES.OPENING
         ? this.getOpeningGreeting()
-        : 'Ji samajh gaya. Agar aap chahen to main short mein dobara explain kar sakti hoon.';
+        : this.getFallbackClarificationMessage();
 
       this.conversationHistory.push({
         role: 'ai',
@@ -235,6 +343,8 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
    */
   async processCustomerResponse(customerMessage) {
     try {
+      const activeLanguageSignal = this.updateLanguageSignal(customerMessage);
+
       // Add customer message to history
       this.conversationHistory.push({
         role: 'customer',
@@ -262,8 +372,11 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
             customer: this.toProviderCustomerProfile(),
             transcript: this.getTranscriptText(),
             turn: this.conversationHistory.length,
+            metadata: this.getProviderMetadata(),
             context: {
               conversationStage: this.currentStage,
+              languageSignal: activeLanguageSignal,
+              languageInstruction: getLanguageMirroringInstruction(activeLanguageSignal),
             },
           },
           activeOnly: true,
@@ -367,11 +480,15 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
    * Get structured output for API response
    */
   getStructuredOutput(aiMessage) {
+    const languageSignal = this.getLanguageSignal();
+
     return {
       ai_message: aiMessage,
       intent: this.callMeta.intent,
       confidence: this.callMeta.confidence,
       ai_provider_used: this.callMeta.aiProviderUsed,
+      language_style: languageSignal.style,
+      language_script: languageSignal.script,
       conversation_stage: this.currentStage,
       extracted_data: this.extractedData,
       conversation_length: this.conversationHistory.length,
@@ -393,6 +510,8 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
    * Get call summary
    */
   getCallSummary() {
+    const languageSignal = this.getLanguageSignal();
+
     return {
       startTime: this.callMeta.startTime,
       endTime: new Date(),
@@ -400,6 +519,8 @@ CRITICAL: Respond in natural, grammatically correct Hinglish. Keep voice respons
       intent: this.callMeta.intent,
       confidence: this.callMeta.confidence,
       aiProviderUsed: this.callMeta.aiProviderUsed,
+      languageStyle: languageSignal.style,
+      languageScript: languageSignal.script,
       extractedData: this.extractedData,
       turnCount: this.conversationHistory.length,
     };

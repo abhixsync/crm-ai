@@ -1,5 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AI_TASKS, createEngineAdapter } from "@/lib/ai/engine-contract";
+import {
+  detectLanguageStyleFromText,
+  getLanguageMirroringInstruction,
+  LANGUAGE_STYLES,
+  normalizeLanguageSignal,
+} from "@/lib/ai/language-style";
 
 function fallbackScript(customer) {
   const amount = customer.loanAmount ? `for around ₹${customer.loanAmount}` : "";
@@ -18,6 +24,93 @@ function getClient(apiKey) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || "").trim();
   if (!key) return null;
   return new Anthropic({ apiKey: key });
+}
+
+function resolveLanguageSignal(input) {
+  const contextSignal = normalizeLanguageSignal(input?.context?.languageSignal);
+  if (contextSignal.style !== LANGUAGE_STYLES.UNKNOWN) {
+    return contextSignal;
+  }
+
+  return detectLanguageStyleFromText(input?.latestCustomerMessage || input?.transcript || "");
+}
+
+function fallbackTurnByLanguage(turn, languageSignal) {
+  if (turn >= 2) {
+    if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
+      return {
+        reply: "Dhanyavaad ji. Hamara loan advisor jaldi aapse sampark karega.",
+        shouldEnd: true,
+      };
+    }
+
+    if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
+      return {
+        reply: "Thank you ji, details share karne ke liye. Hamara loan advisor jaldi call karega.",
+        shouldEnd: true,
+      };
+    }
+
+    return {
+      reply: "Thank you for sharing. Our loan advisor will call you shortly.",
+      shouldEnd: true,
+    };
+  }
+
+  if (turn === 1) {
+    if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
+      return {
+        reply: "Kripya monthly income aur preferred EMI range confirm kar dijiye.",
+        shouldEnd: false,
+      };
+    }
+
+    if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
+      return {
+        reply: "Please monthly income aur preferred EMI range confirm kar dijiye.",
+        shouldEnd: false,
+      };
+    }
+
+    return {
+      reply: "Could you confirm your monthly income and preferred EMI range?",
+      shouldEnd: false,
+    };
+  }
+
+  if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
+    return {
+      reply: "Kya aap is hafte apply karna chahte hain, aur kitni amount chahiye?",
+      shouldEnd: false,
+    };
+  }
+
+  if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
+    return {
+      reply: "Kya aap is week apply karna chahte hain, aur target amount kitni hai?",
+      shouldEnd: false,
+    };
+  }
+
+  return {
+    reply: "Are you planning to apply this week, and what loan amount are you targeting?",
+    shouldEnd: false,
+  };
+}
+
+function inferShouldEnd(replyText) {
+  const lower = String(replyText || "").toLowerCase();
+  return (
+    lower.includes("not interested") ||
+    lower.includes("no thanks") ||
+    lower.includes("don't call") ||
+    lower.includes("dont call") ||
+    lower.includes("nahi chahiye") ||
+    lower.includes("nhi chahiye") ||
+    lower.includes("nhi lena") ||
+    lower.includes("abhi busy") ||
+    lower.includes("call you back")
+  );
 }
 
 async function invokeClaudeAI({ task, input, config }) {
@@ -98,39 +191,25 @@ async function invokeClaudeAI({ task, input, config }) {
 
   if (task === AI_TASKS.CALL_TURN) {
     const { transcript = "", turn = 0, context = {} } = input;
+    const languageSignal = resolveLanguageSignal(input);
+    const languageInstruction =
+      context.languageInstruction || getLanguageMirroringInstruction(languageSignal);
 
     if (!client) {
-      if (turn >= 2) {
-        return {
-          reply:
-            "Thank you for sharing. Our loan advisor will call you shortly.",
-          shouldEnd: true,
-        };
-      }
-
-      if (turn === 1) {
-        return {
-          reply:
-            "Could you confirm your monthly income and preferred EMI range?",
-          shouldEnd: false,
-        };
-      }
-
-      return {
-        reply:
-          "Are you planning to apply this week, and what loan amount are you targeting?",
-        shouldEnd: false,
-      };
+      return fallbackTurnByLanguage(turn, languageSignal);
     }
 
     const systemPrompt = `You are an AI loan assistant in a live phone call. 
 Keep responses concise (1-2 sentences max).
 Customer context: ${JSON.stringify(context)}
-Current turn: ${turn}`;
+Current turn: ${turn}
+Language rule: ${languageInstruction}
+Always mirror customer language style in this turn.`;
 
     const userPrompt = `Conversation so far:\n${
       transcript || "(call just started)"
-    }\n\nRespond naturally to continue the conversation. If customer declines or asks not to call, end the call. Include shouldEnd: true/false at the end.`;
+    }\nLatest customer utterance: ${input.latestCustomerMessage || "(not provided)"}
+\nRespond naturally to continue the conversation. If customer declines or asks not to call, end the call. Return JSON with keys reply and shouldEnd.`;
 
     try {
       const message = await client.messages.create({
@@ -149,26 +228,22 @@ Current turn: ${turn}`;
 
       try {
         const parsed = JSON.parse(responseText);
-        reply = parsed.reply || responseText;
-        shouldEnd = parsed.shouldEnd || false;
+        reply = parsed.reply || fallbackTurnByLanguage(turn, languageSignal).reply;
+        shouldEnd = typeof parsed.shouldEnd === "boolean" ? parsed.shouldEnd : inferShouldEnd(parsed.reply);
       } catch {
         // Response is natural text, not JSON
         // Check for decline patterns
-        shouldEnd =
-          responseText.toLowerCase().includes("decline") ||
-          responseText.toLowerCase().includes("no thanks") ||
-          responseText.toLowerCase().includes("not interested");
+        shouldEnd = inferShouldEnd(responseText);
       }
 
       return {
-        reply: reply.trim(),
+        reply: String(reply || fallbackTurnByLanguage(turn, languageSignal).reply).trim(),
         shouldEnd,
       };
     } catch (error) {
       console.error("Claude API error:", error.message);
       return {
-        reply: "Please continue.",
-        shouldEnd: false,
+        ...fallbackTurnByLanguage(turn, languageSignal),
       };
     }
   }

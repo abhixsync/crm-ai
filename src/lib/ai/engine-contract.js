@@ -15,14 +15,17 @@ export function assertValidTask(task) {
 export function createEngineInput({ task, payload }) {
   assertValidTask(task);
 
+  const basePayload = payload && typeof payload === "object" ? payload : {};
+
   return {
     task,
-    customer: payload?.customer || null,
-    transcript: payload?.transcript || "",
-    turn: Number(payload?.turn || 0),
-    context: payload?.context || {},
-    metadata: payload?.metadata || {},
-    rawPayload: payload || {},
+    ...basePayload,
+    customer: basePayload.customer || null,
+    transcript: basePayload.transcript || "",
+    turn: Number(basePayload.turn || 0),
+    context: basePayload.context || {},
+    metadata: basePayload.metadata || {},
+    rawPayload: basePayload,
   };
 }
 

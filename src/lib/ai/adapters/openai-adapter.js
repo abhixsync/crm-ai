@@ -1,5 +1,11 @@
 import OpenAI from "openai";
 import { AI_TASKS, createEngineAdapter } from "@/lib/ai/engine-contract";
+import {
+  detectLanguageStyleFromText,
+  getLanguageMirroringInstruction,
+  LANGUAGE_STYLES,
+  normalizeLanguageSignal,
+} from "@/lib/ai/language-style";
 
 function fallbackScript(customer) {
   const amount = customer.loanAmount ? `for around ₹${customer.loanAmount}` : "";
@@ -18,6 +24,93 @@ function getClient(apiKey) {
   const key = String(apiKey || process.env.OPENAI_API_KEY || "").trim();
   if (!key) return null;
   return new OpenAI({ apiKey: key });
+}
+
+function resolveLanguageSignal(input) {
+  const contextSignal = normalizeLanguageSignal(input?.context?.languageSignal);
+  if (contextSignal.style !== LANGUAGE_STYLES.UNKNOWN) {
+    return contextSignal;
+  }
+
+  return detectLanguageStyleFromText(input?.latestCustomerMessage || input?.transcript || "");
+}
+
+function getFallbackTurnResponse(turn, languageSignal) {
+  if (turn >= 2) {
+    if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
+      return {
+        reply: "Dhanyavaad ji. Hamara loan advisor jaldi aapse sampark karega.",
+        shouldEnd: true,
+      };
+    }
+
+    if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
+      return {
+        reply: "Thank you ji, details share karne ke liye. Hamara loan advisor jaldi call karega.",
+        shouldEnd: true,
+      };
+    }
+
+    return {
+      reply: "Thank you for sharing. Our loan advisor will call you shortly with the next steps.",
+      shouldEnd: true,
+    };
+  }
+
+  if (turn === 1) {
+    if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
+      return {
+        reply: "Kripya aap monthly income aur preferred EMI range batayenge?",
+        shouldEnd: false,
+      };
+    }
+
+    if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
+      return {
+        reply: "Please aap monthly income aur preferred EMI range confirm kar denge?",
+        shouldEnd: false,
+      };
+    }
+
+    return {
+      reply: "Could you confirm your monthly income and preferred EMI range so we can check eligibility?",
+      shouldEnd: false,
+    };
+  }
+
+  if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
+    return {
+      reply: "Kya aap is hafte loan apply karne ka plan kar rahe hain, aur kitni amount chahiye?",
+      shouldEnd: false,
+    };
+  }
+
+  if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
+    return {
+      reply: "Kya aap is week loan apply karne ka plan kar rahe hain, aur target amount kitni hai?",
+      shouldEnd: false,
+    };
+  }
+
+  return {
+    reply: "Are you planning to apply this week, and what loan amount are you targeting?",
+    shouldEnd: false,
+  };
+}
+
+function inferShouldEndFromReply(reply) {
+  const lower = String(reply || "").toLowerCase();
+  return (
+    lower.includes("not interested") ||
+    lower.includes("no thanks") ||
+    lower.includes("don't call") ||
+    lower.includes("dont call") ||
+    lower.includes("nahi chahiye") ||
+    lower.includes("nhi chahiye") ||
+    lower.includes("nhi lena") ||
+    lower.includes("abhi busy") ||
+    lower.includes("call you back")
+  );
 }
 
 async function invokeOpenAI({ task, input, config }) {
@@ -68,34 +161,28 @@ async function invokeOpenAI({ task, input, config }) {
     const customer = input.customer;
     const transcript = input.transcript;
     const turn = input.turn;
+    const context = input.context || {};
+    const languageSignal = resolveLanguageSignal(input);
+    const languageInstruction =
+      context.languageInstruction || getLanguageMirroringInstruction(languageSignal);
 
     if (!client) {
-      if (turn >= 2) {
-        return {
-          reply:
-            "Thank you for sharing. Our loan advisor will call you shortly with the best offer and next steps.",
-          shouldEnd: true,
-        };
-      }
-
-      if (turn === 1) {
-        return {
-          reply:
-            "Thank you. Could you confirm your monthly income and preferred EMI range so we can check eligibility?",
-          shouldEnd: false,
-        };
-      }
-
-      return {
-        reply: "Are you planning to apply this week, and what loan amount are you targeting?",
-        shouldEnd: false,
-      };
+      return getFallbackTurnResponse(turn, languageSignal);
     }
 
     const prompt = `You are an AI loan calling assistant in a live phone call.
 Customer profile: ${JSON.stringify(customer)}
 Conversation transcript so far:\n${transcript || "(no transcript)"}
+Latest customer utterance: ${input.latestCustomerMessage || "(not provided)"}
 Current turn index: ${turn}
+Conversation stage: ${context.conversationStage || "unknown"}
+
+Language rule:
+- ${languageInstruction}
+- Mirror customer language exactly in this reply.
+
+Additional manager policy:
+${context.systemPrompt || "(no additional policy)"}
 
 Return ONLY valid JSON:
 {"reply":"<short natural spoken response under 35 words>","shouldEnd":<true|false>}
@@ -104,6 +191,9 @@ Rules:
 - Sound polite, concise, and sales-oriented.
 - Ask one focused qualification question at a time.
 - If enough qualification is captured or customer is busy/not interested, set shouldEnd=true.
+- If customer speaks English, reply only in English.
+- If customer speaks Hindi, reply in Hindi.
+- If customer speaks Hinglish, reply in Hinglish.
 - Never include markdown or extra text.`;
 
     const completion = await client.responses.create({ model, input: prompt });
@@ -111,13 +201,13 @@ Rules:
     try {
       const parsed = JSON.parse(completion.output_text);
       return {
-        reply: parsed.reply || "Thank you. Our advisor will contact you soon.",
-        shouldEnd: Boolean(parsed.shouldEnd),
+        reply: parsed.reply || getFallbackTurnResponse(turn, languageSignal).reply,
+        shouldEnd: typeof parsed.shouldEnd === "boolean" ? parsed.shouldEnd : inferShouldEndFromReply(parsed.reply),
       };
     } catch {
       return {
-        reply: completion.output_text || "Thank you. Our advisor will contact you soon.",
-        shouldEnd: turn >= 2,
+        reply: completion.output_text || getFallbackTurnResponse(turn, languageSignal).reply,
+        shouldEnd: inferShouldEndFromReply(completion.output_text) || turn >= 2,
       };
     }
   }

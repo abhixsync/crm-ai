@@ -354,6 +354,37 @@ For production, prefer environment-based secrets (or secret manager) instead of 
 3. Set `priority` and click `Set Active` to switch runtime engine.
 4. Use `Test Failover` to confirm fallback order.
 
+### Seed Starter Dialogflow Intents
+
+If Dialogflow keeps returning `Default Fallback Intent` for normal loan phrases, seed the starter intent pack in this repo:
+
+1. Review/edit the pack at `docs/dialogflow-intent-training-pack.json`.
+2. Run:
+
+```bash
+node scripts/seed-dialogflow-intents.cjs
+```
+
+Optional flags:
+
+- `--pack docs/dialogflow-intent-training-pack.json`
+- `--project <gcp-project-id>`
+- `--language en`
+- `--replace true|false`
+
+After seeding, test Dialogflow phrases like:
+
+- `I need a personal loan this week`
+- `call me later`
+- `not interested`
+- `mujhe personal loan chahiye`
+
+Quick direct probe (bypasses app logic):
+
+```bash
+node scripts/check-dialogflow-detect-intent.cjs
+```
+
 ### Swap testing checklist
 
 1. Set `OPENAI` as active and trigger a sample call.
