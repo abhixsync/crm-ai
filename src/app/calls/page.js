@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/server/auth-guard";
 import { CallsAiCallPanel } from "@/components/calls/calls-ai-call-panel";
 import { CallsHistoryTable } from "@/components/calls/calls-history-table";
-import { LoanAssistantCallsIntegrator } from "@/components/loan-assistant/loan-assistant-calls-integrator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function formatCustomerName(customer) {
@@ -87,8 +86,6 @@ export default async function CallsPage() {
       </div>
 
       <CallsAiCallPanel customers={callCustomers} role={session.user.role} />
-
-      <LoanAssistantCallsIntegrator customers={customers} />
 
       <Card>
         <CardHeader>

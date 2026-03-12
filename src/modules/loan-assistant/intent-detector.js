@@ -23,6 +23,25 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   }
 
   const message = customerMessage.toLowerCase().trim();
+  const hasInterestedWord =
+    message.includes("interest") ||
+    /\b(interested|interetsed|intrested|interestd|intrsted)\b/.test(message);
+  const hasNotInterestedPhrase =
+    message.includes("not interested") ||
+    /\bnot\s+(interested|interetsed|intrested|interestd|intrsted)\b/.test(message);
+  const hasAmountSignal =
+    /\b\d{2,}\b/.test(message) ||
+    /\b(amount|lakh|lac|thousand|k|rupees|rs)\b/.test(message);
+  const hasLoanTypeSignal =
+    /\b(personal|home|business|working capital|auto|car)\b/.test(message);
+  const hasTimelineSignal =
+    /\b(week|month|quarter|immediate|asap|today|turant|kal)\b/.test(message);
+  const hasStructuredLoanSignal = hasLoanTypeSignal || hasAmountSignal || hasTimelineSignal;
+  const hasLoanDeclineContext =
+    message.includes("loan") ||
+    message.includes("interest") ||
+    message.includes("chahiye") ||
+    message.includes("lena");
 
   // DO NOT CALL keywords (highest priority)
   if (
@@ -43,8 +62,7 @@ export function detectIntent(customerMessage, conversationHistory = []) {
 
   // NOT INTERESTED keywords (high priority, before neutral/interested)
   if (
-    message.includes("not interested") ||
-    message.includes("nahi") ||
+    hasNotInterestedPhrase ||
     message.includes("interested nahi") ||
     message.includes("chahiye nahi") ||
     message.includes("nhi chahiye") ||
@@ -59,7 +77,8 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     message.includes("zaroorat nahi") ||
     message.includes("interest nahi") ||
     message.includes("nhi lena") ||
-    message.includes("nhi ") && (message.includes("lena") || message.includes("chahiye") || message.includes("interest") || message.includes("loan"))
+    (message.includes("nhi ") && hasLoanDeclineContext) ||
+    (/\b(nahi|nahin|nhi)\b/.test(message) && hasLoanDeclineContext)
   ) {
     return {
       intent: INTENT_TYPES.NOT_INTERESTED,
@@ -90,10 +109,9 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     (message.includes("yes") ||
       message.includes("haan") ||
       message.includes("bilkul") ||
-      message.includes("interest hai")) &&
-    (message.match(/\d{5,}/) || // Contains amount
-      message.includes("amount") ||
-      message.includes("loan"))
+      message.includes("interest hai") ||
+      hasInterestedWord) &&
+    hasAmountSignal
   ) {
     return {
       intent: INTENT_TYPES.CONVERTED,
@@ -106,18 +124,31 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   if (
     message.includes("yes") ||
     message.includes("haan") ||
-    message.includes("interest") ||
+    hasInterestedWord ||
     message.includes("bilkul") ||
     message.includes("chalega") ||
     message.includes("ok") ||
     message.includes("think about it") ||
     message.includes("batao na") ||
-    message.includes("tell me more")
+    message.includes("tell me more") ||
+    message.includes("details") ||
+    message.includes("tell me details") ||
+    message.includes("emi") ||
+    message.includes("interest rate")
   ) {
     return {
       intent: INTENT_TYPES.INTERESTED,
       confidence: 0.75,
       details: { reason: 'Customer showing interest' },
+    };
+  }
+
+  // In voice calls, customers often reply with short structured details only.
+  if (hasStructuredLoanSignal) {
+    return {
+      intent: INTENT_TYPES.INTERESTED,
+      confidence: 0.72,
+      details: { reason: 'Customer provided structured loan details' },
     };
   }
 
@@ -141,6 +172,13 @@ export function extractLoanDetails(message) {
   if (!message) return details;
 
   const lowerMsg = message.toLowerCase();
+  const normalizedMsg = lowerMsg
+    // Common speech-to-text variants for "lakh/lac"
+    .replace(/\blegs?\b/g, 'lakh')
+    .replace(/\blacks?\b/g, 'lakh')
+    .replace(/\blacs?\b/g, 'lakh')
+    .replace(/\blakhs?\b/g, 'lakh')
+    .replace(/\blaks?\b/g, 'lakh');
 
   // Detect loan type
   if (lowerMsg.includes('personal')) {
@@ -156,18 +194,36 @@ export function extractLoanDetails(message) {
     details.loanType = LOAN_TYPES.AUTO;
   }
 
-  // Extract amount (look for numbers followed by lakh/thousand/k/lac)
-  const amountMatch = message.match(
-    /(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:lakh|lac|thousand|k|rupees|rs)/i
+  // Extract amount from common Indian spoken formats (e.g., "50 lakh", "7 cr", "25000 rs").
+  const amountMatch = normalizedMsg.match(
+    /(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:crore|cr|lakh|thousand|k|rupees|rs)\b/i
   );
   if (amountMatch) {
-    const num = parseInt(amountMatch[1].replace(/,/g, ''));
-    if (amountMatch[0].toLowerCase().includes('lakh')) {
-      details.amount = num * 100000;
-    } else if (amountMatch[0].toLowerCase().includes('thousand')) {
-      details.amount = num * 1000;
-    } else {
-      details.amount = num;
+    const num = Number.parseFloat(amountMatch[1].replace(/,/g, ''));
+    const unit = amountMatch[0].toLowerCase();
+
+    if (Number.isFinite(num)) {
+      if (unit.includes('crore') || unit.includes('cr')) {
+        details.amount = Math.round(num * 10000000);
+      } else if (unit.includes('lakh')) {
+        details.amount = Math.round(num * 100000);
+      } else if (unit.includes('thousand') || unit.includes('k')) {
+        details.amount = Math.round(num * 1000);
+      } else {
+        details.amount = Math.round(num);
+      }
+    }
+  } else {
+    // Fallback: capture plain numeric amount after words like "amount is".
+    const fallbackAmountMatch = normalizedMsg.match(
+      /(?:amount|loan|requirement)\s*(?:is|of|around|about|approx(?:imately)?)?\s*(\d+(?:,\d{3})*(?:\.\d+)?)/i
+    );
+
+    if (fallbackAmountMatch) {
+      const num = Number.parseFloat(fallbackAmountMatch[1].replace(/,/g, ''));
+      if (Number.isFinite(num)) {
+        details.amount = Math.round(num);
+      }
     }
   }
 
@@ -175,9 +231,17 @@ export function extractLoanDetails(message) {
   if (
     lowerMsg.includes('immediately') ||
     lowerMsg.includes('turant') ||
-    lowerMsg.includes('asap')
+    lowerMsg.includes('asap') ||
+    lowerMsg.includes('today') ||
+    lowerMsg.includes('kal hi')
   ) {
     details.timeline = 'immediate';
+  } else if (
+    /\b(?:one|1|this|next)?\s*week\b/.test(lowerMsg) ||
+    lowerMsg.includes('within week') ||
+    lowerMsg.includes('7 day')
+  ) {
+    details.timeline = 'within_week';
   } else if (lowerMsg.includes('month')) {
     details.timeline = 'within_month';
   } else if (lowerMsg.includes('quarter') || lowerMsg.includes('3 month')) {
@@ -250,7 +314,10 @@ export function determineNextStage(currentStage, intent, extractedData) {
 
   // If converted, end with closing
   if (intent === INTENT_TYPES.CONVERTED) {
-    return CONVERSATION_STAGES.CLOSING;
+    if (extractedData?.loanType && extractedData?.amount) {
+      return CONVERSATION_STAGES.CLOSING;
+    }
+    intent = INTENT_TYPES.INTERESTED;
   }
 
   // Progress through stages

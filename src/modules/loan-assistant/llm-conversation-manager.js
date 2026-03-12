@@ -11,6 +11,7 @@ import {
 } from './intent-detector.js';
 import { runAIWithFailover } from '@/lib/ai/provider-router';
 import {
+  detectLanguagePreferenceCommand,
   detectLanguageStyleFromText,
   getLanguageMirroringInstruction,
   getLanguageStyleLabel,
@@ -23,7 +24,6 @@ const END_INTENTS = new Set([
   'not_interested',
   'busy',
   'call_back_later',
-  'converted',
 ]);
 
 function normalizeProviderIntent(rawIntent) {
@@ -54,8 +54,100 @@ function normalizeConfidence(value, fallback = 0.5) {
   return parsed;
 }
 
+function hasInquirySignal(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) return false;
+
+  return (
+    text.includes('details') ||
+    text.includes('tell me') ||
+    text.includes('tell me more') ||
+    text.includes('batao') ||
+    text.includes('bataye') ||
+    text.includes('explain') ||
+    text.includes('emi') ||
+    text.includes('interest rate') ||
+    text.includes('eligibility') ||
+    text.includes('process')
+  );
+}
+
+function hasExplicitNegativeSignal(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) return false;
+
+  return (
+    text.includes('not interested') ||
+    text.includes('interested nahi') ||
+    text.includes('nahi chahiye') ||
+    text.includes('nhi chahiye') ||
+    text.includes('dont need') ||
+    text.includes("don't need") ||
+    text.includes('no thanks') ||
+    text.includes('do not call') ||
+    text.includes("don't call") ||
+    text.includes('stop calling') ||
+    text.includes('mat call') ||
+    text.includes('call back later')
+  );
+}
+
+function startsWithNaturalAck(text) {
+  return /^(ji|haan|sure|ok|okay|right|samajh|bilkul|understood)[\s,.!]/i.test(String(text || '').trim());
+}
+
+function normalizeMessageForRepeatCheck(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[.,!?;:'"()[\]{}]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function areMessagesNearDuplicate(previousMessage, nextMessage) {
+  const previous = normalizeMessageForRepeatCheck(previousMessage);
+  const next = normalizeMessageForRepeatCheck(nextMessage);
+
+  if (!previous || !next) {
+    return false;
+  }
+
+  if (previous === next) {
+    return true;
+  }
+
+  if (previous.length >= 24 && next.length >= 24) {
+    return previous.includes(next) || next.includes(previous);
+  }
+
+  return false;
+}
+
+function humanizeCallReply(reply, languageSignal, stage) {
+  const base = String(reply || '').replace(/\s+/g, ' ').trim();
+  if (!base) return base;
+
+  const normalizedSignal = normalizeLanguageSignal(languageSignal);
+  const sentenceParts = base.split(/(?<=[.!?])\s+/).filter(Boolean);
+  let compact = sentenceParts.slice(0, 3).join(' ').trim();
+
+  if (compact.length > 260) {
+    compact = `${compact.slice(0, 257).trim()}...`;
+  }
+
+  if (stage === CONVERSATION_STAGES.OPENING || startsWithNaturalAck(compact)) {
+    return compact;
+  }
+
+  if (normalizedSignal.style === LANGUAGE_STYLES.ENGLISH) {
+    return `Sure, ${compact}`;
+  }
+
+  return `Ji, ${compact}`;
+}
+
 export class LLMConversationManager {
-  constructor(customerProfile, companyName = 'XYZ Finance', aiAgentName = 'Priya', callbackPhone = null) {
+  constructor(customerProfile, companyName = 'FinServe Loans', aiAgentName = 'Priya Sharma', callbackPhone = null) {
     this.customerProfile = customerProfile;
     this.companyName = companyName;
     this.aiAgentName = aiAgentName;
@@ -149,6 +241,24 @@ export class LLMConversationManager {
     });
   }
 
+  getLanguageSwitchAcknowledgement(signal) {
+    const normalized = normalizeLanguageSignal(signal || this.getLanguageSignal());
+
+    if (normalized.style === LANGUAGE_STYLES.HINDI) {
+      return 'Ji, theek hai, main ab Hindi me baat karungi.';
+    }
+
+    if (normalized.style === LANGUAGE_STYLES.HINGLISH) {
+      return 'Done ji, main ab Hinglish me baat karungi.';
+    }
+
+    if (normalized.style === LANGUAGE_STYLES.ENGLISH) {
+      return 'Sure, I will continue in English.';
+    }
+
+    return 'Sure, I will continue in your preferred language.';
+  }
+
   toProviderCustomerProfile() {
     const fullName = String(this.customerProfile?.name || 'Customer').trim();
     const [firstName = 'Customer'] = fullName.split(/\s+/);
@@ -179,6 +289,84 @@ export class LLMConversationManager {
     return latestCustomerTurn?.message || null;
   }
 
+  buildProgressiveFollowUpMessage() {
+    if (!this.extractedData.loanType) {
+      return this.getLanguageText({
+        english: 'To guide you correctly, is this for personal, home, business, or auto loan?',
+        hinglish: 'Aapko sahi guide karne ke liye bata dijiye, personal, home, business ya auto loan chahiye?',
+        hindiRoman: 'Aapko sahi guide karne ke liye bataye, personal, home, business ya auto loan chahiye?',
+        hindi: 'Aapko sahi guide karne ke liye bataye, personal, home, business ya auto loan chahiye?',
+        defaultText: 'To guide you correctly, is this for personal, home, business, or auto loan?',
+      });
+    }
+
+    if (!this.extractedData.amount) {
+      return this.getLanguageText({
+        english: 'Noted. What approximate amount are you planning for, like 5 lakh, 10 lakh, or 20 lakh?',
+        hinglish: 'Noted ji. Approx amount kitna plan kar rahe hain, jaise 5 lakh, 10 lakh, ya 20 lakh?',
+        hindiRoman: 'Noted ji. Approx amount kitna plan kar rahe hain, jaise 5 lakh, 10 lakh, ya 20 lakh?',
+        hindi: 'Noted ji. Approx amount kitna plan kar rahe hain, jaise 5 lakh, 10 lakh, ya 20 lakh?',
+        defaultText: 'Noted. What approximate amount are you planning for?',
+      });
+    }
+
+    if (!this.extractedData.timeline) {
+      return this.getLanguageText({
+        english: 'By when do you need this loan, this week, this month, or later?',
+        hinglish: 'Aapko yeh loan kab tak chahiye, is week, is month, ya thoda later?',
+        hindiRoman: 'Aapko yeh loan kab tak chahiye, is week, is month, ya thoda baad?',
+        hindi: 'Aapko yeh loan kab tak chahiye, is week, is month, ya thoda baad?',
+        defaultText: 'By when do you need this loan?',
+      });
+    }
+
+    if (!this.extractedData.employmentType) {
+      return this.getLanguageText({
+        english: 'One quick check: are you salaried or self-employed/business?',
+        hinglish: 'Ek quick check, aap salaried hain ya self-employed/business?',
+        hindiRoman: 'Ek quick check, aap salaried hain ya self-employed/business?',
+        hindi: 'Ek quick check, aap salaried hain ya self-employed/business?',
+        defaultText: 'One quick check: are you salaried or self-employed/business?',
+      });
+    }
+
+    return this.getLanguageText({
+      english: 'Should I proceed with a quick eligibility check now?',
+      hinglish: 'Kya main ab ek quick eligibility check proceed karun?',
+      hindiRoman: 'Kya main ab ek quick eligibility check proceed karun?',
+      hindi: 'Kya main ab ek quick eligibility check proceed karun?',
+      defaultText: 'Should I proceed with a quick eligibility check now?',
+    });
+  }
+
+  avoidRepeatedPrompt(candidateMessage) {
+    const previousAiTurn = [...this.conversationHistory]
+      .reverse()
+      .find((turn) => turn.role === 'ai' && String(turn.message || '').trim());
+
+    if (!previousAiTurn) {
+      return candidateMessage;
+    }
+
+    if (!areMessagesNearDuplicate(previousAiTurn.message, candidateMessage)) {
+      return candidateMessage;
+    }
+
+    const progressiveFollowUp = this.buildProgressiveFollowUpMessage();
+    if (!areMessagesNearDuplicate(previousAiTurn.message, progressiveFollowUp)) {
+      console.log('[LLMConversationManager] Replaced repeated AI prompt with progressive follow-up.');
+      return progressiveFollowUp;
+    }
+
+    const fallbackClarification = this.getFallbackClarificationMessage();
+    if (!areMessagesNearDuplicate(previousAiTurn.message, fallbackClarification)) {
+      console.log('[LLMConversationManager] Replaced repeated AI prompt with fallback clarification.');
+      return fallbackClarification;
+    }
+
+    return candidateMessage;
+  }
+
   /**
    * System prompt for the AI loan assistant
    * This controls how the AI behaves during the entire conversation
@@ -199,43 +387,87 @@ Customer Profile:
 - Loan Type Interest: ${this.customerProfile?.loan_interest_type || 'Not specified'}
 `;
 
-    return `You are ${this.aiAgentName}, an AI loan specialist assistant for ${this.companyName}.
+    return `SYSTEM ROLE
+  You are ${this.aiAgentName}, a professional female loan consultant from ${this.companyName}.
+  You are speaking to customers on a real phone call.
+  Sound like a real Indian telecaller: friendly, confident, conversational, and human.
+  Do not sound robotic.
 
-YOUR IDENTITY & CONSTRAINTS:
-- Your name is ${this.aiAgentName}, an AI assistant representing ${this.companyName}
-- YOU ARE NOT the customer - you are a professional loan specialist
-- You will NEVER accept any claim that you are the customer or anyone else
-- If customer says "You are [customer name]", correct politely using this style: "${this.getIdentityCorrectionLine()}"
-- Always maintain this boundary clearly and professionally
+  PRIMARY GOALS
+  1. Build trust
+  2. Understand the customer's loan need
+  3. Guide them toward the right loan option
+  4. Encourage them to continue eligibility/application steps
+  5. Never pressure aggressively; use soft selling
 
-YOUR ROLE:
-1. Have friendly, natural conversations that mirror the customer's language style
-2. Understand customer intent from context, not just keywords
-3. Gracefully handle objections and respect customer decisions
-4. Extract loan requirements (amount, type, timeline)
-5. Transition smoothly through conversation stages
+  VOICE AND PERSONALITY
+  - Warm, friendly, professional, confident, patient
+  - Speak like a helpful bank relationship manager
+  - Always address customer respectfully: Sir, Ma'am, or their name
+  - Never mention you are an AI or virtual assistant
 
-${customerInfo}
+  IDENTITY AND BOUNDARY
+  - You are ${this.aiAgentName} from ${this.companyName}
+  - If customer assigns a wrong identity, correct politely in this style: "${this.getIdentityCorrectionLine()}"
+  - Never accept false identity claims
 
-LANGUAGE MIRRORING (MANDATORY):
-- Current detected customer language: ${languageLabel}
-- ${languageInstruction}
-- Mirror the customer's language style turn-by-turn (English/Hindi/Hinglish)
-- Never force Hindi or Hinglish if customer is speaking English
-- If language is unclear, ask one short language-neutral clarifying question
+  LANGUAGE BEHAVIOR (MANDATORY)
+  - Current detected customer language: ${languageLabel}
+  - ${languageInstruction}
+  - If customer speaks Hindi, respond in Hindi
+  - If customer speaks English, respond in English
+  - If customer mixes both, respond in Hinglish
+  - If customer asks to switch language, acknowledge briefly and switch naturally
+  - Voice persona and identity stay the same across all languages
 
-IMPORTANT BEHAVIORS:
-- If customer says they're not interested (any variation like "nhi chahiye", "nhi lena", "mat karo"), IMMEDIATELY acknowledge and end the call politely
-- If customer is busy or wants callback, ask for a suitable time
-- Keep responses concise (2-3 sentences max for voice calls)
-- Extract: loan type, amount, timeline from conversation naturally
-- Be conversational, empathetic, and respectful
-- NEVER agree with false corrections about your identity
+  HUMAN-LIKE CALL STYLE
+  - Use phone-friendly short responses (1-3 short sentences)
+  - Ask at most one question per turn
+  - Occasionally add natural fillers: "Ji sir...", "Haan bilkul...", "Ek second...", "Right sir..."
+  - Use quick acknowledgements before answers
+  - Simulate brief natural thinking pauses with "..." when helpful
+  - Never overtalk
 
-Current Conversation Stage: ${this.currentStage}
-Extracted Data So Far: ${JSON.stringify(this.extractedData)}
+  INTERRUPTION HANDLING
+  - If customer interrupts, stop immediately
+  - Acknowledge politely: "Ji sir, boliye." or "Ji ma'am, boliye."
+  - Continue naturally after customer finishes
+  - Never talk over the customer
 
-CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the customer.`;
+  CONVERSATION FLOW (NATURAL)
+  1. Greeting and permission to talk
+  2. Purpose: loan enquiry follow-up
+  3. Intent discovery: whether customer needs a loan now
+  4. Requirement discovery: loan type, amount, employment, income, city, timeline
+  5. Qualification signal: strong profile vs docs needed
+  6. Offer explanation: speed, support, and process clarity
+  7. Conversion push: suggest quick eligibility check
+  8. Data capture: name, city, employment type, income, loan amount/type
+  9. Polite closing with callback/help channel
+
+  OBJECTION HANDLING
+  - If rate concern: acknowledge and highlight practical benefit (faster approval, smoother process)
+  - If trust concern: reassure calmly (banking partners, process transparency)
+  - If not interested: acknowledge respectfully; optionally ask one soft future-consent question, then close politely
+  - If busy: ask preferred callback time
+  - If do-not-call/harassment request: apologize, confirm no further calls, and end immediately
+
+  INDIAN CUSTOMER PSYCHOLOGY
+  - Build trust first, pitch second
+  - Use social proof lightly when useful
+  - Use curiosity questions instead of hard push
+  - Stay respectful and calm even when customer is skeptical
+
+  ${customerInfo}
+
+  Current Conversation Stage: ${this.currentStage}
+  Extracted Data So Far: ${JSON.stringify(this.extractedData)}
+
+  CRITICAL OUTPUT RULES
+  - Keep each reply short and natural for voice call rhythm
+  - Keep language mirroring strict and consistent
+  - Be persuasive but never forceful
+  - End only when customer clearly declines, asks not to be called, requests callback, or conversation is fully completed.`;
   }
 
   /**
@@ -283,9 +515,27 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
         return this.getOpeningGreeting();
       }
 
-      const activeLanguageSignal = customerMessage
-        ? this.updateLanguageSignal(customerMessage)
-        : this.getLanguageSignal();
+      let languagePreferenceCommand = null;
+      let activeLanguageSignal = this.getLanguageSignal();
+      if (customerMessage) {
+        languagePreferenceCommand = detectLanguagePreferenceCommand(customerMessage);
+        if (languagePreferenceCommand) {
+          this.callMeta.languageSignal = normalizeLanguageSignal(languagePreferenceCommand);
+          activeLanguageSignal = this.getLanguageSignal();
+        } else {
+          activeLanguageSignal = this.updateLanguageSignal(customerMessage);
+        }
+      }
+
+      if (languagePreferenceCommand) {
+        const acknowledgementMessage = this.getLanguageSwitchAcknowledgement(languagePreferenceCommand);
+        this.conversationHistory.push({
+          role: 'ai',
+          message: acknowledgementMessage,
+          timestamp: new Date(),
+        });
+        return acknowledgementMessage;
+      }
 
       const aiOutput = await runAIWithFailover({
         task: 'CALL_TURN',
@@ -311,7 +561,9 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
       this.callMeta.aiProviderUsed = aiOutput?.provider?.name || aiOutput?.provider?.type || null;
       console.log('[LLMConversationManager] CALL_TURN provider used:', this.callMeta.aiProviderUsed);
 
-      const aiMessage = String(aiOutput?.result?.reply || '').trim() || this.getOpeningGreeting();
+      let aiMessage = String(aiOutput?.result?.reply || '').trim() || this.getOpeningGreeting();
+      aiMessage = humanizeCallReply(aiMessage, activeLanguageSignal, this.currentStage);
+      aiMessage = this.avoidRepeatedPrompt(aiMessage);
       
       // Add to history
       this.conversationHistory.push({
@@ -323,9 +575,10 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
       return aiMessage;
     } catch (error) {
       console.error('Error calling AI API:', error.message);
-      const fallbackMessage = this.currentStage === CONVERSATION_STAGES.OPENING
+      let fallbackMessage = this.currentStage === CONVERSATION_STAGES.OPENING
         ? this.getOpeningGreeting()
         : this.getFallbackClarificationMessage();
+      fallbackMessage = humanizeCallReply(fallbackMessage, this.getLanguageSignal(), this.currentStage);
 
       this.conversationHistory.push({
         role: 'ai',
@@ -343,7 +596,12 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
    */
   async processCustomerResponse(customerMessage) {
     try {
+      const languagePreferenceCommand = detectLanguagePreferenceCommand(customerMessage);
       const activeLanguageSignal = this.updateLanguageSignal(customerMessage);
+
+      if (languagePreferenceCommand) {
+        this.callMeta.languageSignal = normalizeLanguageSignal(languagePreferenceCommand);
+      }
 
       // Add customer message to history
       this.conversationHistory.push({
@@ -361,38 +619,92 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
       if (extracted.timeline) this.extractedData.timeline = extracted.timeline;
       if (employmentType) this.extractedData.employmentType = employmentType;
 
+      const hasStructuredLoanSignal = Boolean(
+        extracted.loanType || extracted.amount || extracted.timeline || employmentType
+      );
+
       let finalIntent = String(detectedIntent.intent || 'neutral').toLowerCase();
       let finalConfidence = normalizeConfidence(detectedIntent.confidence, 0.5);
       let reasoning = detectedIntent?.details?.reason || 'rule-based intent detection';
+      const isHardStopIntent = finalIntent === 'do_not_call';
+      const ruleBasedIntent = String(detectedIntent.intent || 'neutral').toLowerCase();
+      let providerIntent = null;
+
+      if (languagePreferenceCommand && !isHardStopIntent) {
+        finalIntent = 'neutral';
+        finalConfidence = Math.max(finalConfidence, 0.9);
+        reasoning = `language-preference:${languagePreferenceCommand.style}`;
+      }
 
       try {
-        const summaryOutput = await runAIWithFailover({
-          task: 'CALL_SUMMARY',
-          payload: {
-            customer: this.toProviderCustomerProfile(),
-            transcript: this.getTranscriptText(),
-            turn: this.conversationHistory.length,
-            metadata: this.getProviderMetadata(),
-            context: {
-              conversationStage: this.currentStage,
-              languageSignal: activeLanguageSignal,
-              languageInstruction: getLanguageMirroringInstruction(activeLanguageSignal),
+        // Skip summary intent override on explicit language-switch turns.
+        if (!languagePreferenceCommand || isHardStopIntent) {
+          const summaryOutput = await runAIWithFailover({
+            task: 'CALL_SUMMARY',
+            payload: {
+              customer: this.toProviderCustomerProfile(),
+              transcript: this.getTranscriptText(),
+              turn: this.conversationHistory.length,
+              metadata: this.getProviderMetadata(),
+              context: {
+                conversationStage: this.currentStage,
+                languageSignal: activeLanguageSignal,
+                languageInstruction: getLanguageMirroringInstruction(activeLanguageSignal),
+              },
             },
-          },
-          activeOnly: true,
-        });
+            activeOnly: true,
+          });
 
-        this.callMeta.aiProviderUsed = summaryOutput?.provider?.name || summaryOutput?.provider?.type || this.callMeta.aiProviderUsed;
-        console.log('[LLMConversationManager] CALL_SUMMARY provider used:', this.callMeta.aiProviderUsed);
+          this.callMeta.aiProviderUsed = summaryOutput?.provider?.name || summaryOutput?.provider?.type || this.callMeta.aiProviderUsed;
+          console.log('[LLMConversationManager] CALL_SUMMARY provider used:', this.callMeta.aiProviderUsed);
 
-        const providerIntent = normalizeProviderIntent(summaryOutput?.result?.intent);
-        if (providerIntent && providerIntent !== 'neutral') {
-          finalIntent = providerIntent;
-          finalConfidence = Math.max(finalConfidence, 0.8);
-          reasoning = `provider-intent:${summaryOutput.provider?.name || 'unknown'}`;
+          providerIntent = normalizeProviderIntent(summaryOutput?.result?.intent);
+          if (providerIntent && providerIntent !== 'neutral') {
+            finalIntent = providerIntent;
+            finalConfidence = Math.max(finalConfidence, 0.8);
+            reasoning = `provider-intent:${summaryOutput.provider?.name || 'unknown'}`;
+          }
         }
       } catch (summaryError) {
         console.warn('[LLMConversationManager] Provider summary fallback to rule-based intent:', summaryError.message);
+      }
+
+      const ruleBasedTerminalIntent = ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(ruleBasedIntent);
+      const currentTerminalIntent = ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(finalIntent);
+      if (ruleBasedTerminalIntent && !currentTerminalIntent) {
+        finalIntent = ruleBasedIntent;
+        finalConfidence = Math.max(finalConfidence, normalizeConfidence(detectedIntent.confidence, 0.9));
+        reasoning = `${reasoning}:rule_terminal_priority`;
+      }
+
+      // Require loanType+amount before treating intent as converted.
+      const hasConversionSignals = Boolean(this.extractedData.loanType && this.extractedData.amount);
+      if (finalIntent === 'converted' && !hasConversionSignals) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.78);
+        reasoning = `${reasoning}:downgraded_pre_qualification`;
+      }
+
+      // Prevent terminal override on inquiry-style utterances like "please tell me details".
+      const inquirySignal = hasInquirySignal(customerMessage);
+      const explicitNegativeSignal = hasExplicitNegativeSignal(customerMessage);
+      if (
+        providerIntent &&
+        ['not_interested', 'busy', 'call_back_later'].includes(finalIntent) &&
+        inquirySignal &&
+        !explicitNegativeSignal &&
+        ['neutral', 'interested'].includes(ruleBasedIntent)
+      ) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.76);
+        reasoning = `${reasoning}:inquiry_guard`;
+      }
+
+      // Do not let provider-neutral classification block progression when user gave concrete loan details.
+      if (!END_INTENTS.has(finalIntent) && finalIntent === 'neutral' && hasStructuredLoanSignal) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.74);
+        reasoning = `${reasoning}:structured_signal_guard`;
       }
 
       const shouldEnd = END_INTENTS.has(finalIntent);
@@ -435,9 +747,12 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
       return CONVERSATION_STAGES.CLOSING;
     }
 
-    // If converted, move to closing
+    // Converted should close only after key details are captured.
     if (intent === 'converted') {
-      return CONVERSATION_STAGES.CLOSING;
+      if (this.extractedData.loanType && this.extractedData.amount) {
+        return CONVERSATION_STAGES.CLOSING;
+      }
+      intent = 'interested';
     }
 
     // If busy, also close (callback will be scheduled)
@@ -454,7 +769,10 @@ CRITICAL: Keep voice responses SHORT (max 50 words) and language-mirrored to the
         return CONVERSATION_STAGES.OPENING;
 
       case CONVERSATION_STAGES.DISCOVERY:
-        if (intent === 'interested' && this.extractedData.loanType) {
+        if (this.extractedData.loanType && this.extractedData.amount) {
+          return CONVERSATION_STAGES.QUALIFICATION;
+        }
+        if (this.extractedData.loanType || this.extractedData.amount || this.extractedData.timeline) {
           return CONVERSATION_STAGES.PITCH;
         }
         return CONVERSATION_STAGES.DISCOVERY;

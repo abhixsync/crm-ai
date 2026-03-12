@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { detectLanguageStyleFromText } from "@/lib/ai/language-style";
@@ -32,11 +32,20 @@ export function LLMLoanAssistantDemo() {
   const [autoPlayVoice, setAutoPlayVoice] = useState(true);
   const [languageStyle, setLanguageStyle] = useState("unknown");
   const [languageScript, setLanguageScript] = useState("unknown");
+  const [selectedVoiceLabel, setSelectedVoiceLabel] = useState("");
+  const [voiceWarning, setVoiceWarning] = useState("");
   const recognitionRef = useRef(null);
+  const activeAudioRef = useRef(null);
+  const activeAudioUrlRef = useRef(null);
+  const availableVoicesRef = useRef([]);
+  const warnedAboutVoiceRef = useRef(false);
   const activeUtteranceRef = useRef(null);  // Track which utterance is currently active
   const recognitionRestartScheduledRef = useRef(false);  // Prevent multiple restart timeouts
   const isAISpeakingRef = useRef(false);  // Track if AI audio is actively playing
   const callActiveRef = useRef(false); // Single source of truth for whether listening is allowed
+  const isLoadingRef = useRef(false);
+  const messageInFlightRef = useRef(false);
+  const lastVoiceTranscriptRef = useRef({ normalized: "", ts: 0 });
 
   const getStatusText = () => {
     if (!sessionId) return "Idle";
@@ -49,11 +58,104 @@ export function LLMLoanAssistantDemo() {
 
   const canUseBrowserTTS =
     typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+  const canPlayAudioElement = typeof window !== "undefined" && typeof Audio !== "undefined";
+
+  const disableElevenLabsTTS = String(process.env.NEXT_PUBLIC_DISABLE_ELEVENLABS_TTS || "false").toLowerCase() === "true";
+  const ttsProvider = String(process.env.NEXT_PUBLIC_TTS_PROVIDER || "elevenlabs").toLowerCase();
+  const useElevenLabsTTS = ttsProvider === "elevenlabs" && !disableElevenLabsTTS;
+  const activeTtsProvider = useElevenLabsTTS ? "elevenlabs" : "browser";
+  const allowBrowserTtsFallback = String(
+    process.env.NEXT_PUBLIC_TTS_ALLOW_BROWSER_FALLBACK
+      ?? process.env.NEXT_PUBLIC_TTS_FALLBACK_BROWSER
+      ?? "true"
+  ).toLowerCase() !== "false";
+  const canUseAnyTTS = useElevenLabsTTS ? canPlayAudioElement : canUseBrowserTTS;
 
   const parsedAiToListenDelayMs = Number(process.env.NEXT_PUBLIC_AI_TO_LISTEN_DELAY_MS);
   const aiToListenDelayMs = Number.isFinite(parsedAiToListenDelayMs) && parsedAiToListenDelayMs >= 0
     ? parsedAiToListenDelayMs
     : 2000;
+
+  const elevenLabsVoiceIdDefault = String(process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID_DEFAULT || "").trim();
+  const elevenLabsVoiceIdEn = String(process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID_EN || "").trim();
+  const elevenLabsVoiceIdHi = String(process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID_HI || "").trim();
+
+  const preferredVoiceGender = String(process.env.NEXT_PUBLIC_TTS_GENDER || "female").toLowerCase() === "male"
+    ? "male"
+    : "female";
+  const preferredVoiceRegion = String(process.env.NEXT_PUBLIC_TTS_PREFERRED_REGION || "india").toLowerCase();
+  const preferIndianVoice = preferredVoiceRegion !== "global";
+  const preferredVoiceNameEn = String(process.env.NEXT_PUBLIC_TTS_PREFERRED_VOICE_EN || "").trim().toLowerCase();
+  const preferredVoiceNameHi = String(process.env.NEXT_PUBLIC_TTS_PREFERRED_VOICE_HI || "").trim().toLowerCase();
+
+  const parsedTtsRate = Number(process.env.NEXT_PUBLIC_TTS_RATE);
+  const ttsRate = Number.isFinite(parsedTtsRate) && parsedTtsRate >= 0.7 && parsedTtsRate <= 1.3
+    ? parsedTtsRate
+    : 0.95;
+
+  const parsedTtsPitch = Number(process.env.NEXT_PUBLIC_TTS_PITCH);
+  const ttsPitch = Number.isFinite(parsedTtsPitch) && parsedTtsPitch >= 0.8 && parsedTtsPitch <= 1.2
+    ? parsedTtsPitch
+    : 1.0;
+
+  const FEMALE_VOICE_HINT_REGEX = /female|woman|heera|kalpana|swara|priya|aditi|samantha|google hindi|google uk english female|zira/i;
+  const MALE_VOICE_HINT_REGEX = /male|man|ravi|arjun|david|alex|daniel|google uk english male/i;
+  const INDIAN_VOICE_HINT_REGEX = /india|indian|hindi|en-in|hi-in|heera|swara|raveena|aditi|kalpana|priya/i;
+
+  useEffect(() => {
+    if (!canUseBrowserTTS) {
+      return undefined;
+    }
+
+    const synth = window.speechSynthesis;
+
+    const syncVoices = () => {
+      const voices = synth.getVoices() || [];
+      if (voices.length) {
+        availableVoicesRef.current = voices;
+        console.log(`[VOICE] Loaded ${voices.length} TTS voices`);
+      }
+    };
+
+    syncVoices();
+
+    if (typeof synth.addEventListener === "function") {
+      synth.addEventListener("voiceschanged", syncVoices);
+      return () => {
+        synth.removeEventListener("voiceschanged", syncVoices);
+      };
+    }
+
+    const prevHandler = synth.onvoiceschanged;
+    synth.onvoiceschanged = () => {
+      if (typeof prevHandler === "function") {
+        prevHandler();
+      }
+      syncVoices();
+    };
+
+    return () => {
+      synth.onvoiceschanged = prevHandler || null;
+    };
+  }, [canUseBrowserTTS]);
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
+
+  // useEffect(() => {
+  //   if (disableElevenLabsTTS && ttsProvider === "elevenlabs") {
+  //     setVoiceWarning("ElevenLabs is disabled by NEXT_PUBLIC_DISABLE_ELEVENLABS_TTS=true. Using browser voice.");
+  //     return;
+  //   }
+
+  //   setVoiceWarning((current) => {
+  //     if (current.startsWith("ElevenLabs is disabled by NEXT_PUBLIC_DISABLE_ELEVENLABS_TTS=true")) {
+  //       return "";
+  //     }
+  //     return current;
+  //   });
+  // }, [disableElevenLabsTTS, ttsProvider]);
 
   const updateCallActive = (active) => {
     callActiveRef.current = active;
@@ -73,6 +175,121 @@ export function LLMLoanAssistantDemo() {
     }
 
     return "en-IN";
+  };
+
+  const getAvailableVoices = () => {
+    if (!canUseBrowserTTS) {
+      return [];
+    }
+
+    const currentVoices = window.speechSynthesis.getVoices() || [];
+    if (currentVoices.length) {
+      availableVoicesRef.current = currentVoices;
+    }
+    return availableVoicesRef.current;
+  };
+
+  const voiceLooksFemale = (voice) => {
+    const label = `${voice?.name || ""} ${voice?.voiceURI || ""}`.toLowerCase();
+    return FEMALE_VOICE_HINT_REGEX.test(label);
+  };
+
+  const voiceLooksMale = (voice) => {
+    const label = `${voice?.name || ""} ${voice?.voiceURI || ""}`.toLowerCase();
+    return MALE_VOICE_HINT_REGEX.test(label);
+  };
+
+  const voiceLooksIndian = (voice) => {
+    const lang = String(voice?.lang || "").toLowerCase();
+    const label = `${voice?.name || ""} ${voice?.voiceURI || ""}`.toLowerCase();
+    return lang.endsWith("-in") || INDIAN_VOICE_HINT_REGEX.test(`${lang} ${label}`);
+  };
+
+  const pickBestVoiceForLang = (speechLang) => {
+    const voices = getAvailableVoices();
+    if (!voices.length) {
+      return null;
+    }
+
+    const normalizedLang = String(speechLang || "en-IN").toLowerCase();
+    const baseLang = normalizedLang.split("-")[0];
+    const preferredVoiceName = baseLang === "hi" ? preferredVoiceNameHi : preferredVoiceNameEn;
+
+    let bestVoice = null;
+    let bestScore = -1;
+
+    for (const voice of voices) {
+      const voiceLang = String(voice.lang || "").toLowerCase();
+      const voiceBase = voiceLang.split("-")[0];
+      const voiceLabel = `${voice.name || ""} ${voice.voiceURI || ""}`.toLowerCase();
+
+      let score = 0;
+
+      if (preferredVoiceName && (voice.name || "").toLowerCase() === preferredVoiceName) {
+        score += 200;
+      }
+      if (preferredVoiceName && voiceLabel.includes(preferredVoiceName)) {
+        score += 140;
+      }
+
+      if (voiceLang === normalizedLang) {
+        score += 90;
+      } else if (voiceBase === baseLang) {
+        score += 65;
+      }
+
+      if (preferIndianVoice && voiceLooksIndian(voice)) {
+        score += 55;
+      }
+
+      if (voiceLang.endsWith("-in")) {
+        score += 45;
+      }
+
+      if (preferredVoiceGender === "female" && voiceLooksFemale(voice)) {
+        score += 35;
+      }
+      if (preferredVoiceGender === "male" && voiceLooksMale(voice)) {
+        score += 35;
+      }
+
+      if (voice.localService) {
+        score += 3;
+      }
+      if (voice.default) {
+        score += 2;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestVoice = voice;
+      }
+    }
+
+    return bestVoice;
+  };
+
+  const stopActiveAudioPlayback = () => {
+    if (activeAudioRef.current) {
+      try {
+        activeAudioRef.current.pause();
+      } catch {
+        // ignore
+      }
+      activeAudioRef.current.onended = null;
+      activeAudioRef.current.onerror = null;
+      activeAudioRef.current.onplay = null;
+      activeAudioRef.current = null;
+    }
+
+    if (activeAudioUrlRef.current) {
+      try {
+        URL.revokeObjectURL(activeAudioUrlRef.current);
+      } catch {
+        // ignore
+      }
+      activeAudioUrlRef.current = null;
+    }
   };
 
   const stopVoiceIO = () => {
@@ -98,10 +315,14 @@ export function LLMLoanAssistantDemo() {
         // ignore
       }
     }
+
+    stopActiveAudioPlayback();
   };
 
   const handleEndCall = () => {
     updateCallActive(false);
+    messageInFlightRef.current = false;
+    lastVoiceTranscriptRef.current = { normalized: "", ts: 0 };
     stopVoiceIO();
     setSessionId(null);
     setConversation([]);
@@ -138,6 +359,11 @@ export function LLMLoanAssistantDemo() {
       console.log("[VOICE] ❌ Call is not active - skipping recognition start");
       return;
     }
+
+    if (isLoadingRef.current || messageInFlightRef.current) {
+      console.log("[VOICE] ⏳ Blocking recognition start while waiting for AI response");
+      return;
+    }
     
     // Don't start listening while AI is speaking, to avoid AI hearing itself
     if (effectiveIsSpeaking) {
@@ -165,6 +391,8 @@ export function LLMLoanAssistantDemo() {
     console.log("[VOICE] 🚀 Creating new SpeechRecognition instance");
     const recognition = new SpeechRecognition();
     const instanceId = Math.random().toString(36).substr(2, 9);
+    let didReceiveFinalTranscript = false;
+    let lastRecognitionError = null;
     console.log(`[VOICE] 📌 New instance ID: ${instanceId}`);
     recognitionRef.current = recognition;
 
@@ -192,6 +420,10 @@ export function LLMLoanAssistantDemo() {
         })
         .join("");
 
+      if (transcript.trim()) {
+        didReceiveFinalTranscript = true;
+      }
+
       console.log("[VOICE] 📝 Final Transcript:", transcript);
       setCustomerMessage(transcript);
 
@@ -210,11 +442,12 @@ export function LLMLoanAssistantDemo() {
       // Pass the sessionId explicitly to avoid closure issues
       if (transcript.trim()) {
         console.log("[VOICE] 📤 Sending transcript to server automatically with sessionId:", effectiveSessionId);
-        sendMessageToServer(transcript, effectiveSessionId, isVoiceMode);
+        sendMessageToServer(transcript, effectiveSessionId, effectiveIsVoiceMode);
       }
     };
 
     recognition.onerror = (event) => {
+      lastRecognitionError = event.error;
       console.log(`[VOICE] ❌ Recognition error (instance: ${instanceId}): ${event.error}`);
       // "aborted" is expected when we intentionally stop() during AI speech
       if (event.error === "aborted") {
@@ -248,6 +481,11 @@ export function LLMLoanAssistantDemo() {
     };
 
     recognition.onend = () => {
+      // Always clear timeout when recognition session ends.
+      if (recognition.audioTimeout) {
+        clearTimeout(recognition.audioTimeout);
+      }
+
       console.log(`[VOICE] 🛑 Recognition ENDED (instance: ${instanceId}, stopped listening)`);
       setIsListening(false);
 
@@ -258,11 +496,22 @@ export function LLMLoanAssistantDemo() {
         return;
       }
 
-      console.warn("[VOICE] ⚠️  DIAGNOSTIC: Speech ended. Possible reasons:");
-      console.warn("  1. User stopped speaking");
-      console.warn("  2. Browser microphone permissions issue");
-      console.warn("  3. Microphone physically muted");
-      console.warn("  4. No speech detected (timeout)");
+      if (didReceiveFinalTranscript) {
+        console.log("[VOICE] ✅ Recognition ended after capturing speech - skipping no-speech diagnostic");
+      } else if (lastRecognitionError && lastRecognitionError !== "aborted") {
+        console.warn(`[VOICE] ⚠️  Recognition ended after error: ${lastRecognitionError}`);
+      } else if (!lastRecognitionError) {
+        console.warn("[VOICE] ⚠️  DIAGNOSTIC: Speech ended without transcript. Possible reasons:");
+        console.warn("  1. User stopped speaking");
+        console.warn("  2. Browser microphone permissions issue");
+        console.warn("  3. Microphone physically muted");
+        console.warn("  4. No speech detected (timeout)");
+      }
+
+      // If we already got a transcript, the response pipeline will control when to listen next.
+      if (didReceiveFinalTranscript) {
+        return;
+      }
 
       // Only auto-restart if we're definitely not during AI speech
       if (effectiveIsVoiceMode && effectiveSessionId && !isAISpeakingRef.current && callActiveRef.current) {
@@ -317,97 +566,249 @@ export function LLMLoanAssistantDemo() {
     }
   };
 
-  const speakText = (text, sessionIdForCallback, isVoiceModeForCallback, shouldRestartListening = true) => {
-    console.log(`[VOICE] speakText() called - canUseBrowserTTS: ${canUseBrowserTTS}, text length: ${text?.length || 0}`);
-    console.log(`[VOICE] Parameters - sessionId: ${sessionIdForCallback}, isVoiceMode: ${isVoiceModeForCallback}`);
-    
-    if (!canUseBrowserTTS || !text) {
-      console.log(`[VOICE] ❌ Cannot speak - canUseBrowserTTS: ${canUseBrowserTTS}, text: ${!!text}`);
-      return;
+  const handleSpeechStarted = () => {
+    console.log("[VOICE] 🔊 AI STARTED SPEAKING");
+    isAISpeakingRef.current = true;
+    setIsSpeaking(true);
+
+    if (recognitionRef.current) {
+      console.log("[VOICE] 🔊 Aborting recognition - AI is speaking");
+      try {
+        recognitionRef.current.abort();
+      } catch (err) {
+        console.log("[VOICE] ⚠️ Error aborting recognition:", err.message);
+      }
+    }
+  };
+
+  const handleSpeechFinished = (sessionIdForCallback, isVoiceModeForCallback, shouldRestartListening) => {
+    console.log("[VOICE] 🔊 AI FINISHED SPEAKING");
+    setIsSpeaking(false);
+
+    console.log(`[VOICE] ⏳ AI audio still playing - waiting ${aiToListenDelayMs}ms before listening`);
+    setTimeout(() => {
+      isAISpeakingRef.current = false;
+      console.log("[VOICE] ✅ AI audio fully stopped - now safe to listen");
+
+      if (shouldRestartListening && callActiveRef.current && isVoiceModeForCallback && sessionIdForCallback) {
+        console.log("[VOICE] 🔄 Starting recognition for customer input");
+        startVoiceRecognition(sessionIdForCallback, isVoiceModeForCallback, false);
+      } else {
+        console.log("[VOICE] ⏹️ Not restarting recognition after speech end");
+      }
+    }, aiToListenDelayMs);
+  };
+
+  const speakTextWithBrowser = (text, effectiveStyle, effectiveScript, sessionIdForCallback, isVoiceModeForCallback, shouldRestartListening = true) => {
+    if (!canUseBrowserTTS) {
+      return false;
     }
 
     try {
-      console.log("[VOICE] 🔊 Canceling any previous speech");
       window.speechSynthesis.cancel();
-      isAISpeakingRef.current = false;  // Reset the flag
-      
       const utterance = new window.SpeechSynthesisUtterance(text);
-      const textSignal = detectLanguageStyleFromText(text);
-      const effectiveStyle =
-        textSignal.style && textSignal.style !== "unknown"
-          ? textSignal.style
-          : languageStyle;
-      const effectiveScript =
-        textSignal.style && textSignal.style !== "unknown"
-          ? textSignal.script
-          : languageScript;
       utterance.lang = getSpeechLangFromStyle(effectiveStyle, effectiveScript);
-      activeUtteranceRef.current = utterance;  // Track this as the active utterance
-      
+      utterance.rate = ttsRate;
+      utterance.pitch = ttsPitch;
+
+      const selectedVoice = pickBestVoiceForLang(utterance.lang);
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang || utterance.lang;
+        const displayLabel = `${selectedVoice.name} (${selectedVoice.lang || "unknown"})`;
+        setSelectedVoiceLabel(displayLabel);
+
+        const foundPreferredGender = preferredVoiceGender === "female"
+          ? voiceLooksFemale(selectedVoice)
+          : voiceLooksMale(selectedVoice);
+        const foundIndianVoice = voiceLooksIndian(selectedVoice);
+
+        if (preferIndianVoice && preferredVoiceGender === "female" && (!foundIndianVoice || !foundPreferredGender)) {
+          if (!warnedAboutVoiceRef.current) {
+            warnedAboutVoiceRef.current = true;
+            setVoiceWarning("Indian female browser voice is not available in this OS voice pack.");
+          }
+        } else {
+          setVoiceWarning("");
+        }
+      }
+
+      activeUtteranceRef.current = utterance;
+
       utterance.onstart = () => {
-        console.log("[VOICE] 🔊 AI STARTED SPEAKING");
-        isAISpeakingRef.current = true;  // Mark AI is speaking
-        setIsSpeaking(true);
-        // Abort any listening recognition
-        if (recognitionRef.current) {
-          console.log("[VOICE] 🔊 Aborting recognition - AI is speaking");
-          try {
-            recognitionRef.current.abort();
-          } catch (err) {
-            console.log("[VOICE] ⚠️ Error aborting recognition:", err.message);
-          }
-        }
+        handleSpeechStarted();
       };
-      
+
       utterance.onend = () => {
-        // Only process onend if this is still the active utterance
         if (activeUtteranceRef.current === utterance) {
-          console.log("[VOICE] 🔊 AI FINISHED SPEAKING");
-          setIsSpeaking(false);
           activeUtteranceRef.current = null;
-          
-          // Keep isAISpeakingRef true for a configurable delay to avoid feedback pickup.
-          console.log(`[VOICE] ⏳ AI audio still playing - waiting ${aiToListenDelayMs}ms before listening`);
-          
-          setTimeout(() => {
-            isAISpeakingRef.current = false;
-            console.log("[VOICE] ✅ AI audio fully stopped - now safe to listen");
-            
-            // NOW start listening after audio has truly finished
-            console.log(`[VOICE] Checking restart conditions - isVoiceMode: ${isVoiceModeForCallback}, sessionId: ${sessionIdForCallback}`);
-            if (shouldRestartListening && callActiveRef.current && isVoiceModeForCallback && sessionIdForCallback) {
-              console.log("[VOICE] 🔄 Starting recognition for customer input");
-              startVoiceRecognition(sessionIdForCallback, isVoiceModeForCallback, false);
-            } else {
-              console.log("[VOICE] ⏹️ Not restarting recognition after speech end");
-            }
-          }, aiToListenDelayMs);
+          handleSpeechFinished(sessionIdForCallback, isVoiceModeForCallback, shouldRestartListening);
         }
       };
-      
+
       utterance.onerror = (err) => {
-        // Only process onerror if this is still the active utterance
         if (activeUtteranceRef.current === utterance) {
-          console.error("[VOICE] ❌ Speech synthesis error:", err);
-          setIsSpeaking(false);
+          console.error("[VOICE] ❌ Browser speech synthesis error:", err);
           activeUtteranceRef.current = null;
-          
-          // Mark AI audio as done
           isAISpeakingRef.current = false;
-          
-          if (shouldRestartListening && callActiveRef.current && isVoiceModeForCallback && sessionIdForCallback) {
-            console.log("[VOICE] 🔄 Recovering - starting recognition after TTS error");
-            setTimeout(() => {
-              startVoiceRecognition(sessionIdForCallback, isVoiceModeForCallback, false);
-            }, 500);
-          }
+          setIsSpeaking(false);
         }
       };
-      
-      console.log("[VOICE] 🔊 Starting speech synthesis");
+
+      console.log("[VOICE] 🔊 Starting browser speech synthesis");
       window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.error("[VOICE] ❌ Speech synthesis exception:", e);
+      return true;
+    } catch (error) {
+      console.error("[VOICE] ❌ Browser TTS exception:", error);
+      return false;
+    }
+  };
+
+  const speakTextWithElevenLabs = async (text, effectiveStyle, effectiveScript, sessionIdForCallback, isVoiceModeForCallback, shouldRestartListening = true) => {
+    if (!canPlayAudioElement) {
+      throw new Error("Audio playback is not supported in this browser.");
+    }
+
+    const languageCode = getSpeechLangFromStyle(effectiveStyle, effectiveScript);
+    const voiceIdHint = languageCode.toLowerCase().startsWith("hi")
+      ? (elevenLabsVoiceIdHi || elevenLabsVoiceIdDefault || "")
+      : (elevenLabsVoiceIdEn || elevenLabsVoiceIdDefault || "");
+
+    const response = await fetch("/api/loan-assistant/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        language_style: effectiveStyle,
+        language_script: effectiveScript,
+        language_code: languageCode,
+        voice_id: voiceIdHint,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}));
+      const baseError = errorPayload.error || `ElevenLabs TTS failed (${response.status})`;
+      const detail = typeof errorPayload.details === "string" ? errorPayload.details.trim() : "";
+      throw new Error(detail ? `${baseError} ${detail}` : baseError);
+    }
+
+    const voiceLabel = response.headers.get("x-voice-label") || response.headers.get("x-voice-id") || "default";
+    setSelectedVoiceLabel(`ElevenLabs (${voiceLabel})`);
+
+    const audioBlob = await response.blob();
+    if (!audioBlob || audioBlob.size === 0) {
+      throw new Error("ElevenLabs returned empty audio.");
+    }
+
+    stopActiveAudioPlayback();
+
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    activeAudioUrlRef.current = audioUrl;
+    activeAudioRef.current = audio;
+
+    audio.onplay = () => {
+      handleSpeechStarted();
+    };
+
+    audio.onended = () => {
+      if (activeAudioRef.current === audio) {
+        stopActiveAudioPlayback();
+        handleSpeechFinished(sessionIdForCallback, isVoiceModeForCallback, shouldRestartListening);
+      }
+    };
+
+    audio.onerror = () => {
+      if (activeAudioRef.current === audio) {
+        stopActiveAudioPlayback();
+        isAISpeakingRef.current = false;
+        setIsSpeaking(false);
+
+        if (shouldRestartListening && callActiveRef.current && isVoiceModeForCallback && sessionIdForCallback) {
+          setTimeout(() => {
+            startVoiceRecognition(sessionIdForCallback, isVoiceModeForCallback, false);
+          }, 500);
+        }
+      }
+      console.error("[VOICE] ❌ ElevenLabs audio playback failed");
+    };
+
+    await audio.play();
+  };
+
+  const speakText = (text, sessionIdForCallback, isVoiceModeForCallback, shouldRestartListening = true) => {
+    console.log(`[VOICE] speakText() called - provider: ${activeTtsProvider}, text length: ${text?.length || 0}`);
+
+    if (!text) {
+      return;
+    }
+
+    if (!canUseAnyTTS) {
+      setVoiceWarning("No supported TTS playback available in this browser.");
+      return;
+    }
+
+    if (canUseBrowserTTS) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // ignore
+      }
+    }
+
+    stopActiveAudioPlayback();
+    isAISpeakingRef.current = false;
+
+    const textSignal = detectLanguageStyleFromText(text);
+    const effectiveStyle =
+      textSignal.style && textSignal.style !== "unknown"
+        ? textSignal.style
+        : languageStyle;
+    const effectiveScript =
+      textSignal.style && textSignal.style !== "unknown"
+        ? textSignal.script
+        : languageScript;
+
+    if (useElevenLabsTTS) {
+      speakTextWithElevenLabs(text, effectiveStyle, effectiveScript, sessionIdForCallback, isVoiceModeForCallback, shouldRestartListening)
+        .then(() => {
+          setVoiceWarning("");
+        })
+        .catch((error) => {
+          console.error("[VOICE] ❌ ElevenLabs TTS error:", error.message);
+          setVoiceWarning(`ElevenLabs TTS unavailable: ${error.message}`);
+
+          if (allowBrowserTtsFallback) {
+            const fallbackOk = speakTextWithBrowser(
+              text,
+              effectiveStyle,
+              effectiveScript,
+              sessionIdForCallback,
+              isVoiceModeForCallback,
+              shouldRestartListening
+            );
+
+            if (!fallbackOk) {
+              setIsSpeaking(false);
+              isAISpeakingRef.current = false;
+            }
+          }
+        });
+      return;
+    }
+
+    const ok = speakTextWithBrowser(
+      text,
+      effectiveStyle,
+      effectiveScript,
+      sessionIdForCallback,
+      isVoiceModeForCallback,
+      shouldRestartListening
+    );
+
+    if (!ok) {
+      setVoiceWarning("Browser TTS failed to play audio.");
       setIsSpeaking(false);
       isAISpeakingRef.current = false;
     }
@@ -418,8 +819,10 @@ export function LLMLoanAssistantDemo() {
    */
   const handleStartCall = async () => {
     console.log("[CALL] handleStartCall() - Starting call initialization");
-    console.log(`[CALL] Mode: isVoiceMode=${isVoiceMode}, autoPlayVoice=${autoPlayVoice}, canUseBrowserTTS=${canUseBrowserTTS}`);
+    console.log(`[CALL] Mode: isVoiceMode=${isVoiceMode}, autoPlayVoice=${autoPlayVoice}, canUseAnyTTS=${canUseAnyTTS}`);
     
+    messageInFlightRef.current = false;
+    lastVoiceTranscriptRef.current = { normalized: "", ts: 0 };
     setError(null);
     setIsLoading(true);
     setConversation([]);
@@ -464,7 +867,7 @@ export function LLMLoanAssistantDemo() {
       // - If autoplay is ON, let AI speak first, then speakText() will start recognition in onend.
       // - If autoplay is OFF, start listening immediately.
       if (isVoiceMode) {
-        if (autoPlayVoice && canUseBrowserTTS) {
+        if (autoPlayVoice && canUseAnyTTS) {
           console.log("[CALL] 🔊 Voice mode + autoplay ON - speaking opening message");
           speakText(openingTurn.message, data.session_id, true, true);
         } else {
@@ -498,9 +901,30 @@ export function LLMLoanAssistantDemo() {
     console.log(`[MSG] isVoiceMode: ${effectiveIsVoiceMode}, sessionId: ${effectiveSessionId}, isLoading: ${isLoading}`);
     console.log(`[MSG] (params provided: sessionId=${sessionIdParam}, isVoiceMode=${isVoiceModeParam}`);
     
-    if (!userMsg.trim() || !effectiveSessionId) {
+    const trimmedMessage = String(userMsg || "").trim();
+    if (!trimmedMessage || !effectiveSessionId) {
       console.log("[MSG] ❌ Skipping - empty message or no session");
       return;
+    }
+
+    const normalizedMessage = trimmedMessage.toLowerCase().replace(/\s+/g, " ");
+    if (effectiveIsVoiceMode) {
+      const now = Date.now();
+      const recent = lastVoiceTranscriptRef.current;
+      if (recent.normalized && recent.normalized === normalizedMessage && now - recent.ts < 3500) {
+        console.log("[MSG] ⚠️ Duplicate voice transcript detected within 3.5s - skipping");
+        return;
+      }
+    }
+
+    if (messageInFlightRef.current) {
+      console.log("[MSG] ⏳ Previous request still in-flight - skipping overlapping send");
+      return;
+    }
+
+    messageInFlightRef.current = true;
+    if (effectiveIsVoiceMode) {
+      lastVoiceTranscriptRef.current = { normalized: normalizedMessage, ts: Date.now() };
     }
 
     setError(null);
@@ -553,21 +977,26 @@ export function LLMLoanAssistantDemo() {
 
       setConversation((prev) => [...prev, aiTurn]);
 
-      const conversationStage = String(data.ai_response?.conversation_stage || "").toLowerCase();
-      const isClosingStage = conversationStage === "closing";
-      const customerIntent = String(data.customer_analysis?.intent || "").toLowerCase();
-      const shouldEndByIntent = ["not_interested", "do_not_call", "busy", "call_back_later", "converted"].includes(customerIntent);
-      const shouldEndSession = data.is_session_active === false || isClosingStage || shouldEndByIntent;
+      const shouldEndSession = data.is_session_active === false;
 
       if (shouldEndSession) {
         console.log("[MSG] 🛑 Conversation closing/session ended - disabling microphone restarts");
         updateCallActive(false);
+        setIsListening(false);
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.abort();
+          } catch {
+            // ignore
+          }
+          recognitionRef.current = null;
+        }
       }
 
       if (effectiveIsVoiceMode) {
-        console.log(`[MSG] Voice mode processing - autoPlayVoice: ${autoPlayVoice}, canUseBrowserTTS: ${canUseBrowserTTS}`);
+        console.log(`[MSG] Voice mode processing - autoPlayVoice: ${autoPlayVoice}, canUseAnyTTS: ${canUseAnyTTS}`);
 
-        if (autoPlayVoice && canUseBrowserTTS) {
+        if (autoPlayVoice && canUseAnyTTS) {
           console.log("[MSG] 🔊 Speaking AI response");
           speakText(aiTurn.message, effectiveSessionId, effectiveIsVoiceMode, !shouldEndSession);
         } else if (!shouldEndSession) {
@@ -591,6 +1020,7 @@ export function LLMLoanAssistantDemo() {
       setError("Network error: " + err.message);
       console.error(err);
     } finally {
+      messageInFlightRef.current = false;
       setIsLoading(false);
     }
   };
@@ -661,14 +1091,19 @@ export function LLMLoanAssistantDemo() {
                 type="checkbox"
                 checked={autoPlayVoice}
                 onChange={(e) => setAutoPlayVoice(e.target.checked)}
-                disabled={!canUseBrowserTTS}
+                disabled={!canUseAnyTTS}
               />
               <span className="ml-2">
-                Play AI voice{!canUseBrowserTTS ? " (not supported in this browser)" : ""}
+                Play AI voice{!canUseAnyTTS ? " (not supported in this browser)" : ""}
               </span>
             </label>
           )}
         </div>
+        {isVoiceMode && canUseAnyTTS && selectedVoiceLabel && (
+          <p className="mt-2 text-xs text-slate-600">
+            Active voice: {selectedVoiceLabel}
+          </p>
+        )}
 
         {/* Action Buttons */}
         <div className="mt-4 flex gap-2">
@@ -694,6 +1129,12 @@ export function LLMLoanAssistantDemo() {
       {error && (
         <Card className="border-red-300 bg-red-50 p-4">
           <p className="text-sm text-red-800">❌ {error}</p>
+        </Card>
+      )}
+
+      {voiceWarning && (
+        <Card className="border-amber-300 bg-amber-50 p-4">
+          <p className="text-sm text-amber-900">⚠️ {voiceWarning}</p>
         </Card>
       )}
 
@@ -767,7 +1208,7 @@ export function LLMLoanAssistantDemo() {
             )}
 
             {/* Voice mode: hide text input/send, keep optional Replay button */}
-            {isVoiceMode && canUseBrowserTTS && (
+            {isVoiceMode && canUseAnyTTS && (
               <Button
                 type="button"
                 onClick={() => {
@@ -787,12 +1228,12 @@ export function LLMLoanAssistantDemo() {
       )}
 
       {/* Info Box */}
-      <Card className="border-blue-200 bg-blue-50 p-4">
+      {/* <Card className="border-blue-200 bg-blue-50 p-4">
         <p className="text-sm text-blue-900">
-          ℹ️ This uses OpenAI's intelligent API (like ChatGPT) to understand
+          ℹ️ This uses OpenAI&apos;s intelligent API (like ChatGPT) to understand
           context naturally - not just keywords.{isVoiceMode && " Voice mode uses browser speech recognition and can be integrated with Twilio for real phone calls."}
         </p>
-      </Card>
+      </Card> */}
     </div>
   );
 }

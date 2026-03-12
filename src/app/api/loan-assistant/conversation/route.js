@@ -145,8 +145,8 @@ export async function POST(request) {
       console.log('📍 Creating new conversation (init)...');
       
       // Determine company name and AI agent name
-      let finalCompanyName = company_name || 'XYZ Finance';
-      let finalAiAgentName = ai_agent_name || 'Priya';
+      let finalCompanyName = company_name || 'FinServe Loans';
+      let finalAiAgentName = ai_agent_name || 'Priya Sharma';
       
       // If tenant_id provided, fetch tenant config (priority: loanAssistantCompanyName > tenant.name)
       if (tenant_id) {
@@ -240,7 +240,7 @@ export async function POST(request) {
       const shouldEndSession =
         manager.currentStage === 'closing' ||
         analysisResult.shouldEnd ||
-        ['do_not_call', 'not_interested', 'busy', 'call_back_later', 'converted'].includes(analysisResult.intent);
+        ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(analysisResult.intent);
 
     console.log('📊 Analysis:', analysisResult);
     console.log('Should end session:', shouldEndSession);

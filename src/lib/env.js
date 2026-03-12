@@ -35,6 +35,8 @@ const envSchema = z.object({
 
   DEEPGRAM_API_KEY: z.string().optional(),
   ELEVENLABS_API_KEY: z.string().optional(),
+  DISABLE_ELEVENLABS_TTS: z.string().optional(),
+  NEXT_PUBLIC_DISABLE_ELEVENLABS_TTS: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

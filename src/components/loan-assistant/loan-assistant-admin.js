@@ -270,36 +270,6 @@ export function LoanAssistantAdmin() {
         </CardContent>
       </Card>
 
-      {/* Integration Info Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Integration & API</CardTitle>
-          <CardDescription>Technical details for developers</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4 text-sm">
-            <div>
-              <div className="font-semibold text-slate-900">API Endpoint</div>
-              <code className="block rounded bg-slate-100 p-2 text-slate-700">
-                POST /api/loan-assistant/conversation
-              </code>
-            </div>
-            <div>
-              <div className="font-semibold text-slate-900">Status</div>
-              <div className="text-slate-600">✓ Active and ready to use</div>
-            </div>
-            <div>
-              <div className="font-semibold text-slate-900">Documentation</div>
-              <Link
-                href="/docs/LOAN_ASSISTANT_SETUP.md"
-                className="text-blue-600 hover:underline"
-              >
-                View Full Documentation →
-              </Link>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

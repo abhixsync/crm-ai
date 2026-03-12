@@ -107,8 +107,8 @@ export async function POST(request) {
       console.log('\n📍 Creating new LLM conversation session...');
       
       // Determine company name and AI agent name
-      let finalCompanyName = company_name || 'XYZ Finance';
-      let finalAiAgentName = ai_agent_name || 'Priya';
+      let finalCompanyName = company_name || 'FinServe Loans';
+      let finalAiAgentName = ai_agent_name || 'Priya Sharma';
       let finalCallbackPhone = callback_phone || process.env.COMPANY_CALLBACK_PHONE || '+91-XXXXXXXXXX';
       
       // If tenant_id provided, fetch tenant config (priority: loanAssistantCompanyName > tenant.name)
@@ -219,7 +219,7 @@ export async function POST(request) {
     const shouldEndSession =
       manager.currentStage === 'closing' ||
       analysisResult.shouldEnd ||
-      ['do_not_call', 'not_interested', 'busy', 'call_back_later', 'converted'].includes(analysisResult.intent);
+      ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(analysisResult.intent);
 
     console.log('Session ending:', shouldEndSession);
 
