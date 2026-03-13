@@ -337,12 +337,11 @@ export function CallsAiCallPanel({ customers, role }) {
             </CardDescription>
           </div>
           <Button
-            variant="secondary"
-            onClick={initSoftphone}
-            loading={softphoneLoading}
-            loadingText="Initializing..."
+            onClick={() => {
+              window.location.href = "/llm-loan-assistant-demo";
+            }}
           >
-            Reinitialize Softphone
+            Try Demo
           </Button>
         </div>
       </CardHeader>
@@ -439,6 +438,14 @@ export function CallsAiCallPanel({ customers, role }) {
                   </Button>
                   <Button variant="secondary" onClick={toggleMuteBrowserCall} disabled={!softphoneInCall}>
                     {softphoneMuted ? "Unmute" : "Mute"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={initSoftphone}
+                    loading={softphoneLoading}
+                    loadingText="Initializing..."
+                  >
+                    Reinitialize Softphone
                   </Button>
                   <Button variant="destructive" onClick={hangupBrowserCall} disabled={!softphoneInCall}>
                     Hang Up
