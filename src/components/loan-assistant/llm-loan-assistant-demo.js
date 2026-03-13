@@ -14,7 +14,7 @@ export function LLMLoanAssistantDemo() {
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
   const [profile, setProfile] = useState({
-    name: "",
+    name: "John Doe",
     city: "Meerut",
     monthly_income: 500000,
     employment_type: "salaried",
