@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const tenantId = String(formData.get("tenantId") || "").trim() || null;
     const isBaseTheme = String(formData.get("isBaseTheme") || "").toLowerCase() === "true";
-    return uploadThemeAssetController(auth.session as any, formData, tenantId, isBaseTheme);
+    return uploadThemeAssetController(auth.session, formData, tenantId, isBaseTheme);
   } catch (error: any) {
     return Response.json({ error: error?.message || "Unable to upload theme asset." }, { status: 400 });
   }

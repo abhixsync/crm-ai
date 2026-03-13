@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
-    const theme = await getActiveThemeController(auth.session as any, tenantId);
+    const theme = await getActiveThemeController(auth.session, tenantId);
     return Response.json({ theme });
   } catch {
     return getFallbackThemeResponse();

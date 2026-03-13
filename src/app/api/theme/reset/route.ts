@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
-    return await resetTenantThemeController(auth.session as any, tenantId);
+    return await resetTenantThemeController(auth.session, tenantId);
   } catch (error: any) {
     return Response.json({ error: error.message || "Failed to reset theme" }, { status: 500 });
   }

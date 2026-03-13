@@ -7,7 +7,7 @@ export async function PUT(request: Request) {
 
   try {
     const payload = await request.json();
-    return updateThemeController(auth.session as any, payload || {});
+    return updateThemeController(auth.session, payload || {});
   } catch (error: any) {
     return Response.json({ error: error?.message || "Unable to update theme." }, { status: 400 });
   }

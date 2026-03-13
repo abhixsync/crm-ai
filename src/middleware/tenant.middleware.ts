@@ -10,8 +10,8 @@ type TenantContext = {
 };
 
 export function resolveTenantContext(session: Session): TenantContext {
-  const role = (session as any)?.user?.role;
-  const tenantId = (session as any)?.user?.tenantId ?? null;
+  const role = session?.user?.role;
+  const tenantId = session?.user?.tenantId ?? null;
   const isSuperAdmin = role === "SUPER_ADMIN";
 
   if (!isSuperAdmin && !tenantId) {

@@ -7,11 +7,11 @@ export async function GET() {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session as any, ["ADMIN", "SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const userId = String((auth.session.user as { id?: string | null })?.id || "").trim();
+  const userId = String(auth.session.user.id || "").trim();
   if (!userId) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -45,11 +45,11 @@ export async function PATCH(request: Request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session as any, ["ADMIN", "SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const userId = String((auth.session.user as { id?: string | null })?.id || "").trim();
+  const userId = String(auth.session.user.id || "").trim();
   if (!userId) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
