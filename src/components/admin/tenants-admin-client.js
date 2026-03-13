@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,14 @@ const EMPTY_FORM = {
 
 const CREATE_NEW_ADMIN_OPTION = "__create_new_admin__";
 
+function normalizeSlug(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function TenantsAdminClient() {
   const [tenants, setTenants] = useState([]);
   const [users, setUsers] = useState([]);
@@ -30,6 +38,9 @@ export function TenantsAdminClient() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTenantId, setEditingTenantId] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
+  const [slugConfirmOpen, setSlugConfirmOpen] = useState(false);
+  const [slugConfirmInput, setSlugConfirmInput] = useState("");
+  const [slugConfirmTarget, setSlugConfirmTarget] = useState(null);
 
   const editingTenant = editingTenantId
     ? tenants.find((tenant) => tenant.id === editingTenantId)
@@ -111,14 +122,45 @@ export function TenantsAdminClient() {
     if (saving) {
       return;
     }
+
+    closeSlugConfirmDialog();
     setDialogOpen(false);
     setEditingTenantId("");
     setForm(EMPTY_FORM);
   }
 
-  async function saveTenantFromDialog() {
+  function getSlugChangeContext() {
+    const currentSlug = normalizeSlug(editingTenant?.slug || "");
+    const nextSlug = normalizeSlug(form.slug || form.name);
+    const isSlugChange = Boolean(editingTenantId && nextSlug && nextSlug !== currentSlug);
+
+    return { currentSlug, nextSlug, isSlugChange };
+  }
+
+  function closeSlugConfirmDialog() {
+    if (saving) {
+      return;
+    }
+
+    setSlugConfirmOpen(false);
+    setSlugConfirmInput("");
+    setSlugConfirmTarget(null);
+  }
+
+  async function saveTenantFromDialog(options = {}) {
+    const { skipSlugConfirmation = false } = options;
+
     if (!String(form.name || "").trim()) {
       toast.error("Tenant name is required.");
+      return;
+    }
+
+    const { currentSlug, nextSlug, isSlugChange } = getSlugChangeContext();
+
+    if (isSlugChange && !skipSlugConfirmation) {
+      setSlugConfirmTarget({ currentSlug, nextSlug });
+      setSlugConfirmInput("");
+      setSlugConfirmOpen(true);
       return;
     }
 
@@ -129,6 +171,10 @@ export function TenantsAdminClient() {
         slug: form.slug,
         isActive: Boolean(form.isActive),
       };
+
+      if (isSlugChange) {
+        payload.confirmSlugChange = true;
+      }
 
       if (form.existingAdminUserId === CREATE_NEW_ADMIN_OPTION) {
         if (!String(form.adminEmail || "").trim()) {
@@ -155,6 +201,7 @@ export function TenantsAdminClient() {
       }
 
       toast.success(editingTenantId ? "Tenant updated." : "Tenant created.");
+      closeSlugConfirmDialog();
       closeDialog();
       await loadTenants();
     } catch (error) {
@@ -164,10 +211,26 @@ export function TenantsAdminClient() {
     }
   }
 
+  async function confirmSlugChangeAndSave() {
+    const expectedSlug = String(slugConfirmTarget?.nextSlug || "");
+
+    if (!expectedSlug) {
+      toast.error("Unable to confirm slug change.");
+      return;
+    }
+
+    if (slugConfirmInput !== expectedSlug) {
+      toast.error("Slug change canceled. Confirmation text did not match.");
+      return;
+    }
+
+    setSlugConfirmOpen(false);
+    await saveTenantFromDialog({ skipSlugConfirmation: true });
+  }
+
   const showCreateAdminFields = form.existingAdminUserId === CREATE_NEW_ADMIN_OPTION;
 
-  const columns = useMemo(
-    () => [
+  const columns = [
       {
         accessorKey: "name",
         header: "Name",
@@ -245,9 +308,7 @@ export function TenantsAdminClient() {
           );
         },
       },
-    ],
-    [saving]
-  );
+    ];
 
   async function toggleTenantActive(tenant) {
     setSaving(true);
@@ -397,6 +458,47 @@ export function TenantsAdminClient() {
               disabled={saving}
             >
               {editingTenantId ? "Save Changes" : "Create Tenant"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={slugConfirmOpen}
+        onClose={closeSlugConfirmDialog}
+        title="Confirm Slug Change"
+        description="Changing a tenant slug can impact routing and integration links."
+        maxWidthClass="max-w-lg"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            You are changing this tenant slug from <strong>{slugConfirmTarget?.currentSlug || "(empty)"}</strong> to{" "}
+            <strong>{slugConfirmTarget?.nextSlug || "(empty)"}</strong>.
+          </p>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">
+              Type <strong>{slugConfirmTarget?.nextSlug || "the new slug"}</strong> to confirm
+            </label>
+            <Input
+              value={slugConfirmInput}
+              onChange={(event) => setSlugConfirmInput(event.target.value)}
+              placeholder={slugConfirmTarget?.nextSlug || "new-slug"}
+              disabled={saving}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={closeSlugConfirmDialog} disabled={saving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmSlugChangeAndSave}
+              loading={saving}
+              loadingText="Saving..."
+              disabled={saving}
+            >
+              Confirm Change
             </Button>
           </div>
         </div>

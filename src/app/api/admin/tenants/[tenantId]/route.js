@@ -135,6 +135,14 @@ export async function PATCH(request, { params }) {
     }
 
     if (nextSlug !== existing.slug) {
+      const hasConfirmedSlugChange = payload?.confirmSlugChange === true;
+      if (!hasConfirmedSlugChange) {
+        return Response.json(
+          { error: "Slug change requires explicit confirmation." },
+          { status: 400 }
+        );
+      }
+
       const bySlug = await prisma.tenant.findUnique({ where: { slug: nextSlug } });
       if (bySlug && bySlug.id !== tenantId) {
         return Response.json({ error: "Tenant slug already exists." }, { status: 400 });

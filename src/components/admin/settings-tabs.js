@@ -89,7 +89,7 @@ export function SettingsTabs() {
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
-            Account Settings
+            Organization Settings
           </button>
           <button
             onClick={() => openTab("theme")}
