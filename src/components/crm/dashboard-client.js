@@ -72,6 +72,7 @@ function getBlockedTransitionSet(currentStatus) {
 
 export function DashboardClient({
   user,
+  canDeleteAllCustomers = false,
   initialTenantName,
   initialMetrics,
   initialCustomers,
@@ -1533,7 +1534,7 @@ export function DashboardClient({
                 <Plus className="mr-1 h-4 w-4" />
                 Add Customer
               </Button>
-              {user.role === "SUPER_ADMIN" ? (
+              {canDeleteAllCustomers ? (
                 <Button
                   variant="destructive"
                   onClick={confirmDeleteAllCustomers}
