@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import Redis from "ioredis";
 import { prisma } from "@/lib/prisma";
+import { isDatabaseUnavailable } from "@/lib/server/database-error";
 import { SYSTEM_THEME_DEFAULT, EditableTheme, ThemeTokens, ensureThemeTokens } from "@/core/theme/system-defaults";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -9,6 +10,8 @@ const memoryCache = new Map<string, { value: ActiveTheme; expiresAt: number }>()
 
 let redisClient: Redis | null = null;
 let redisUnavailableUntil = 0;
+let dbUnavailableUntil = 0;
+const DB_UNAVAILABLE_COOLDOWN_MS = 15000;
 
 // 🎨 MUTABLE SYSTEM DEFAULT - For merging operations
 const MUTABLE_SYSTEM_DEFAULT: ThemeTokens = {
@@ -77,97 +80,118 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
 
 // 🎯 THEME RESOLVER - CORE INHERITANCE LOGIC
 export async function resolveTenantTheme(tenantId: string | null): Promise<ActiveTheme> {
+  const fallbackTheme: ActiveTheme = {
+    ...MUTABLE_SYSTEM_DEFAULT,
+    tenantId,
+    source: "default",
+    updatedAt: null,
+  };
+
   // 1️⃣ Try cache first
   const cached = await readCache(tenantId || "null");
   if (cached) return cached;
 
-  // 2️⃣ Load tenant override (if tenantId provided)
-  let tenantOverride: Partial<ThemeTokens> | null = null;
-  let tenantOverrideUpdatedAt: string | null = null;
-  if (tenantId) {
-    const tenantTheme = await prisma.tenantTheme.findFirst({
-      where: { tenantId, isBaseTheme: false, isActive: true },
-      orderBy: { updatedAt: "desc" },
-    });
-    if (tenantTheme) {
-      const { id, tenantId: _, createdAt, updatedAt, ...themeData } = tenantTheme;
-
-      // Only include fields that differ from system defaults (i.e., were explicitly customized)
-      const customizedFields: Partial<ThemeTokens> = {};
-      Object.keys(themeData).forEach(key => {
-        if (key in MUTABLE_SYSTEM_DEFAULT) {
-          const systemValue = (MUTABLE_SYSTEM_DEFAULT as any)[key];
-          const tenantValue = (themeData as any)[key];
-          if (tenantValue !== systemValue) {
-            (customizedFields as any)[key] = tenantValue;
-          }
-        }
-      });
-
-      tenantOverride = customizedFields;
-      tenantOverrideUpdatedAt = updatedAt.toISOString();
-    }
+  // 1.5️⃣ During transient database outages, return defaults without querying repeatedly.
+  if (Date.now() < dbUnavailableUntil) {
+    return fallbackTheme;
   }
 
-  // 3️⃣ Load base theme (global defaults)
-  const baseTheme = await prisma.tenantTheme.findFirst({
-    where: { isBaseTheme: true, isActive: true },
-    orderBy: { updatedAt: "desc" },
-  });
-  const baseThemeTokens: Partial<ThemeTokens> = baseTheme ? {
-    tenantId: baseTheme.tenantId,
-    isBaseTheme: baseTheme.isBaseTheme,
-    themeName: baseTheme.themeName,
-    primaryColor: baseTheme.primaryColor,
-    secondaryColor: baseTheme.secondaryColor,
-    accentColor: baseTheme.accentColor,
-    backgroundColor: baseTheme.backgroundColor,
-    surfaceColor: baseTheme.surfaceColor,
-    sidebarColor: baseTheme.sidebarColor,
-    headerColor: baseTheme.headerColor,
-    textPrimary: baseTheme.textPrimary,
-    textSecondary: baseTheme.textSecondary,
-    borderColor: baseTheme.borderColor,
-    successColor: baseTheme.successColor,
-    warningColor: baseTheme.warningColor,
-    errorColor: baseTheme.errorColor,
-    infoColor: baseTheme.infoColor,
-    fontFamily: baseTheme.fontFamily,
-    fontScale: baseTheme.fontScale,
-    borderRadius: baseTheme.borderRadius,
-    buttonRadius: baseTheme.buttonRadius,
-    cardRadius: baseTheme.cardRadius,
-    inputRadius: baseTheme.inputRadius,
-    shadowIntensity: baseTheme.shadowIntensity,
-    layoutDensity: baseTheme.layoutDensity,
-    sidebarStyle: baseTheme.sidebarStyle,
-    tableStyle: baseTheme.tableStyle,
-    darkMode: baseTheme.darkMode,
-    logoUrl: baseTheme.logoUrl,
-    faviconUrl: baseTheme.faviconUrl,
-    loginBackgroundUrl: baseTheme.loginBackgroundUrl,
-    applicationBackgroundUrl: baseTheme.applicationBackgroundUrl,
-    customCss: baseTheme.customCss,
-    isActive: baseTheme.isActive,
-  } : {};
+  try {
+    // 2️⃣ Load tenant override (if tenantId provided)
+    let tenantOverride: Partial<ThemeTokens> | null = null;
+    let tenantOverrideUpdatedAt: string | null = null;
+    if (tenantId) {
+      const tenantTheme = await prisma.tenantTheme.findFirst({
+        where: { tenantId, isBaseTheme: false, isActive: true },
+        orderBy: { updatedAt: "desc" },
+      });
+      if (tenantTheme) {
+        const { id, tenantId: _, createdAt, updatedAt, ...themeData } = tenantTheme;
 
-  // 4️⃣ Resolve inheritance: Tenant Override → Base Theme → System Default
-  const resolvedTokens = deepMerge(
-    deepMerge(MUTABLE_SYSTEM_DEFAULT, baseThemeTokens),
-    tenantOverride || {}
-  );
+        // Only include fields that differ from system defaults (i.e., were explicitly customized)
+        const customizedFields: Partial<ThemeTokens> = {};
+        Object.keys(themeData).forEach(key => {
+          if (key in MUTABLE_SYSTEM_DEFAULT) {
+            const systemValue = (MUTABLE_SYSTEM_DEFAULT as any)[key];
+            const tenantValue = (themeData as any)[key];
+            if (tenantValue !== systemValue) {
+              (customizedFields as any)[key] = tenantValue;
+            }
+          }
+        });
 
-  // 5️⃣ Build active theme response
-  const activeTheme: ActiveTheme = {
-    ...resolvedTokens,
-    source: tenantOverride ? "tenant" : baseTheme ? "base" : "default",
-    updatedAt: tenantOverrideUpdatedAt ||
-               (baseTheme ? new Date(baseTheme.updatedAt).toISOString() : null),
-  };
+        tenantOverride = customizedFields;
+        tenantOverrideUpdatedAt = updatedAt.toISOString();
+      }
+    }
 
-  // 6️⃣ Cache and return
-  await writeCache(tenantId || "null", activeTheme);
-  return activeTheme;
+    // 3️⃣ Load base theme (global defaults)
+    const baseTheme = await prisma.tenantTheme.findFirst({
+      where: { isBaseTheme: true, isActive: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    const baseThemeTokens: Partial<ThemeTokens> = baseTheme ? {
+      tenantId: baseTheme.tenantId,
+      isBaseTheme: baseTheme.isBaseTheme,
+      themeName: baseTheme.themeName,
+      primaryColor: baseTheme.primaryColor,
+      secondaryColor: baseTheme.secondaryColor,
+      accentColor: baseTheme.accentColor,
+      backgroundColor: baseTheme.backgroundColor,
+      surfaceColor: baseTheme.surfaceColor,
+      sidebarColor: baseTheme.sidebarColor,
+      headerColor: baseTheme.headerColor,
+      textPrimary: baseTheme.textPrimary,
+      textSecondary: baseTheme.textSecondary,
+      borderColor: baseTheme.borderColor,
+      successColor: baseTheme.successColor,
+      warningColor: baseTheme.warningColor,
+      errorColor: baseTheme.errorColor,
+      infoColor: baseTheme.infoColor,
+      fontFamily: baseTheme.fontFamily,
+      fontScale: baseTheme.fontScale,
+      borderRadius: baseTheme.borderRadius,
+      buttonRadius: baseTheme.buttonRadius,
+      cardRadius: baseTheme.cardRadius,
+      inputRadius: baseTheme.inputRadius,
+      shadowIntensity: baseTheme.shadowIntensity,
+      layoutDensity: baseTheme.layoutDensity,
+      sidebarStyle: baseTheme.sidebarStyle,
+      tableStyle: baseTheme.tableStyle,
+      darkMode: baseTheme.darkMode,
+      logoUrl: baseTheme.logoUrl,
+      faviconUrl: baseTheme.faviconUrl,
+      loginBackgroundUrl: baseTheme.loginBackgroundUrl,
+      applicationBackgroundUrl: baseTheme.applicationBackgroundUrl,
+      customCss: baseTheme.customCss,
+      isActive: baseTheme.isActive,
+    } : {};
+
+    // 4️⃣ Resolve inheritance: Tenant Override → Base Theme → System Default
+    const resolvedTokens = deepMerge(
+      deepMerge(MUTABLE_SYSTEM_DEFAULT, baseThemeTokens),
+      tenantOverride || {}
+    );
+
+    // 5️⃣ Build active theme response
+    const activeTheme: ActiveTheme = {
+      ...resolvedTokens,
+      source: tenantOverride ? "tenant" : baseTheme ? "base" : "default",
+      updatedAt: tenantOverrideUpdatedAt ||
+                 (baseTheme ? new Date(baseTheme.updatedAt).toISOString() : null),
+    };
+
+    // 6️⃣ Cache and return
+    await writeCache(tenantId || "null", activeTheme);
+    return activeTheme;
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      dbUnavailableUntil = Date.now() + DB_UNAVAILABLE_COOLDOWN_MS;
+      return fallbackTheme;
+    }
+
+    throw error;
+  }
 }
 
 // 📥 LEGACY getActiveTheme - BACKWARD COMPATIBILITY

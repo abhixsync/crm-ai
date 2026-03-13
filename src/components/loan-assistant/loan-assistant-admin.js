@@ -1,17 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PageLoader } from "@/components/ui/loader";
 import Link from "next/link";
 
 export function LoanAssistantAdmin() {
@@ -19,21 +14,14 @@ export function LoanAssistantAdmin() {
   const [companyName, setCompanyName] = useState("");
   const [callbackPhone, setCallbackPhone] = useState("");
   const [aiAgentName, setAiAgentName] = useState("Priya");
+  const [humanAdvisorName, setHumanAdvisorName] = useState("John Doe");
   const [tenantName, setTenantName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [tenantId, setTenantId] = useState(null);
 
-  // Load settings on mount
-  useEffect(() => {
-    if (session?.user) {
-      loadSettings();
-    }
-  }, [session?.user]);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -76,6 +64,7 @@ export function LoanAssistantAdmin() {
         setCompanyName(data.data.loanAssistantCompanyName || "");
         setCallbackPhone(data.data.loanAssistantCallbackPhone || "");
         setAiAgentName(data.data.aiAgentName || "Priya");
+        setHumanAdvisorName(data.data.loanAssistantHumanAdvisorName || "John Doe");
         setTenantName(data.data.tenantName);
       } else {
         setError(data.error || "Failed to load settings");
@@ -86,7 +75,14 @@ export function LoanAssistantAdmin() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session?.user?.tenantId]);
+
+  // Load settings on mount
+  useEffect(() => {
+    if (session?.user) {
+      loadSettings();
+    }
+  }, [session?.user, loadSettings]);
 
   const handleSave = async () => {
     try {
@@ -101,6 +97,7 @@ export function LoanAssistantAdmin() {
         },
         body: JSON.stringify({
           loanAssistantCompanyName: companyName || null,
+          loanAssistantHumanAdvisorName: humanAdvisorName || "John Doe",
           loanAssistantCallbackPhone: callbackPhone || null,
           aiAgentName: aiAgentName || "Priya",
         }),
@@ -109,18 +106,25 @@ export function LoanAssistantAdmin() {
       const data = await response.json();
 
       if (data.success) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
+        const savedName = String(data?.data?.loanAssistantHumanAdvisorName || humanAdvisorName || "").trim() || "John Doe";
+        setHumanAdvisorName(savedName);
+        toast.success(`Loan Assistant settings saved. Advisor: ${savedName}`);
       } else {
         setError(data.error || "Failed to save settings");
+        toast.error(data.error || "Failed to save settings");
       }
     } catch (err) {
       console.error('Error saving settings:', err);
       setError("Failed to save settings: " + err.message);
+      toast.error("Failed to save settings: " + err.message);
     } finally {
       setIsSaving(false);
     }
   };
+
+  if (isLoading) {
+    return <PageLoader label="Loading loan assistant settings..." />;
+  }
 
   return (
     <div className="space-y-6">
@@ -133,28 +137,15 @@ export function LoanAssistantAdmin() {
         </Card>
       )}
 
-      {/* Loading State */}
-      {isLoading && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Loan Assistant Settings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm text-slate-600">Loading settings...</div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Configuration Card */}
-      {!isLoading && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Loan Assistant Settings</CardTitle>
-            <CardDescription>
-              Configure the AI loan calling assistant for your organization
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Loan Assistant Settings</CardTitle>
+          <CardDescription>
+            Configure the AI loan calling assistant for your organization
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
             <div className="space-y-2">
               <label htmlFor="company-name" className="text-sm font-medium text-slate-700">
                 Loan Assistant Company Name
@@ -210,6 +201,21 @@ export function LoanAssistantAdmin() {
             </div>
 
             <div className="space-y-2">
+              <label htmlFor="human-advisor-name" className="text-sm font-medium text-slate-700">
+                Human Advisor Name
+              </label>
+              <Input
+                id="human-advisor-name"
+                placeholder="e.g., John Doe"
+                value={humanAdvisorName}
+                onChange={(e) => setHumanAdvisorName(e.target.value)}
+              />
+              <p className="text-xs text-slate-500">
+                This name is used in the final handoff line for interested customers.
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <p className="text-sm font-medium text-slate-700">Default Loan Types</p>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                 ✓ Personal Loan
@@ -228,14 +234,12 @@ export function LoanAssistantAdmin() {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save Changes"}
+              <Button onClick={handleSave} loading={isSaving} loadingText="Saving settings..." disabled={!tenantId}>
+                Save Changes
               </Button>
-              {saved && <span className="text-sm text-green-600">✓ Saved!</span>}
             </div>
-          </CardContent>
-        </Card>
-      )}
+        </CardContent>
+      </Card>
 
       {/* Quick Actions Card */}
       <Card>

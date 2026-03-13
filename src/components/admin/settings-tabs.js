@@ -40,7 +40,7 @@ export function SettingsTabs() {
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
-            🤖 Loan Assistant
+            Loan Assistant
           </button>
         </nav>
       </div>

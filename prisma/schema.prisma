@@ -84,6 +84,7 @@ model Tenant {
   crmName       String?  // Override for CRM display name
   aiAgentName   String   @default("Priya") // Configurable AI agent name
   loanAssistantCompanyName String? // Company name for loan assistant (fallback: tenant.name)
+  loanAssistantHumanAdvisorName String @default("John Doe") // Human advisor name announced in interested closing handoff
   loanAssistantCallbackPhone String? // Tenant-specific callback phone for loan assistant closing message
   isActive      Boolean  @default(true)
   metadata      Json?

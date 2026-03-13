@@ -54,6 +54,18 @@ function normalizeConfidence(value, fallback = 0.5) {
   return parsed;
 }
 
+function formatPhoneForSpeech(phoneNumber) {
+  const raw = String(phoneNumber || '').trim();
+  if (!raw) return '';
+
+  const hasPlusPrefix = raw.startsWith('+');
+  const digitsOnly = raw.replace(/\D/g, '');
+  if (!digitsOnly) return raw;
+
+  const digitByDigit = digitsOnly.split('').join(' ');
+  return hasPlusPrefix ? `plus ${digitByDigit}` : digitByDigit;
+}
+
 function hasInquirySignal(message) {
   const text = String(message || '').toLowerCase();
   if (!text) return false;
@@ -147,11 +159,18 @@ function humanizeCallReply(reply, languageSignal, stage) {
 }
 
 export class LLMConversationManager {
-  constructor(customerProfile, companyName = 'FinServe Loans', aiAgentName = 'Priya Sharma', callbackPhone = null) {
+  constructor(
+    customerProfile,
+    companyName = 'FinServe Loans',
+    aiAgentName = 'Priya Sharma',
+    callbackPhone = null,
+    humanAdvisorName = 'John Doe'
+  ) {
     this.customerProfile = customerProfile;
     this.companyName = companyName;
     this.aiAgentName = aiAgentName;
     this.callbackPhone = callbackPhone;
+    this.humanAdvisorName = String(humanAdvisorName || 'John Doe').trim() || 'John Doe';
     this.conversationHistory = [];
     this.currentStage = CONVERSATION_STAGES.OPENING;
     this.extractedData = {
@@ -489,12 +508,26 @@ Customer Profile:
    */
   getClosingGreeting() {
     const callbackNumber = this.callbackPhone || process.env.COMPANY_CALLBACK_PHONE || '+91-XXXXXXXXXX';
+    const spokenCallbackNumber = formatPhoneForSpeech(callbackNumber) || callbackNumber;
+    const finalIntent = String(this.callMeta.intent || '').toLowerCase();
+    const shouldUseHumanAdvisorHandoff = ['interested', 'converted'].includes(finalIntent);
+
+    if (shouldUseHumanAdvisorHandoff) {
+      return this.getLanguageText({
+        english: `Great. I will now connect you with our best human advisor ${this.humanAdvisorName}. He will give you the best loan offer and call you shortly. You can also call us on ${spokenCallbackNumber}.`,
+        hinglish: `Great ji. Main ab aapko hamare best human advisor ${this.humanAdvisorName} se connect karwa rahi hoon. Wo aapko best loan offer denge aur jaldi call karenge. Aap hume ${spokenCallbackNumber} par bhi call kar sakte hain.`,
+        hindiRoman: `Bahut badhiya ji. Main ab aapko hamare best human advisor ${this.humanAdvisorName} se connect karwa rahi hoon. Wo aapko best loan offer denge aur jaldi call karenge. Aap hume ${spokenCallbackNumber} par bhi call kar sakte hain.`,
+        hindi: `Bahut badhiya ji. Main ab aapko hamare best human advisor ${this.humanAdvisorName} se connect karwa rahi hoon. Wo aapko best loan offer denge aur jaldi call karenge. Aap hume ${spokenCallbackNumber} par bhi call kar sakte hain.`,
+        defaultText: `Great. I will now connect you with our best human advisor ${this.humanAdvisorName}. He will give you the best loan offer and call you shortly. You can also call us on ${spokenCallbackNumber}.`,
+      });
+    }
+
     return this.getLanguageText({
-      english: `Thank you for your time. If you need any loan assistance in future, please call our team on ${callbackNumber}. We are always happy to help.`,
-      hinglish: `Dhanyavaad ji, aapke time ke liye. Future me loan assistance ke liye aap hume ${callbackNumber} par call kar sakte hain. Humari team help ke liye available hai.`,
-      hindiRoman: `Dhanyavaad ji, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${callbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
-      hindi: `Dhanyavaad ji, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${callbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
-      defaultText: `Thank you for your time. If you need any loan assistance in future, please call our team on ${callbackNumber}. We are always happy to help.`,
+      english: `Thank you for your time. If you need any loan assistance in future, please call our team on ${spokenCallbackNumber}. We are always happy to help.`,
+      hinglish: `Dhanyavaad ji, aapke time ke liye. Future me loan assistance ke liye aap hume ${spokenCallbackNumber} par call kar sakte hain. Humari team help ke liye available hai.`,
+      hindiRoman: `Dhanyavaad ji, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${spokenCallbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
+      hindi: `Dhanyavaad ji, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${spokenCallbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
+      defaultText: `Thank you for your time. If you need any loan assistance in future, please call our team on ${spokenCallbackNumber}. We are always happy to help.`,
     });
   }
 

@@ -12,6 +12,7 @@
  *   tenant_id?: string (for "init" action - to fetch CRM name and AI agent name, auto-detected from session if not provided)
  *   company_name?: string (fallback if tenant_id not provided)
  *   ai_agent_name?: string (fallback if tenant_id not provided)
+ *   human_advisor_name?: string (fallback if tenant config not present)
  *   callback_phone?: string (fallback callback number if tenant config not present)
  *   is_voice_call?: boolean (true for voice, false for chat)
  * }
@@ -48,6 +49,7 @@ export async function POST(request) {
       tenant_id,
       company_name,
       ai_agent_name,
+      human_advisor_name,
       callback_phone,
       is_voice_call = false,
     } = body;
@@ -109,6 +111,7 @@ export async function POST(request) {
       // Determine company name and AI agent name
       let finalCompanyName = company_name || 'FinServe Loans';
       let finalAiAgentName = ai_agent_name || 'Priya Sharma';
+      let finalHumanAdvisorName = human_advisor_name || 'John Doe';
       let finalCallbackPhone = callback_phone || process.env.COMPANY_CALLBACK_PHONE || '+91-XXXXXXXXXX';
       
       // If tenant_id provided, fetch tenant config (priority: loanAssistantCompanyName > tenant.name)
@@ -122,6 +125,7 @@ export async function POST(request) {
             // Priority: loanAssistantCompanyName (if set in settings) > tenantName
             finalCompanyName = tenant.loanAssistantCompanyName || tenant.name || finalCompanyName;
             finalAiAgentName = tenant.aiAgentName || finalAiAgentName;
+            finalHumanAdvisorName = tenant.loanAssistantHumanAdvisorName || finalHumanAdvisorName;
             finalCallbackPhone = tenant.loanAssistantCallbackPhone || finalCallbackPhone;
             console.log('📦 Tenant Config:', {
               tenantId: tenant_id,
@@ -129,6 +133,7 @@ export async function POST(request) {
               tenantName: tenant.name,
               resolvedCompanyName: finalCompanyName,
               aiAgentName: finalAiAgentName,
+              humanAdvisorName: finalHumanAdvisorName,
               callbackPhone: finalCallbackPhone,
             });
           } else {
@@ -139,7 +144,13 @@ export async function POST(request) {
         }
       }
       
-      manager = new LLMConversationManager(customer_profile, finalCompanyName, finalAiAgentName, finalCallbackPhone);
+      manager = new LLMConversationManager(
+        customer_profile,
+        finalCompanyName,
+        finalAiAgentName,
+        finalCallbackPhone,
+        finalHumanAdvisorName
+      );
       manager.callMeta.isVoiceCall = is_voice_call;
       isNewSession = true;
       
@@ -154,6 +165,7 @@ export async function POST(request) {
       console.log('Is Voice:', is_voice_call);
       console.log('Company:', finalCompanyName);
       console.log('AI Agent:', finalAiAgentName);
+      console.log('Human Advisor:', finalHumanAdvisorName);
       console.log('Callback Phone:', finalCallbackPhone);
       console.log('Opening Message:', aiMessage.substring(0, 100) + '...');
 
