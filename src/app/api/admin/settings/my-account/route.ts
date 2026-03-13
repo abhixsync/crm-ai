@@ -11,9 +11,14 @@ export async function GET() {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const userId = String((auth.session.user as { id?: string | null })?.id || "").trim();
+  if (!userId) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const user = await prisma.user.findUnique({
-      where: { id: auth.session.user.id },
+      where: { id: userId },
       select: {
         id: true,
         name: true,
@@ -44,6 +49,11 @@ export async function PATCH(request: Request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const userId = String((auth.session.user as { id?: string | null })?.id || "").trim();
+  if (!userId) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const payload = await request.json();
     const currentPassword = String(payload?.currentPassword || "").trim();
@@ -66,7 +76,7 @@ export async function PATCH(request: Request) {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: auth.session.user.id },
+      where: { id: userId },
       select: {
         id: true,
         email: true,
