@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { canUserDeleteAllCustomers } from "@/lib/customers/delete-all-permissions";
 
 export async function DELETE() {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (auth.session.user.role !== "SUPER_ADMIN") {
+  if (!canUserDeleteAllCustomers(auth.session.user.role)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

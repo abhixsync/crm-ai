@@ -28,7 +28,11 @@ export async function GET(request: Request) {
       select: { crmName: true, name: true },
     });
 
-    return Response.json({ crmName: tenant?.crmName || null, tenantName: tenant?.name || null });
+    return Response.json({
+      crmName: tenant?.crmName || null,
+      tenantName: tenant?.name || null,
+      tenantDisplayName: tenant?.name || null,
+    });
   } catch (error: any) {
     return Response.json({ error: error?.message || "Unable to fetch settings." }, { status: 400 });
   }
@@ -47,7 +51,8 @@ export async function PUT(request: Request) {
     const tenantIdParam = url.searchParams.get('tenantId');
     
     const payload = await request.json();
-    const { crmName } = payload;
+    const crmName = payload?.crmName;
+    const tenantDisplayName = payload?.tenantDisplayName;
 
     const context = resolveTenantContext(auth.session as any);
     let tenantId = context.tenantId;
@@ -61,9 +66,27 @@ export async function PUT(request: Request) {
       return Response.json({ error: "Tenant context required." }, { status: 400 });
     }
 
+    const updateData: { crmName?: string | null; name?: string } = {};
+
+    if (crmName !== undefined) {
+      updateData.crmName = String(crmName || "").trim() || null;
+    }
+
+    if (tenantDisplayName !== undefined) {
+      const normalizedTenantDisplayName = String(tenantDisplayName || "").trim();
+      if (!normalizedTenantDisplayName) {
+        return Response.json({ error: "Tenant display name is required." }, { status: 400 });
+      }
+      updateData.name = normalizedTenantDisplayName;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return Response.json({ error: "No settings changes provided." }, { status: 400 });
+    }
+
     await prisma.tenant.update({
       where: { id: tenantId },
-      data: { crmName: crmName || null },
+      data: updateData,
     });
 
     return Response.json({ success: true });

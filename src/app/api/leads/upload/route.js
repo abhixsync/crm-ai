@@ -5,6 +5,66 @@ import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-gua
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
+const UPSERT_BATCH_SIZE = 50;
+const ENQUEUE_BATCH_SIZE = 50;
+
+function parseBoolean(value, fallback = false) {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
+function chunkArray(items, size) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+
+  const chunks = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function toCustomerWriteData(row) {
+  return {
+    firstName: row.firstName,
+    lastName: row.lastName,
+    phone: row.phone,
+    email: row.email,
+    city: row.city,
+    state: row.state,
+    source: row.source,
+    loanType: row.loanType,
+    loanAmount: row.loanAmount,
+    monthlyIncome: row.monthlyIncome,
+    notes: row.notes,
+  };
+}
+
+async function enqueueCustomersInBackground(customerIds) {
+  for (const batch of chunkArray(customerIds, ENQUEUE_BATCH_SIZE)) {
+    await Promise.allSettled(
+      batch.map((customerId) => enqueueCustomerIfEligible(customerId, "excel_upload"))
+    );
+  }
+}
+
 export async function POST(request) {
   const auth = await requireSession();
 
@@ -17,12 +77,14 @@ export async function POST(request) {
   const formData = await request.formData();
   const tenant = getTenantContext(auth.session);
   const tenantId = tenant.tenantId;
+  const canRequestEnqueue = hasRole(auth.session, ["ADMIN"]);
 
   if (!tenantId) {
     return Response.json({ error: "Tenant context required." }, { status: 400 });
   }
 
   const file = formData.get("file");
+  const enqueueRequested = canRequestEnqueue && parseBoolean(formData.get("enqueue"), false);
 
   if (!file) {
     return Response.json({ error: "File is required" }, { status: 400 });
@@ -33,6 +95,8 @@ export async function POST(request) {
 
   let successRows = 0;
   let failedRows = 0;
+  const validRows = [];
+  const upsertedCustomerIds = [];
 
   for (const row of rows) {
     if (!row.firstName || !row.phone) {
@@ -40,50 +104,52 @@ export async function POST(request) {
       continue;
     }
 
-    try {
-      const existing = await prisma.customer.findFirst({ where: { tenantId, phone: row.phone } });
-      let customer;
+    validRows.push(row);
+  }
 
-      if (existing) {
-        customer = await prisma.customer.update({
-          where: { id: existing.id },
-          data: {
-            firstName: row.firstName,
-            lastName: row.lastName,
-            email: row.email,
-            city: row.city,
-            state: row.state,
-            source: row.source,
-            loanType: row.loanType,
-            loanAmount: row.loanAmount,
-            monthlyIncome: row.monthlyIncome,
-            notes: row.notes,
+  for (const batch of chunkArray(validRows, UPSERT_BATCH_SIZE)) {
+    const upsertResults = await Promise.allSettled(
+      batch.map((row) =>
+        prisma.customer.upsert({
+          where: {
+            tenantId_phone: {
+              tenantId,
+              phone: row.phone,
+            },
           },
-        });
-      } else {
-        customer = await prisma.customer.create({
-          data: {
+          update: toCustomerWriteData(row),
+          create: {
             tenantId,
-            ...row,
+            ...toCustomerWriteData(row),
             status: CustomerStatus.NEW,
           },
-        });
+          select: {
+            id: true,
+          },
+        })
+      )
+    );
+
+    for (const result of upsertResults) {
+      if (result.status === "fulfilled") {
+        successRows += 1;
+        upsertedCustomerIds.push(result.value.id);
+        continue;
       }
 
-      try {
-        await enqueueCustomerIfEligible(customer.id, "excel_upload");
-      } catch {
-      }
-
-      successRows += 1;
-    } catch (error) {
-      if (isDatabaseUnavailable(error)) {
+      if (isDatabaseUnavailable(result.reason)) {
         console.warn("[api/leads/upload] Database unavailable during row upsert.");
         return databaseUnavailableResponse();
       }
 
       failedRows += 1;
     }
+  }
+
+  if (enqueueRequested && upsertedCustomerIds.length > 0) {
+    queueMicrotask(() => {
+      void enqueueCustomersInBackground(upsertedCustomerIds);
+    });
   }
 
   try {
@@ -111,5 +177,10 @@ export async function POST(request) {
     totalRows: rows.length,
     successRows,
     failedRows,
+    enqueue: {
+      requested: enqueueRequested,
+      mode: enqueueRequested ? "background" : "skipped",
+      candidates: upsertedCustomerIds.length,
+    },
   });
 }

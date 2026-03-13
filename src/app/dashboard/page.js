@@ -4,6 +4,7 @@ import { CustomerStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardClient } from "@/components/crm/dashboard-client";
+import { canUserDeleteAllCustomers } from "@/lib/customers/delete-all-permissions";
 
 const PAGE_SIZE = 10;
 
@@ -29,6 +30,7 @@ export default async function DashboardPage() {
   let initialTenant = null;
   const tenantId = session.user.tenantId || null;
   const tenantFilter = tenantId ? { tenantId } : {};
+  const canDeleteAllCustomers = canUserDeleteAllCustomers(session.user.role);
 
   try {
     [totalCustomers, interestedCustomers, followUps, totalCalls, customers, initialTenant] = await Promise.all([
@@ -69,6 +71,7 @@ export default async function DashboardPage() {
   return (
     <DashboardClient
       user={session.user}
+      canDeleteAllCustomers={canDeleteAllCustomers}
       initialTenantName={initialTenantName}
       initialMetrics={{ totalCustomers, interestedCustomers, followUps, totalCalls }}
       initialCustomers={customers}

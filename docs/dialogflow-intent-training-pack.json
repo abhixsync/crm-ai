@@ -1,0 +1,151 @@
+{
+  "languageCode": "en",
+  "intents": [
+    {
+      "displayName": "interested",
+      "trainingPhrases": [
+        "i need a personal loan",
+        "i need a loan this week",
+        "yes i am interested",
+        "i want to apply for a loan",
+        "i want a home loan",
+        "i want a business loan",
+        "loan chahiye",
+        "mujhe loan chahiye",
+        "mujhe personal loan chahiye",
+        "haan interested hoon",
+        "yes please tell me details",
+        "can you help me with loan"
+      ],
+      "responses": [
+        "Great. What loan amount are you looking for, and by when do you need it?",
+        "Happy to help. Please share the loan type and approximate amount."
+      ]
+    },
+    {
+      "displayName": "loan_type_shared",
+      "trainingPhrases": [
+        "personal loan",
+        "home loan",
+        "business loan",
+        "car loan",
+        "auto loan",
+        "education loan",
+        "personal loan chahiye",
+        "home loan chahiye",
+        "business loan chahiye"
+      ],
+      "responses": [
+        "Got it. What loan amount do you need, and when do you plan to apply?",
+        "Understood. Please share the expected amount and timeline."
+      ]
+    },
+    {
+      "displayName": "loan_amount_shared",
+      "trainingPhrases": [
+        "i need 5 lakh",
+        "around 10 lakh",
+        "loan amount 8 lakh",
+        "500000",
+        "750000",
+        "mujhe 5 lakh chahiye",
+        "mujhe 8 lakh chahiye",
+        "amount 12 lakh",
+        "i need 3 lakh"
+      ],
+      "responses": [
+        "Thanks. Is this for personal, home, business, or auto loan?",
+        "Understood. Please confirm loan type and your monthly income range."
+      ]
+    },
+    {
+      "displayName": "emi_or_income_shared",
+      "trainingPhrases": [
+        "my monthly income is 60000",
+        "income 50000",
+        "salary 75000",
+        "monthly salary is 90000",
+        "emi should be 15000",
+        "preferred emi 12000",
+        "meri income 70000 hai",
+        "meri salary 80000 hai"
+      ],
+      "responses": [
+        "Thank you. Based on this, our advisor will evaluate eligibility and guide next steps.",
+        "Great. We have your details. Would you like a callback from our loan officer today?"
+      ]
+    },
+    {
+      "displayName": "call_back_later",
+      "trainingPhrases": [
+        "call me later",
+        "can you call me tomorrow",
+        "i am busy now",
+        "i am in a meeting",
+        "call back later",
+        "please call after 6 pm",
+        "abhi busy hoon",
+        "baad me call karo",
+        "kal call karna",
+        "abhi time nahi hai"
+      ],
+      "responses": [
+        "Sure, no problem. Please share a suitable callback time.",
+        "Understood. We will call you back at a better time."
+      ]
+    },
+    {
+      "displayName": "not_interested",
+      "trainingPhrases": [
+        "not interested",
+        "no thanks",
+        "i do not need a loan",
+        "dont need loan",
+        "i am not looking for loan",
+        "loan nahi chahiye",
+        "mujhe loan nahi chahiye",
+        "nhi chahiye",
+        "interest nahi hai",
+        "abhi loan nahi lena"
+      ],
+      "responses": [
+        "Understood. Thank you for your time.",
+        "No problem. We will close this call now. Thank you."
+      ]
+    },
+    {
+      "displayName": "do_not_call",
+      "trainingPhrases": [
+        "do not call me again",
+        "dont call me",
+        "stop calling me",
+        "remove my number",
+        "never call me",
+        "dobara call mat karna",
+        "mera number hata do",
+        "call mat karo"
+      ],
+      "responses": [
+        "Understood. We will mark this number as do-not-call.",
+        "Sorry for the inconvenience. We will not call this number again."
+      ]
+    },
+    {
+      "displayName": "greeting",
+      "trainingPhrases": [
+        "hello",
+        "hi",
+        "good morning",
+        "good evening",
+        "haan bolo",
+        "ji",
+        "hello ji",
+        "yes"
+      ],
+      "responses": [
+        "Hello. Are you currently looking for a personal, home, business, or auto loan?",
+        "Hi. I can help with loan options. Which type of loan are you interested in?"
+      ]
+    }
+  ]
+}

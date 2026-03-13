@@ -68,7 +68,7 @@ async function main() {
     });
   }
 
-  const providerName = "OpenAI Default";
+  const providerName = "OpenAI";
   const existingProvider = await prisma.aiProviderConfig.findUnique({
     where: { name: providerName },
   });
@@ -87,7 +87,67 @@ async function main() {
     });
   }
 
-  const telephonyProviderName = "Twilio Default";
+  // Add Claude provider
+  const claudeProviderName = "Claude AI";
+  const existingClaudeProvider = await prisma.aiProviderConfig.findUnique({
+    where: { name: claudeProviderName },
+  });
+
+  if (!existingClaudeProvider) {
+    await prisma.aiProviderConfig.create({
+      data: {
+        name: claudeProviderName,
+        type: AiProviderType.CLAUDE,
+        model: "claude-3-5-sonnet-20241022",
+        apiKey: process.env.ANTHROPIC_API_KEY || null,
+        priority: 2,
+        enabled: true,
+        isActive: false,
+      },
+    });
+  }
+
+  // Add Groq provider
+  const groqProviderName = "Groq AI";
+  const existingGroqProvider = await prisma.aiProviderConfig.findUnique({
+    where: { name: groqProviderName },
+  });
+
+  if (!existingGroqProvider) {
+    await prisma.aiProviderConfig.create({
+      data: {
+        name: groqProviderName,
+        type: AiProviderType.GROQ,
+        model: "mixtral-8x7b-32768",
+        apiKey: process.env.GROQ_API_KEY || null,
+        priority: 3,
+        enabled: true,
+        isActive: false,
+      },
+    });
+  }
+
+  // Add Dialogflow provider
+  const dialogflowProviderName = "Dialogflow AI";
+  const existingDialogflowProvider = await prisma.aiProviderConfig.findUnique({
+    where: { name: dialogflowProviderName },
+  });
+
+  if (!existingDialogflowProvider) {
+    await prisma.aiProviderConfig.create({
+      data: {
+        name: dialogflowProviderName,
+        type: AiProviderType.DIALOGFLOW,
+        endpoint: "https://dialogflow.googleapis.com/v2",
+        model: "dialogflow-es",
+        priority: 4,
+        enabled: true,
+        isActive: false,
+      },
+    });
+  }
+
+  const telephonyProviderName = "Twilio";
   const existingTelephonyProvider = await prisma.telephonyProviderConfig.findUnique({
     where: { name: telephonyProviderName },
   });

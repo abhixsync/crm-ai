@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { SettingsTabs } from "@/components/admin/settings-tabs";
 
-export default async function AdminSettingsPage() {
+export default async function AdminSettingsPage({ searchParams }) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -16,6 +16,17 @@ export default async function AdminSettingsPage() {
     redirect("/dashboard");
   }
 
+  const resolvedSearchParams = (await searchParams) || {};
+
+  const rawTypeParam = Array.isArray(resolvedSearchParams?.type)
+    ? resolvedSearchParams.type[0]
+    : resolvedSearchParams?.type;
+  const normalizedTypeParam = String(rawTypeParam || "").trim().toLowerCase();
+
+  if (!normalizedTypeParam) {
+    redirect("/admin/settings?type=profile");
+  }
+
   return (
     <main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -24,7 +35,7 @@ export default async function AdminSettingsPage() {
             <Link href="/dashboard" className="hover:text-slate-800">
               Home
             </Link>
-            <span className="px-1">-&gt;</span>
+            <span className="px-1">→</span>
             <span className="text-slate-700">Settings</span>
           </nav>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h1>

@@ -72,6 +72,7 @@ function getBlockedTransitionSet(currentStatus) {
 
 export function DashboardClient({
   user,
+  canDeleteAllCustomers = false,
   initialTenantName,
   initialMetrics,
   initialCustomers,
@@ -80,6 +81,7 @@ export function DashboardClient({
   const { data: session } = useSession();
   const { theme } = useTheme();
   const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const canConfigureUploadEnqueue = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
   const searchParams = useSearchParams();
 
   const [tenantName, setTenantName] = useState(initialTenantName || "CRM");
@@ -90,6 +92,7 @@ export function DashboardClient({
   const [statusFilter, setStatusFilter] = useState("");
   const [statusUpdatingById, setStatusUpdatingById] = useState({});
   const [uploading, setUploading] = useState(false);
+  const [enqueueAfterUpload, setEnqueueAfterUpload] = useState(false);
   const [loadingCustomers, setLoadingCustomers] = useState(
     Array.isArray(initialCustomers) && initialCustomers.length === 0 && Number(initialPagination?.total || 0) > 0
   );
@@ -728,17 +731,44 @@ export function DashboardClient({
     setUploading(true);
     const formData = new FormData();
     formData.set("file", file);
+    formData.set("enqueue", canConfigureUploadEnqueue && enqueueAfterUpload ? "true" : "false");
 
-    await fetch("/api/leads/upload", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const response = await fetch("/api/leads/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
 
-    setUploading(false);
-    event.target.value = "";
-    setShowAddCustomerModal(false);
-    await fetchMetrics();
-    await fetchCustomers();
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to upload leads.");
+      }
+
+      const totalRows = Number(data.totalRows || 0);
+      const successRows = Number(data.successRows || 0);
+      const failedRows = Number(data.failedRows || 0);
+      const enqueueRequested = Boolean(data.enqueue?.requested);
+      const enqueueCandidates = Number(data.enqueue?.candidates || 0);
+
+      toast.success(
+        failedRows > 0
+          ? `Upload complete: ${successRows}/${totalRows} rows processed, ${failedRows} failed.`
+          : `Upload complete: ${successRows}/${totalRows} rows processed.`
+      );
+
+      if (enqueueRequested && enqueueCandidates > 0) {
+        toast.info(`AI campaign enqueue requested in background for ${enqueueCandidates} customers.`);
+      }
+
+      event.target.value = "";
+      setShowAddCustomerModal(false);
+      setEnqueueAfterUpload(false);
+      await Promise.all([fetchMetrics(), fetchCustomers(1)]);
+    } catch (error) {
+      toast.error(error?.message || "Unable to upload leads.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function triggerCall(customer) {
@@ -871,6 +901,7 @@ export function DashboardClient({
   function startCreateCustomer() {
     setEditingCustomerId("");
     setCustomerForm(EMPTY_CUSTOMER_FORM);
+    setEnqueueAfterUpload(false);
     setCreationMode("manual");
     setShowAddCustomerModal(true);
   }
@@ -1533,7 +1564,7 @@ export function DashboardClient({
                 <Plus className="mr-1 h-4 w-4" />
                 Add Customer
               </Button>
-              {user.role === "SUPER_ADMIN" ? (
+              {canDeleteAllCustomers ? (
                 <Button
                   variant="destructive"
                   onClick={confirmDeleteAllCustomers}
@@ -1606,6 +1637,7 @@ export function DashboardClient({
                     setShowAddCustomerModal(false);
                     if (!editingCustomerId) {
                       resetCustomerForm();
+                      setEnqueueAfterUpload(false);
                     }
                   }}
                 >
@@ -1624,6 +1656,18 @@ export function DashboardClient({
                     <Button variant="secondary" className="w-fit">Download (sample.xlsx)</Button>
                   </Link>
                 </div>
+                {canConfigureUploadEnqueue ? (
+                  <label className="mb-3 flex items-start gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={enqueueAfterUpload}
+                      onChange={(event) => setEnqueueAfterUpload(event.target.checked)}
+                      disabled={uploading}
+                    />
+                    <span>Enqueue uploaded customers for AI campaign in background after upload.</span>
+                  </label>
+                ) : null}
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">
                   <Upload className="h-4 w-4" />
                   {uploading ? "Uploading..." : "Select Excel File"}

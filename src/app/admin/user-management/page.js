@@ -34,7 +34,7 @@ export default async function UserManagementPage() {
             <Link href="/dashboard" className="hover:text-slate-800">
               Home
             </Link>
-            <span className="px-1">-&gt;</span>
+            <span className="px-1">→</span>
             <span className="text-slate-700">User Management</span>
           </nav>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">User Management</h1>

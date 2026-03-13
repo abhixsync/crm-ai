@@ -1,6 +1,8 @@
 import { AiProviderType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createOpenAIEngine } from "@/lib/ai/adapters/openai-adapter";
+import { createClaudeEngine } from "@/lib/ai/adapters/claude-adapter";
+import { createGroqEngine } from "@/lib/ai/adapters/groq-adapter";
 import { createHttpEngine } from "@/lib/ai/adapters/http-adapter";
 import { createDialogflowEngine } from "@/lib/ai/adapters/dialogflow-adapter";
 import { AIEngineRegistry } from "@/lib/ai/engine-registry";
@@ -8,6 +10,8 @@ import { createEngineInput } from "@/lib/ai/engine-contract";
 
 const registry = new AIEngineRegistry();
 registry.register(AiProviderType.OPENAI, createOpenAIEngine());
+registry.register(AiProviderType.CLAUDE, createClaudeEngine());
+registry.register(AiProviderType.GROQ, createGroqEngine());
 registry.register(AiProviderType.DIALOGFLOW, createDialogflowEngine());
 registry.register(AiProviderType.RASA, createHttpEngine("rasa-engine"));
 registry.register(AiProviderType.GENERIC_HTTP, createHttpEngine("generic-http-engine"));
@@ -53,6 +57,43 @@ async function resolveProviders() {
     return providers;
   }
 
+  // Fallback chain: Groq (free) → Claude (free tier) → OpenAI
+  if (process.env.GROQ_API_KEY) {
+    return [
+      {
+        id: "implicit-groq",
+        name: "Implicit Groq",
+        type: AiProviderType.GROQ,
+        endpoint: null,
+        apiKey: process.env.GROQ_API_KEY,
+        model: "mixtral-8x7b-32768",
+        priority: 1,
+        enabled: true,
+        isActive: true,
+        timeoutMs: 12000,
+        metadata: null,
+      },
+    ];
+  }
+
+  if (process.env.ANTHROPIC_API_KEY) {
+    return [
+      {
+        id: "implicit-claude",
+        name: "Implicit Claude",
+        type: AiProviderType.CLAUDE,
+        endpoint: null,
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        model: "claude-3-5-sonnet-20241022",
+        priority: 1,
+        enabled: true,
+        isActive: true,
+        timeoutMs: 12000,
+        metadata: null,
+      },
+    ];
+  }
+
   return [
     {
       id: "implicit-openai",
@@ -87,7 +128,11 @@ async function callProvider(provider, task, payload) {
           ? "Rasa adapter"
           : provider.type === AiProviderType.GENERIC_HTTP
             ? "Generic HTTP adapter"
-            : "OpenAI adapter",
+            : provider.type === AiProviderType.CLAUDE
+              ? "Claude AI adapter"
+              : provider.type === AiProviderType.GROQ
+                ? "Groq AI adapter"
+                : "OpenAI adapter",
   };
 
   const output = await engine.run({
@@ -99,17 +144,23 @@ async function callProvider(provider, task, payload) {
   return output.result;
 }
 
-export async function runAIWithFailover({ task, payload }) {
+export async function runAIWithFailover({ task, payload, activeOnly = false }) {
   const providers = await resolveProviders();
+  const candidates = activeOnly
+    ? (() => {
+        const active = providers.find((provider) => provider.isActive);
+        return active ? [active] : providers.slice(0, 1);
+      })()
+    : providers;
   const errors = [];
 
-  for (const provider of providers) {
+  for (const provider of candidates) {
     try {
       const result = await callProvider(provider, task, payload);
       return {
         provider,
         result,
-        attempted: providers.map((candidate) => candidate.name),
+        attempted: candidates.map((candidate) => candidate.name),
         errors,
       };
     } catch (error) {

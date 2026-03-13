@@ -52,6 +52,8 @@ enum TaskStatus {
 
 enum AiProviderType {
   OPENAI
+  CLAUDE
+  GROQ
   DIALOGFLOW
   RASA
   GENERIC_HTTP
@@ -76,14 +78,18 @@ enum CampaignJobStatus {
 //////////////////////////////////////////////////////
 
 model Tenant {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  crmName     String?  // Override for CRM display name
-  isActive    Boolean  @default(true)
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  crmName       String?  // Override for CRM display name
+  aiAgentName   String   @default("Priya") // Configurable AI agent name
+  loanAssistantCompanyName String? // Company name for loan assistant (fallback: tenant.name)
+  loanAssistantHumanAdvisorName String @default("John Doe") // Human advisor name announced in interested closing handoff
+  loanAssistantCallbackPhone String? // Tenant-specific callback phone for loan assistant closing message
+  isActive      Boolean  @default(true)
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   users       User[]
   customers   Customer[]
