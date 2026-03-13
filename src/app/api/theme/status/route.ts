@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const tenantId = searchParams.get("tenantId");
-    return await getTenantThemeStatusController(auth.session as any, tenantId);
+    return await getTenantThemeStatusController(auth.session, tenantId);
   } catch (error: any) {
     return Response.json({ error: error.message || "Failed to get theme status" }, { status: 500 });
   }

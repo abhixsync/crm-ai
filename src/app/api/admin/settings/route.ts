@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const tenantIdParam = url.searchParams.get('tenantId');
     
-    const context = resolveTenantContext(auth.session as any);
+    const context = resolveTenantContext(auth.session);
     let tenantId = context.tenantId;
 
     // Allow super admin to specify tenantId
@@ -42,7 +42,7 @@ export async function PUT(request: Request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  if (!hasRole(auth.session as any, ["ADMIN", "SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["ADMIN", "SUPER_ADMIN"])) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -54,7 +54,7 @@ export async function PUT(request: Request) {
     const crmName = payload?.crmName;
     const tenantDisplayName = payload?.tenantDisplayName;
 
-    const context = resolveTenantContext(auth.session as any);
+    const context = resolveTenantContext(auth.session);
     let tenantId = context.tenantId;
 
     // Allow super admin to specify tenantId
