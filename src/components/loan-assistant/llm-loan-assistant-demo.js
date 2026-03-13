@@ -12,6 +12,7 @@ import { detectLanguageStyleFromText } from "@/lib/ai/language-style";
  */
 export function LLMLoanAssistantDemo() {
   const { data: session } = useSession();
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
   const [profile, setProfile] = useState({
     name: "",
     city: "Meerut",
@@ -48,6 +49,15 @@ export function LLMLoanAssistantDemo() {
   const isLoadingRef = useRef(false);
   const messageInFlightRef = useRef(false);
   const lastVoiceTranscriptRef = useRef({ normalized: "", ts: 0 });
+
+  const updateVoiceWarning = (message) => {
+    if (isSuperAdmin) {
+      setVoiceWarning(String(message || ""));
+      return;
+    }
+
+    setVoiceWarning("");
+  };
 
   const getStatusText = () => {
     if (!sessionId) return "Idle";
@@ -121,6 +131,12 @@ export function LLMLoanAssistantDemo() {
       };
     });
   }, [session?.user?.name]);
+
+  useEffect(() => {
+    if (!isSuperAdmin && voiceWarning) {
+      setVoiceWarning("");
+    }
+  }, [isSuperAdmin, voiceWarning]);
 
   useEffect(() => {
     if (!canUseBrowserTTS) {
@@ -646,10 +662,10 @@ export function LLMLoanAssistantDemo() {
         if (preferIndianVoice && preferredVoiceGender === "female" && (!foundIndianVoice || !foundPreferredGender)) {
           if (!warnedAboutVoiceRef.current) {
             warnedAboutVoiceRef.current = true;
-            setVoiceWarning("Indian female browser voice is not available in this OS voice pack.");
+            updateVoiceWarning("Indian female browser voice is not available in this OS voice pack.");
           }
         } else {
-          setVoiceWarning("");
+          updateVoiceWarning("");
         }
       }
 
@@ -765,7 +781,7 @@ export function LLMLoanAssistantDemo() {
     }
 
     if (!canUseAnyTTS) {
-      setVoiceWarning("No supported TTS playback available in this browser.");
+      updateVoiceWarning("No supported TTS playback available in this browser.");
       return;
     }
 
@@ -793,11 +809,11 @@ export function LLMLoanAssistantDemo() {
     if (useElevenLabsTTS) {
       speakTextWithElevenLabs(text, effectiveStyle, effectiveScript, sessionIdForCallback, isVoiceModeForCallback, shouldRestartListening)
         .then(() => {
-          setVoiceWarning("");
+          updateVoiceWarning("");
         })
         .catch((error) => {
           console.error("[VOICE] ❌ ElevenLabs TTS error:", error.message);
-          setVoiceWarning(`ElevenLabs TTS unavailable: ${error.message}`);
+          updateVoiceWarning(`ElevenLabs TTS unavailable: ${error.message}`);
 
           if (allowBrowserTtsFallback) {
             const fallbackOk = speakTextWithBrowser(
@@ -828,7 +844,7 @@ export function LLMLoanAssistantDemo() {
     );
 
     if (!ok) {
-      setVoiceWarning("Browser TTS failed to play audio.");
+      updateVoiceWarning("Browser TTS failed to play audio.");
       setIsSpeaking(false);
       isAISpeakingRef.current = false;
     }
@@ -1152,7 +1168,7 @@ export function LLMLoanAssistantDemo() {
         </Card>
       )}
 
-      {voiceWarning && (
+      {isSuperAdmin && voiceWarning && (
         <Card className="border-amber-300 bg-amber-50 p-4">
           <p className="text-sm text-amber-900">⚠️ {voiceWarning}</p>
         </Card>
