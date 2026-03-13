@@ -88,7 +88,7 @@ http://localhost:3000/llm-loan-assistant-demo
 
 #### Option B: API Test
 ```bash
-node test-llm-agent.js
+node scripts/tests/test-llm-agent.js
 ```
 
 #### Option C: Voice Demo

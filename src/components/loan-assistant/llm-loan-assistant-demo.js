@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { detectLanguageStyleFromText } from "@/lib/ai/language-style";
@@ -10,8 +11,9 @@ import { detectLanguageStyleFromText } from "@/lib/ai/language-style";
  * Uses intelligent AI (ChatGPT/Claude-level) instead of keywords
  */
 export function LLMLoanAssistantDemo() {
+  const { data: session } = useSession();
   const [profile, setProfile] = useState({
-    name: "Abhishek Shukla",
+    name: "",
     city: "Meerut",
     monthly_income: 500000,
     employment_type: "salaried",
@@ -101,6 +103,24 @@ export function LLMLoanAssistantDemo() {
   const FEMALE_VOICE_HINT_REGEX = /female|woman|heera|kalpana|swara|priya|aditi|samantha|google hindi|google uk english female|zira/i;
   const MALE_VOICE_HINT_REGEX = /male|man|ravi|arjun|david|alex|daniel|google uk english male/i;
   const INDIAN_VOICE_HINT_REGEX = /india|indian|hindi|en-in|hi-in|heera|swara|raveena|aditi|kalpana|priya/i;
+
+  useEffect(() => {
+    const adminName = String(session?.user?.name || "").trim();
+    if (!adminName) {
+      return;
+    }
+
+    setProfile((current) => {
+      if (String(current.name || "").trim()) {
+        return current;
+      }
+
+      return {
+        ...current,
+        name: adminName,
+      };
+    });
+  }, [session?.user?.name]);
 
   useEffect(() => {
     if (!canUseBrowserTTS) {

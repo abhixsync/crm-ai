@@ -1,5 +1,5 @@
 // Test script to verify intent detection for declining phrases
-import { detectIntent } from './src/modules/loan-assistant/intent-detector.js';
+import { detectIntent } from '../../src/modules/loan-assistant/intent-detector.js';
 
 const testPhrases = [
   'nhi lena muje',

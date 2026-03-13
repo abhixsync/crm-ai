@@ -28,7 +28,7 @@ POST /api/loan-assistant/voice-conversation
 | API Route | `src/app/api/loan-assistant/voice-conversation/route.js` |
 | Demo Page | `src/app/llm-loan-assistant-demo/page.js` |
 | Voice Utils | `src/lib/voice/loan-assistant-voice.js` |
-| Quick Start | `QUICKSTART_LLM.md` |
+| Quick Start | `docs/QUICKSTART_LLM.md` |
 | Full Docs | `docs/LLM_VOICE_AGENT_SETUP.md` |
 
 ## What AI Understands

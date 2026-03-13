@@ -101,7 +101,7 @@ Created 3 comprehensive guides:
 
 | Document | Purpose | Location |
 |----------|---------|----------|
-| **QUICKSTART_LLM.md** | 5-min setup | Root directory |
+| **QUICKSTART_LLM.md** | 5-min setup | `docs/` |
 | **LLM_VOICE_AGENT_SETUP.md** | Detailed guide | `docs/` |
 | **LLM_IMPLEMENTATION_COMPLETE.md** | Full reference | `docs/` |
 
@@ -332,10 +332,9 @@ src/
 ### Documentation
 ```
 docs/
+├── QUICKSTART_LLM.md                      [NEW] 5-min guide
 ├── LLM_VOICE_AGENT_SETUP.md                 [NEW] Detailed setup
 └── LLM_IMPLEMENTATION_COMPLETE.md           [NEW] Full reference
-
-QUICKSTART_LLM.md                            [NEW] 5-min guide
 ```
 
 ---

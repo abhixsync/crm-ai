@@ -1,6 +1,6 @@
 /**
  * Test Script for LLM Voice Agent
- * Run with: node test-llm-agent.js
+ * Run with: node scripts/tests/test-llm-agent.js
  */
 
 async function testLLMAgent() {
