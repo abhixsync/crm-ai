@@ -14,7 +14,7 @@ function buildMenuItems(role) {
   ];
 
   if (role === "ADMIN" || role === "SUPER_ADMIN") {
-    items.push({ href: "/admin/settings", label: "Settings" });
+    items.push({ href: "/admin/settings?type=profile", label: "Settings", matchPath: "/admin/settings" });
   }
 
   if (role === "ADMIN" || role === "SUPER_ADMIN") {

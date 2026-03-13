@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { SettingsTabs } from "@/components/admin/settings-tabs";
 
-export default async function AdminSettingsPage() {
+export default async function AdminSettingsPage({ searchParams }) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -14,6 +14,17 @@ export default async function AdminSettingsPage() {
   const role = session.user.role;
   if (!role || !["ADMIN", "SUPER_ADMIN"].includes(role)) {
     redirect("/dashboard");
+  }
+
+  const resolvedSearchParams = (await searchParams) || {};
+
+  const rawTypeParam = Array.isArray(resolvedSearchParams?.type)
+    ? resolvedSearchParams.type[0]
+    : resolvedSearchParams?.type;
+  const normalizedTypeParam = String(rawTypeParam || "").trim().toLowerCase();
+
+  if (!normalizedTypeParam) {
+    redirect("/admin/settings?type=profile");
   }
 
   return (
