@@ -109,6 +109,22 @@ function hasExplicitNegativeSignal(message) {
   );
 }
 
+function hasRepetitionComplaint(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) return false;
+
+  return (
+    text.includes('already asked') ||
+    text.includes('you asked that') ||
+    text.includes('same question') ||
+    text.includes('repeat') ||
+    text.includes('repeating') ||
+    text.includes('again and again') ||
+    text.includes('bar bar') ||
+    text.includes('baar baar')
+  );
+}
+
 function startsWithNaturalAck(text) {
   return /^(ji|haan|sure|ok|okay|right|samajh|bilkul|understood)[\s,.!]/i.test(String(text || '').trim());
 }
@@ -138,6 +154,35 @@ function areMessagesNearDuplicate(previousMessage, nextMessage) {
   }
 
   return false;
+}
+
+function detectPromptSlot(message) {
+  const normalized = normalizeMessageForRepeatCheck(message);
+  if (!normalized) {
+    return null;
+  }
+
+  if (/(loan type|personal loan|home loan|business loan|auto loan|which loan|kis type)/.test(normalized)) {
+    return 'loanType';
+  }
+
+  if (/(loan amount|how much|kitna|amount|lakh|lac|crore|rupees|rs)/.test(normalized)) {
+    return 'amount';
+  }
+
+  if (/(by when|timeline|kab tak|when do you need|this week|this month|apply)/.test(normalized)) {
+    return 'timeline';
+  }
+
+  if (/(employment|salaried|self employed|self-employed|business|job)/.test(normalized)) {
+    return 'employment';
+  }
+
+  if (/(eligibility check|next step|proceed)/.test(normalized)) {
+    return 'nextStep';
+  }
+
+  return null;
 }
 
 function humanizeCallReply(reply, languageSignal, stage) {
@@ -384,19 +429,33 @@ export class LLMConversationManager {
       return candidateMessage;
     }
 
+    const recentPromptSlots = this.getRecentPromptSlots(3);
+    const candidatePromptSlot = detectPromptSlot(candidateMessage);
+
     const hasNearDuplicate = recentAiMessages.some((message) =>
       areMessagesNearDuplicate(message, candidateMessage)
     );
 
     const asksAlreadyCapturedField = this.messageAsksForCapturedField(candidateMessage);
+    const repeatsPromptSlot = Boolean(
+      candidatePromptSlot && recentPromptSlots.includes(candidatePromptSlot)
+    );
 
-    if (!hasNearDuplicate && !asksAlreadyCapturedField) {
+    if (!hasNearDuplicate && !asksAlreadyCapturedField && !repeatsPromptSlot) {
       return candidateMessage;
     }
 
-    const reason = hasNearDuplicate ? 'duplicate_ai_response' : 'already_captured_field_prompt';
+    const reason = hasNearDuplicate
+      ? 'duplicate_ai_response'
+      : asksAlreadyCapturedField
+        ? 'already_captured_field_prompt'
+        : 'same_prompt_slot_repeated';
     const progressiveFollowUp = this.buildProgressiveFollowUpMessage();
-    if (!recentAiMessages.some((message) => areMessagesNearDuplicate(message, progressiveFollowUp))) {
+    const progressiveSlot = detectPromptSlot(progressiveFollowUp);
+    if (
+      !recentAiMessages.some((message) => areMessagesNearDuplicate(message, progressiveFollowUp)) &&
+      !(progressiveSlot && recentPromptSlots.includes(progressiveSlot))
+    ) {
       console.log(`[LLMConversationManager] Replaced AI response (${reason}) with progressive follow-up.`);
       return progressiveFollowUp;
     }
@@ -428,6 +487,12 @@ export class LLMConversationManager {
       .filter((turn) => turn.role === 'ai' && String(turn.message || '').trim())
       .slice(-normalizedLimit)
       .map((turn) => String(turn.message || '').trim());
+  }
+
+  getRecentPromptSlots(limit = 3) {
+    return this.getRecentAiMessages(limit)
+      .map((message) => detectPromptSlot(message))
+      .filter(Boolean);
   }
 
   messageAsksForCapturedField(message) {
@@ -553,6 +618,8 @@ Customer Profile:
   - Keep each reply short and natural for voice call rhythm
   - Keep language mirroring strict and consistent
   - Be persuasive but never forceful
+  - Never ask for a field that already exists in Extracted Data So Far
+  - If customer says you already asked, acknowledge once and move to the next missing field
   - End only when customer clearly declines, asks not to be called, requests callback, or conversation is fully completed.`;
   }
 
@@ -653,6 +720,9 @@ Customer Profile:
             languageSignal: activeLanguageSignal,
             languageInstruction: getLanguageMirroringInstruction(activeLanguageSignal),
             languageStyleLabel: getLanguageStyleLabel(activeLanguageSignal),
+            extractedData: { ...this.extractedData },
+            recentPromptSlots: this.getRecentPromptSlots(3),
+            repetitionComplaint: hasRepetitionComplaint(customerMessage || ''),
           },
         },
         activeOnly: true,
@@ -722,6 +792,7 @@ Customer Profile:
       const hasStructuredLoanSignal = Boolean(
         extracted.loanType || extracted.amount || extracted.timeline || employmentType
       );
+      const repetitionComplaint = hasRepetitionComplaint(customerMessage);
 
       let finalIntent = String(detectedIntent.intent || 'neutral').toLowerCase();
       let finalConfidence = normalizeConfidence(detectedIntent.confidence, 0.5);
@@ -809,6 +880,13 @@ Customer Profile:
         finalIntent = 'interested';
         finalConfidence = Math.max(finalConfidence, 0.74);
         reasoning = `${reasoning}:structured_signal_guard`;
+      }
+
+      // If customer says the assistant is repeating, keep flow in interested path.
+      if (!END_INTENTS.has(finalIntent) && repetitionComplaint) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.72);
+        reasoning = `${reasoning}:repetition_complaint_guard`;
       }
 
       const shouldEnd = END_INTENTS.has(finalIntent);

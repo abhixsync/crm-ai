@@ -124,6 +124,7 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   if (
     message.includes("yes") ||
     message.includes("haan") ||
+    /\bsure\b/.test(message) ||
     hasInterestedWord ||
     message.includes("bilkul") ||
     message.includes("chalega") ||
@@ -223,6 +224,28 @@ export function extractLoanDetails(message) {
       const num = Number.parseFloat(fallbackAmountMatch[1].replace(/,/g, ''));
       if (Number.isFinite(num)) {
         details.amount = Math.round(num);
+      }
+    }
+
+    // Secondary fallback: standalone rupee-like number (e.g., "50000, today").
+    if (!details.amount) {
+      const numericTokens = normalizedMsg.match(/\d[\d,]{4,11}/g) || [];
+      for (const token of numericTokens) {
+        const digits = String(token || '').replace(/,/g, '');
+        if (!/^\d+$/.test(digits)) {
+          continue;
+        }
+
+        // Ignore likely phone numbers (10+ digits) and too-small values.
+        if (digits.length < 5 || digits.length > 9) {
+          continue;
+        }
+
+        const parsedAmount = Number.parseInt(digits, 10);
+        if (Number.isFinite(parsedAmount) && parsedAmount >= 10000) {
+          details.amount = parsedAmount;
+          break;
+        }
       }
     }
   }

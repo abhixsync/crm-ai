@@ -586,11 +586,192 @@ function hasLoanAmountHint(utterance) {
   return /(?:₹|rs\.?|rupees?)?\s*\d[\d,]*(?:\s*(?:lakh|lac|k|thousand|crore))?/i.test(String(utterance || ""));
 }
 
+function normalizePromptSlot(slot) {
+  const value = String(slot || "").trim();
+  return value || null;
+}
+
+function detectPromptSlotFromText(text) {
+  const normalized = String(text || "")
+    .toLowerCase()
+    .replace(/[.,!?;:'"()[\]{}]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return null;
+
+  if (/(loan type|personal loan|home loan|business loan|auto loan|which loan|kis type)/.test(normalized)) {
+    return "loanType";
+  }
+
+  if (/(loan amount|how much|kitna|amount|lakh|lac|crore|rupees|rs)/.test(normalized)) {
+    return "amount";
+  }
+
+  if (/(by when|timeline|kab tak|when do you need|this week|this month|apply)/.test(normalized)) {
+    return "timeline";
+  }
+
+  if (/(employment|salaried|self employed|self-employed|business|job)/.test(normalized)) {
+    return "employmentType";
+  }
+
+  if (/(eligibility check|next step|proceed)/.test(normalized)) {
+    return "nextStep";
+  }
+
+  return null;
+}
+
+function hasRepetitionComplaintUtterance(utterance) {
+  const text = String(utterance || "").toLowerCase();
+  if (!text) return false;
+
+  return (
+    text.includes("already asked") ||
+    text.includes("you asked that") ||
+    text.includes("same question") ||
+    text.includes("repeat") ||
+    text.includes("repeating") ||
+    text.includes("again and again") ||
+    text.includes("bar bar") ||
+    text.includes("baar baar")
+  );
+}
+
+function toFiniteNumberOrNull(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resolveExtractedSlotState(input) {
+  const contextExtracted = input?.context?.extractedData || {};
+  const customer = input?.customer || {};
+
+  return {
+    loanType: String(contextExtracted.loanType || customer.loanType || "").trim() || null,
+    amount: toFiniteNumberOrNull(contextExtracted.amount || customer.loanAmount || null),
+    timeline: String(contextExtracted.timeline || "").trim() || null,
+    employmentType: String(contextExtracted.employmentType || customer.employmentType || "").trim() || null,
+  };
+}
+
+function getMissingSlots(state) {
+  const order = ["loanType", "amount", "timeline", "employmentType"];
+  return order.filter((slot) => {
+    if (slot === "amount") {
+      return !Number.isFinite(Number(state.amount)) || Number(state.amount) <= 0;
+    }
+    return !String(state[slot] || "").trim();
+  });
+}
+
+function buildSlotQuestion(slot, languageSignal) {
+  if (slot === "loanType") {
+    return getLanguageVariant(languageSignal, {
+      english: "To guide you correctly, is this for personal, home, business, or auto loan?",
+      hinglish: "Aapko sahi guide karne ke liye batayenge, personal, home, business ya auto loan chahiye?",
+      hindiRoman: "Aapko sahi guide karne ke liye batayenge, personal, home, business ya auto loan chahiye?",
+      hindi: "Aapko sahi guide karne ke liye batayenge, personal, home, business ya auto loan chahiye?",
+      defaultText: "To guide you correctly, is this for personal, home, business, or auto loan?",
+    });
+  }
+
+  if (slot === "amount") {
+    return getLanguageVariant(languageSignal, {
+      english: "Noted. What approximate loan amount are you planning for?",
+      hinglish: "Noted ji. Approx loan amount kitni plan kar rahe hain?",
+      hindiRoman: "Noted ji. Approx loan amount kitni plan kar rahe hain?",
+      hindi: "Noted ji. Approx loan amount kitni plan kar rahe hain?",
+      defaultText: "Noted. What approximate loan amount are you planning for?",
+    });
+  }
+
+  if (slot === "timeline") {
+    return getLanguageVariant(languageSignal, {
+      english: "By when do you need the loan, this week, this month, or later?",
+      hinglish: "Loan aapko kab tak chahiye, is week, is month, ya later?",
+      hindiRoman: "Loan aapko kab tak chahiye, is week, is month, ya baad me?",
+      hindi: "Loan aapko kab tak chahiye, is week, is month, ya baad me?",
+      defaultText: "By when do you need the loan, this week, this month, or later?",
+    });
+  }
+
+  if (slot === "employmentType") {
+    return getLanguageVariant(languageSignal, {
+      english: "One quick check: are you salaried or self-employed/business?",
+      hinglish: "Ek quick check, aap salaried hain ya self-employed/business?",
+      hindiRoman: "Ek quick check, aap salaried hain ya self-employed/business?",
+      hindi: "Ek quick check, aap salaried hain ya self-employed/business?",
+      defaultText: "One quick check: are you salaried or self-employed/business?",
+    });
+  }
+
+  return getLanguageVariant(languageSignal, {
+    english: "Should I proceed with a quick eligibility check now?",
+    hinglish: "Kya main ab ek quick eligibility check proceed karun?",
+    hindiRoman: "Kya main ab ek quick eligibility check proceed karun?",
+    hindi: "Kya main ab ek quick eligibility check proceed karun?",
+    defaultText: "Should I proceed with a quick eligibility check now?",
+  });
+}
+
+function pickNextMissingSlot(state, blockedSlots = []) {
+  const blocked = new Set((blockedSlots || []).map((slot) => normalizePromptSlot(slot)).filter(Boolean));
+  const missing = getMissingSlots(state);
+  const firstUnblocked = missing.find((slot) => !blocked.has(slot));
+  return firstUnblocked || missing[0] || null;
+}
+
+function enforceProgressiveTurnReply({ reply, input, languageSignal }) {
+  const latestUtterance = resolveLatestUtterance(input);
+  const repetitionComplaint =
+    Boolean(input?.context?.repetitionComplaint) || hasRepetitionComplaintUtterance(latestUtterance);
+  const recentPromptSlots = Array.isArray(input?.context?.recentPromptSlots)
+    ? input.context.recentPromptSlots.map((slot) => normalizePromptSlot(slot)).filter(Boolean)
+    : [];
+
+  const slotState = resolveExtractedSlotState(input);
+  const candidateSlot = detectPromptSlotFromText(reply);
+  const repeatsRecentSlot = Boolean(candidateSlot && recentPromptSlots.includes(candidateSlot));
+
+  const asksCapturedSlot = Boolean(
+    candidateSlot &&
+      ((candidateSlot === "loanType" && slotState.loanType) ||
+        (candidateSlot === "amount" && Number.isFinite(Number(slotState.amount)) && Number(slotState.amount) > 0) ||
+        (candidateSlot === "timeline" && slotState.timeline) ||
+        (candidateSlot === "employmentType" && slotState.employmentType))
+  );
+
+  if (!repetitionComplaint && !repeatsRecentSlot && !asksCapturedSlot) {
+    return reply;
+  }
+
+  const nextSlot = pickNextMissingSlot(slotState, [candidateSlot, ...recentPromptSlots.slice(-2)]);
+  if (nextSlot) {
+    return buildSlotQuestion(nextSlot, languageSignal);
+  }
+
+  return getLanguageVariant(languageSignal, {
+    english: "Thanks for confirming. I have the required details and will proceed with the next eligibility step.",
+    hinglish: "Thanks ji, details mil gayi hain. Main ab next eligibility step proceed karti hoon.",
+    hindiRoman: "Dhanyavaad, details mil gayi hain. Main ab next eligibility step proceed karti hoon.",
+    hindi: "Dhanyavaad, details mil gayi hain. Main ab next eligibility step proceed karti hoon.",
+    defaultText: "Thanks for confirming. I have the required details and will proceed with the next eligibility step.",
+  });
+}
+
 function buildRuleBasedFallbackTurn(input, languageSignal) {
   const utterance = resolveLatestUtterance(input);
   if (!utterance) return null;
 
   const inferredIntent = inferFallbackIntentFromUtterance(utterance);
+  const slotState = resolveExtractedSlotState(input);
+  const recentPromptSlots = Array.isArray(input?.context?.recentPromptSlots)
+    ? input.context.recentPromptSlots.map((slot) => normalizePromptSlot(slot)).filter(Boolean)
+    : [];
+  const repetitionComplaint =
+    Boolean(input?.context?.repetitionComplaint) || hasRepetitionComplaintUtterance(utterance);
 
   if (inferredIntent === "not_interested") {
     return {
@@ -619,6 +800,14 @@ function buildRuleBasedFallbackTurn(input, languageSignal) {
   }
 
   if (inferredIntent === "interested") {
+    const nextSlot = pickNextMissingSlot(slotState, recentPromptSlots.slice(-2));
+    if (nextSlot) {
+      return {
+        reply: buildSlotQuestion(nextSlot, languageSignal),
+        shouldEnd: false,
+      };
+    }
+
     const hasType = hasLoanTypeHint(utterance);
     const hasAmount = hasLoanAmountHint(utterance);
 
@@ -671,6 +860,16 @@ function buildRuleBasedFallbackTurn(input, languageSignal) {
       }),
       shouldEnd: false,
     };
+  }
+
+  if (repetitionComplaint) {
+    const nextSlot = pickNextMissingSlot(slotState, recentPromptSlots.slice(-2));
+    if (nextSlot) {
+      return {
+        reply: buildSlotQuestion(nextSlot, languageSignal),
+        shouldEnd: false,
+      };
+    }
   }
 
   return {
@@ -774,11 +973,16 @@ async function normalizeTurnResponse(replyText, intentName, languageSignal, cont
     }
   }
 
-  const reply = await adaptReplyToLanguage(
+  const rawReply = await adaptReplyToLanguage(
     replyText || getFallbackTurnReply(languageSignal),
     languageSignal,
     context
   );
+  const reply = enforceProgressiveTurnReply({
+    reply: rawReply,
+    input,
+    languageSignal,
+  });
   const lower = reply.toLowerCase();
   const normalizedIntent = String(intentName || "").trim().toLowerCase();
   const shouldEnd =
