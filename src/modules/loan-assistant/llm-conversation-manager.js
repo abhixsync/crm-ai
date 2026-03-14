@@ -6,6 +6,7 @@
 import { CONVERSATION_STAGES } from './system-prompt.js';
 import {
   detectIntent,
+  detectCallbackPreference,
   detectEmploymentType,
   extractLoanDetails,
 } from './intent-detector.js';
@@ -107,6 +108,14 @@ function hasExplicitNegativeSignal(message) {
     text.includes('mat call') ||
     text.includes('call back later')
   );
+}
+
+function hasLateTimingSignal(message) {
+  return detectCallbackPreference(message)?.reason === 'late_timing';
+}
+
+function inferCallbackTimeFromMessage(message) {
+  return detectCallbackPreference(message)?.callbackTime || null;
 }
 
 function hasRepetitionComplaint(message) {
@@ -645,6 +654,18 @@ Customer Profile:
     const spokenCallbackNumber = formatPhoneForSpeech(callbackNumber) || callbackNumber;
     const finalIntent = String(this.callMeta.intent || '').toLowerCase();
     const shouldUseHumanAdvisorHandoff = ['interested', 'converted'].includes(finalIntent);
+    const callbackTime = String(this.callMeta.callbackTime || '').trim() || 'later';
+    const localizedCallbackTime = this.getLocalizedCallbackTimeLabel(callbackTime);
+
+    if (finalIntent === 'busy' || finalIntent === 'call_back_later') {
+      return this.getLanguageText({
+        english: `Sorry for calling at a bad time. We will call you again ${localizedCallbackTime.english}. If needed, you can also reach us on ${spokenCallbackNumber}.`,
+        hinglish: `Sorry ji, lagta hai maine galat time par call kiya. Hum aapko ${localizedCallbackTime.hinglish} phir call karenge. Zarurat ho to aap hume ${spokenCallbackNumber} par bhi reach kar sakte hain.`,
+        hindiRoman: `Maafi chahungi ji, lagta hai maine galat samay par call kiya. Hum aapko ${localizedCallbackTime.hindiRoman} phir call karenge. Zarurat ho to aap hume ${spokenCallbackNumber} par bhi sampark kar sakte hain.`,
+        hindi: `माफ़ कीजिए जी, लगता है मैंने गलत समय पर कॉल किया। हम आपको ${localizedCallbackTime.hindi} फिर कॉल करेंगे। ज़रूरत हो तो आप हमें ${spokenCallbackNumber} पर भी संपर्क कर सकते हैं।`,
+        defaultText: `Sorry for calling at a bad time. We will call you again ${localizedCallbackTime.english}. If needed, you can also reach us on ${spokenCallbackNumber}.`,
+      });
+    }
 
     if (shouldUseHumanAdvisorHandoff) {
       return this.getLanguageText({
@@ -663,6 +684,64 @@ Customer Profile:
       hindi: `Dhanyavaad ji, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${spokenCallbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
       defaultText: `Thank you for your time. If you need any loan assistance in future, please call our team on ${spokenCallbackNumber}. We are always happy to help.`,
     });
+  }
+
+  getLocalizedCallbackTimeLabel(callbackTime) {
+    const normalized = String(callbackTime || '').trim().toLowerCase() || 'later';
+    const afterTimeMatch = normalized.match(/^after\s+(.+)$/i);
+
+    if (afterTimeMatch?.[1]) {
+      const timeValue = afterTimeMatch[1].trim();
+      return {
+        english: `after ${timeValue}`,
+        hinglish: `${timeValue} ke baad`,
+        hindiRoman: `${timeValue} baje ke baad`,
+        hindi: `${timeValue} बजे के बाद`,
+      };
+    }
+
+    if (normalized === 'tomorrow morning') {
+      return {
+        english: 'tomorrow morning',
+        hinglish: 'kal subah',
+        hindiRoman: 'kal subah',
+        hindi: 'कल सुबह',
+      };
+    }
+
+    if (normalized === 'tomorrow evening') {
+      return {
+        english: 'tomorrow evening',
+        hinglish: 'kal shaam',
+        hindiRoman: 'kal shaam',
+        hindi: 'कल शाम',
+      };
+    }
+
+    if (normalized === 'in the morning') {
+      return {
+        english: 'in the morning',
+        hinglish: 'subah',
+        hindiRoman: 'subah',
+        hindi: 'सुबह',
+      };
+    }
+
+    if (normalized === 'in the evening') {
+      return {
+        english: 'in the evening',
+        hinglish: 'shaam mein',
+        hindiRoman: 'shaam mein',
+        hindi: 'शाम में',
+      };
+    }
+
+    return {
+      english: 'later',
+      hinglish: 'baad mein',
+      hindiRoman: 'baad mein',
+      hindi: 'बाद में',
+    };
   }
 
   /**
@@ -784,6 +863,8 @@ Customer Profile:
       const extracted = extractLoanDetails(customerMessage);
       const employmentType = detectEmploymentType(customerMessage);
 
+      const previousIntent = String(this.callMeta.intent || '').toLowerCase();
+
       if (extracted.loanType) this.extractedData.loanType = extracted.loanType;
       if (extracted.amount) this.extractedData.amount = extracted.amount;
       if (extracted.timeline) this.extractedData.timeline = extracted.timeline;
@@ -863,6 +944,8 @@ Customer Profile:
       // Prevent terminal override on inquiry-style utterances like "please tell me details".
       const inquirySignal = hasInquirySignal(customerMessage);
       const explicitNegativeSignal = hasExplicitNegativeSignal(customerMessage);
+      const lateTimingSignal = hasLateTimingSignal(customerMessage);
+      const callbackPreference = detectCallbackPreference(customerMessage);
       if (
         providerIntent &&
         ['not_interested', 'busy', 'call_back_later'].includes(finalIntent) &&
@@ -889,6 +972,40 @@ Customer Profile:
         reasoning = `${reasoning}:repetition_complaint_guard`;
       }
 
+      if (lateTimingSignal && !explicitNegativeSignal) {
+        finalIntent = 'call_back_later';
+        finalConfidence = Math.max(finalConfidence, 0.9);
+        this.callMeta.callbackTime = callbackPreference?.callbackTime || inferCallbackTimeFromMessage(customerMessage);
+        reasoning = `${reasoning}:late_timing_callback_guard`;
+      }
+
+      if (
+        ['busy', 'call_back_later'].includes(ruleBasedIntent) &&
+        !explicitNegativeSignal &&
+        finalIntent !== 'do_not_call'
+      ) {
+        finalIntent = ruleBasedIntent;
+        finalConfidence = Math.max(finalConfidence, normalizeConfidence(detectedIntent.confidence, 0.88));
+        this.callMeta.callbackTime = this.callMeta.callbackTime || callbackPreference?.callbackTime || inferCallbackTimeFromMessage(customerMessage);
+        reasoning = `${reasoning}:rule_callback_priority`;
+      }
+
+      // Keep previously interested leads from dropping to neutral on short acknowledgement turns
+      // once qualification signals are already captured, unless there is an explicit negative signal.
+      const hadPriorPositiveIntent = previousIntent === 'interested' || previousIntent === 'converted';
+      const hasQualifiedSignals = Boolean(this.extractedData.loanType && this.extractedData.amount);
+      if (
+        !END_INTENTS.has(finalIntent) &&
+        finalIntent === 'neutral' &&
+        hadPriorPositiveIntent &&
+        hasQualifiedSignals &&
+        !explicitNegativeSignal
+      ) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.75);
+        reasoning = `${reasoning}:prior_interest_persistence_guard`;
+      }
+
       const shouldEnd = END_INTENTS.has(finalIntent);
 
       // Determine next stage
@@ -902,7 +1019,10 @@ Customer Profile:
       return {
         intent: finalIntent,
         confidence: finalConfidence,
-        extractedData: { ...this.extractedData },
+        extractedData: {
+          ...this.extractedData,
+          preferredCallbackTime: this.callMeta.callbackTime || null,
+        },
         nextStage,
         shouldEnd,
         reasoning,
@@ -990,7 +1110,10 @@ Customer Profile:
       language_style: languageSignal.style,
       language_script: languageSignal.script,
       conversation_stage: this.currentStage,
-      extracted_data: this.extractedData,
+      extracted_data: {
+        ...this.extractedData,
+        preferredCallbackTime: this.callMeta.callbackTime || null,
+      },
       conversation_length: this.conversationHistory.length,
     };
   }
@@ -1023,7 +1146,10 @@ Customer Profile:
       nextAction: this.callMeta.nextAction,
       languageStyle: languageSignal.style,
       languageScript: languageSignal.script,
-      extractedData: this.extractedData,
+      extractedData: {
+        ...this.extractedData,
+        preferredCallbackTime: this.callMeta.callbackTime || null,
+      },
       turnCount: this.conversationHistory.length,
     };
   }
