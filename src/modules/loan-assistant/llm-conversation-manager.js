@@ -54,6 +54,11 @@ function normalizeConfidence(value, fallback = 0.5) {
   return parsed;
 }
 
+function toFiniteNumberOrNull(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function formatPhoneForSpeech(phoneNumber) {
   const raw = String(phoneNumber || '').trim();
   if (!raw) return '';
@@ -173,11 +178,24 @@ export class LLMConversationManager {
     this.humanAdvisorName = String(humanAdvisorName || 'John Doe').trim() || 'John Doe';
     this.conversationHistory = [];
     this.currentStage = CONVERSATION_STAGES.OPENING;
+    const seededLoanType = String(
+      customerProfile?.loan_interest_type || customerProfile?.loanType || ''
+    ).trim() || null;
+    const seededTimeline = String(
+      customerProfile?.loan_timeline || customerProfile?.timeline || ''
+    ).trim() || null;
+    const seededEmploymentType = String(
+      customerProfile?.employment_type || customerProfile?.employmentType || ''
+    ).trim() || null;
+    const seededAmount = toFiniteNumberOrNull(
+      customerProfile?.loan_amount || customerProfile?.loanAmount || null
+    );
+
     this.extractedData = {
-      loanType: null,
-      amount: null,
-      timeline: null,
-      employmentType: null,
+      loanType: seededLoanType,
+      amount: seededAmount,
+      timeline: seededTimeline,
+      employmentType: seededEmploymentType,
     };
     this.callMeta = {
       startTime: new Date(),
@@ -361,31 +379,78 @@ export class LLMConversationManager {
   }
 
   avoidRepeatedPrompt(candidateMessage) {
-    const previousAiTurn = [...this.conversationHistory]
-      .reverse()
-      .find((turn) => turn.role === 'ai' && String(turn.message || '').trim());
-
-    if (!previousAiTurn) {
+    const recentAiMessages = this.getRecentAiMessages(3);
+    if (!recentAiMessages.length) {
       return candidateMessage;
     }
 
-    if (!areMessagesNearDuplicate(previousAiTurn.message, candidateMessage)) {
+    const hasNearDuplicate = recentAiMessages.some((message) =>
+      areMessagesNearDuplicate(message, candidateMessage)
+    );
+
+    const asksAlreadyCapturedField = this.messageAsksForCapturedField(candidateMessage);
+
+    if (!hasNearDuplicate && !asksAlreadyCapturedField) {
       return candidateMessage;
     }
 
+    const reason = hasNearDuplicate ? 'duplicate_ai_response' : 'already_captured_field_prompt';
     const progressiveFollowUp = this.buildProgressiveFollowUpMessage();
-    if (!areMessagesNearDuplicate(previousAiTurn.message, progressiveFollowUp)) {
-      console.log('[LLMConversationManager] Replaced repeated AI prompt with progressive follow-up.');
+    if (!recentAiMessages.some((message) => areMessagesNearDuplicate(message, progressiveFollowUp))) {
+      console.log(`[LLMConversationManager] Replaced AI response (${reason}) with progressive follow-up.`);
       return progressiveFollowUp;
     }
 
     const fallbackClarification = this.getFallbackClarificationMessage();
-    if (!areMessagesNearDuplicate(previousAiTurn.message, fallbackClarification)) {
-      console.log('[LLMConversationManager] Replaced repeated AI prompt with fallback clarification.');
+    if (!recentAiMessages.some((message) => areMessagesNearDuplicate(message, fallbackClarification))) {
+      console.log(`[LLMConversationManager] Replaced AI response (${reason}) with fallback clarification.`);
       return fallbackClarification;
     }
 
+    const transitionMessage = this.getLanguageText({
+      english: 'Thanks, noted. Let me quickly suggest the best next step for you.',
+      hinglish: 'Thanks ji, noted. Main ab aapke liye best next step suggest karti hoon.',
+      hindiRoman: 'Dhanyavaad ji, noted. Main ab aapke liye best next step suggest karti hoon.',
+      hindi: 'Dhanyavaad ji, noted. Main ab aapke liye best next step suggest karti hoon.',
+      defaultText: 'Thanks, noted. Let me quickly suggest the best next step for you.',
+    });
+    if (!recentAiMessages.some((message) => areMessagesNearDuplicate(message, transitionMessage))) {
+      console.log(`[LLMConversationManager] Replaced AI response (${reason}) with transition message.`);
+      return transitionMessage;
+    }
+
     return candidateMessage;
+  }
+
+  getRecentAiMessages(limit = 3) {
+    const normalizedLimit = Number.isFinite(Number(limit)) ? Math.max(1, Math.round(Number(limit))) : 3;
+    return this.conversationHistory
+      .filter((turn) => turn.role === 'ai' && String(turn.message || '').trim())
+      .slice(-normalizedLimit)
+      .map((turn) => String(turn.message || '').trim());
+  }
+
+  messageAsksForCapturedField(message) {
+    const text = String(message || '').trim();
+    if (!text) return false;
+
+    const normalized = normalizeMessageForRepeatCheck(text);
+    const looksQuestion = text.includes('?') || /^(noted|to guide|one quick check|by when|what|which|how much)/i.test(text);
+    if (!looksQuestion) {
+      return false;
+    }
+
+    const asksLoanType = /(loan type|personal loan|home loan|business loan|auto loan|which loan|kis type)/.test(normalized);
+    const asksAmount = /(loan amount|how much|kitna|amount|lakh|lac|crore)/.test(normalized);
+    const asksTimeline = /(by when|timeline|kab tak|when do you need|this week|this month|apply)/.test(normalized);
+    const asksEmployment = /(employment|salaried|self employed|self-employed|business|job)/.test(normalized);
+
+    return (
+      (asksLoanType && Boolean(this.extractedData.loanType)) ||
+      (asksAmount && Boolean(this.extractedData.amount)) ||
+      (asksTimeline && Boolean(this.extractedData.timeline)) ||
+      (asksEmployment && Boolean(this.extractedData.employmentType))
+    );
   }
 
   /**

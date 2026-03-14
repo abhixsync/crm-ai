@@ -6,6 +6,30 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { detectLanguageStyleFromText } from "@/lib/ai/language-style";
 
+function buildCustomerOptionLabel(customer) {
+  const name = `${String(customer?.firstName || "").trim()} ${String(customer?.lastName || "").trim()}`.trim();
+  const phone = String(customer?.phone || "").trim();
+  const city = String(customer?.city || "").trim();
+
+  const base = name || phone || "Unnamed Customer";
+  if (city && phone) {
+    return `${base} - ${city} - ${phone}`;
+  }
+  if (city) {
+    return `${base} - ${city}`;
+  }
+  if (phone && base !== phone) {
+    return `${base} - ${phone}`;
+  }
+
+  return base;
+}
+
+function toNumberOrFallback(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 /**
  * LLM Loan Assistant Demo with Voice Support
  * Uses intelligent AI (ChatGPT/Claude-level) instead of keywords
@@ -26,6 +50,11 @@ export function LLMLoanAssistantDemo() {
   const [sessionId, setSessionId] = useState(null);
   const [conversation, setConversation] = useState([]);
   const [customerMessage, setCustomerMessage] = useState("");
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedCustomerContext, setSelectedCustomerContext] = useState(null);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [customersLoadError, setCustomersLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
@@ -66,6 +95,21 @@ export function LLMLoanAssistantDemo() {
     if (isListening) return "Listening…";
     if (isLoading) return "Thinking…";
     return "Chat active";
+  };
+
+  const getActiveCustomerBadgeText = () => {
+    const customerName = String(selectedCustomerContext?.name || "").trim();
+    const customerPhone = String(selectedCustomerContext?.phone || "").trim();
+
+    if (!customerName && !customerPhone) {
+      return "";
+    }
+
+    if (customerName && customerPhone) {
+      return `${customerName} - ${customerPhone}`;
+    }
+
+    return customerName || customerPhone;
   };
 
   const canUseBrowserTTS =
@@ -131,6 +175,53 @@ export function LLMLoanAssistantDemo() {
       };
     });
   }, [session?.user?.name]);
+
+  useEffect(() => {
+    if (!session?.user) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const loadCustomers = async () => {
+      setIsLoadingCustomers(true);
+      setCustomersLoadError("");
+
+      try {
+        const response = await fetch("/api/customers?page=1&pageSize=100");
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const message = String(data?.error || `Failed to load customers (${response.status})`).trim();
+          throw new Error(message);
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const customers = Array.isArray(data?.customers) ? data.customers : [];
+        setCustomerOptions(customers);
+      } catch (loadError) {
+        if (cancelled) {
+          return;
+        }
+
+        setCustomerOptions([]);
+        setCustomersLoadError(String(loadError?.message || "Unable to load customer dropdown.").trim());
+      } finally {
+        if (!cancelled) {
+          setIsLoadingCustomers(false);
+        }
+      }
+    };
+
+    loadCustomers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id, session?.user?.tenantId]);
 
   useEffect(() => {
     if (!isSuperAdmin && voiceWarning) {
@@ -353,6 +444,49 @@ export function LLMLoanAssistantDemo() {
     }
 
     stopActiveAudioPlayback();
+  };
+
+  const applySelectedCustomerProfile = (customerId) => {
+    const normalizedId = String(customerId || "").trim();
+    setSelectedCustomerId(normalizedId);
+
+    if (!normalizedId) {
+      setSelectedCustomerContext(null);
+      return;
+    }
+
+    const selected = customerOptions.find((customer) => String(customer?.id || "").trim() === normalizedId);
+    if (!selected) {
+      setSelectedCustomerContext(null);
+      return;
+    }
+
+    const fullName = `${String(selected.firstName || "").trim()} ${String(selected.lastName || "").trim()}`.trim();
+    const selectedExistingLoans = String(selected.existingLoans || selected.loanType || "").trim();
+    const selectedLoanInterestType = String(
+      selected.loanInterestType || selected.loan_interest_type || selected.preferredLoanType || ""
+    ).trim();
+    const shouldResetLoanInterestType = !selectedLoanInterestType && Boolean(String(selected.loanType || "").trim());
+
+    setProfile((current) => ({
+      ...current,
+      name: fullName || current.name,
+      city: String(selected.city || "").trim() || current.city,
+      monthly_income: toNumberOrFallback(selected.monthlyIncome, current.monthly_income),
+      employment_type: String(selected.employmentType || "").trim() || current.employment_type,
+      credit_score: toNumberOrFallback(selected.creditScore, current.credit_score),
+      existing_loans: selectedExistingLoans || current.existing_loans,
+      loan_interest_type: shouldResetLoanInterestType
+        ? ""
+        : selectedLoanInterestType || current.loan_interest_type,
+    }));
+
+    setSelectedCustomerContext({
+      id: selected.id,
+      name: fullName || null,
+      phone: selected.phone || null,
+      email: selected.email || null,
+    });
   };
 
   const handleEndCall = () => {
@@ -867,7 +1001,12 @@ export function LLMLoanAssistantDemo() {
       console.log("[CALL] 📡 Sending init request to /api/loan-assistant/voice-conversation");
       const requestBody = {
         action: "init",
-        customer_profile: profile,
+        customer_profile: {
+          ...profile,
+          ...(selectedCustomerContext?.id ? { id: selectedCustomerContext.id } : {}),
+          ...(selectedCustomerContext?.phone ? { phone: selectedCustomerContext.phone } : {}),
+          ...(selectedCustomerContext?.email ? { email: selectedCustomerContext.email } : {}),
+        },
         is_voice_call: isVoiceMode,
       };
 
@@ -1079,6 +1218,36 @@ export function LLMLoanAssistantDemo() {
       {/* Customer Profile Form */}
       <Card className="p-6">
         <h2 className="mb-4 text-lg font-semibold">Customer Profile</h2>
+
+        <div className="mb-4 space-y-2">
+          <label className="block text-sm font-medium">Use CRM Customer</label>
+          <select
+            value={selectedCustomerId}
+            onChange={(event) => applySelectedCustomerProfile(event.target.value)}
+            disabled={!!sessionId || isLoadingCustomers}
+            className="mt-1 w-full rounded border px-3 py-2"
+          >
+            <option value="">
+              {isLoadingCustomers ? "Loading customers..." : "Custom profile (manual entry)"}
+            </option>
+            {customerOptions.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {buildCustomerOptionLabel(customer)}
+              </option>
+            ))}
+          </select>
+          {!isLoadingCustomers && customerOptions.length > 0 && (
+            <p className="text-xs text-slate-600">
+              Loaded {customerOptions.length} customers. Select one to auto-fill profile fields.
+            </p>
+          )}
+          {!!customersLoadError && (
+            <p className="text-xs text-amber-700">
+              {customersLoadError}
+            </p>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           {Object.entries(profile).map(([key, value]) => (
             <div key={key}>
@@ -1181,9 +1350,16 @@ export function LLMLoanAssistantDemo() {
       {sessionId && (
         <Card className="p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">
-              {isVoiceMode ? "🎤 Voice Call" : "💬 Chat"}
-            </h2>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-semibold">
+                {isVoiceMode ? "🎤 Voice Call" : "💬 Chat"}
+              </h2>
+              {getActiveCustomerBadgeText() && (
+                <p className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
+                  Customer: {getActiveCustomerBadgeText()}
+                </p>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
                 {getStatusText()}
