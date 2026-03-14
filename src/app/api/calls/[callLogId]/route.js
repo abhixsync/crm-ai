@@ -23,7 +23,7 @@ export async function GET(_request, { params }) {
     const callLog = await prisma.callLog.findFirst({
       where: {
         id: callLogId,
-        tenantId: tenant.tenantId,
+        ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }),
       },
       include: {
         customer: {

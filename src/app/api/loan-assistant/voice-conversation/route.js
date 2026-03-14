@@ -19,6 +19,15 @@
  */
 
 import { LLMConversationManager } from '@/modules/loan-assistant/llm-conversation-manager.js';
+import { notifyAdvisorForCallLog, notifyAdvisorForSummary } from '@/lib/notifications/advisor-notifier.js';
+import {
+  buildLoanAssistantFallbackNextAction,
+  buildLoanAssistantFallbackSummary,
+  createLoanAssistantDemoCallLog,
+  ensureLoanAssistantDemoCustomer,
+  finalizeLoanAssistantDemoCallLog,
+  transcriptTurnsToText,
+} from '@/lib/loan-assistant/demo-calllog.js';
 import { prisma } from '@/lib/prisma.js';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth.js';
@@ -151,11 +160,46 @@ export async function POST(request) {
         finalCallbackPhone,
         finalHumanAdvisorName
       );
-      manager.callMeta.isVoiceCall = is_voice_call;
-      isNewSession = true;
-      
       const newSessionId = `llm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      manager.callMeta.tenantId = tenant_id || null;
+      manager.callMeta.isVoiceCall = is_voice_call;
+      manager.callMeta.sessionId = newSessionId;
+      manager.callMeta.callLogId = null;
+      manager.callMeta.customerId = null;
+      isNewSession = true;
+
       activeSessions.set(newSessionId, manager);
+
+      if (tenant_id) {
+        try {
+          const customer = await ensureLoanAssistantDemoCustomer({
+            tenantId: tenant_id,
+            customerProfile: customer_profile,
+            sessionSeed: newSessionId,
+            sourceLabel: 'LLM Loan Assistant Demo',
+          });
+
+          const callLog = await createLoanAssistantDemoCallLog({
+            tenantId: tenant_id,
+            customerId: customer.id,
+            sessionId: newSessionId,
+            sourceKey: is_voice_call ? 'llm_loan_assistant_voice' : 'llm_loan_assistant_chat',
+            attemptNumber: Number(customer.retryCount || 0) + 1,
+          });
+
+          manager.callMeta.customerId = customer.id;
+          manager.callMeta.callLogId = callLog.id;
+
+          console.info('[api/loan-assistant/voice-conversation] CRM call log created for demo session', {
+            sessionId: newSessionId,
+            customerId: customer.id,
+            callLogId: callLog.id,
+          });
+        } catch (persistError) {
+          console.warn('[api/loan-assistant/voice-conversation] Unable to seed CRM call log for demo session:', persistError?.message || persistError);
+        }
+      }
 
       // Generate opening message using LLM
       const aiMessage = await manager.generateAIResponse();
@@ -175,6 +219,7 @@ export async function POST(request) {
           session_id: newSessionId,
           is_new_session: true,
           is_voice_call,
+          call_log_id: manager.callMeta.callLogId || null,
           ai_response: manager.getStructuredOutput(aiMessage),
           message: 'LLM conversation initiated successfully',
         },
@@ -235,7 +280,66 @@ export async function POST(request) {
 
     console.log('Session ending:', shouldEndSession);
 
+    const callSummary = shouldEndSession ? manager.getCallSummary() : null;
+    const transcript = shouldEndSession ? manager.getTranscript() : null;
+    let notification = null;
+    let finalizedCallLogId = null;
+
     if (shouldEndSession) {
+      const summaryText =
+        callSummary?.summary ||
+        buildLoanAssistantFallbackSummary({
+          customerProfile: manager.customerProfile,
+          intent: callSummary?.intent,
+          extractedData: callSummary?.extractedData,
+        });
+      const nextActionText =
+        callSummary?.nextAction || buildLoanAssistantFallbackNextAction(callSummary?.intent);
+      const transcriptText = transcriptTurnsToText(transcript);
+
+      if (manager.callMeta.callLogId && manager.callMeta.tenantId) {
+        try {
+          finalizedCallLogId = await finalizeLoanAssistantDemoCallLog({
+            callLogId: manager.callMeta.callLogId,
+            tenantId: manager.callMeta.tenantId,
+            sessionId: manager.callMeta.sessionId || session_id,
+            sourceKey: is_voice_call ? 'llm_loan_assistant_voice' : 'llm_loan_assistant_chat',
+            summary: summaryText,
+            transcript: transcriptText,
+            intent: callSummary?.intent,
+            nextAction: nextActionText,
+            aiProviderUsed: callSummary?.aiProviderUsed || manager.callMeta.aiProviderUsed || null,
+            durationSecs: callSummary?.duration,
+            extractedData: callSummary?.extractedData,
+          });
+        } catch (persistError) {
+          console.warn('[api/loan-assistant/voice-conversation] Unable to finalize CRM call log for demo session:', persistError?.message || persistError);
+        }
+      }
+
+      if (finalizedCallLogId) {
+        notification = await notifyAdvisorForCallLog(finalizedCallLogId);
+      } else {
+        notification = await notifyAdvisorForSummary({
+          tenantId: manager.callMeta.tenantId || null,
+          customerProfile: manager.customerProfile,
+          intent: callSummary?.intent,
+          summary: summaryText,
+          nextAction: nextActionText,
+          transcript: transcriptText,
+          aiProviderUsed: callSummary?.aiProviderUsed || null,
+          source: is_voice_call ? 'llm_loan_assistant_voice' : 'llm_loan_assistant_chat',
+        });
+      }
+
+      if (!notification.ok && !notification.skipped) {
+        console.warn('[api/loan-assistant/voice-conversation] Advisor notification failed:', notification.reason);
+      } else if (notification?.skipped) {
+        console.info('[api/loan-assistant/voice-conversation] Advisor notification skipped:', notification.reason);
+      } else {
+        console.info('[api/loan-assistant/voice-conversation] Advisor notification result:', notification.channels);
+      }
+
       activeSessions.delete(session_id);
     }
 
@@ -246,8 +350,10 @@ export async function POST(request) {
         is_session_active: !shouldEndSession,
         customer_analysis: analysisResult,
         ai_response: manager.getStructuredOutput(aiMessage),
-        call_summary: shouldEndSession ? manager.getCallSummary() : null,
-        transcript: shouldEndSession ? manager.getTranscript() : null,
+        call_summary: callSummary,
+        transcript,
+        call_log_id: finalizedCallLogId || manager.callMeta.callLogId || null,
+        notification,
       },
       { status: 200 }
     );

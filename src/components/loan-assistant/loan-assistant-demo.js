@@ -196,6 +196,9 @@ export function LoanAssistantDemo() {
 
       // If session ended, show summary
       if (!data.is_session_active && data.call_summary) {
+        if (data.notification) {
+          console.log('Advisor notification result:', data.notification);
+        }
         setConversation((prev) => [
           ...prev,
           {

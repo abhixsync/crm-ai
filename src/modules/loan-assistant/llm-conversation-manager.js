@@ -186,6 +186,8 @@ export class LLMConversationManager {
       callbackTime: null,
       isVoiceCall: false,
       aiProviderUsed: null,
+      summaryText: null,
+      nextAction: null,
       providerSessionId: this.buildProviderSessionId(),
       languageSignal: normalizeLanguageSignal({
         style: LANGUAGE_STYLES.UNKNOWN,
@@ -689,6 +691,10 @@ Customer Profile:
           });
 
           this.callMeta.aiProviderUsed = summaryOutput?.provider?.name || summaryOutput?.provider?.type || this.callMeta.aiProviderUsed;
+          this.callMeta.summaryText =
+            String(summaryOutput?.result?.summary || "").trim() || this.callMeta.summaryText;
+          this.callMeta.nextAction =
+            String(summaryOutput?.result?.nextAction || "").trim() || this.callMeta.nextAction;
           console.log('[LLMConversationManager] CALL_SUMMARY provider used:', this.callMeta.aiProviderUsed);
 
           providerIntent = normalizeProviderIntent(summaryOutput?.result?.intent);
@@ -870,6 +876,8 @@ Customer Profile:
       intent: this.callMeta.intent,
       confidence: this.callMeta.confidence,
       aiProviderUsed: this.callMeta.aiProviderUsed,
+      summary: this.callMeta.summaryText,
+      nextAction: this.callMeta.nextAction,
       languageStyle: languageSignal.style,
       languageScript: languageSignal.script,
       extractedData: this.extractedData,

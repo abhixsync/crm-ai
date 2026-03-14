@@ -2,6 +2,7 @@ import { CallStatus, CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
+import { notifyAdvisorForCallLog } from "@/lib/notifications/advisor-notifier";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 const dispositionMap = {
@@ -40,7 +41,7 @@ export async function POST(request) {
     const customer = await prisma.customer.findFirst({
       where: {
         id: customerId,
-        tenantId: tenant.tenantId,
+        ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }),
       },
       select: { id: true, tenantId: true },
     });
@@ -86,7 +87,15 @@ export async function POST(request) {
       tenantId: customer.tenantId,
     });
 
-    return Response.json({ result });
+    const notification = callLogId
+      ? await notifyAdvisorForCallLog(callLogId)
+      : { ok: false, skipped: true, reason: "missing_call_log_id" };
+
+    if (callLogId && !notification.ok && !notification.skipped) {
+      console.warn("[api/calls/manual/complete] Advisor notification failed:", notification.reason);
+    }
+
+    return Response.json({ result, notification });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
       console.warn("[api/calls/manual/complete] Database unavailable; returning degraded response.");

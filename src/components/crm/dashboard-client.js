@@ -57,6 +57,12 @@ const EMPTY_CUSTOMER_FORM = {
   notes: "",
 };
 
+function formatDebugLabel(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 function toStatusLabel(status) {
   return String(status || "")
     .toLowerCase()
@@ -438,6 +444,8 @@ export function DashboardClient({
           intent: latest.intent || "",
           nextAction: latest.nextAction || "",
           transcript: latest.transcript || "",
+          callFlowDebug: latest.metadata?.callFlowDebug || previous.callFlowDebug || null,
+          advisorNotification: latest.metadata?.advisorNotificationLast || previous.advisorNotification || null,
         };
       });
 
@@ -796,7 +804,12 @@ export function DashboardClient({
       return;
     }
 
-    toast.success(data.info || `Call initiated via ${data.provider || "provider"}.`);
+    if (data.debug?.callFlow?.blockingReason) {
+      toast.warning(data.debug.callFlow.blockingReason);
+    } else {
+      toast.success(data.info || `Call initiated via ${data.provider || "provider"}.`);
+    }
+
     setActiveCall({
       customerName: `${customer.firstName} ${customer.lastName || ""}`.trim(),
       phone: customer.phone,
@@ -808,6 +821,8 @@ export function DashboardClient({
       nextAction: "",
       transcript: "",
       error: "",
+      callFlowDebug: data.debug?.callFlow || data.callLog?.metadata?.callFlowDebug || null,
+      advisorNotification: data.callLog?.metadata?.advisorNotificationLast || null,
     });
     setBusyCallId("");
     await fetchMetrics();
@@ -1344,7 +1359,34 @@ export function DashboardClient({
               <p className="text-sm text-foreground md:col-span-2">
                 <span className="font-semibold">Next Action:</span> {activeCall.nextAction || "Awaiting call outcome"}
               </p>
+              <p className="text-sm text-foreground md:col-span-2">
+                <span className="font-semibold">Call Log ID:</span> {activeCall.callLogId || "-"}
+              </p>
             </div>
+
+            {activeCall.callFlowDebug?.blockingReason ? (
+              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <p className="font-semibold">AI Callback Debug</p>
+                <p className="mt-1">{activeCall.callFlowDebug.blockingReason}</p>
+                <p className="mt-1 text-xs">
+                  Base URL: {activeCall.callFlowDebug.baseUrl || "-"} • Mode: {formatDebugLabel(activeCall.callFlowDebug.mode)}
+                </p>
+              </div>
+            ) : null}
+
+            {activeCall.advisorNotification ? (
+              <div className="mt-3 rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground">
+                <p className="font-semibold">Advisor Notification</p>
+                <p className="mt-1">
+                  Status: {formatDebugLabel(activeCall.advisorNotification.status)}
+                  {activeCall.advisorNotification.reason ? ` • ${activeCall.advisorNotification.reason}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Intent: {activeCall.advisorNotification.intent || "-"}
+                  {activeCall.advisorNotification.at ? ` • ${new Date(activeCall.advisorNotification.at).toLocaleString()}` : ""}
+                </p>
+              </div>
+            ) : null}
 
             {activeCall.summary ? (
               <p className="mt-3 rounded-md bg-muted px-3 py-2 text-sm text-foreground">

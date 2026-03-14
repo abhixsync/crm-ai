@@ -5,6 +5,8 @@ import { runAIWithFailover } from "@/lib/ai/provider-router";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 import { toIntentLabel } from "@/lib/journey/constants";
+import { canonicalizeIntent } from "@/lib/journey/intent-normalization";
+import { notifyAdvisorForCallLog } from "@/lib/notifications/advisor-notifier";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
 
 function xmlEscape(value) {
@@ -74,7 +76,13 @@ async function finishCall(callLogId, customerId, tenantId) {
     return;
   }
 
-  if (callLog.status === CallStatus.COMPLETED && callLog.endedAt) {
+  const alreadyFinalized =
+    callLog.status === CallStatus.COMPLETED &&
+    callLog.endedAt &&
+    String(callLog.summary || "").trim() &&
+    String(callLog.intentClassification || "").trim();
+
+  if (alreadyFinalized) {
     return;
   }
 
@@ -84,7 +92,7 @@ async function finishCall(callLogId, customerId, tenantId) {
     payload: { transcript },
   });
   const analysis = aiOutput.result;
-  const normalizedIntent = String(analysis.intent || "failed").trim().toLowerCase();
+  const normalizedIntent = canonicalizeIntent(analysis.intent || "failed") || "failed";
   const mappedStatus = mapIntentToCustomerStatus(normalizedIntent);
 
   await prisma.callLog.updateMany({
@@ -128,6 +136,15 @@ async function finishCall(callLogId, customerId, tenantId) {
         errorMessage: analysis.nextAction || "Call failed",
       });
     }
+  }
+
+  const advisorNotification = await notifyAdvisorForCallLog(callLog.id);
+  if (!advisorNotification.ok && !advisorNotification.skipped) {
+    console.warn("[api/calls/webhook] Advisor notification failed:", advisorNotification.reason);
+  } else if (advisorNotification.skipped) {
+    console.info("[api/calls/webhook] Advisor notification skipped:", advisorNotification.reason);
+  } else {
+    console.info("[api/calls/webhook] Advisor notification result:", advisorNotification.channels);
   }
 }
 

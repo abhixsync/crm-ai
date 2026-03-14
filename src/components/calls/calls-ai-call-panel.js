@@ -26,6 +26,7 @@ export function CallsAiCallPanel({ customers, role }) {
   const [softphoneTo, setSoftphoneTo] = useState("");
   const [manualDisposition, setManualDisposition] = useState("follow_up");
   const [manualCallContext, setManualCallContext] = useState(null);
+  const [notificationDebug, setNotificationDebug] = useState(null);
   const [activeTelephonyProvider, setActiveTelephonyProvider] = useState(null);
   const [loadingActiveTelephony, setLoadingActiveTelephony] = useState(false);
   const deviceRef = useRef(null);
@@ -248,6 +249,18 @@ export function CallsAiCallPanel({ customers, role }) {
           customerId: selectedCustomer.id,
           callLogId: startData.callLog?.id || null,
         };
+        console.info("[CallsAiCallPanel] Manual call session started", {
+          customerId: activeContext.customerId,
+          callLogId: activeContext.callLogId,
+        });
+        setNotificationDebug({
+          stage: "manual_session_started",
+          callLogId: activeContext.callLogId,
+          customerId: activeContext.customerId,
+          notification: null,
+          handoff: null,
+          error: null,
+        });
         setManualCallContext(activeContext);
       } else if (isNewNumberMode) {
         setManualCallContext(null);
@@ -286,6 +299,7 @@ export function CallsAiCallPanel({ customers, role }) {
 
     if (manualCallContext?.customerId && manualCallContext?.callLogId) {
       setCompletingManualCall(true);
+      const completedCallLogId = manualCallContext.callLogId;
 
       try {
         const response = await fetch("/api/calls/manual/complete", {
@@ -305,8 +319,60 @@ export function CallsAiCallPanel({ customers, role }) {
           throw new Error(data.error || "Unable to persist manual call outcome.");
         }
 
+        console.info("[CallsAiCallPanel] Manual call complete response", data);
+        if (data?.notification) {
+          console.info("[CallsAiCallPanel] Notification result", data.notification);
+        }
+
+        if (completedCallLogId) {
+          try {
+            const debugResponse = await fetch(`/api/calls/debug/notification?callLogId=${encodeURIComponent(completedCallLogId)}`);
+            const debugData = await debugResponse.json();
+            if (debugResponse.ok) {
+              console.info("[CallsAiCallPanel] Notification handoff debug", debugData);
+              setNotificationDebug({
+                stage: "manual_call_completed",
+                callLogId: completedCallLogId,
+                customerId: manualCallContext.customerId,
+                notification: data?.notification || null,
+                handoff: debugData?.debug || null,
+                error: null,
+              });
+            } else {
+              console.warn("[CallsAiCallPanel] Notification handoff debug failed", debugData);
+              setNotificationDebug({
+                stage: "manual_call_completed",
+                callLogId: completedCallLogId,
+                customerId: manualCallContext.customerId,
+                notification: data?.notification || null,
+                handoff: null,
+                error: debugData?.error || "Notification handoff debug failed",
+              });
+            }
+          } catch (debugError) {
+            console.warn("[CallsAiCallPanel] Notification handoff debug request error", debugError);
+            setNotificationDebug({
+              stage: "manual_call_completed",
+              callLogId: completedCallLogId,
+              customerId: manualCallContext.customerId,
+              notification: data?.notification || null,
+              handoff: null,
+              error: debugError?.message || "Notification handoff debug request failed",
+            });
+          }
+        }
+
         toast.success("Manual call outcome saved.");
       } catch (error) {
+        console.error("[CallsAiCallPanel] Manual call completion failed", error);
+        setNotificationDebug({
+          stage: "manual_call_completion_failed",
+          callLogId: completedCallLogId,
+          customerId: manualCallContext.customerId,
+          notification: null,
+          handoff: null,
+          error: error?.message || "Unable to persist manual call outcome.",
+        });
         toast.error(error?.message || "Unable to persist manual call outcome.");
       } finally {
         setCompletingManualCall(false);
@@ -477,6 +543,31 @@ export function CallsAiCallPanel({ customers, role }) {
               Softphone status: {softphoneStatus}{softphoneReady ? " (ready)" : ""}
             </p>
             {softphoneError ? <p className="text-xs text-rose-700">{softphoneError}</p> : null}
+
+            {notificationDebug ? (
+              <div className="rounded-md border border-border bg-muted px-3 py-3 text-sm text-foreground">
+                <p className="font-semibold">Notification Debug</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Stage: {String(notificationDebug.stage || "unknown").replace(/_/g, " ")}
+                  {notificationDebug.callLogId ? ` • Call Log: ${notificationDebug.callLogId}` : ""}
+                </p>
+                {notificationDebug.notification ? (
+                  <p className="mt-2 text-xs">
+                    Result: {notificationDebug.notification.sent ? "sent" : notificationDebug.notification.skipped ? "skipped" : "not sent"}
+                    {notificationDebug.notification.reason ? ` • ${notificationDebug.notification.reason}` : ""}
+                  </p>
+                ) : null}
+                {notificationDebug.handoff?.notification?.last ? (
+                  <p className="mt-1 text-xs">
+                    Audit: {notificationDebug.handoff.notification.last.status || "-"}
+                    {notificationDebug.handoff.notification.last.reason ? ` • ${notificationDebug.handoff.notification.last.reason}` : ""}
+                  </p>
+                ) : null}
+                {notificationDebug.error ? (
+                  <p className="mt-1 text-xs text-rose-700">{notificationDebug.error}</p>
+                ) : null}
+              </div>
+            ) : null}
 
           </>
         )}

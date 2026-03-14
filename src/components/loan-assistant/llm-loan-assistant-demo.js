@@ -1048,6 +1048,9 @@ export function LLMLoanAssistantDemo() {
       if (shouldEndSession) {
         console.log("[MSG] ✅ Session has ended. Click End Call to clear this conversation.");
         console.log("✅ Conversation ended:", data.call_summary);
+        if (data.notification) {
+          console.log("[MSG] Advisor notification result:", data.notification);
+        }
       }
 
       console.log("[MSG] 📊 Analysis:", data.customer_analysis);
