@@ -6,6 +6,7 @@ import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 import { toIntentLabel } from "@/lib/journey/constants";
 import { canonicalizeIntent } from "@/lib/journey/intent-normalization";
+import { evaluateCrmEventDecision } from "@/lib/crm/event-triggers";
 import { notifyAdvisorForCallLog } from "@/lib/notifications/advisor-notifier";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -44,6 +45,10 @@ function mapIntentToCustomerStatus(intent) {
   if (normalized === "failed") return CustomerStatus.CALL_FAILED;
 
   return CustomerStatus.CALL_FAILED;
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 async function appendTranscript(callLogId, speaker, message) {
@@ -92,8 +97,22 @@ async function finishCall(callLogId, customerId, tenantId) {
     payload: { transcript },
   });
   const analysis = aiOutput.result;
-  const normalizedIntent = canonicalizeIntent(analysis.intent || "failed") || "failed";
+  const aiIntent = canonicalizeIntent(analysis.intent || "failed") || "failed";
+  const crmDecision = evaluateCrmEventDecision({
+    transcript,
+    intent: aiIntent,
+    summary: analysis.summary,
+    metadata: callLog.metadata,
+  });
+  const normalizedIntent = canonicalizeIntent(crmDecision.normalizedIntent || aiIntent) || "failed";
   const mappedStatus = mapIntentToCustomerStatus(normalizedIntent);
+
+  const metadata = isPlainObject(callLog.metadata) ? { ...callLog.metadata } : {};
+  metadata.crmEventDecision = {
+    ...crmDecision,
+    source: "calls_webhook_finish",
+    evaluatedAt: new Date().toISOString(),
+  };
 
   await prisma.callLog.updateMany({
     where: { id: callLogId, tenantId: callLog.tenantId },
@@ -101,10 +120,11 @@ async function finishCall(callLogId, customerId, tenantId) {
       summary: analysis.summary,
       intent: toIntentLabel(normalizedIntent),
       intentClassification: normalizedIntent,
-      nextAction: analysis.nextAction,
+      nextAction: crmDecision.recommendedNextAction || analysis.nextAction,
       aiProviderUsed: aiOutput.provider.name,
       status: "COMPLETED",
       endedAt: new Date(),
+      metadata,
     },
   });
 
@@ -119,6 +139,8 @@ async function finishCall(callLogId, customerId, tenantId) {
         lastContactedAt: new Date(),
         aiSummary: analysis.summary,
         aiIntent: normalizedIntent,
+        crmEventAction: crmDecision.action,
+        interestScore: crmDecision.interestScore,
       },
       idempotencyScope: {
         callLogId,

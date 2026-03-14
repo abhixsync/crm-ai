@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { toIntentLabel } from '@/lib/journey/constants';
 import { canonicalizeIntent } from '@/lib/journey/intent-normalization';
+import { evaluateCrmEventDecision } from '@/lib/crm/event-triggers';
 import { normalizePhoneNumber } from '@/lib/telephony/utils';
 
 const E164_PHONE_REGEX = /^\+\d{8,15}$/;
@@ -228,7 +229,14 @@ export async function finalizeLoanAssistantDemoCallLog({
     return null;
   }
 
-  const normalizedIntent = canonicalizeIntent(intent) || 'unknown';
+  const aiIntent = canonicalizeIntent(intent) || 'unknown';
+  const crmDecision = evaluateCrmEventDecision({
+    transcript,
+    intent: aiIntent,
+    summary,
+    metadata: current.metadata,
+  });
+  const normalizedIntent = canonicalizeIntent(crmDecision.normalizedIntent || aiIntent) || aiIntent;
   const metadata = isPlainObject(current.metadata) ? { ...current.metadata } : {};
   metadata.source = sourceKey || metadata.source || 'loan_assistant_demo';
   if (sessionId) {
@@ -238,6 +246,11 @@ export async function finalizeLoanAssistantDemoCallLog({
     ...(isPlainObject(metadata.loanAssistant) ? metadata.loanAssistant : {}),
     finalizedAt: new Date().toISOString(),
     extractedData: isPlainObject(extractedData) ? extractedData : null,
+  };
+  metadata.crmEventDecision = {
+    ...crmDecision,
+    source: 'loan_assistant_demo_finalize',
+    evaluatedAt: new Date().toISOString(),
   };
 
   const fallbackDuration = current.startedAt
@@ -258,7 +271,7 @@ export async function finalizeLoanAssistantDemoCallLog({
       transcript: String(transcript || '').trim() || null,
       intent: toIntentLabel(normalizedIntent),
       intentClassification: normalizedIntent,
-      nextAction: String(nextAction || '').trim() || null,
+      nextAction: String(nextAction || crmDecision.recommendedNextAction || '').trim() || null,
       ...(aiProviderUsed ? { aiProviderUsed: String(aiProviderUsed).trim() } : {}),
       ...(resolvedDuration !== null ? { durationSecs: resolvedDuration } : {}),
       endedAt: new Date(),
