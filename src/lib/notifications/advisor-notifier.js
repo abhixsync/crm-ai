@@ -5,6 +5,10 @@ import { normalizeE164Digits, normalizePhoneNumber } from "@/lib/telephony/utils
 
 const WHATSAPP_API_MODES = new Set(["meta", "generic"]);
 const MAX_WHATSAPP_BODY_LENGTH = 1400;
+const META_TEMPLATE_NAME = "advisor_callback_alert_v1";
+const META_TEMPLATE_FALLBACK_NAME = "advisor_callback_alert_simple_v1";
+const META_TEMPLATE_LANGUAGE = "en";
+const MAX_TEMPLATE_PARAM_LENGTH = 900;
 
 function buildCustomerName(customer) {
   const firstName = String(customer?.firstName || "").trim();
@@ -74,6 +78,196 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function normalizeTemplateText(value, fallback = "N/A", maxLength = MAX_TEMPLATE_PARAM_LENGTH) {
+  const compact = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!compact) {
+    return fallback;
+  }
+
+  return truncateText(compact, maxLength) || fallback;
+}
+
+function formatLoanAmountForTemplate(value) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return `INR ${Math.round(numeric).toLocaleString("en-IN")}`;
+  }
+
+  const text = String(value || "").trim();
+  return text || "N/A";
+}
+
+function resolveExtractedLoanData(callLike) {
+  if (isPlainObject(callLike?.extractedData)) {
+    return callLike.extractedData;
+  }
+
+  const metadata = isPlainObject(callLike?.metadata) ? callLike.metadata : null;
+  const loanAssistant = isPlainObject(metadata?.loanAssistant) ? metadata.loanAssistant : null;
+  const extractedData = isPlainObject(loanAssistant?.extractedData) ? loanAssistant.extractedData : null;
+  return extractedData;
+}
+
+function humanizeTemplateToken(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function looksLikeAgentPromptSummary(summary) {
+  const text = String(summary || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) {
+    return true;
+  }
+
+  const lower = text.toLowerCase();
+  const startsLikePrompt = /^(got it|noted|sure|okay|ok|thanks|thank you|hello|hi)\b/i.test(text);
+  const hasQuestionMark = text.includes("?");
+  const hasPromptCue =
+    /(\bwhat\b|\bwhen\b|\bwhich\b|\bhow\b|\bcan you\b|\bcould you\b|\bwould you\b|\bdo you\b|\bplease share\b|\btell me\b|\bloan amount\b|\bplan to apply\b)/.test(
+      lower
+    );
+
+  return startsLikePrompt || (hasQuestionMark && hasPromptCue);
+}
+
+function buildTemplateFallbackSummary({ customerName, intentValue, loanType, loanAmount, timeline }) {
+  const intentText = humanizeTemplateToken(intentValue) || "unknown";
+  const signals = [
+    loanType !== "N/A" ? `loan type ${humanizeTemplateToken(loanType)}` : null,
+    loanAmount !== "N/A" ? `amount ${loanAmount}` : null,
+    timeline !== "N/A" ? `timeline ${humanizeTemplateToken(timeline)}` : null,
+  ].filter(Boolean);
+
+  if (signals.length > 0) {
+    return `${customerName} showed ${intentText} intent with ${signals.join(", ")}.`;
+  }
+
+  return `${customerName} showed ${intentText} intent and requested advisor follow-up.`;
+}
+
+function buildTemplateParameters(callLike, normalizedIntent) {
+  const extractedData = resolveExtractedLoanData(callLike);
+  const advisorName = normalizeTemplateText(
+    callLike?.customer?.assignedTo?.name || callLike?.tenant?.loanAssistantHumanAdvisorName || "Advisor",
+    "Advisor",
+    120
+  );
+  const customerName = normalizeTemplateText(buildCustomerName(callLike?.customer), "Unknown Customer", 120);
+  const customerPhone = normalizeTemplateText(
+    toWhatsAppPhone(callLike?.customer?.phone) || callLike?.customer?.phone || "N/A",
+    "N/A",
+    32
+  );
+  const intentValue = normalizeTemplateText(normalizedIntent || "unknown", "unknown", 48);
+  const loanType = normalizeTemplateText(
+    extractedData?.loanType || extractedData?.loan_type || extractedData?.type || "N/A",
+    "N/A",
+    120
+  );
+  const loanAmount = normalizeTemplateText(
+    formatLoanAmountForTemplate(extractedData?.amount || extractedData?.loanAmount || extractedData?.loan_amount),
+    "N/A",
+    64
+  );
+  const extractedTimeline = normalizeTemplateText(
+    extractedData?.timeline || extractedData?.preferredCallbackTime || extractedData?.preferred_callback_time || "N/A",
+    "N/A",
+    180
+  );
+  const callbackTime = normalizeTemplateText(
+    extractedData?.timeline ||
+      extractedData?.preferredCallbackTime ||
+      extractedData?.preferred_callback_time ||
+      callLike?.nextAction ||
+      "N/A",
+    "N/A",
+    180
+  );
+  const rawSummary = String(callLike?.summary || "").trim();
+  const resolvedSummary = looksLikeAgentPromptSummary(rawSummary)
+    ? buildTemplateFallbackSummary({
+        customerName,
+        intentValue,
+        loanType,
+        loanAmount,
+        timeline: extractedTimeline,
+      })
+    : rawSummary;
+  const summaryText = normalizeTemplateText(resolvedSummary || "No AI summary available.", "No AI summary available.", 700);
+
+  return {
+    primary: [advisorName, customerName, customerPhone, intentValue, loanType, loanAmount, callbackTime, summaryText],
+    fallback: [advisorName, customerName, customerPhone, intentValue, summaryText],
+  };
+}
+
+function buildMetaTemplatePayload({ to, templateName, languageCode, parameters }) {
+  return {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: normalizeE164Digits(to),
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      components: [
+        {
+          type: "body",
+          parameters: parameters.map((value) => ({
+            type: "text",
+            text: normalizeTemplateText(value),
+          })),
+        },
+      ],
+    },
+  };
+}
+
+function parseRawResponse(rawBody) {
+  if (!rawBody) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    return null;
+  }
+}
+
+function resolveProviderMessageId(data) {
+  return data?.messages?.[0]?.id || data?.id || data?.messageId || data?.data?.id || null;
+}
+
+async function postWhatsAppPayload({ endpoint, headers, payload }) {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const rawBody = await response.text().catch(() => "");
+  const data = parseRawResponse(rawBody);
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    rawBody,
+    data,
+  };
+}
+
+function formatWhatsAppApiReason(result) {
+  return `whatsapp_api_${result.status}${result.rawBody ? `: ${result.rawBody}` : ""}`;
+}
+
 async function persistNotificationAudit(callLogId, auditEntry) {
   const id = String(callLogId || "").trim();
   if (!id) return;
@@ -141,9 +335,12 @@ function buildNotificationPayload(callLog, normalizedIntent) {
     whatsappLines.splice(6, 0, `Transcript: ${transcriptPreview}`);
   }
 
+  const templateParameters = buildTemplateParameters(callLog, normalizedIntent);
+
   return {
     subject: `[AI Call] ${customerName} - ${intentLabel}`,
     whatsappBody: truncateText(whatsappLines.join("\n"), MAX_WHATSAPP_BODY_LENGTH),
+    whatsappTemplate: templateParameters,
     emailBody: [
       `CRM: ${crmName}`,
       `Customer: ${customerName}`,
@@ -234,7 +431,7 @@ async function resolveAdvisorEmail(callLog) {
   return String(tenantAdmin?.email || "").trim();
 }
 
-async function sendAdvisorWhatsAppNotification({ to, body }) {
+async function sendAdvisorWhatsAppNotification({ to, body, template }) {
   const endpoint = String(process.env.WHATSAPP_API_URL || "").trim();
   const token = String(process.env.WHATSAPP_API_TOKEN || "").trim();
   const mode = getNormalizedWhatsAppMode();
@@ -258,59 +455,147 @@ async function sendAdvisorWhatsAppNotification({ to, body }) {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  const payload =
-    mode === "meta"
-      ? {
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: normalizeE164Digits(normalizedTo),
-          type: "text",
-          text: {
-            preview_url: false,
-            body,
-          },
-        }
-      : {
-          to: normalizedTo,
-          message: body,
-          ...(from ? { from } : {}),
-        };
+  const metaTextPayload = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: normalizeE164Digits(normalizedTo),
+    type: "text",
+    text: {
+      preview_url: false,
+      body,
+    },
+  };
+
+  const genericPayload = {
+    to: normalizedTo,
+    message: body,
+    ...(from ? { from } : {}),
+  };
+
+  const primaryTemplatePayload = buildMetaTemplatePayload({
+    to: normalizedTo,
+    templateName: META_TEMPLATE_NAME,
+    languageCode: META_TEMPLATE_LANGUAGE,
+    parameters: Array.isArray(template?.primary) ? template.primary : [],
+  });
+
+  console.info("[advisor-notifier] primary meta template payload prepared", {
+    to: primaryTemplatePayload.to,
+    templateName: primaryTemplatePayload?.template?.name || null,
+    languageCode: primaryTemplatePayload?.template?.language?.code || null,
+    parameterCount: primaryTemplatePayload?.template?.components?.[0]?.parameters?.length || 0,
+    parameters: (primaryTemplatePayload?.template?.components?.[0]?.parameters || []).map((param) => param?.text || null),
+  });
+
+  const fallbackTemplatePayload = buildMetaTemplatePayload({
+    to: normalizedTo,
+    templateName: META_TEMPLATE_FALLBACK_NAME,
+    languageCode: META_TEMPLATE_LANGUAGE,
+    parameters: Array.isArray(template?.fallback) ? template.fallback : [],
+  });
+
+  console.info("[advisor-notifier] fallback meta template payload prepared", {
+    to: fallbackTemplatePayload.to,
+    templateName: fallbackTemplatePayload?.template?.name || null,
+    languageCode: fallbackTemplatePayload?.template?.language?.code || null,
+    parameterCount: fallbackTemplatePayload?.template?.components?.[0]?.parameters?.length || 0,
+    parameters: (fallbackTemplatePayload?.template?.components?.[0]?.parameters || []).map((param) => param?.text || null),
+  });
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-    });
+    if (mode === "meta") {
+      const primaryResult = await postWhatsAppPayload({
+        endpoint,
+        headers,
+        payload: primaryTemplatePayload,
+      });
 
-    const rawBody = await response.text().catch(() => "");
-    const data = rawBody
-      ? (() => {
-          try {
-            return JSON.parse(rawBody);
-          } catch {
-            return null;
-          }
-        })()
-      : null;
+      console.info("[advisor-notifier] primary meta template send attempt", {
+        status: primaryResult.status,
+        ok: primaryResult.ok,
+        templateName: META_TEMPLATE_NAME,
+        providerMessageId: resolveProviderMessageId(primaryResult.data),
+        error: primaryResult.ok ? null : primaryResult.rawBody || null,
+      });
 
-    if (!response.ok) {
+      if (primaryResult.ok) {
+        return {
+          status: "sent",
+          providerMessageId: resolveProviderMessageId(primaryResult.data),
+          dispatchType: "template",
+          templateName: META_TEMPLATE_NAME,
+        };
+      }
+
+      const shouldTryFallbackTemplate =
+        META_TEMPLATE_FALLBACK_NAME &&
+        META_TEMPLATE_FALLBACK_NAME !== META_TEMPLATE_NAME &&
+        Array.isArray(template?.fallback) &&
+        template.fallback.length > 0;
+
+      if (shouldTryFallbackTemplate) {
+        const fallbackResult = await postWhatsAppPayload({
+          endpoint,
+          headers,
+          payload: fallbackTemplatePayload,
+        });
+
+        console.info("[advisor-notifier] fallback meta template send attempt", {
+          status: fallbackResult.status,
+          ok: fallbackResult.ok,
+          templateName: META_TEMPLATE_FALLBACK_NAME,
+          providerMessageId: resolveProviderMessageId(fallbackResult.data),
+          error: fallbackResult.ok ? null : fallbackResult.rawBody || null,
+        });
+
+        if (fallbackResult.ok) {
+          return {
+            status: "sent",
+            providerMessageId: resolveProviderMessageId(fallbackResult.data),
+            dispatchType: "template_fallback",
+            templateName: META_TEMPLATE_FALLBACK_NAME,
+          };
+        }
+      }
+
+      const textFallbackResult = await postWhatsAppPayload({
+        endpoint,
+        headers,
+        payload: metaTextPayload,
+      });
+
+      if (textFallbackResult.ok) {
+        return {
+          status: "sent",
+          providerMessageId: resolveProviderMessageId(textFallbackResult.data),
+          dispatchType: "text_fallback",
+          reason: formatWhatsAppApiReason(primaryResult),
+        };
+      }
+
       return {
         status: "failed",
-        reason: `whatsapp_api_${response.status}${rawBody ? `: ${rawBody}` : ""}`,
+        reason: `${formatWhatsAppApiReason(primaryResult)} | text_fallback_failed: ${formatWhatsAppApiReason(textFallbackResult)}`,
       };
     }
 
-    const providerMessageId =
-      data?.messages?.[0]?.id ||
-      data?.id ||
-      data?.messageId ||
-      data?.data?.id ||
-      null;
+    const genericResult = await postWhatsAppPayload({
+      endpoint,
+      headers,
+      payload: genericPayload,
+    });
+
+    if (!genericResult.ok) {
+      return {
+        status: "failed",
+        reason: formatWhatsAppApiReason(genericResult),
+      };
+    }
 
     return {
       status: "sent",
-      providerMessageId,
+      providerMessageId: resolveProviderMessageId(genericResult.data),
+      dispatchType: "generic",
     };
   } catch (error) {
     return {
@@ -392,6 +677,7 @@ export async function notifyAdvisorForCallLog(callLogId, options = {}) {
       select: {
         id: true,
         tenantId: true,
+        metadata: true,
         transcript: true,
         summary: true,
         nextAction: true,
@@ -474,6 +760,7 @@ export async function notifyAdvisorForCallLog(callLogId, options = {}) {
       sendAdvisorWhatsAppNotification({
         to: advisorWhatsApp,
         body: payload.whatsappBody,
+        template: payload.whatsappTemplate,
       }),
       sendAdvisorEmailNotification({
         to: advisorEmail,
@@ -504,6 +791,8 @@ export async function notifyAdvisorForCallLog(callLogId, options = {}) {
           status: whatsapp.status,
           reason: whatsapp.reason || null,
           providerMessageId: whatsapp.providerMessageId || null,
+          dispatchType: whatsapp.dispatchType || null,
+          templateName: whatsapp.templateName || null,
         },
         email: {
           status: email.status,
@@ -522,6 +811,8 @@ export async function notifyAdvisorForCallLog(callLogId, options = {}) {
       intent: result.intent,
       sent: result.sent,
       whatsappStatus: whatsapp.status,
+      whatsappDispatchType: whatsapp.dispatchType || null,
+      whatsappTemplateName: whatsapp.templateName || null,
       emailStatus: email.status,
       whatsappReason: whatsapp.reason || null,
       emailReason: email.reason || null,
@@ -585,6 +876,7 @@ export async function notifyAdvisorForSummary(summaryInput, options = {}) {
       summary: summaryInput?.summary || "Loan assistant conversation completed.",
       nextAction: summaryInput?.nextAction || "Review and follow up with the customer.",
       transcript: summaryInput?.transcript || null,
+      extractedData: isPlainObject(summaryInput?.extractedData) ? summaryInput.extractedData : null,
       aiProviderUsed: summaryInput?.aiProviderUsed || null,
     };
 
@@ -598,6 +890,7 @@ export async function notifyAdvisorForSummary(summaryInput, options = {}) {
       sendAdvisorWhatsAppNotification({
         to: advisorWhatsApp,
         body: payload.whatsappBody,
+        template: payload.whatsappTemplate,
       }),
       sendAdvisorEmailNotification({
         to: advisorEmail,

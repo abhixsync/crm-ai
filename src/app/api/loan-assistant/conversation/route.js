@@ -348,6 +348,12 @@ export async function POST(request) {
           summary: summaryText,
           nextAction: nextActionText,
           transcript: transcriptText,
+          extractedData: {
+            loanType: callSummary?.extracted_loan_type || null,
+            amount: callSummary?.extracted_amount || null,
+            timeline: callSummary?.extracted_timeline || null,
+            employmentType: callSummary?.customer_employment || null,
+          },
           source: 'loan_assistant_demo',
         });
       }

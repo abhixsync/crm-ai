@@ -327,6 +327,7 @@ export async function POST(request) {
           summary: summaryText,
           nextAction: nextActionText,
           transcript: transcriptText,
+          extractedData: callSummary?.extractedData || null,
           aiProviderUsed: callSummary?.aiProviderUsed || null,
           source: is_voice_call ? 'llm_loan_assistant_voice' : 'llm_loan_assistant_chat',
         });
