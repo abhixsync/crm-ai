@@ -29,4 +29,19 @@ describe("crm event trigger decision engine", () => {
     expect(decision.normalizedIntent).toBe("not_interested");
     expect(decision.triggers.notInterested).toBe(true);
   });
+
+  it("ignores agent prompts when deciding callback follow-up", () => {
+    const decision = evaluateCrmEventDecision({
+      transcript: [
+        "Agent: By when do you need this loan, this week, this month, or later?",
+        "Customer: Business loan chahiye, 1 crore, is month me.",
+      ].join("\n"),
+      intent: "interested",
+      summary: "Customer wants a business loan of 1 crore within this month.",
+    });
+
+    expect(decision.action).not.toBe(CRM_EVENT_ACTIONS.CALLBACK_REQUESTED);
+    expect(decision.normalizedIntent).toBe("interested");
+    expect(decision.triggers.callback).toBe(false);
+  });
 });

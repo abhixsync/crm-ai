@@ -39,6 +39,13 @@ describe("loan assistant intent detector", () => {
     expect(result.details.callbackTime).toBe("tomorrow evening");
   });
 
+  it("classifies hindi explanation prompts as interested", () => {
+    const result = detectIntent("aap kuch smjhane wale thi");
+
+    expect(result.intent).toBe("interested");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+  });
+
   it("classifies 'by tomorrow' as interested timeline signal", () => {
     const result = detectIntent("I need the loan by tomorrow");
 

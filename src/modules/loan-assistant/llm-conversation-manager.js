@@ -82,6 +82,13 @@ function hasInquirySignal(message) {
     text.includes('tell me more') ||
     text.includes('batao') ||
     text.includes('bataye') ||
+    text.includes('batayiye') ||
+    text.includes('samjhao') ||
+    text.includes('smjhao') ||
+    text.includes('samjhaiye') ||
+    text.includes('smjhaiye') ||
+    text.includes('samjhane') ||
+    text.includes('smjhane') ||
     text.includes('explain') ||
     text.includes('emi') ||
     text.includes('interest rate') ||
@@ -129,6 +136,13 @@ function hasRepetitionComplaint(message) {
     text.includes('repeat') ||
     text.includes('repeating') ||
     text.includes('again and again') ||
+    text.includes('already told') ||
+    text.includes('told you already') ||
+    text.includes('maine aapko bataya') ||
+    text.includes('maine bataya') ||
+    text.includes('bataya hua') ||
+    text.includes('pehle bataya') ||
+    text.includes('bata diya') ||
     text.includes('bar bar') ||
     text.includes('baar baar')
   );
@@ -864,6 +878,8 @@ Customer Profile:
       const employmentType = detectEmploymentType(customerMessage);
 
       const previousIntent = String(this.callMeta.intent || '').toLowerCase();
+      const hadPriorPositiveIntent = previousIntent === 'interested' || previousIntent === 'converted';
+      const activeStage = this.currentStage;
 
       if (extracted.loanType) this.extractedData.loanType = extracted.loanType;
       if (extracted.amount) this.extractedData.amount = extracted.amount;
@@ -972,6 +988,23 @@ Customer Profile:
         reasoning = `${reasoning}:repetition_complaint_guard`;
       }
 
+      if (
+        !END_INTENTS.has(finalIntent) &&
+        finalIntent === 'neutral' &&
+        inquirySignal &&
+        !explicitNegativeSignal &&
+        (
+          hadPriorPositiveIntent ||
+          activeStage === CONVERSATION_STAGES.DISCOVERY ||
+          activeStage === CONVERSATION_STAGES.PITCH ||
+          activeStage === CONVERSATION_STAGES.QUALIFICATION
+        )
+      ) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.74);
+        reasoning = `${reasoning}:inquiry_interest_guard`;
+      }
+
       if (lateTimingSignal && !explicitNegativeSignal) {
         finalIntent = 'call_back_later';
         finalConfidence = Math.max(finalConfidence, 0.9);
@@ -992,7 +1025,6 @@ Customer Profile:
 
       // Keep previously interested leads from dropping to neutral on short acknowledgement turns
       // once qualification signals are already captured, unless there is an explicit negative signal.
-      const hadPriorPositiveIntent = previousIntent === 'interested' || previousIntent === 'converted';
       const hasQualifiedSignals = Boolean(this.extractedData.loanType && this.extractedData.amount);
       if (
         !END_INTENTS.has(finalIntent) &&
@@ -1006,10 +1038,10 @@ Customer Profile:
         reasoning = `${reasoning}:prior_interest_persistence_guard`;
       }
 
-      const shouldEnd = END_INTENTS.has(finalIntent);
-
       // Determine next stage
-      const nextStage = this.determineNextStage(finalIntent, shouldEnd);
+      const terminalIntentShouldEnd = END_INTENTS.has(finalIntent);
+      const nextStage = this.determineNextStage(finalIntent, terminalIntentShouldEnd);
+      const shouldEnd = terminalIntentShouldEnd || nextStage === CONVERSATION_STAGES.CLOSING;
       this.currentStage = nextStage;
 
       // Update call meta

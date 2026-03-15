@@ -262,6 +262,15 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     message.includes("chalega") ||
     message.includes("ok") ||
     message.includes("think about it") ||
+    message.includes("batao") ||
+    message.includes("bataye") ||
+    message.includes("batayiye") ||
+    message.includes("samjhao") ||
+    message.includes("smjhao") ||
+    message.includes("samjhaiye") ||
+    message.includes("smjhaiye") ||
+    message.includes("samjhane") ||
+    message.includes("smjhane") ||
     message.includes("batao na") ||
     message.includes("tell me more") ||
     message.includes("details") ||

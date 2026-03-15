@@ -43,8 +43,69 @@ describe("LLMConversationManager intent stability", () => {
     const result = await manager.processCustomerResponse("alright noted");
 
     expect(result.intent).toBe("interested");
+    expect(result.shouldEnd).toBe(true);
     expect(result.nextStage).toBe(CONVERSATION_STAGES.CLOSING);
     expect(result.reasoning).toContain("prior_interest_persistence_guard");
+  });
+
+  it("keeps hindi explanation prompts on the interested path", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        intent: "neutral",
+        summary: "Customer asked for an explanation.",
+        nextAction: "Explain the loan offering.",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      {
+        id: "c-1b",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.callMeta.intent = "interested";
+    manager.currentStage = CONVERSATION_STAGES.PITCH;
+
+    const result = await manager.processCustomerResponse("aap kuch smjhane wale thi");
+
+    expect(result.intent).toBe("interested");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.74);
+    expect(result.shouldEnd).toBe(false);
+    expect(result.nextStage).toBe(CONVERSATION_STAGES.PITCH);
+  });
+
+  it("keeps repetition complaints on the interested path instead of dropping to neutral", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        intent: "neutral",
+        summary: "Customer said the detail was already shared.",
+        nextAction: "Acknowledge and continue.",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      {
+        id: "c-1c",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.callMeta.intent = "interested";
+    manager.currentStage = CONVERSATION_STAGES.PITCH;
+
+    const result = await manager.processCustomerResponse("maine aapko bataya hua h");
+
+    expect(result.intent).toBe("interested");
+    expect(result.shouldEnd).toBe(false);
+    expect(result.nextStage).toBe(CONVERSATION_STAGES.PITCH);
+    expect(result.reasoning).toContain("repetition_complaint_guard");
   });
 
   it("still honors explicit negative response over persistence", async () => {

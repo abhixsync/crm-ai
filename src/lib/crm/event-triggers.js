@@ -16,6 +16,19 @@ function normalizeText(value) {
     .trim();
 }
 
+function extractCustomerTranscriptText(transcript) {
+  return String(transcript || "")
+    .split(/\r?\n/)
+    .map((line) => String(line || "").trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(/^customer\s*:\s*(.+)$/i);
+      return match?.[1] ? match[1].trim() : "";
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
 function includesAny(text, patterns) {
   return patterns.some((pattern) => pattern.test(text));
 }
@@ -91,7 +104,10 @@ function buildSignals(text) {
   const callbackPatterns = [
     /\bcall back\b/i,
     /\bcallback\b/i,
-    /\blater\b/i,
+    /\bcall( me)? later\b/i,
+    /\btalk later\b/i,
+    /\bconnect later\b/i,
+    /\bspeak later\b/i,
     /\bafter some time\b/i,
     /\bcall me tomorrow\b/i,
     /\bcall me later\b/i,
@@ -186,10 +202,11 @@ function nextActionFromDecision(action) {
 export function evaluateCrmEventDecision({ transcript, latestCustomerMessage, intent, summary, metadata } = {}) {
   const normalizedIntent = canonicalizeIntent(intent) || "neutral";
   const latestUtterance = String(latestCustomerMessage || extractLatestCustomerUtterance(transcript) || "").trim();
+  const customerTranscript = extractCustomerTranscriptText(transcript);
   const fullText = normalizeText([
     latestUtterance,
+    customerTranscript,
     summary,
-    transcript,
     isPlainObject(metadata) ? JSON.stringify(metadata) : "",
   ].join(" "));
 
