@@ -203,8 +203,10 @@ async function invokeClaudeAI({ task, input, config }) {
 Keep responses concise (1-2 sentences max).
 Customer context: ${JSON.stringify(context)}
 Current turn: ${turn}
-Language rule: ${languageInstruction}
-Always mirror customer language style in this turn.`;
+
+CRITICAL LANGUAGE RULE (must follow strictly):
+${languageInstruction}
+You MUST respond in the same language the customer is using. If the customer speaks Hindi or Hinglish, you MUST reply in Hindi/Hinglish — never switch to English on your own. Only switch language if the customer explicitly switches.`;
 
     const userPrompt = `Conversation so far:\n${
       transcript || "(call just started)"

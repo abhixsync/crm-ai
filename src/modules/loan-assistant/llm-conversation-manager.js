@@ -179,7 +179,14 @@ function hasMaximumEligibilityQuestion(message) {
     text.includes('eligibility') ||
     text.includes('kitna mil') ||
     text.includes('kitna de sakte') ||
-    text.includes('jitna maximum')
+    text.includes('jitna maximum') ||
+    text.includes('jyada se jyada') ||
+    text.includes('zyada se zyada') ||
+    text.includes('jo maximum ho') ||
+    text.includes('maximum ho jaye') ||
+    text.includes('maximum kara') ||
+    text.includes('maximum kar do') ||
+    text.includes('profile ke according')
   );
 }
 
@@ -489,9 +496,25 @@ export class LLMConversationManager {
 
   updateLanguageSignal(customerMessage) {
     const detected = detectLanguageStyleFromText(customerMessage);
-    if (detected.style !== LANGUAGE_STYLES.UNKNOWN) {
+    if (detected.style === LANGUAGE_STYLES.UNKNOWN) {
+      return this.getLanguageSignal();
+    }
+
+    const current = this.getLanguageSignal();
+
+    // Same language family: reinforce if confidence is at least as high
+    if (detected.style === current.style) {
+      if (detected.confidence >= current.confidence) {
+        this.callMeta.languageSignal = detected;
+      }
+      return this.getLanguageSignal();
+    }
+
+    // Different language: only switch if new detection is more confident.
+    // Hindi tokens score 0.8, English fallback scores 0.75, so once Hindi
+    // is established a brief English-ish phrase cannot flip the signal.
+    if (detected.confidence > current.confidence) {
       this.callMeta.languageSignal = detected;
-      return detected;
     }
 
     return this.getLanguageSignal();
@@ -513,7 +536,7 @@ export class LLMConversationManager {
       return variants.english || variants.hinglish || variants.hindiRoman || variants.hindi || variants.defaultText || '';
     }
 
-    return variants.defaultText || variants.english || variants.hinglish || variants.hindiRoman || variants.hindi || '';
+    return variants.defaultText || variants.hinglish || variants.hindiRoman || variants.hindi || variants.english || '';
   }
 
   getIdentityCorrectionLine() {
@@ -572,7 +595,12 @@ export class LLMConversationManager {
   }
 
   getTranscriptText() {
-    return this.conversationHistory
+    const MAX_TRANSCRIPT_TURNS = 50;
+    const history = this.conversationHistory;
+    const recent = history.length > MAX_TRANSCRIPT_TURNS
+      ? history.slice(-MAX_TRANSCRIPT_TURNS)
+      : history;
+    return recent
       .map((turn) => `${turn.role === 'ai' ? 'Agent' : 'Customer'}: ${turn.message}`)
       .join('\n');
   }
@@ -662,13 +690,19 @@ export class LLMConversationManager {
   }
 
   buildAdaptiveEligibilityReply() {
+    // When customer says "do the maximum" / "jyada se jyada kara do", treat amount
+    // as captured so progressiveFollowUp moves to the next missing field (timeline/employment).
+    if (!this.extractedData.amount) {
+      this.extractedData.amount = 'MAXIMUM';
+    }
+
     return this.joinReplyParts(
       this.getLanguageText({
-        english: 'The maximum eligible amount depends on income, credit profile, repayment capacity, and documents.',
-        hinglish: 'Exact maximum loan amount income, credit profile, repayment capacity aur documents par depend karta hai.',
-        hindiRoman: 'Exact maximum loan amount income, credit profile, repayment capacity aur documents par depend karta hai.',
-        hindi: 'Exact maximum loan amount income, credit profile, repayment capacity aur documents par depend karta hai.',
-        defaultText: 'The maximum eligible amount depends on income, credit profile, repayment capacity, and documents.',
+        english: 'Noted, we will process for the maximum amount based on your profile.',
+        hinglish: 'Noted ji, aapki profile ke according maximum amount ke liye process karenge.',
+        hindiRoman: 'Noted ji, aapki profile ke according maximum amount ke liye process karenge.',
+        hindi: 'Noted ji, aapki profile ke according maximum amount ke liye process karenge.',
+        defaultText: 'Noted, we will process for the maximum amount based on your profile.',
       }),
       this.buildProgressiveFollowUpMessage()
     );

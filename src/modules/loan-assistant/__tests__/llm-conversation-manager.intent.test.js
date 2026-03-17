@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CONVERSATION_STAGES } from "@/modules/loan-assistant/system-prompt.js";
 import { LLMConversationManager } from "@/modules/loan-assistant/llm-conversation-manager.js";
+import { detectLanguageStyleFromText } from "@/lib/ai/language-style.js";
 import { runAIWithFailover } from "@/lib/ai/provider-router";
 
 vi.mock("@/lib/ai/provider-router", () => ({
@@ -265,8 +266,9 @@ describe("LLMConversationManager intent stability", () => {
 
     const reply = await manager.generateAIResponse("maximum you can provide");
 
-    expect(reply.toLowerCase()).toContain("depends on income");
-    expect(reply.toLowerCase()).toContain("approximate amount");
+    expect(reply.toLowerCase()).toContain("maximum amount");
+    // After acknowledging maximum, should ask for the next missing detail (timeline)
+    expect(reply.toLowerCase()).toContain("kab tak");
   });
 
   it("acknowledges repetition complaints and moves to the next missing detail", async () => {
@@ -540,5 +542,140 @@ describe("LLMConversationManager intent stability", () => {
     expect(result.intent).toBe("not_interested");
     expect(result.shouldEnd).toBe(true);
     expect(result.nextStage).toBe(CONVERSATION_STAGES.CLOSING);
+  });
+
+  // --- Language signal stability regressions ---
+
+  it("does not flip language from Hindi to English on a single ambiguous English-ish turn", () => {
+    const manager = new LLMConversationManager(
+      { id: "c-lang-1", name: "Hindi User" },
+      "Test Finance",
+      "Priya"
+    );
+
+    // Start with strong Hindi signal
+    manager.updateLanguageSignal("haan ji mujhe batao kya karna hai");
+    expect(manager.getLanguageSignal().style).toBe("hindi");
+
+    // Customer says something English-ish but short/ambiguous
+    manager.updateLanguageSignal("okay sure");
+    // Should NOT switch to English — previous Hindi signal is stronger
+    expect(manager.getLanguageSignal().style).not.toBe("english");
+  });
+
+  it("stays in Hindi when customer keeps speaking Hindi across many turns", () => {
+    const manager = new LLMConversationManager(
+      { id: "c-lang-2", name: "Consistent Hindi Speaker" },
+      "Test Finance",
+      "Priya"
+    );
+
+    const hindiPhrases = [
+      "haan ji batao",
+      "mujhe loan chahiye",
+      "kitna milega",
+      "aap batao kya karna hai",
+      "theek hai samjha",
+    ];
+
+    for (const phrase of hindiPhrases) {
+      manager.updateLanguageSignal(phrase);
+    }
+
+    const signal = manager.getLanguageSignal();
+    expect(["hindi", "hinglish"]).toContain(signal.style);
+    expect(signal.style).not.toBe("english");
+  });
+
+  it("transcript windowing caps at 50 turns", () => {
+    const manager = new LLMConversationManager(
+      { id: "c-wind", name: "Chatty Customer" },
+      "Test Finance",
+      "Priya"
+    );
+
+    // Push 60 turns
+    for (let i = 0; i < 60; i++) {
+      manager.conversationHistory.push({
+        role: i % 2 === 0 ? "customer" : "ai",
+        message: `Turn ${i}`,
+        timestamp: new Date(),
+      });
+    }
+
+    const transcript = manager.getTranscriptText();
+    const lines = transcript.split("\n");
+    expect(lines.length).toBe(50);
+    // First line should be turn 10 (60-50), not turn 0
+    expect(lines[0]).toContain("Turn 10");
+  });
+
+  it("UNKNOWN fallback defaults to Hinglish not English", () => {
+    const manager = new LLMConversationManager(
+      { id: "c-unk", name: "Unknown Lang" },
+      "Test Finance",
+      "Priya"
+    );
+
+    // Force UNKNOWN signal
+    manager.callMeta.languageSignal = {
+      style: "unknown",
+      script: "unknown",
+      confidence: 0,
+    };
+
+    // getLanguageText should prefer hinglish over english for UNKNOWN
+    const text = manager.getLanguageText({
+      english: "Hello",
+      hinglish: "Hello ji",
+      defaultText: null,
+    });
+    expect(text).toBe("Hello ji");
+  });
+
+  it("detects 'jyada se jyada kara do' as Hindi not English", () => {
+    const phrases = [
+      "jyada se jyada kara do",
+      "jitna maximum ho jaye utna kara do",
+      "haan to meri profile ke according jo maximum ho ja",
+      "kara do jo maximum ho",
+      "jaldi se jaldi",
+    ];
+
+    for (const phrase of phrases) {
+      const signal = detectLanguageStyleFromText(phrase);
+      expect(signal.style, `"${phrase}" should not be English`).not.toBe("english");
+    }
+  });
+
+  it("acknowledges 'maximum kara do' and moves past amount question", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        reply: "What approximate amount are you planning for?",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      { id: "c-max", name: "Max Customer" },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.callMeta.intent = "interested";
+    manager.currentStage = CONVERSATION_STAGES.PITCH;
+    manager.extractedData = {
+      loanType: "home_loan",
+      amount: null,
+      timeline: null,
+      employmentType: null,
+    };
+
+    const reply = await manager.generateAIResponse("jyada se jyada kara do");
+
+    // Should acknowledge maximum and move to next detail (timeline), not ask for amount again
+    expect(reply.toLowerCase()).toContain("maximum");
+    expect(reply.toLowerCase()).not.toContain("approx amount kitna");
+    expect(manager.extractedData.amount).toBe("MAXIMUM");
   });
 });
