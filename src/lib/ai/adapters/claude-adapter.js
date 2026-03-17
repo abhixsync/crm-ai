@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { AI_TASKS, createEngineAdapter } from "@/lib/ai/engine-contract";
+import { AI_TASKS, createEngineAdapter, buildCallSummaryPrompt } from "@/lib/ai/engine-contract";
 import {
   detectLanguageStyleFromText,
   getLanguageMirroringInstruction,
@@ -158,12 +158,17 @@ async function invokeClaudeAI({ task, input, config }) {
       };
     }
 
-    const prompt = `Analyze this loan sales call transcript and return JSON with keys summary, intent, nextAction. Keep summary to 50 words max. Transcript: ${transcript}`;
+    const prompt = buildCallSummaryPrompt({
+      transcript,
+      extractedData: input.extractedData || null,
+      customer: input.customer || null,
+      stage: input.context?.conversationStage || null,
+    });
 
     try {
       const message = await client.messages.create({
         model,
-        max_tokens: 300,
+        max_tokens: 400,
         messages: [{ role: "user", content: prompt }],
       });
 

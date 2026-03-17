@@ -1279,6 +1279,10 @@ Customer Profile:
               transcript: this.getTranscriptText(),
               turn: this.conversationHistory.length,
               metadata: this.getProviderMetadata(),
+              extractedData: {
+                ...this.extractedData,
+                preferredCallbackTime: this.callMeta.callbackTime || null,
+              },
               context: {
                 conversationStage: this.currentStage,
                 languageSignal: activeLanguageSignal,
@@ -1560,6 +1564,47 @@ Customer Profile:
       message: turn.message,
       timestamp: turn.timestamp,
     }));
+  }
+
+  /**
+   * Regenerate the summary with the full transcript and extracted data.
+   * Called once at the end of a conversation so the notification contains
+   * an accurate, advisor-facing summary instead of the stale mid-call one.
+   */
+  async generateFinalSummary() {
+    const activeLanguageSignal = this.getLanguageSignal();
+
+    try {
+      const summaryOutput = await runAIWithFailover({
+        task: 'CALL_SUMMARY',
+        payload: {
+          customer: this.toProviderCustomerProfile(),
+          transcript: this.getTranscriptText(),
+          turn: this.conversationHistory.length,
+          metadata: this.getProviderMetadata(),
+          extractedData: {
+            ...this.extractedData,
+            preferredCallbackTime: this.callMeta.callbackTime || null,
+          },
+          context: {
+            conversationStage: this.currentStage,
+            languageSignal: activeLanguageSignal,
+            languageInstruction: getLanguageMirroringInstruction(activeLanguageSignal),
+          },
+        },
+        activeOnly: true,
+      });
+
+      const freshSummary = String(summaryOutput?.result?.summary || '').trim();
+      const freshNextAction = String(summaryOutput?.result?.nextAction || '').trim();
+
+      if (freshSummary) this.callMeta.summaryText = freshSummary;
+      if (freshNextAction) this.callMeta.nextAction = freshNextAction;
+
+      console.log('[LLMConversationManager] Final summary regenerated');
+    } catch (err) {
+      console.warn('[LLMConversationManager] Final summary generation failed, using last mid-call summary:', err?.message);
+    }
   }
 
   /**
