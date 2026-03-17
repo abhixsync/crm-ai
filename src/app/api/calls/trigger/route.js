@@ -8,6 +8,9 @@ import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
+const CALLBACK_BLOCKING_MESSAGE =
+  "Local APP_BASE_URL is not a public HTTPS URL, so conversational/status webhooks are disabled and advisor notifications will not trigger for AI outbound calls.";
+
 function isPublicHttpsUrl(url) {
   if (!url) return false;
 
@@ -22,6 +25,19 @@ function isPublicHttpsUrl(url) {
   } catch {
     return false;
   }
+}
+
+function buildCallFlowDebug(baseUrl) {
+  const callbacksEnabled = isPublicHttpsUrl(baseUrl);
+
+  return {
+    baseUrl,
+    mode: callbacksEnabled ? "public_https" : "local_or_private",
+    conversationalWebhookEnabled: callbacksEnabled,
+    statusCallbackEnabled: callbacksEnabled,
+    notificationsEligible: callbacksEnabled,
+    blockingReason: callbacksEnabled ? null : CALLBACK_BLOCKING_MESSAGE,
+  };
 }
 
 export async function POST(request) {
@@ -44,7 +60,12 @@ export async function POST(request) {
   const tenant = getTenantContext(auth.session);
 
   try {
-    customer = await prisma.customer.findFirst({ where: { id: customerId, tenantId: tenant.tenantId } });
+    customer = await prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }),
+      },
+    });
 
     if (!customer) {
       return Response.json({ error: "Customer not found" }, { status: 404 });
@@ -100,13 +121,23 @@ export async function POST(request) {
     const script = aiOutput.result.script;
 
     const baseUrl = process.env.APP_BASE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
-    const callbackUrl = isPublicHttpsUrl(baseUrl)
+    const callFlowDebug = buildCallFlowDebug(baseUrl);
+    const callbackUrl = callFlowDebug.conversationalWebhookEnabled
       ? `${baseUrl}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLog.id}&turn=0`
       : undefined;
-    const statusCallbackUrl = isPublicHttpsUrl(baseUrl) ? `${baseUrl}/api/calls/status` : undefined;
+    const statusCallbackUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/calls/status` : undefined;
     const vonageAnswerUrl = `${baseUrl}/api/vonage/voice/answer?customerId=${customer.id}&callLogId=${callLog.id}`;
-    const vonageEventUrl = isPublicHttpsUrl(baseUrl) ? `${baseUrl}/api/vonage/voice/events` : undefined;
+    const vonageEventUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/vonage/voice/events` : undefined;
     const vonageFallbackUrl = `${baseUrl}/api/vonage/voice/fallback`;
+
+    if (callFlowDebug.blockingReason) {
+      logTelephony("warn", "api.calls.trigger.callbacks_disabled", {
+        callLogId: callLog.id,
+        customerId: customer.id,
+        reason: callFlowDebug.blockingReason,
+        baseUrl,
+      });
+    }
 
     const telephonyOutput = await initiateTelephonyCallWithFailover({
       to: customer.phone,
@@ -130,6 +161,11 @@ export async function POST(request) {
         telephonyProviderUsed: telephonyOutput.provider.name,
         telephonyProviderType: telephonyOutput.provider.type,
         status: CallStatus[call.status] || CallStatus.INITIATED,
+        nextAction: callFlowDebug.blockingReason || null,
+        metadata: {
+          callFlowDebug,
+          ...(telephonyOutput.result?.metadata ? { telephony: telephonyOutput.result.metadata } : {}),
+        },
       },
     });
 
@@ -154,10 +190,10 @@ export async function POST(request) {
     return Response.json({
       callLog: persistedCallLog,
       provider: telephonyOutput.provider.name,
-      info:
-        String(telephonyOutput.provider.type || "").toUpperCase() === "TWILIO" && (!statusCallbackUrl || !callbackUrl)
-          ? "Call started. Twilio webhooks are disabled in local HTTP mode. Use a public HTTPS APP_BASE_URL for conversational/status webhooks."
-          : "Call started successfully.",
+      info: callFlowDebug.blockingReason || "Call started successfully.",
+      debug: {
+        callFlow: callFlowDebug,
+      },
     });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {

@@ -2,6 +2,8 @@ import { CallStatus, CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
+import { notifyAdvisorForCallLog } from "@/lib/notifications/advisor-notifier";
+import { evaluateCrmEventDecision } from "@/lib/crm/event-triggers";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
 const dispositionMap = {
@@ -11,6 +13,18 @@ const dispositionMap = {
   converted: CustomerStatus.CONVERTED,
   do_not_call: CustomerStatus.DO_NOT_CALL,
 };
+
+const dispositionIntentHintMap = {
+  interested: "interested",
+  not_interested: "not_interested",
+  follow_up: "callback_requested",
+  converted: "appointment",
+  do_not_call: "not_interested",
+};
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
 export async function POST(request) {
   const auth = await requireSession();
@@ -40,7 +54,7 @@ export async function POST(request) {
     const customer = await prisma.customer.findFirst({
       where: {
         id: customerId,
-        tenantId: tenant.tenantId,
+        ...(tenant.isSuperAdmin ? {} : { tenantId: tenant.tenantId }),
       },
       select: { id: true, tenantId: true },
     });
@@ -49,7 +63,35 @@ export async function POST(request) {
       return Response.json({ error: "Customer not found" }, { status: 404 });
     }
 
+    let existingCallLog = null;
+    let crmDecision = null;
+
     if (callLogId) {
+      existingCallLog = await prisma.callLog.findFirst({
+        where: { id: callLogId, customerId, tenantId: customer.tenantId },
+        select: { id: true, metadata: true },
+      });
+
+      const manualIntentHint = dispositionIntentHintMap[disposition] || disposition;
+      crmDecision = evaluateCrmEventDecision({
+        transcript: body.transcript || "",
+        intent: manualIntentHint,
+        summary: body.summary || `Manual call disposition selected: ${disposition}`,
+        metadata: existingCallLog?.metadata,
+      });
+    }
+
+    if (callLogId) {
+      const metadata = isPlainObject(existingCallLog?.metadata) ? { ...existingCallLog.metadata } : {};
+      if (crmDecision) {
+        metadata.crmEventDecision = {
+          ...crmDecision,
+          source: "manual_complete",
+          manualDisposition: disposition,
+          evaluatedAt: new Date().toISOString(),
+        };
+      }
+
       await prisma.callLog.updateMany({
         where: { id: callLogId, customerId, tenantId: customer.tenantId },
         data: {
@@ -57,10 +99,11 @@ export async function POST(request) {
           intent: disposition.toUpperCase(),
           intentClassification: disposition,
           summary: body.summary || `Manual call disposition selected: ${disposition}`,
-          nextAction: body.nextAction || null,
+          nextAction: body.nextAction || crmDecision?.recommendedNextAction || null,
           durationSecs: body.durationSecs ? Number(body.durationSecs) : null,
           recordingUrl: body.recordingUrl || null,
           transcript: body.transcript || null,
+          metadata,
           endedAt: new Date(),
         },
       });
@@ -86,7 +129,15 @@ export async function POST(request) {
       tenantId: customer.tenantId,
     });
 
-    return Response.json({ result });
+    const notification = callLogId
+      ? await notifyAdvisorForCallLog(callLogId)
+      : { ok: false, skipped: true, reason: "missing_call_log_id" };
+
+    if (callLogId && !notification.ok && !notification.skipped) {
+      console.warn("[api/calls/manual/complete] Advisor notification failed:", notification.reason);
+    }
+
+    return Response.json({ result, notification });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
       console.warn("[api/calls/manual/complete] Database unavailable; returning degraded response.");

@@ -10,6 +10,142 @@ import {
   LOAN_TYPES,
 } from './system-prompt.js';
 
+function normalizeAfterTime(hour, minute, meridiem) {
+  const normalizedHour = String(Number.parseInt(hour, 10));
+  const normalizedMinute = minute ? `:${String(minute).padStart(2, '0')}` : '';
+  const normalizedMeridiem = meridiem ? ` ${String(meridiem).toLowerCase()}` : '';
+  return `after ${normalizedHour}${normalizedMinute}${normalizedMeridiem}`;
+}
+
+function extractAfterTimePreference(message) {
+  const patterns = [
+    /\b(?:after|post)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i,
+    /\b(\d{1,2})(?::(\d{2}))?\s*(?:baje?)?\s*(?:ke baad|k baad)\b/i,
+    /(\d{1,2})(?::(\d{2}))?\s*(?:बजे)?\s*के\s*बाद/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = String(message || '').match(pattern);
+    if (match) {
+      return normalizeAfterTime(match[1], match[2], match[3]);
+    }
+  }
+
+  return null;
+}
+
+export function detectCallbackPreference(customerMessage) {
+  const message = String(customerMessage || '').toLowerCase().trim();
+  if (!message) {
+    return null;
+  }
+
+  const afterTimePreference = extractAfterTimePreference(message);
+  if (afterTimePreference) {
+    return {
+      callbackTime: afterTimePreference,
+      reason: 'specific_time_callback',
+    };
+  }
+
+  const lateTimingPatterns = [
+    'quite late',
+    'too late',
+    "it's quite late",
+    'it is quite late',
+    'late for a call',
+    'raat ho gayi',
+    'abhi late ho gaya',
+    'bahut late ho gaya',
+    'काफ़ी देर हो गई',
+    'काफी देर हो गई',
+    'बहुत देर हो गई',
+    'रात हो गई',
+  ];
+  if (lateTimingPatterns.some((pattern) => message.includes(pattern))) {
+    return {
+      callbackTime: 'tomorrow morning',
+      reason: 'late_timing',
+    };
+  }
+
+  const morningPatterns = [
+    'tomorrow morning',
+    'call in the morning',
+    'morning please',
+    'not now morning please',
+    'call me in the morning',
+    'call me tomorrow morning',
+    'kal subah',
+    'subah call karna',
+    'subah mein call karna',
+    'subah me call karna',
+    'subah phone karna',
+    'subah baat karna',
+    'कल सुबह',
+    'सुबह कॉल करना',
+    'सुबह call करना',
+    'सुबह बात करना',
+  ];
+  if (morningPatterns.some((pattern) => message.includes(pattern))) {
+    return {
+      callbackTime: 'tomorrow morning',
+      reason: 'morning_callback',
+    };
+  }
+
+  const eveningPatterns = [
+    'tomorrow evening',
+    'call in the evening',
+    'evening please',
+    'call me tomorrow evening',
+    'shaam mein call karna',
+    'shaam me call karna',
+    'sham mein call karna',
+    'sham me call karna',
+    'kal shaam',
+    'shaam ko call karna',
+    'कल शाम',
+    'शाम में कॉल करना',
+    'शाम को कॉल करना',
+    'शाम में बात करना',
+  ];
+  if (eveningPatterns.some((pattern) => message.includes(pattern))) {
+    return {
+      callbackTime: 'tomorrow evening',
+      reason: 'evening_callback',
+    };
+  }
+
+  const genericCallbackPatterns = [
+    'busy',
+    'later',
+    'later call',
+    'call back',
+    'callback',
+    'call later',
+    'call me later',
+    'abhi convenient nahi',
+    'abhi time nahi',
+    'abhi nahi',
+    'baad mein',
+    'baad me',
+    'phir call karna',
+    'dobara call karna',
+    'फिर कॉल करना',
+    'बाद में कॉल करना',
+    'अभी नहीं',
+  ];
+  if (genericCallbackPatterns.some((pattern) => message.includes(pattern))) {
+    return {
+      callbackTime: 'later',
+      reason: 'generic_callback',
+    };
+  }
+
+  return null;
+}
+
 /**
  * Detect intent from customer message
  */
@@ -35,17 +171,52 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   const hasLoanTypeSignal =
     /\b(personal|home|business|working capital|auto|car)\b/.test(message);
   const hasTimelineSignal =
-    /\b(week|month|quarter|immediate|asap|today|turant|kal)\b/.test(message);
+    /\b(week|month|quarter|immediate|asap|today|tomorrow|by tomorrow|turant|kal)\b/.test(message);
   const hasStructuredLoanSignal = hasLoanTypeSignal || hasAmountSignal || hasTimelineSignal;
+  const hasProceedConfirmation =
+    message.includes('theek hai') ||
+    message.includes('thik hai') ||
+    message.includes('thik h') ||
+    message.includes('theek h') ||
+    message.includes('kar lete hain') ||
+    message.includes('kar lete h') ||
+    message.includes('kar lete') ||
+    message.includes('kar lenge') ||
+    message.includes('kar dete hain') ||
+    message.includes('kar dete h') ||
+    message.includes('kar do') ||
+    message.includes('kara do') ||
+    message.includes('kardo') ||
+    message.includes('karado') ||
+    message.includes('kar dena') ||
+    message.includes('kara dena') ||
+    message.includes('kara dijiye') ||
+    message.includes('karwa do') ||
+    message.includes('karwa dijiye') ||
+    message.includes('go ahead') ||
+    message.includes('lets do') ||
+    message.includes("let's do") ||
+    message.includes('please do') ||
+    message.includes('do that') ||
+    message.includes('do it') ||
+    message.includes('proceed') ||
+    message.includes('continue') ||
+    message.includes('available now') ||
+    message.includes('i am available') ||
+    message.includes('abhi baat kar sakte') ||
+    message.includes('abhi baat kar sakta') ||
+    message.includes('abhi free hoon');
   const hasLoanDeclineContext =
     message.includes("loan") ||
     message.includes("interest") ||
     message.includes("chahiye") ||
     message.includes("lena");
+  const callbackPreference = detectCallbackPreference(message);
 
   // DO NOT CALL keywords (highest priority)
   if (
     message.includes("don't call") ||
+    message.includes("dont call") ||
     message.includes("mat call karna") ||
     message.includes("remove my number") ||
     message.includes("ye harassment") ||
@@ -69,14 +240,27 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     message.includes("mujhe nahi chahiye") ||
     message.includes("no thanks") ||
     message.includes("koi zaroorat nahi") ||
-    message.includes("abhi nahi") ||
+    (message.includes("abhi nahi") && !callbackPreference) ||
     message.includes("loan nahi") ||
     message.includes("nahi chahiye") ||
     message.includes("dont need") ||
     message.includes("don't need") ||
     message.includes("zaroorat nahi") ||
+    message.includes("zarurat nahi") ||
+    message.includes("zaroorat nhi") ||
+    message.includes("zarurat nhi") ||
+    message.includes("jarurat nahi") ||
+    message.includes("jarurat nhi") ||
+    message.includes("jrurt nhi") ||
+    message.includes("jrurat nhi") ||
     message.includes("interest nahi") ||
     message.includes("nhi lena") ||
+    message.includes("nahi lu") ||
+    message.includes("nhi lu") ||
+    message.includes("na hi lu") ||
+    message.includes("nahi lunga") ||
+    message.includes("nhi lunga") ||
+    message.includes("na lunga") ||
     (message.includes("nhi ") && hasLoanDeclineContext) ||
     (/\b(nahi|nahin|nhi)\b/.test(message) && hasLoanDeclineContext)
   ) {
@@ -87,20 +271,14 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     };
   }
 
-  // BUSY / CALLBACK LATER
-  if (
-    message.includes("busy") ||
-    message.includes("later") ||
-    message.includes("later call") ||
-    message.includes("call back") ||
-    message.includes("abhi convenient nahi") ||
-    message.includes("abhi time nahi") ||
-    message.includes("baad mein")
-  ) {
+  if (callbackPreference) {
     return {
       intent: INTENT_TYPES.CALL_BACK_LATER,
       confidence: 0.85,
-      details: { reason: 'Customer is busy and wants callback' },
+      details: {
+        reason: 'Customer is busy and wants callback',
+        callbackTime: callbackPreference.callbackTime,
+      },
     };
   }
 
@@ -124,17 +302,30 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   if (
     message.includes("yes") ||
     message.includes("haan") ||
+    /\bhan\b/.test(message) ||
+    hasProceedConfirmation ||
+    /\bsure\b/.test(message) ||
     hasInterestedWord ||
     message.includes("bilkul") ||
     message.includes("chalega") ||
     message.includes("ok") ||
     message.includes("think about it") ||
+    message.includes("batao") ||
+    message.includes("bataye") ||
+    message.includes("batayiye") ||
+    message.includes("samjhao") ||
+    message.includes("smjhao") ||
+    message.includes("samjhaiye") ||
+    message.includes("smjhaiye") ||
+    message.includes("samjhane") ||
+    message.includes("smjhane") ||
     message.includes("batao na") ||
     message.includes("tell me more") ||
     message.includes("details") ||
     message.includes("tell me details") ||
     message.includes("emi") ||
-    message.includes("interest rate")
+    message.includes("interest rate") ||
+    /\b(maximum|max)\b/.test(message)
   ) {
     return {
       intent: INTENT_TYPES.INTERESTED,
@@ -225,6 +416,28 @@ export function extractLoanDetails(message) {
         details.amount = Math.round(num);
       }
     }
+
+    // Secondary fallback: standalone rupee-like number (e.g., "50000, today").
+    if (!details.amount) {
+      const numericTokens = normalizedMsg.match(/\d[\d,]{4,11}/g) || [];
+      for (const token of numericTokens) {
+        const digits = String(token || '').replace(/,/g, '');
+        if (!/^\d+$/.test(digits)) {
+          continue;
+        }
+
+        // Ignore likely phone numbers (10+ digits) and too-small values.
+        if (digits.length < 5 || digits.length > 9) {
+          continue;
+        }
+
+        const parsedAmount = Number.parseInt(digits, 10);
+        if (Number.isFinite(parsedAmount) && parsedAmount >= 10000) {
+          details.amount = parsedAmount;
+          break;
+        }
+      }
+    }
   }
 
   // Extract timeline
@@ -233,7 +446,10 @@ export function extractLoanDetails(message) {
     lowerMsg.includes('turant') ||
     lowerMsg.includes('asap') ||
     lowerMsg.includes('today') ||
-    lowerMsg.includes('kal hi')
+    lowerMsg.includes('kal hi') ||
+    lowerMsg.includes('tomorrow') ||
+    lowerMsg.includes('by tomorrow') ||
+    lowerMsg.includes('kal tak')
   ) {
     details.timeline = 'immediate';
   } else if (

@@ -5,6 +5,36 @@ import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { detectLanguageStyleFromText } from "@/lib/ai/language-style";
+import {
+  getEffectiveAiToListenDelayMs,
+  getRecognitionRestartDelayMs,
+  getVoiceRetryNotice,
+  isMeaningfulVoiceTranscript,
+} from "@/modules/loan-assistant/voice-session-utils.js";
+
+function buildCustomerOptionLabel(customer) {
+  const name = `${String(customer?.firstName || "").trim()} ${String(customer?.lastName || "").trim()}`.trim();
+  const phone = String(customer?.phone || "").trim();
+  const city = String(customer?.city || "").trim();
+
+  const base = name || phone || "Unnamed Customer";
+  if (city && phone) {
+    return `${base} - ${city} - ${phone}`;
+  }
+  if (city) {
+    return `${base} - ${city}`;
+  }
+  if (phone && base !== phone) {
+    return `${base} - ${phone}`;
+  }
+
+  return base;
+}
+
+function toNumberOrFallback(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 
 /**
  * LLM Loan Assistant Demo with Voice Support
@@ -26,6 +56,11 @@ export function LLMLoanAssistantDemo() {
   const [sessionId, setSessionId] = useState(null);
   const [conversation, setConversation] = useState([]);
   const [customerMessage, setCustomerMessage] = useState("");
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedCustomerContext, setSelectedCustomerContext] = useState(null);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [customersLoadError, setCustomersLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
@@ -37,6 +72,7 @@ export function LLMLoanAssistantDemo() {
   const [languageScript, setLanguageScript] = useState("unknown");
   const [selectedVoiceLabel, setSelectedVoiceLabel] = useState("");
   const [voiceWarning, setVoiceWarning] = useState("");
+  const [voiceRetryNotice, setVoiceRetryNotice] = useState("");
   const recognitionRef = useRef(null);
   const activeAudioRef = useRef(null);
   const activeAudioUrlRef = useRef(null);
@@ -49,6 +85,8 @@ export function LLMLoanAssistantDemo() {
   const isLoadingRef = useRef(false);
   const messageInFlightRef = useRef(false);
   const lastVoiceTranscriptRef = useRef({ normalized: "", ts: 0 });
+  const recognitionRestartTimeoutRef = useRef(null);
+  const consecutiveSilentRecognitionRef = useRef(0);
 
   const updateVoiceWarning = (message) => {
     if (isSuperAdmin) {
@@ -68,6 +106,21 @@ export function LLMLoanAssistantDemo() {
     return "Chat active";
   };
 
+  const getActiveCustomerBadgeText = () => {
+    const customerName = String(selectedCustomerContext?.name || "").trim();
+    const customerPhone = String(selectedCustomerContext?.phone || "").trim();
+
+    if (!customerName && !customerPhone) {
+      return "";
+    }
+
+    if (customerName && customerPhone) {
+      return `${customerName} - ${customerPhone}`;
+    }
+
+    return customerName || customerPhone;
+  };
+
   const canUseBrowserTTS =
     typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
   const canPlayAudioElement = typeof window !== "undefined" && typeof Audio !== "undefined";
@@ -84,9 +137,7 @@ export function LLMLoanAssistantDemo() {
   const canUseAnyTTS = useElevenLabsTTS ? canPlayAudioElement : canUseBrowserTTS;
 
   const parsedAiToListenDelayMs = Number(process.env.NEXT_PUBLIC_AI_TO_LISTEN_DELAY_MS);
-  const aiToListenDelayMs = Number.isFinite(parsedAiToListenDelayMs) && parsedAiToListenDelayMs >= 0
-    ? parsedAiToListenDelayMs
-    : 2000;
+  const aiToListenDelayMs = getEffectiveAiToListenDelayMs(parsedAiToListenDelayMs, activeTtsProvider);
 
   const elevenLabsVoiceIdDefault = String(process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID_DEFAULT || "").trim();
   const elevenLabsVoiceIdEn = String(process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID_EN || "").trim();
@@ -131,6 +182,53 @@ export function LLMLoanAssistantDemo() {
       };
     });
   }, [session?.user?.name]);
+
+  useEffect(() => {
+    if (!session?.user) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const loadCustomers = async () => {
+      setIsLoadingCustomers(true);
+      setCustomersLoadError("");
+
+      try {
+        const response = await fetch("/api/customers?page=1&pageSize=100");
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const message = String(data?.error || `Failed to load customers (${response.status})`).trim();
+          throw new Error(message);
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const customers = Array.isArray(data?.customers) ? data.customers : [];
+        setCustomerOptions(customers);
+      } catch (loadError) {
+        if (cancelled) {
+          return;
+        }
+
+        setCustomerOptions([]);
+        setCustomersLoadError(String(loadError?.message || "Unable to load customer dropdown.").trim());
+      } finally {
+        if (!cancelled) {
+          setIsLoadingCustomers(false);
+        }
+      }
+    };
+
+    loadCustomers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id, session?.user?.tenantId]);
 
   useEffect(() => {
     if (!isSuperAdmin && voiceWarning) {
@@ -328,12 +426,53 @@ export function LLMLoanAssistantDemo() {
     }
   };
 
+  const clearRecognitionRestartTimeout = () => {
+    if (recognitionRestartTimeoutRef.current) {
+      clearTimeout(recognitionRestartTimeoutRef.current);
+      recognitionRestartTimeoutRef.current = null;
+    }
+
+    recognitionRestartScheduledRef.current = false;
+  };
+
+  const resetVoiceRetryState = () => {
+    consecutiveSilentRecognitionRef.current = 0;
+    setVoiceRetryNotice("");
+    clearRecognitionRestartTimeout();
+  };
+
+  const scheduleRecognitionRestart = (sessionIdForCallback, isVoiceModeForCallback, delayMs) => {
+    if (!sessionIdForCallback || !isVoiceModeForCallback || !callActiveRef.current) {
+      return;
+    }
+
+    clearRecognitionRestartTimeout();
+    recognitionRestartScheduledRef.current = true;
+    recognitionRestartTimeoutRef.current = setTimeout(() => {
+      recognitionRestartTimeoutRef.current = null;
+      recognitionRestartScheduledRef.current = false;
+
+      if (!callActiveRef.current) {
+        console.log("[VOICE] ⏹️ Call ended before scheduled restart - not restarting recognition");
+        return;
+      }
+
+      if (isAISpeakingRef.current || isLoadingRef.current || messageInFlightRef.current) {
+        console.log("[VOICE] ⏳ Skipping scheduled restart while AI audio or network work is active");
+        return;
+      }
+
+      console.log("[VOICE] 🔁 AUTO-RESTARTING recognition for continuous listening");
+      startVoiceRecognition(sessionIdForCallback, isVoiceModeForCallback, false);
+    }, delayMs);
+  };
+
   const stopVoiceIO = () => {
     setIsListening(false);
     setIsSpeaking(false);
-    recognitionRestartScheduledRef.current = false;
     isAISpeakingRef.current = false;
     activeUtteranceRef.current = null;
+    resetVoiceRetryState();
 
     if (recognitionRef.current) {
       try {
@@ -355,15 +494,70 @@ export function LLMLoanAssistantDemo() {
     stopActiveAudioPlayback();
   };
 
+  const applySelectedCustomerProfile = (customerId) => {
+    const normalizedId = String(customerId || "").trim();
+    setSelectedCustomerId(normalizedId);
+
+    if (!normalizedId) {
+      setSelectedCustomerContext(null);
+      return;
+    }
+
+    const selected = customerOptions.find((customer) => String(customer?.id || "").trim() === normalizedId);
+    if (!selected) {
+      setSelectedCustomerContext(null);
+      return;
+    }
+
+    const fullName = `${String(selected.firstName || "").trim()} ${String(selected.lastName || "").trim()}`.trim();
+    const selectedExistingLoans = String(selected.existingLoans || selected.loanType || "").trim();
+    const selectedLoanInterestType = String(
+      selected.loanInterestType || selected.loan_interest_type || selected.preferredLoanType || ""
+    ).trim();
+    const shouldResetLoanInterestType = !selectedLoanInterestType && Boolean(String(selected.loanType || "").trim());
+
+    setProfile((current) => ({
+      ...current,
+      name: fullName || current.name,
+      city: String(selected.city || "").trim() || current.city,
+      monthly_income: toNumberOrFallback(selected.monthlyIncome, current.monthly_income),
+      employment_type: String(selected.employmentType || "").trim() || current.employment_type,
+      credit_score: toNumberOrFallback(selected.creditScore, current.credit_score),
+      existing_loans: selectedExistingLoans || current.existing_loans,
+      loan_interest_type: shouldResetLoanInterestType
+        ? ""
+        : selectedLoanInterestType || current.loan_interest_type,
+    }));
+
+    setSelectedCustomerContext({
+      id: selected.id,
+      name: fullName || null,
+      phone: selected.phone || null,
+      email: selected.email || null,
+    });
+  };
+
   const handleEndCall = () => {
     updateCallActive(false);
     messageInFlightRef.current = false;
     lastVoiceTranscriptRef.current = { normalized: "", ts: 0 };
+    resetVoiceRetryState();
     stopVoiceIO();
     setSessionId(null);
     setConversation([]);
     setLanguageStyle("unknown");
     setLanguageScript("unknown");
+  };
+
+  const handleResumeListening = () => {
+    if (!sessionId || !isVoiceMode || !isCallActive) {
+      return;
+    }
+
+    console.log("[VOICE] 🎤 Manual resume requested by user");
+    resetVoiceRetryState();
+    setError(null);
+    startVoiceRecognition(sessionId, true, false);
   };
 
   const startVoiceRecognition = (sessionIdParam, isVoiceModeParam, isSpeakingParam) => {
@@ -424,6 +618,8 @@ export function LLMLoanAssistantDemo() {
       return;
     }
 
+    clearRecognitionRestartTimeout();
+
     console.log("[VOICE] 🚀 Creating new SpeechRecognition instance");
     const recognition = new SpeechRecognition();
     const instanceId = Math.random().toString(36).substr(2, 9);
@@ -439,6 +635,7 @@ export function LLMLoanAssistantDemo() {
     recognition.onstart = () => {
       console.log(`[VOICE] ✅ Recognition STARTED (instance: ${instanceId}) - now listening for speech`);
       console.log("[VOICE] 🎤 SPEAK NOW! (waiting for audio...)");
+      setVoiceRetryNotice("");
       setIsListening(true);
     };
 
@@ -461,7 +658,20 @@ export function LLMLoanAssistantDemo() {
       }
 
       console.log("[VOICE] 📝 Final Transcript:", transcript);
-      setCustomerMessage(transcript);
+      const acceptedTranscript = isMeaningfulVoiceTranscript(transcript);
+
+      if (acceptedTranscript) {
+        didReceiveFinalTranscript = true;
+        consecutiveSilentRecognitionRef.current = 0;
+        setVoiceRetryNotice("");
+        setError(null);
+        setCustomerMessage(transcript);
+      } else {
+        console.log(`[VOICE] ⚠️ Ignoring low-signal transcript (instance: ${instanceId})`);
+        setVoiceRetryNotice(
+          "I did not catch a clear request. Please say one short sentence, for example 'business loan', '1 crore', or 'call later'."
+        );
+      }
 
       const localSignal = detectLanguageStyleFromText(transcript);
       if (localSignal.style && localSignal.style !== "unknown") {
@@ -476,7 +686,7 @@ export function LLMLoanAssistantDemo() {
 
       // Automatically send the customer's speech as their message
       // Pass the sessionId explicitly to avoid closure issues
-      if (transcript.trim()) {
+      if (acceptedTranscript && transcript.trim()) {
         console.log("[VOICE] 📤 Sending transcript to server automatically with sessionId:", effectiveSessionId);
         sendMessageToServer(transcript, effectiveSessionId, effectiveIsVoiceMode);
       }
@@ -488,6 +698,8 @@ export function LLMLoanAssistantDemo() {
       // "aborted" is expected when we intentionally stop() during AI speech
       if (event.error === "aborted") {
         console.log("[VOICE] 🎤 Recognition aborted (expected - AI was speaking)");
+      } else if (event.error === "no-speech") {
+        console.warn(`[VOICE] ⚠️ No speech detected on this attempt (instance: ${instanceId})`);
       } else {
         console.error("[VOICE] 🎤 Speech recognition error:", event.error);
         
@@ -495,7 +707,7 @@ export function LLMLoanAssistantDemo() {
         let userMessage = "";
         switch(event.error) {
           case "no-speech":
-            userMessage = "🎤 I didn't hear anything. Please speak clearly!";
+            userMessage = "";
             break;
           case "audio-capture":
             userMessage = "🎙️ Microphone issue. Please check your microphone and try again.";
@@ -511,7 +723,9 @@ export function LLMLoanAssistantDemo() {
             userMessage = `🎤 Please speak clearly. If this continues, try refreshing the page. (Error: ${event.error})`;
         }
         
-        setError(userMessage);
+        if (userMessage) {
+          setError(userMessage);
+        }
       }
       setIsListening(false);
     };
@@ -524,6 +738,9 @@ export function LLMLoanAssistantDemo() {
 
       console.log(`[VOICE] 🛑 Recognition ENDED (instance: ${instanceId}, stopped listening)`);
       setIsListening(false);
+      if (recognitionRef.current === recognition) {
+        recognitionRef.current = null;
+      }
 
       // Only restart if AI is NOT currently speaking
       // Auto-restart is controlled by speech synthesis callbacks, not here
@@ -551,21 +768,19 @@ export function LLMLoanAssistantDemo() {
 
       // Only auto-restart if we're definitely not during AI speech
       if (effectiveIsVoiceMode && effectiveSessionId && !isAISpeakingRef.current && callActiveRef.current) {
-        if (!recognitionRestartScheduledRef.current) {
-          recognitionRestartScheduledRef.current = true;
-          console.log("[VOICE] ⏱️  Waiting 1s before restarting (browser needs gap between attempts)");
-          setTimeout(() => {
-            recognitionRestartScheduledRef.current = false;
-            if (!callActiveRef.current) {
-              console.log("[VOICE] ⏹️ Call ended before scheduled restart - not restarting recognition");
-              return;
-            }
-            console.log("[VOICE] 🔁 AUTO-RESTARTING recognition for continuous listening");
-            startVoiceRecognition(effectiveSessionId, effectiveIsVoiceMode, false);
-          }, 1000);
-        } else {
-          console.log("[VOICE] ⏳ Recognition restart already scheduled, skipping duplicate");
+        consecutiveSilentRecognitionRef.current += 1;
+        const silentCount = consecutiveSilentRecognitionRef.current;
+        const restartDelayMs = getRecognitionRestartDelayMs(silentCount);
+        const retryNotice = getVoiceRetryNotice(silentCount);
+
+        if (retryNotice) {
+          setVoiceRetryNotice(retryNotice);
         }
+
+        console.log(
+          `[VOICE] ⏱️ Waiting ${restartDelayMs}ms before restarting after ${silentCount} silent attempt(s)`
+        );
+        scheduleRecognitionRestart(effectiveSessionId, effectiveIsVoiceMode, restartDelayMs);
       }
     };
 
@@ -604,6 +819,8 @@ export function LLMLoanAssistantDemo() {
 
   const handleSpeechStarted = () => {
     console.log("[VOICE] 🔊 AI STARTED SPEAKING");
+    clearRecognitionRestartTimeout();
+    setVoiceRetryNotice("");
     isAISpeakingRef.current = true;
     setIsSpeaking(true);
 
@@ -857,6 +1074,7 @@ export function LLMLoanAssistantDemo() {
     console.log("[CALL] handleStartCall() - Starting call initialization");
     console.log(`[CALL] Mode: isVoiceMode=${isVoiceMode}, autoPlayVoice=${autoPlayVoice}, canUseAnyTTS=${canUseAnyTTS}`);
     
+    resetVoiceRetryState();
     messageInFlightRef.current = false;
     lastVoiceTranscriptRef.current = { normalized: "", ts: 0 };
     setError(null);
@@ -867,7 +1085,12 @@ export function LLMLoanAssistantDemo() {
       console.log("[CALL] 📡 Sending init request to /api/loan-assistant/voice-conversation");
       const requestBody = {
         action: "init",
-        customer_profile: profile,
+        customer_profile: {
+          ...profile,
+          ...(selectedCustomerContext?.id ? { id: selectedCustomerContext.id } : {}),
+          ...(selectedCustomerContext?.phone ? { phone: selectedCustomerContext.phone } : {}),
+          ...(selectedCustomerContext?.email ? { email: selectedCustomerContext.email } : {}),
+        },
         is_voice_call: isVoiceMode,
       };
 
@@ -964,6 +1187,8 @@ export function LLMLoanAssistantDemo() {
     }
 
     setError(null);
+  setVoiceRetryNotice("");
+  clearRecognitionRestartTimeout();
     setIsLoading(true);
 
     // Add user message to conversation
@@ -1048,6 +1273,9 @@ export function LLMLoanAssistantDemo() {
       if (shouldEndSession) {
         console.log("[MSG] ✅ Session has ended. Click End Call to clear this conversation.");
         console.log("✅ Conversation ended:", data.call_summary);
+        if (data.notification) {
+          console.log("[MSG] Advisor notification result:", data.notification);
+        }
       }
 
       console.log("[MSG] 📊 Analysis:", data.customer_analysis);
@@ -1076,6 +1304,36 @@ export function LLMLoanAssistantDemo() {
       {/* Customer Profile Form */}
       <Card className="p-6">
         <h2 className="mb-4 text-lg font-semibold">Customer Profile</h2>
+
+        <div className="mb-4 space-y-2">
+          <label className="block text-sm font-medium">Use CRM Customer</label>
+          <select
+            value={selectedCustomerId}
+            onChange={(event) => applySelectedCustomerProfile(event.target.value)}
+            disabled={!!sessionId || isLoadingCustomers}
+            className="mt-1 w-full rounded border px-3 py-2"
+          >
+            <option value="">
+              {isLoadingCustomers ? "Loading customers..." : "Custom profile (manual entry)"}
+            </option>
+            {customerOptions.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {buildCustomerOptionLabel(customer)}
+              </option>
+            ))}
+          </select>
+          {!isLoadingCustomers && customerOptions.length > 0 && (
+            <p className="text-xs text-slate-600">
+              Loaded {customerOptions.length} customers. Select one to auto-fill profile fields.
+            </p>
+          )}
+          {!!customersLoadError && (
+            <p className="text-xs text-amber-700">
+              {customersLoadError}
+            </p>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           {Object.entries(profile).map(([key, value]) => (
             <div key={key}>
@@ -1178,18 +1436,36 @@ export function LLMLoanAssistantDemo() {
       {sessionId && (
         <Card className="p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">
-              {isVoiceMode ? "🎤 Voice Call" : "💬 Chat"}
-            </h2>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-semibold">
+                {isVoiceMode ? "🎤 Voice Call" : "💬 Chat"}
+              </h2>
+              {getActiveCustomerBadgeText() && (
+                <p className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
+                  Customer: {getActiveCustomerBadgeText()}
+                </p>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
                 {getStatusText()}
               </span>
+              {isVoiceMode && voiceRetryNotice && !isListening && !isSpeaking && !isLoading && (
+                <Button onClick={handleResumeListening} variant="outline">
+                  Resume Listening
+                </Button>
+              )}
               <Button onClick={handleEndCall} variant="outline">
                 End Call
               </Button>
             </div>
           </div>
+
+          {isVoiceMode && voiceRetryNotice && (
+            <div className="mb-4 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              {voiceRetryNotice}
+            </div>
+          )}
 
           {/* Conversation History */}
           <div className="mb-4 max-h-96 space-y-3 overflow-y-auto rounded bg-gray-50 p-4">

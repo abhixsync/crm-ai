@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table";
+import { Button } from "@/components/ui/button";
 
 type CallCustomer = {
   id: string;
@@ -14,12 +15,52 @@ type CallCustomer = {
 export type CallHistoryRow = {
   id: string;
   status: string | null;
+  mode: string | null;
   summary: string | null;
   intent: string | null;
   nextAction: string | null;
   transcript: string | null;
+  metadata?: unknown;
   customer: CallCustomer | null;
 };
+
+type CallHistoryRowWithSource = CallHistoryRow & {
+  sourceKey: string;
+};
+
+type CallSourceFilterOption = {
+  key: string;
+  count: number;
+};
+
+const SOURCE_ALL_KEY = "__all__";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function toSourceLabel(sourceKey: string) {
+  return String(sourceKey || "")
+    .trim()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function resolveSourceKey(callLog: CallHistoryRow) {
+  const metadata = callLog.metadata;
+  if (isRecord(metadata)) {
+    const source = metadata.source;
+    if (typeof source === "string" && source.trim()) {
+      return source.trim();
+    }
+  }
+
+  if (String(callLog.mode || "").toUpperCase() === "MANUAL") {
+    return "manual_call";
+  }
+
+  return "ai_outbound";
+}
 
 function formatCustomerName(customer: CallCustomer | null) {
   if (!customer) return "Unknown";
@@ -31,7 +72,39 @@ interface CallsHistoryTableProps {
 }
 
 export function CallsHistoryTable({ callLogs }: CallsHistoryTableProps) {
-  const columns = useMemo<ColumnDef<CallHistoryRow>[]>(
+  const [selectedSource, setSelectedSource] = useState(SOURCE_ALL_KEY);
+
+  const callLogsWithSource = useMemo<CallHistoryRowWithSource[]>(
+    () =>
+      (callLogs || []).map((callLog) => ({
+        ...callLog,
+        sourceKey: resolveSourceKey(callLog),
+      })),
+    [callLogs]
+  );
+
+  const sourceOptions = useMemo<CallSourceFilterOption[]>(() => {
+    const counts = new Map<string, number>();
+
+    for (const callLog of callLogsWithSource) {
+      const sourceKey = callLog.sourceKey;
+      counts.set(sourceKey, (counts.get(sourceKey) || 0) + 1);
+    }
+
+    return [...counts.entries()]
+      .map(([key, count]) => ({ key, count }))
+      .sort((left, right) => right.count - left.count || left.key.localeCompare(right.key));
+  }, [callLogsWithSource]);
+
+  const filteredCallLogs = useMemo(
+    () =>
+      selectedSource === SOURCE_ALL_KEY
+        ? callLogsWithSource
+        : callLogsWithSource.filter((callLog) => callLog.sourceKey === selectedSource),
+    [callLogsWithSource, selectedSource]
+  );
+
+  const columns = useMemo<ColumnDef<CallHistoryRowWithSource>[]>(
     () => [
       {
         id: "customer",
@@ -47,6 +120,11 @@ export function CallsHistoryTable({ callLogs }: CallsHistoryTableProps) {
         accessorKey: "status",
         header: "Status",
         cell: ({ row }) => row.original.status || "-",
+      },
+      {
+        accessorKey: "sourceKey",
+        header: "Source",
+        cell: ({ row }) => row.original.sourceKey || "-",
       },
       {
         accessorKey: "summary",
@@ -88,12 +166,41 @@ export function CallsHistoryTable({ callLogs }: CallsHistoryTableProps) {
   );
 
   return (
-    <DataTable
-      columns={columns}
-      data={callLogs}
-      emptyMessage="No call logs available yet."
-      enableColumnFilters={false}
-      enableGlobalFilter
-    />
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</span>
+        <Button
+          size="sm"
+          variant={selectedSource === SOURCE_ALL_KEY ? "default" : "secondary"}
+          onClick={() => setSelectedSource(SOURCE_ALL_KEY)}
+        >
+          All ({callLogsWithSource.length})
+        </Button>
+        {sourceOptions.map((option) => (
+          <Button
+            key={option.key}
+            size="sm"
+            variant={selectedSource === option.key ? "default" : "secondary"}
+            onClick={() => setSelectedSource(option.key)}
+          >
+            {option.key} ({option.count})
+          </Button>
+        ))}
+      </div>
+
+      {selectedSource !== SOURCE_ALL_KEY ? (
+        <p className="text-xs text-muted-foreground">
+          Showing source: <span className="font-medium text-foreground">{selectedSource}</span> ({toSourceLabel(selectedSource)})
+        </p>
+      ) : null}
+
+      <DataTable
+        columns={columns}
+        data={filteredCallLogs}
+        emptyMessage="No call logs available yet."
+        enableColumnFilters={false}
+        enableGlobalFilter
+      />
+    </div>
   );
 }

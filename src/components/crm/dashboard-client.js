@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Loader2, Pencil, Phone, PhoneCall, Plus, Trash2, Upload, X } from "lucide-react";
+import { CheckSquare, Loader2, Pencil, Phone, PhoneCall, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +56,12 @@ const EMPTY_CUSTOMER_FORM = {
   status: "NEW",
   notes: "",
 };
+
+function formatDebugLabel(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
 
 function toStatusLabel(status) {
   return String(status || "")
@@ -129,6 +135,8 @@ export function DashboardClient({
   const [manualDisposition, setManualDisposition] = useState("follow_up");
   const [completingManualCall, setCompletingManualCall] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
+  const [batchActionRunning, setBatchActionRunning] = useState(false);
 
   const deviceRef = useRef(null);
   const connectionRef = useRef(null);
@@ -438,6 +446,8 @@ export function DashboardClient({
           intent: latest.intent || "",
           nextAction: latest.nextAction || "",
           transcript: latest.transcript || "",
+          callFlowDebug: latest.metadata?.callFlowDebug || previous.callFlowDebug || null,
+          advisorNotification: latest.metadata?.advisorNotificationLast || previous.advisorNotification || null,
         };
       });
 
@@ -796,7 +806,12 @@ export function DashboardClient({
       return;
     }
 
-    toast.success(data.info || `Call initiated via ${data.provider || "provider"}.`);
+    if (data.debug?.callFlow?.blockingReason) {
+      toast.warning(data.debug.callFlow.blockingReason);
+    } else {
+      toast.success(data.info || `Call initiated via ${data.provider || "provider"}.`);
+    }
+
     setActiveCall({
       customerName: `${customer.firstName} ${customer.lastName || ""}`.trim(),
       phone: customer.phone,
@@ -808,6 +823,8 @@ export function DashboardClient({
       nextAction: "",
       transcript: "",
       error: "",
+      callFlowDebug: data.debug?.callFlow || data.callLog?.metadata?.callFlowDebug || null,
+      advisorNotification: data.callLog?.metadata?.advisorNotificationLast || null,
     });
     setBusyCallId("");
     await fetchMetrics();
@@ -1117,9 +1134,113 @@ export function DashboardClient({
     ? ""
     : "No supported telephony provider is available for Web Call.";
 
+  function toggleCustomerSelection(customerId) {
+    setSelectedCustomerIds((current) =>
+      current.includes(customerId)
+        ? current.filter((id) => id !== customerId)
+        : [...current, customerId]
+    );
+  }
+
+  function toggleSelectAllCustomers() {
+    if (selectedCustomerIds.length === customers.length) {
+      setSelectedCustomerIds([]);
+      return;
+    }
+    setSelectedCustomerIds(customers.map((c) => c.id));
+  }
+
+  function confirmBatchDeleteCustomers() {
+    if (selectedCustomerIds.length === 0) {
+      toast.error("Select at least one customer.");
+      return;
+    }
+
+    toast.custom((toastId) => (
+      <div className="w-[360px] rounded-xl border border-rose-200 bg-white p-4 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+            <Trash2 className="h-4 w-4" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">Delete {selectedCustomerIds.length} selected customer{selectedCustomerIds.length === 1 ? "" : "s"}?</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Selected customers will be permanently removed from the CRM.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => toast.dismiss(toastId)} disabled={batchActionRunning}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={async () => {
+              toast.dismiss(toastId);
+              await runCustomerBatchDelete();
+            }}
+            disabled={batchActionRunning}
+          >
+            Yes, Delete
+          </Button>
+        </div>
+      </div>
+    ));
+  }
+
+  async function runCustomerBatchDelete() {
+    if (selectedCustomerIds.length === 0) return;
+    setBatchActionRunning(true);
+
+    try {
+      const response = await fetch("/api/customers/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "DELETE", customerIds: selectedCustomerIds }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to delete selected customers.");
+      }
+
+      toast.success(`${data.count} customer${data.count === 1 ? "" : "s"} deleted.`);
+      setSelectedCustomerIds([]);
+      await fetchMetrics();
+      await fetchCustomers(pagination.page);
+    } catch (error) {
+      toast.error(error?.message || "Unable to delete selected customers.");
+    } finally {
+      setBatchActionRunning(false);
+    }
+  }
+
   const customersColumns = useMemo(
     () => {
       const baseColumns = [
+        {
+          id: "select",
+          enableSorting: false,
+          enableHiding: false,
+          header: () => (
+            <input
+              type="checkbox"
+              checked={customers.length > 0 && selectedCustomerIds.length === customers.length}
+              onChange={toggleSelectAllCustomers}
+              aria-label="Select all customers"
+            />
+          ),
+          cell: ({ row }) => (
+            <input
+              type="checkbox"
+              checked={selectedCustomerIds.includes(row.original.id)}
+              onChange={() => toggleCustomerSelection(row.original.id)}
+              aria-label="Select customer"
+            />
+          ),
+        },
         {
           id: "name",
           header: "Name",
@@ -1246,8 +1367,10 @@ export function DashboardClient({
       isMobileViewport,
       busyCallId,
       canShowDirectCallButton,
+      customers,
       deletingCustomerId,
       hasSoftphoneProvider,
+      selectedCustomerIds,
       statusUpdatingById,
       updateStatus,
       webCallDisabledReason,
@@ -1344,7 +1467,34 @@ export function DashboardClient({
               <p className="text-sm text-foreground md:col-span-2">
                 <span className="font-semibold">Next Action:</span> {activeCall.nextAction || "Awaiting call outcome"}
               </p>
+              <p className="text-sm text-foreground md:col-span-2">
+                <span className="font-semibold">Call Log ID:</span> {activeCall.callLogId || "-"}
+              </p>
             </div>
+
+            {activeCall.callFlowDebug?.blockingReason ? (
+              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <p className="font-semibold">AI Callback Debug</p>
+                <p className="mt-1">{activeCall.callFlowDebug.blockingReason}</p>
+                <p className="mt-1 text-xs">
+                  Base URL: {activeCall.callFlowDebug.baseUrl || "-"} • Mode: {formatDebugLabel(activeCall.callFlowDebug.mode)}
+                </p>
+              </div>
+            ) : null}
+
+            {activeCall.advisorNotification ? (
+              <div className="mt-3 rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground">
+                <p className="font-semibold">Advisor Notification</p>
+                <p className="mt-1">
+                  Status: {formatDebugLabel(activeCall.advisorNotification.status)}
+                  {activeCall.advisorNotification.reason ? ` • ${activeCall.advisorNotification.reason}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Intent: {activeCall.advisorNotification.intent || "-"}
+                  {activeCall.advisorNotification.at ? ` • ${new Date(activeCall.advisorNotification.at).toLocaleString()}` : ""}
+                </p>
+              </div>
+            ) : null}
 
             {activeCall.summary ? (
               <p className="mt-3 rounded-md bg-muted px-3 py-2 text-sm text-foreground">
@@ -1597,6 +1747,23 @@ export function DashboardClient({
             columnFilters={tableColumnFilters}
             onColumnFiltersChange={handleTableColumnFiltersChange}
           />
+
+          {selectedCustomerIds.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {selectedCustomerIds.length} selected
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={confirmBatchDeleteCustomers}
+                disabled={batchActionRunning}
+              >
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                {batchActionRunning ? "Deleting..." : "Delete Selected"}
+              </Button>
+            </div>
+          ) : null}
 
           <p className="text-sm text-muted-foreground">
             Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} records)

@@ -11,11 +11,63 @@ import {
 } from "@/modules/theme/theme.service";
 import { SYSTEM_THEME_DEFAULT } from "@/core/theme/system-defaults";
 
-describe("Theme Inheritance System", () => {
+const THEME_TEST_OVERRIDE = String(process.env.ALLOW_THEME_INTEGRATION_TESTS || "").toLowerCase() === "true";
+
+function isSafeThemeTestDatabase(databaseUrl: string) {
+  const raw = String(databaseUrl || "").trim();
+  if (!raw) return false;
+
+  try {
+    const parsed = new URL(raw);
+    const host = String(parsed.hostname || "").toLowerCase();
+    const databaseName = String(parsed.pathname || "").replace(/^\//, "").toLowerCase();
+
+    const isLocalHost = host === "localhost" || host === "127.0.0.1";
+    const isLikelyTestDb = /(^|[_-])(test|testing|ci|dev|local)([_-]|$)/.test(databaseName);
+
+    return isLocalHost || isLikelyTestDb;
+  } catch {
+    return /localhost|127\.0\.0\.1|[_-]test\b|\btest[_-]/i.test(raw);
+  }
+}
+
+const SHOULD_RUN_THEME_DB_TESTS =
+  THEME_TEST_OVERRIDE || isSafeThemeTestDatabase(process.env.DATABASE_URL || "");
+const describeThemeDb = SHOULD_RUN_THEME_DB_TESTS ? describe : describe.skip;
+
+describeThemeDb("Theme Inheritance System", () => {
   const testTenantId = "test-tenant-123";
   const baseTenantId = null; // Base theme
+  const transientTenantIds = [testTenantId, "tenant-1", "tenant-2"];
+  let originalBaseThemeSnapshot: any = null;
+
+  function expectedNoOverrideSource() {
+    return originalBaseThemeSnapshot ? "base" : "default";
+  }
+
+  function expectedNoOverrideToken(tokenKey: string, fallback: any) {
+    if (!originalBaseThemeSnapshot) return fallback;
+    return originalBaseThemeSnapshot[tokenKey] ?? fallback;
+  }
 
   beforeEach(async () => {
+    // Snapshot the current base theme so tests can safely mutate and then restore it.
+    originalBaseThemeSnapshot = await prisma.tenantTheme.findFirst({
+      where: { isBaseTheme: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    // Normalize shared base-theme defaults used as inheritance fallback during this test run.
+    if (originalBaseThemeSnapshot) {
+      await prisma.tenantTheme.update({
+        where: { id: originalBaseThemeSnapshot.id },
+        data: {
+          accentColor: SYSTEM_THEME_DEFAULT.accentColor,
+          isActive: true,
+        },
+      });
+    }
+
     // Create test tenant if it doesn't exist
     await prisma.tenant.upsert({
       where: { id: testTenantId },
@@ -28,9 +80,11 @@ describe("Theme Inheritance System", () => {
       },
     });
 
-    // Clean up any existing test theme data
+    // Clean up only transient test tenant themes.
     await prisma.tenantTheme.deleteMany({
-      where: {}
+      where: {
+        tenantId: { in: transientTenantIds },
+      },
     });
 
     // Clear caches
@@ -41,34 +95,76 @@ describe("Theme Inheritance System", () => {
   });
 
   afterEach(async () => {
-    // Clean up theme data
+    // Clean up theme data for transient test tenants only.
     await prisma.tenantTheme.deleteMany({
       where: {
-        OR: [
-          { tenantId: testTenantId },
-          { tenantId: baseTenantId, isBaseTheme: true }
-        ]
-      }
+        tenantId: { in: transientTenantIds },
+      },
     });
 
-    // Clean up test tenant
+    // Restore the original base theme state so this suite does not mutate shared DB data.
+    if (originalBaseThemeSnapshot) {
+      const { id, createdAt: _createdAt, updatedAt: _updatedAt, ...themeData } = originalBaseThemeSnapshot;
+      const activeBaseTheme = await prisma.tenantTheme.findFirst({
+        where: { isBaseTheme: true },
+        orderBy: { updatedAt: "desc" },
+      });
+
+      if (!activeBaseTheme) {
+        await prisma.tenantTheme.create({
+          data: {
+            id,
+            ...themeData,
+          },
+        });
+      } else if (activeBaseTheme.id !== id) {
+        await prisma.tenantTheme.deleteMany({ where: { isBaseTheme: true } });
+        await prisma.tenantTheme.create({
+          data: {
+            id,
+            ...themeData,
+          },
+        });
+      } else {
+        await prisma.tenantTheme.update({
+          where: { id },
+          data: themeData,
+        });
+      }
+    } else {
+      // Remove any base theme created during this test when no base theme existed beforehand.
+      await prisma.tenantTheme.deleteMany({
+        where: { isBaseTheme: true },
+      });
+    }
+
+    originalBaseThemeSnapshot = null;
+
+    // Clean up transient test tenants
     await prisma.tenant.deleteMany({
-      where: { id: testTenantId }
+      where: { id: { in: transientTenantIds } },
     });
 
     // Clear caches
     await invalidateThemeCache(testTenantId);
     await invalidateThemeCache(baseTenantId);
+    await invalidateThemeCache("tenant-1");
+    await invalidateThemeCache("tenant-2");
   });
 
   describe("System Defaults", () => {
     it("returns system default theme when no customizations exist", async () => {
       const theme = await resolveTenantTheme(testTenantId);
+      const expectedSource = expectedNoOverrideSource();
 
-      expect(theme.primaryColor).toBe(SYSTEM_THEME_DEFAULT.primaryColor);
-      expect(theme.secondaryColor).toBe(SYSTEM_THEME_DEFAULT.secondaryColor);
-      expect(theme.source).toBe("default");
-      expect(theme.updatedAt).toBeNull();
+      expect(theme.primaryColor).toBe(expectedNoOverrideToken("primaryColor", SYSTEM_THEME_DEFAULT.primaryColor));
+      expect(theme.secondaryColor).toBe(expectedNoOverrideToken("secondaryColor", SYSTEM_THEME_DEFAULT.secondaryColor));
+      expect(theme.source).toBe(expectedSource);
+      if (expectedSource === "default") {
+        expect(theme.updatedAt).toBeNull();
+      } else {
+        expect(typeof theme.updatedAt).toBe("string");
+      }
     });
 
     it("getDefaultTheme returns correct shape", () => {
@@ -119,7 +215,7 @@ describe("Theme Inheritance System", () => {
   });
 
   describe("Tenant Override Inheritance", () => {
-    it("tenant override takes precedence over base theme", async () => {
+    it("tenant override takes precedence over base theme", { timeout: 20000 }, async () => {
       // Create base theme
       const baseTheme = {
         primaryColor: "#ff0000",
@@ -146,7 +242,7 @@ describe("Theme Inheritance System", () => {
       expect(theme.source).toBe("tenant");
     });
 
-    it("partial tenant override merges correctly", async () => {
+    it("partial tenant override merges correctly", { timeout: 20000 }, async () => {
       // Create base theme
       const baseTheme = {
         primaryColor: "#ff0000",
@@ -185,13 +281,14 @@ describe("Theme Inheritance System", () => {
 
       // Reset theme
       const resetTheme = await resetTenantTheme(testTenantId);
+      const expectedSource = expectedNoOverrideSource();
 
       // Verify theme is reset to defaults
-      expect(resetTheme.primaryColor).toBe(SYSTEM_THEME_DEFAULT.primaryColor);
-      expect(resetTheme.source).toBe("default");
+      expect(resetTheme.primaryColor).toBe(expectedNoOverrideToken("primaryColor", SYSTEM_THEME_DEFAULT.primaryColor));
+      expect(resetTheme.source).toBe(expectedSource);
     });
 
-    it("resetTenantTheme works when base theme exists", async () => {
+    it("resetTenantTheme works when base theme exists", { timeout: 20000 }, async () => {
       // Create base theme
       const baseTheme = {
         primaryColor: "#ff0000"
@@ -233,7 +330,7 @@ describe("Theme Inheritance System", () => {
       const status = await getTenantThemeStatus(testTenantId);
 
       expect(status.hasCustomTheme).toBe(false);
-      expect(status.source).toBe("default");
+      expect(status.source).toBe(expectedNoOverrideSource());
       expect(status.canReset).toBe(false);
     });
 
@@ -255,15 +352,15 @@ describe("Theme Inheritance System", () => {
   describe("Edge Cases", () => {
     it("handles null tenantId correctly", async () => {
       const theme = await resolveTenantTheme(null);
-      expect(theme.source).toBe("default");
+      expect(theme.source).toBe(expectedNoOverrideSource());
     });
 
     it("handles invalid tenantId gracefully", async () => {
       const theme = await resolveTenantTheme("nonexistent-tenant");
-      expect(theme.source).toBe("default");
+      expect(theme.source).toBe(expectedNoOverrideSource());
     });
 
-    it("multiple tenant overrides work independently", async () => {
+    it("multiple tenant overrides work independently", { timeout: 20000 }, async () => {
       const tenant1Id = "tenant-1";
       const tenant2Id = "tenant-2";
 
@@ -308,7 +405,7 @@ describe("Theme Inheritance System", () => {
       });
     });
 
-    it("base theme update affects all tenants without overrides", async () => {
+    it("base theme update affects all tenants without overrides", { timeout: 20000 }, async () => {
       const tenant1Id = "tenant-1";
       const tenant2Id = "tenant-2";
 

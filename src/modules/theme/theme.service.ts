@@ -3,7 +3,7 @@ import path from "node:path";
 import Redis from "ioredis";
 import { prisma } from "@/lib/prisma";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
-import { SYSTEM_THEME_DEFAULT, EditableTheme, ThemeTokens, ensureThemeTokens } from "@/core/theme/system-defaults";
+import { SYSTEM_THEME_DEFAULT, EditableTheme, ThemeTokens } from "@/core/theme/system-defaults";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const memoryCache = new Map<string, { value: ActiveTheme; expiresAt: number }>();
@@ -13,42 +13,42 @@ let redisUnavailableUntil = 0;
 let dbUnavailableUntil = 0;
 const DB_UNAVAILABLE_COOLDOWN_MS = 15000;
 
-// 🎨 MUTABLE SYSTEM DEFAULT - For merging operations
+// 🎨 MUTABLE SYSTEM DEFAULT - Canonical defaults aligned with core theme constants.
 const MUTABLE_SYSTEM_DEFAULT: ThemeTokens = {
-  tenantId: null,
-  isBaseTheme: false,
-  themeName: "System Default",
-  primaryColor: "#2563eb",
-  secondaryColor: "#64748b",
-  accentColor: "#22c55e",
-  backgroundColor: "#f8fafc",
-  surfaceColor: "#ffffff",
-  sidebarColor: "#ffffff",
-  headerColor: "#ffffff",
-  textPrimary: "#0f172a",
-  textSecondary: "#64748b",
-  borderColor: "#e2e8f0",
-  successColor: "#22c55e",
-  warningColor: "#f59e0b",
-  errorColor: "#ef4444",
-  infoColor: "#3b82f6",
-  fontFamily: "Inter, system-ui, sans-serif",
-  fontScale: "medium",
-  borderRadius: "8px",
-  buttonRadius: "6px",
-  cardRadius: "8px",
-  inputRadius: "6px",
-  shadowIntensity: "medium",
-  layoutDensity: "comfortable",
-  sidebarStyle: "default",
-  tableStyle: "default",
-  darkMode: false,
-  logoUrl: null,
-  faviconUrl: null,
-  loginBackgroundUrl: null,
-  applicationBackgroundUrl: null,
-  customCss: null,
-  isActive: true,
+  tenantId: SYSTEM_THEME_DEFAULT.tenantId,
+  isBaseTheme: SYSTEM_THEME_DEFAULT.isBaseTheme,
+  themeName: SYSTEM_THEME_DEFAULT.themeName,
+  primaryColor: SYSTEM_THEME_DEFAULT.primaryColor,
+  secondaryColor: SYSTEM_THEME_DEFAULT.secondaryColor,
+  accentColor: SYSTEM_THEME_DEFAULT.accentColor,
+  backgroundColor: SYSTEM_THEME_DEFAULT.backgroundColor,
+  surfaceColor: SYSTEM_THEME_DEFAULT.surfaceColor,
+  sidebarColor: SYSTEM_THEME_DEFAULT.sidebarColor,
+  headerColor: SYSTEM_THEME_DEFAULT.headerColor,
+  textPrimary: SYSTEM_THEME_DEFAULT.textPrimary,
+  textSecondary: SYSTEM_THEME_DEFAULT.textSecondary,
+  borderColor: SYSTEM_THEME_DEFAULT.borderColor,
+  successColor: SYSTEM_THEME_DEFAULT.successColor,
+  warningColor: SYSTEM_THEME_DEFAULT.warningColor,
+  errorColor: SYSTEM_THEME_DEFAULT.errorColor,
+  infoColor: SYSTEM_THEME_DEFAULT.infoColor,
+  fontFamily: SYSTEM_THEME_DEFAULT.fontFamily,
+  fontScale: SYSTEM_THEME_DEFAULT.fontScale,
+  borderRadius: SYSTEM_THEME_DEFAULT.borderRadius,
+  buttonRadius: SYSTEM_THEME_DEFAULT.buttonRadius,
+  cardRadius: SYSTEM_THEME_DEFAULT.cardRadius,
+  inputRadius: SYSTEM_THEME_DEFAULT.inputRadius,
+  shadowIntensity: SYSTEM_THEME_DEFAULT.shadowIntensity,
+  layoutDensity: SYSTEM_THEME_DEFAULT.layoutDensity,
+  sidebarStyle: SYSTEM_THEME_DEFAULT.sidebarStyle,
+  tableStyle: SYSTEM_THEME_DEFAULT.tableStyle,
+  darkMode: SYSTEM_THEME_DEFAULT.darkMode,
+  logoUrl: SYSTEM_THEME_DEFAULT.logoUrl,
+  faviconUrl: SYSTEM_THEME_DEFAULT.faviconUrl,
+  loginBackgroundUrl: SYSTEM_THEME_DEFAULT.loginBackgroundUrl,
+  applicationBackgroundUrl: SYSTEM_THEME_DEFAULT.applicationBackgroundUrl,
+  customCss: SYSTEM_THEME_DEFAULT.customCss,
+  isActive: SYSTEM_THEME_DEFAULT.isActive,
 };
 
 // 🎨 ACTIVE THEME - What gets sent to UI
@@ -76,6 +76,32 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
   }
 
   return result;
+}
+
+function normalizeThemeTokens(source: Partial<ThemeTokens> | null | undefined): ThemeTokens {
+  const resolved = { ...MUTABLE_SYSTEM_DEFAULT };
+  const candidate = source || {};
+
+  for (const key of Object.keys(MUTABLE_SYSTEM_DEFAULT)) {
+    const value = (candidate as any)[key];
+    if (value !== undefined) {
+      (resolved as any)[key] = value;
+    }
+  }
+
+  return resolved;
+}
+
+function mergeDefinedValues<T extends Record<string, any>>(target: T, source: Partial<T>): T {
+  const merged = { ...target };
+
+  for (const [key, value] of Object.entries(source || {})) {
+    if (value !== undefined) {
+      (merged as any)[key] = value;
+    }
+  }
+
+  return merged;
 }
 
 // 🎯 THEME RESOLVER - CORE INHERITANCE LOGIC
@@ -334,12 +360,15 @@ export async function updateTenantTheme(
     orderBy: { updatedAt: "desc" },
   });
 
-  // Prepare update data with safe defaults
-  const updateData = {
-    ...payload,
-    isBaseTheme,
-    isActive: true,
-  };
+  const existingTokens = normalizeThemeTokens(existing as unknown as Partial<ThemeTokens>);
+  const updateData = normalizeThemeTokens(
+    mergeDefinedValues(existingTokens, {
+      ...payload,
+      tenantId,
+      isBaseTheme,
+      isActive: true,
+    })
+  );
 
   if (existing) {
     // Update existing record (reactivates if it was inactive)

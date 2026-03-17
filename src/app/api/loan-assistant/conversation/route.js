@@ -15,6 +15,15 @@
  */
 
 import { ConversationManager } from '@/modules/loan-assistant/conversation-manager.js';
+import { notifyAdvisorForCallLog, notifyAdvisorForSummary } from '@/lib/notifications/advisor-notifier.js';
+import {
+  buildLoanAssistantFallbackNextAction,
+  buildLoanAssistantFallbackSummary,
+  createLoanAssistantDemoCallLog,
+  ensureLoanAssistantDemoCustomer,
+  finalizeLoanAssistantDemoCallLog,
+  transcriptTurnsToText,
+} from '@/lib/loan-assistant/demo-calllog.js';
 import { prisma } from '@/lib/prisma.js';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth.js';
@@ -174,10 +183,46 @@ export async function POST(request) {
         }
       }
       
-      manager = new ConversationManager(customer_profile, finalCompanyName);
-      isNewSession = true;
       const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      manager = new ConversationManager(customer_profile, finalCompanyName);
+      manager.callMeta.tenantId = tenant_id || null;
+      manager.callMeta.sessionId = newSessionId;
+      manager.callMeta.callLogId = null;
+      manager.callMeta.customerId = null;
+      isNewSession = true;
+
       activeSessions.set(newSessionId, manager);
+
+      if (tenant_id) {
+        try {
+          const customer = await ensureLoanAssistantDemoCustomer({
+            tenantId: tenant_id,
+            customerProfile: customer_profile,
+            sessionSeed: newSessionId,
+            sourceLabel: 'Loan Assistant Demo',
+          });
+
+          const callLog = await createLoanAssistantDemoCallLog({
+            tenantId: tenant_id,
+            customerId: customer.id,
+            sessionId: newSessionId,
+            sourceKey: 'loan_assistant_demo',
+            attemptNumber: Number(customer.retryCount || 0) + 1,
+          });
+
+          manager.callMeta.customerId = customer.id;
+          manager.callMeta.callLogId = callLog.id;
+
+          console.info('[api/loan-assistant/conversation] CRM call log created for demo session', {
+            sessionId: newSessionId,
+            customerId: customer.id,
+            callLogId: callLog.id,
+          });
+        } catch (persistError) {
+          console.warn('[api/loan-assistant/conversation] Unable to seed CRM call log for demo session:', persistError?.message || persistError);
+        }
+      }
 
       // Generate opening message
       const aiMessage = manager.generateAIResponse();
@@ -192,6 +237,7 @@ export async function POST(request) {
           success: true,
           session_id: newSessionId,
           is_new_session: true,
+          call_log_id: manager.callMeta.callLogId || null,
           ai_response: manager.getStructuredOutput(aiMessage),
           message: 'Call initiated successfully',
         },
@@ -245,7 +291,81 @@ export async function POST(request) {
     console.log('📊 Analysis:', analysisResult);
     console.log('Should end session:', shouldEndSession);
 
+    const callSummary = shouldEndSession ? manager.getCallSummary() : null;
+    const transcript = shouldEndSession ? manager.getTranscript() : null;
+    let notification = null;
+    let finalizedCallLogId = null;
+
     if (shouldEndSession) {
+      const summaryText =
+        callSummary?.summary ||
+        buildLoanAssistantFallbackSummary({
+          customerProfile: manager.customerProfile,
+          intent: callSummary?.intent,
+          extractedData: {
+            loanType: callSummary?.extracted_loan_type,
+            amount: callSummary?.extracted_amount,
+            timeline: callSummary?.extracted_timeline,
+            employmentType: callSummary?.customer_employment,
+          },
+        });
+      const nextActionText =
+        callSummary?.nextAction || buildLoanAssistantFallbackNextAction(callSummary?.intent);
+      const transcriptText = transcriptTurnsToText(transcript);
+
+      if (manager.callMeta.callLogId && manager.callMeta.tenantId) {
+        try {
+          finalizedCallLogId = await finalizeLoanAssistantDemoCallLog({
+            callLogId: manager.callMeta.callLogId,
+            tenantId: manager.callMeta.tenantId,
+            sessionId: manager.callMeta.sessionId || session_id,
+            sourceKey: 'loan_assistant_demo',
+            summary: summaryText,
+            transcript: transcriptText,
+            intent: callSummary?.intent,
+            nextAction: nextActionText,
+            aiProviderUsed: null,
+            durationSecs: callSummary?.call_duration_seconds,
+            extractedData: {
+              loanType: callSummary?.extracted_loan_type || null,
+              amount: callSummary?.extracted_amount || null,
+              timeline: callSummary?.extracted_timeline || null,
+              employmentType: callSummary?.customer_employment || null,
+            },
+          });
+        } catch (persistError) {
+          console.warn('[api/loan-assistant/conversation] Unable to finalize CRM call log for demo session:', persistError?.message || persistError);
+        }
+      }
+
+      if (finalizedCallLogId) {
+        notification = await notifyAdvisorForCallLog(finalizedCallLogId);
+      } else {
+        notification = await notifyAdvisorForSummary({
+          tenantId: manager.callMeta.tenantId || null,
+          customerProfile: manager.customerProfile,
+          intent: callSummary?.intent,
+          summary: summaryText,
+          nextAction: nextActionText,
+          transcript: transcriptText,
+          extractedData: {
+            loanType: callSummary?.extracted_loan_type || null,
+            amount: callSummary?.extracted_amount || null,
+            timeline: callSummary?.extracted_timeline || null,
+            employmentType: callSummary?.customer_employment || null,
+          },
+          source: 'loan_assistant_demo',
+        });
+      }
+
+      if (!notification.ok && !notification.skipped) {
+        console.warn('[api/loan-assistant/conversation] Advisor notification failed:', notification.reason);
+      } else if (notification?.skipped) {
+        console.info('[api/loan-assistant/conversation] Advisor notification skipped:', notification.reason);
+      } else {
+        console.info('[api/loan-assistant/conversation] Advisor notification result:', notification.channels);
+      }
+
       activeSessions.delete(session_id);
     }
 
@@ -256,8 +376,10 @@ export async function POST(request) {
         is_session_active: !shouldEndSession,
         customer_analysis: analysisResult,
         ai_response: manager.getStructuredOutput(aiMessage),
-        call_summary: shouldEndSession ? manager.getCallSummary() : null,
-        transcript: shouldEndSession ? manager.getTranscript() : null,
+        call_summary: callSummary,
+        transcript,
+        call_log_id: finalizedCallLogId || manager.callMeta.callLogId || null,
+        notification,
       },
       { status: 200 }
     );

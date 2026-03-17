@@ -41,6 +41,7 @@
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
     "next-auth": "^4.24.13",
+    "nodemailer": "^7.0.13",
     "openai": "^6.22.0",
     "prisma": "6.16.2",
     "react": "19.2.3",

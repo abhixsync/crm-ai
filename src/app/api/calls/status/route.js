@@ -57,22 +57,31 @@ export async function POST(request) {
     });
 
     if (callLog) {
+      const shouldDeferAIFinalization = callLog.mode === "AI" && mappedStatus === "COMPLETED";
       await prisma.callLog.updateMany({
         where: { id: callLog.id, tenantId: callLog.tenantId },
         data: {
-          status: mappedStatus,
+          status: shouldDeferAIFinalization ? undefined : mappedStatus,
           durationSecs: duration ? Number(duration) : undefined,
           recordingUrl: recordingUrl ? String(recordingUrl) : undefined,
-          endedAt:
-            String(callStatus).toLowerCase() === "completed" ||
-            String(callStatus).toLowerCase() === "failed" ||
-            String(callStatus).toLowerCase() === "busy" ||
-            String(callStatus).toLowerCase() === "no-answer" ||
-            String(callStatus).toLowerCase() === "no_answer"
+          endedAt: shouldDeferAIFinalization
+            ? undefined
+            : String(callStatus).toLowerCase() === "completed" ||
+                String(callStatus).toLowerCase() === "failed" ||
+                String(callStatus).toLowerCase() === "busy" ||
+                String(callStatus).toLowerCase() === "no-answer" ||
+                String(callStatus).toLowerCase() === "no_answer"
               ? new Date()
               : undefined,
         },
       });
+
+      if (shouldDeferAIFinalization) {
+        logTelephony("info", "api.calls.status.defer_ai_completion", {
+          providerCallId: String(callSid),
+          callLogId: callLog.id,
+        });
+      }
 
       const normalizedProviderStatus = String(callStatus || "").toLowerCase();
       const failureStatus = new Set(["failed", "busy", "no-answer", "no_answer", "canceled", "cancelled"]);
