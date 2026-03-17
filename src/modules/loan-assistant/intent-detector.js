@@ -173,6 +173,39 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   const hasTimelineSignal =
     /\b(week|month|quarter|immediate|asap|today|tomorrow|by tomorrow|turant|kal)\b/.test(message);
   const hasStructuredLoanSignal = hasLoanTypeSignal || hasAmountSignal || hasTimelineSignal;
+  const hasProceedConfirmation =
+    message.includes('theek hai') ||
+    message.includes('thik hai') ||
+    message.includes('thik h') ||
+    message.includes('theek h') ||
+    message.includes('kar lete hain') ||
+    message.includes('kar lete h') ||
+    message.includes('kar lete') ||
+    message.includes('kar lenge') ||
+    message.includes('kar dete hain') ||
+    message.includes('kar dete h') ||
+    message.includes('kar do') ||
+    message.includes('kara do') ||
+    message.includes('kardo') ||
+    message.includes('karado') ||
+    message.includes('kar dena') ||
+    message.includes('kara dena') ||
+    message.includes('kara dijiye') ||
+    message.includes('karwa do') ||
+    message.includes('karwa dijiye') ||
+    message.includes('go ahead') ||
+    message.includes('lets do') ||
+    message.includes("let's do") ||
+    message.includes('please do') ||
+    message.includes('do that') ||
+    message.includes('do it') ||
+    message.includes('proceed') ||
+    message.includes('continue') ||
+    message.includes('available now') ||
+    message.includes('i am available') ||
+    message.includes('abhi baat kar sakte') ||
+    message.includes('abhi baat kar sakta') ||
+    message.includes('abhi free hoon');
   const hasLoanDeclineContext =
     message.includes("loan") ||
     message.includes("interest") ||
@@ -213,8 +246,21 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     message.includes("dont need") ||
     message.includes("don't need") ||
     message.includes("zaroorat nahi") ||
+    message.includes("zarurat nahi") ||
+    message.includes("zaroorat nhi") ||
+    message.includes("zarurat nhi") ||
+    message.includes("jarurat nahi") ||
+    message.includes("jarurat nhi") ||
+    message.includes("jrurt nhi") ||
+    message.includes("jrurat nhi") ||
     message.includes("interest nahi") ||
     message.includes("nhi lena") ||
+    message.includes("nahi lu") ||
+    message.includes("nhi lu") ||
+    message.includes("na hi lu") ||
+    message.includes("nahi lunga") ||
+    message.includes("nhi lunga") ||
+    message.includes("na lunga") ||
     (message.includes("nhi ") && hasLoanDeclineContext) ||
     (/\b(nahi|nahin|nhi)\b/.test(message) && hasLoanDeclineContext)
   ) {
@@ -256,6 +302,8 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   if (
     message.includes("yes") ||
     message.includes("haan") ||
+    /\bhan\b/.test(message) ||
+    hasProceedConfirmation ||
     /\bsure\b/.test(message) ||
     hasInterestedWord ||
     message.includes("bilkul") ||
@@ -276,7 +324,8 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     message.includes("details") ||
     message.includes("tell me details") ||
     message.includes("emi") ||
-    message.includes("interest rate")
+    message.includes("interest rate") ||
+    /\b(maximum|max)\b/.test(message)
   ) {
     return {
       intent: INTENT_TYPES.INTERESTED,

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Loader2, Pencil, Phone, PhoneCall, Plus, Trash2, Upload, X } from "lucide-react";
+import { CheckSquare, Loader2, Pencil, Phone, PhoneCall, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -135,6 +135,8 @@ export function DashboardClient({
   const [manualDisposition, setManualDisposition] = useState("follow_up");
   const [completingManualCall, setCompletingManualCall] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
+  const [batchActionRunning, setBatchActionRunning] = useState(false);
 
   const deviceRef = useRef(null);
   const connectionRef = useRef(null);
@@ -1132,9 +1134,113 @@ export function DashboardClient({
     ? ""
     : "No supported telephony provider is available for Web Call.";
 
+  function toggleCustomerSelection(customerId) {
+    setSelectedCustomerIds((current) =>
+      current.includes(customerId)
+        ? current.filter((id) => id !== customerId)
+        : [...current, customerId]
+    );
+  }
+
+  function toggleSelectAllCustomers() {
+    if (selectedCustomerIds.length === customers.length) {
+      setSelectedCustomerIds([]);
+      return;
+    }
+    setSelectedCustomerIds(customers.map((c) => c.id));
+  }
+
+  function confirmBatchDeleteCustomers() {
+    if (selectedCustomerIds.length === 0) {
+      toast.error("Select at least one customer.");
+      return;
+    }
+
+    toast.custom((toastId) => (
+      <div className="w-[360px] rounded-xl border border-rose-200 bg-white p-4 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+            <Trash2 className="h-4 w-4" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">Delete {selectedCustomerIds.length} selected customer{selectedCustomerIds.length === 1 ? "" : "s"}?</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Selected customers will be permanently removed from the CRM.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => toast.dismiss(toastId)} disabled={batchActionRunning}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={async () => {
+              toast.dismiss(toastId);
+              await runCustomerBatchDelete();
+            }}
+            disabled={batchActionRunning}
+          >
+            Yes, Delete
+          </Button>
+        </div>
+      </div>
+    ));
+  }
+
+  async function runCustomerBatchDelete() {
+    if (selectedCustomerIds.length === 0) return;
+    setBatchActionRunning(true);
+
+    try {
+      const response = await fetch("/api/customers/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "DELETE", customerIds: selectedCustomerIds }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to delete selected customers.");
+      }
+
+      toast.success(`${data.count} customer${data.count === 1 ? "" : "s"} deleted.`);
+      setSelectedCustomerIds([]);
+      await fetchMetrics();
+      await fetchCustomers(pagination.page);
+    } catch (error) {
+      toast.error(error?.message || "Unable to delete selected customers.");
+    } finally {
+      setBatchActionRunning(false);
+    }
+  }
+
   const customersColumns = useMemo(
     () => {
       const baseColumns = [
+        {
+          id: "select",
+          enableSorting: false,
+          enableHiding: false,
+          header: () => (
+            <input
+              type="checkbox"
+              checked={customers.length > 0 && selectedCustomerIds.length === customers.length}
+              onChange={toggleSelectAllCustomers}
+              aria-label="Select all customers"
+            />
+          ),
+          cell: ({ row }) => (
+            <input
+              type="checkbox"
+              checked={selectedCustomerIds.includes(row.original.id)}
+              onChange={() => toggleCustomerSelection(row.original.id)}
+              aria-label="Select customer"
+            />
+          ),
+        },
         {
           id: "name",
           header: "Name",
@@ -1261,8 +1367,10 @@ export function DashboardClient({
       isMobileViewport,
       busyCallId,
       canShowDirectCallButton,
+      customers,
       deletingCustomerId,
       hasSoftphoneProvider,
+      selectedCustomerIds,
       statusUpdatingById,
       updateStatus,
       webCallDisabledReason,
@@ -1639,6 +1747,23 @@ export function DashboardClient({
             columnFilters={tableColumnFilters}
             onColumnFiltersChange={handleTableColumnFiltersChange}
           />
+
+          {selectedCustomerIds.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {selectedCustomerIds.length} selected
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={confirmBatchDeleteCustomers}
+                disabled={batchActionRunning}
+              >
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                {batchActionRunning ? "Deleting..." : "Delete Selected"}
+              </Button>
+            </div>
+          ) : null}
 
           <p className="text-sm text-muted-foreground">
             Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} records)

@@ -18,6 +18,13 @@
     { message: 'abhi nahi, subah call karna', expected: 'call_back_later', expectedCallbackTime: 'tomorrow morning' },
     { message: 'कल सुबह कॉल करना', expected: 'call_back_later', expectedCallbackTime: 'tomorrow morning' },
     { message: 'कल शाम बात करना', expected: 'call_back_later', expectedCallbackTime: 'tomorrow evening' },
+    { message: 'theek hai kar lete hain', expected: 'interested' },
+    { message: 'kara do maximum se maximum kara do', expected: 'interested' },
+    { message: 'han ji kara do', expected: 'interested' },
+    { message: '5000000', expected: 'interested' },
+    { message: 'achya, muje to abhi kuch khaas jrurt nhi h', expected: 'not_interested' },
+    { message: 'm to abhi soch raha hu, na hi lu', expected: 'not_interested' },
+    { message: 'zarurat nahi hai mujhe', expected: 'not_interested' },
     { message: 'dont call me', expected: 'do_not_call' },
     { message: 'I need this by tomorrow', expected: 'interested' },
   ];

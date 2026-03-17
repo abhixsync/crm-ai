@@ -231,4 +231,314 @@ describe("LLMConversationManager intent stability", () => {
     expect(manager.callMeta.callbackTime).toBe("after 10");
     expect(closingMessage.toLowerCase()).toContain("10 baje ke baad");
   });
+
+  it("answers maximum amount questions with a contextual explanation", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        reply: "What approximate amount are you planning for?",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      {
+        id: "c-6",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.callMeta.intent = "interested";
+    manager.currentStage = CONVERSATION_STAGES.PITCH;
+    manager.extractedData = {
+      loanType: "business_loan",
+      amount: null,
+      timeline: null,
+      employmentType: null,
+    };
+    manager.conversationHistory.push({
+      role: "ai",
+      message: "What approximate amount are you planning for?",
+      timestamp: new Date(),
+    });
+
+    const reply = await manager.generateAIResponse("maximum you can provide");
+
+    expect(reply.toLowerCase()).toContain("depends on income");
+    expect(reply.toLowerCase()).toContain("approximate amount");
+  });
+
+  it("acknowledges repetition complaints and moves to the next missing detail", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        reply: "What approximate amount are you planning for?",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      {
+        id: "c-7",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.callMeta.intent = "interested";
+    manager.currentStage = CONVERSATION_STAGES.PITCH;
+    manager.extractedData = {
+      loanType: "business_loan",
+      amount: 10000000,
+      timeline: null,
+      employmentType: null,
+    };
+    manager.conversationHistory.push({
+      role: "ai",
+      message: "What approximate amount are you planning for?",
+      timestamp: new Date(),
+    });
+
+    const reply = await manager.generateAIResponse("you already asked me this question before");
+
+    expect(reply.toLowerCase()).toContain("will not repeat");
+    expect(reply.toLowerCase()).toContain("by when do you need");
+  });
+
+  it("treats short proceed confirmations as consent to continue from the current step", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        reply: "Please continue.",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      {
+        id: "c-8",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.callMeta.intent = "interested";
+    manager.currentStage = CONVERSATION_STAGES.PITCH;
+    manager.extractedData = {
+      loanType: "business_loan",
+      amount: null,
+      timeline: null,
+      employmentType: null,
+    };
+
+    const reply = await manager.generateAIResponse("please do");
+
+    expect(reply.toLowerCase()).toContain("continue");
+    expect(reply.toLowerCase()).toContain("amount");
+  });
+
+  it("does not let provider callback intent override hindi proceed confirmation", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        intent: "call_back_later",
+        summary: "Customer said to do it later.",
+        nextAction: "Schedule a callback.",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      {
+        id: "c-9",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.currentStage = CONVERSATION_STAGES.OPENING;
+
+    const result = await manager.processCustomerResponse("theek hai kar lete hain");
+
+    expect(result.intent).toBe("interested");
+    expect(result.shouldEnd).toBe(false);
+    expect(result.nextStage).toBe(CONVERSATION_STAGES.DISCOVERY);
+  });
+
+  it("asks the customer to repeat when the response is too unclear to understand", async () => {
+    const manager = new LLMConversationManager(
+      {
+        id: "c-10",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.currentStage = CONVERSATION_STAGES.PITCH;
+
+    const result = await manager.processCustomerResponse("umm");
+    const reply = await manager.generateAIResponse("umm");
+
+    expect(result.intent).toBe("neutral");
+    expect(result.shouldEnd).toBe(false);
+    expect(result.nextStage).toBe(CONVERSATION_STAGES.PITCH);
+    expect(result.reasoning).toContain("clarification_required");
+    expect(reply.toLowerCase()).toContain("samajh nahi paayi");
+    expect(reply.toLowerCase()).toContain("dobara");
+    expect(runAIWithFailover).not.toHaveBeenCalled();
+  });
+
+  it("asks for repeat in hindi roman when a low-information hindi turn is unclear", async () => {
+    const manager = new LLMConversationManager(
+      {
+        id: "c-11",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.currentStage = CONVERSATION_STAGES.PITCH;
+
+    const result = await manager.processCustomerResponse("hmm ji");
+    const reply = await manager.generateAIResponse("hmm ji");
+
+    expect(result.intent).toBe("neutral");
+    expect(result.shouldEnd).toBe(false);
+    expect(result.reasoning).toContain("clarification_required");
+    expect(reply.toLowerCase()).toContain("samajh nahi paayi");
+    expect(reply.toLowerCase()).toContain("dobara");
+    expect(runAIWithFailover).not.toHaveBeenCalled();
+  });
+
+  it("blocks provider do_not_call when customer said 'kara do maximum se maximum kara do'", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        intent: "do_not_call",
+        summary: "Customer wants to stop calls.",
+        nextAction: "Close conversation.",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      {
+        id: "c-12",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.currentStage = CONVERSATION_STAGES.DISCOVERY;
+
+    const result = await manager.processCustomerResponse("kara do maximum se maximum kara do");
+
+    expect(result.intent).toBe("interested");
+    expect(result.shouldEnd).toBe(false);
+  });
+
+  it("blocks provider do_not_call when customer provided a loan amount", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        intent: "do_not_call",
+        summary: "Customer wants to stop calls.",
+        nextAction: "Close conversation.",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      {
+        id: "c-13",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.callMeta.intent = "interested";
+    manager.currentStage = CONVERSATION_STAGES.QUALIFICATION;
+
+    const result = await manager.processCustomerResponse("5000000");
+
+    expect(result.intent).toBe("interested");
+    expect(result.shouldEnd).toBe(false);
+  });
+
+  it("opens conversation in hinglish by default", () => {
+    const manager = new LLMConversationManager(
+      {
+        id: "c-14",
+        name: "Rahul",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    const greeting = manager.getOpeningGreeting();
+
+    expect(greeting.toLowerCase()).toContain("namaste");
+    expect(greeting).toContain("Rahul");
+  });
+
+  it("classifies hindi 'no need' as not_interested and closes", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        intent: "neutral",
+        summary: "Customer says no need.",
+        nextAction: "Continue pitch.",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      {
+        id: "c-15",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.callMeta.intent = "interested";
+    manager.currentStage = CONVERSATION_STAGES.PITCH;
+
+    const result = await manager.processCustomerResponse("achya, muje to abhi kuch khaas jrurt nhi h");
+
+    expect(result.intent).toBe("not_interested");
+    expect(result.shouldEnd).toBe(true);
+    expect(result.nextStage).toBe(CONVERSATION_STAGES.CLOSING);
+  });
+
+  it("classifies hindi 'na hi lu' as not_interested and closes", async () => {
+    runAIWithFailover.mockResolvedValue({
+      provider: { name: "mock-provider" },
+      result: {
+        intent: "neutral",
+        summary: "Customer is thinking.",
+        nextAction: "Continue pitch.",
+      },
+    });
+
+    const manager = new LLMConversationManager(
+      {
+        id: "c-16",
+        name: "Test Customer",
+      },
+      "Test Finance",
+      "Priya"
+    );
+
+    manager.callMeta.intent = "interested";
+    manager.currentStage = CONVERSATION_STAGES.PITCH;
+
+    const result = await manager.processCustomerResponse("m to abhi soch raha hu, na hi lu");
+
+    expect(result.intent).toBe("not_interested");
+    expect(result.shouldEnd).toBe(true);
+    expect(result.nextStage).toBe(CONVERSATION_STAGES.CLOSING);
+  });
 });

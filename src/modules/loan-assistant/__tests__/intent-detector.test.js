@@ -46,6 +46,13 @@ describe("loan assistant intent detector", () => {
     expect(result.confidence).toBeGreaterThanOrEqual(0.7);
   });
 
+  it("classifies hindi proceed confirmations as interested", () => {
+    const result = detectIntent("theek hai kar lete hain");
+
+    expect(result.intent).toBe("interested");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+  });
+
   it("classifies 'by tomorrow' as interested timeline signal", () => {
     const result = detectIntent("I need the loan by tomorrow");
 
@@ -57,5 +64,40 @@ describe("loan assistant intent detector", () => {
     const details = extractLoanDetails("Need disbursement by tomorrow");
 
     expect(details.timeline).toBe("immediate");
+  });
+
+  it("classifies 'kara do maximum se maximum kara do' as interested", () => {
+    const result = detectIntent("kara do maximum se maximum kara do");
+
+    expect(result.intent).toBe("interested");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it("classifies a plain large number as interested via structured loan signal", () => {
+    const result = detectIntent("5000000");
+
+    expect(result.intent).toBe("interested");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it("classifies 'jrurt nhi h' (no need) as not_interested", () => {
+    const result = detectIntent("achya, muje to abhi kuch khaas jrurt nhi h");
+
+    expect(result.intent).toBe("not_interested");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it("classifies 'na hi lu' (won't take) as not_interested", () => {
+    const result = detectIntent("m to abhi soch raha hu, na hi lu");
+
+    expect(result.intent).toBe("not_interested");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it("classifies 'zarurat nahi' as not_interested", () => {
+    const result = detectIntent("zarurat nahi hai mujhe");
+
+    expect(result.intent).toBe("not_interested");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.9);
   });
 });

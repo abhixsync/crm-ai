@@ -113,7 +113,21 @@ function hasExplicitNegativeSignal(message) {
     text.includes("don't call") ||
     text.includes('stop calling') ||
     text.includes('mat call') ||
-    text.includes('call back later')
+    text.includes('call back later') ||
+    text.includes('zarurat nahi') ||
+    text.includes('zaroorat nahi') ||
+    text.includes('zarurat nhi') ||
+    text.includes('zaroorat nhi') ||
+    text.includes('jarurat nahi') ||
+    text.includes('jarurat nhi') ||
+    text.includes('jrurt nhi') ||
+    text.includes('jrurat nhi') ||
+    text.includes('nahi lu') ||
+    text.includes('nhi lu') ||
+    text.includes('na hi lu') ||
+    text.includes('nahi lunga') ||
+    text.includes('nhi lunga') ||
+    text.includes('na lunga')
   );
 }
 
@@ -146,6 +160,179 @@ function hasRepetitionComplaint(message) {
     text.includes('bar bar') ||
     text.includes('baar baar')
   );
+}
+
+function hasMaximumEligibilityQuestion(message) {
+  const text = normalizeMessageForRepeatCheck(message);
+  if (!text) return false;
+
+  return (
+    text.includes('maximum') ||
+    text.includes('max amount') ||
+    text.includes('highest amount') ||
+    text.includes('maximum amount') ||
+    text.includes('maximum you can provide') ||
+    text.includes('how much can you provide') ||
+    text.includes('how much can you give') ||
+    text.includes('how much loan can') ||
+    text.includes('eligible amount') ||
+    text.includes('eligibility') ||
+    text.includes('kitna mil') ||
+    text.includes('kitna de sakte') ||
+    text.includes('jitna maximum')
+  );
+}
+
+function hasProceedSignal(message) {
+  const text = normalizeMessageForRepeatCheck(message);
+  if (!text) return false;
+
+  return (
+    text.includes('please do') ||
+    text.includes('do that') ||
+    text.includes('do it') ||
+    text.includes('go ahead') ||
+    text.includes('proceed') ||
+    text.includes('carry on') ||
+    text.includes('continue') ||
+    text.includes('kar do') ||
+    text.includes('kr do') ||
+    text.includes('kardo') ||
+    text.includes('kara do') ||
+    text.includes('karado') ||
+    text.includes('kar dena') ||
+    text.includes('kara dena') ||
+    text.includes('kara dijiye') ||
+    text.includes('karwa do') ||
+    text.includes('bata do') ||
+    text.includes('batado') ||
+    text.includes('sure please') ||
+    text.includes('ok sure') ||
+    text.includes('okay sure') ||
+    text.includes('theek hai') ||
+    text.includes('thik hai')
+  );
+}
+
+function hasAvailabilityConfirmation(message) {
+  const text = normalizeMessageForRepeatCheck(message);
+  if (!text) return false;
+
+  return (
+    text.includes('available now') ||
+    text.includes('available right now') ||
+    text.includes('i am available') ||
+    text.includes('abhi available') ||
+    text.includes('abhi baat kar sakte') ||
+    text.includes('abhi baat kar sakta') ||
+    text.includes('abhi free hoon')
+  );
+}
+
+const LOW_INFORMATION_RESPONSE_TOKENS = new Set([
+  'hmm',
+  'hmmm',
+  'hmmmm',
+  'hm',
+  'mm',
+  'mmm',
+  'uh',
+  'uhh',
+  'um',
+  'umm',
+  'ji',
+  'jee',
+  'acha',
+  'achha',
+  'accha',
+  'huh',
+]);
+
+function hasGreetingOrCourtesySignal(message) {
+  const text = normalizeMessageForRepeatCheck(message);
+  if (!text) return false;
+
+  return (
+    text.includes('hello') ||
+    text.includes('hi') ||
+    text.includes('hey') ||
+    text.includes('namaste') ||
+    text.includes('good morning') ||
+    text.includes('good afternoon') ||
+    text.includes('good evening') ||
+    text.includes('thank you') ||
+    text.includes('thanks') ||
+    text.includes('dhanyavaad') ||
+    text.includes('shukriya')
+  );
+}
+
+function isLowInformationOnlyMessage(message) {
+  const text = normalizeMessageForRepeatCheck(message);
+  if (!text) return false;
+
+  const tokens = text.split(' ').filter(Boolean);
+  if (!tokens.length) return false;
+
+  return tokens.every((token) => LOW_INFORMATION_RESPONSE_TOKENS.has(token));
+}
+
+function shouldAskCustomerToRepeat({
+  customerMessage,
+  detectedIntent,
+  extracted,
+  employmentType,
+  languagePreferenceCommand,
+}) {
+  const text = normalizeMessageForRepeatCheck(customerMessage);
+  if (!text || languagePreferenceCommand) {
+    return false;
+  }
+
+  if (String(detectedIntent?.intent || 'neutral').toLowerCase() !== 'neutral') {
+    return false;
+  }
+
+  if (
+    hasInquirySignal(customerMessage) ||
+    hasRepetitionComplaint(customerMessage) ||
+    hasMaximumEligibilityQuestion(customerMessage) ||
+    hasProceedSignal(customerMessage) ||
+    hasAvailabilityConfirmation(customerMessage) ||
+    hasExplicitNegativeSignal(customerMessage) ||
+    detectCallbackPreference(customerMessage) ||
+    hasGreetingOrCourtesySignal(customerMessage)
+  ) {
+    return false;
+  }
+
+  if (extracted?.loanType || extracted?.amount || extracted?.timeline || employmentType) {
+    return false;
+  }
+
+  const tokens = text.split(' ').filter(Boolean);
+  if (!tokens.length) {
+    return false;
+  }
+
+  if (isLowInformationOnlyMessage(customerMessage)) {
+    return true;
+  }
+
+  const hasQuestionWord = /\b(what|why|how|when|where|which|kya|kaise|kab|kitna|kyun|kaun)\b/.test(text);
+  const substantiveTokenCount = tokens.filter(
+    (token) => /[a-z\u0900-\u097f]/i.test(token) && token.length >= 4
+  ).length;
+
+  if (tokens.length <= 2 && !hasQuestionWord) {
+    return true;
+  }
+
+  if (tokens.length <= 4 && substantiveTokenCount === 0 && !/\d/.test(text)) {
+    return true;
+  }
+
+  return false;
 }
 
 function startsWithNaturalAck(text) {
@@ -270,15 +457,16 @@ export class LLMConversationManager {
       intent: null,
       confidence: 1.0,
       callbackTime: null,
+      awaitingClarification: false,
       isVoiceCall: false,
       aiProviderUsed: null,
       summaryText: null,
       nextAction: null,
       providerSessionId: this.buildProviderSessionId(),
       languageSignal: normalizeLanguageSignal({
-        style: LANGUAGE_STYLES.UNKNOWN,
-        script: 'unknown',
-        confidence: 0,
+        style: LANGUAGE_STYLES.HINGLISH,
+        script: 'roman',
+        confidence: 0.5,
       }),
     };
   }
@@ -340,11 +528,11 @@ export class LLMConversationManager {
 
   getFallbackClarificationMessage() {
     return this.getLanguageText({
-      english: 'Understood. I can quickly explain the key details in one line if you want.',
-      hinglish: 'Ji samjha. Agar aap chahen to main short me key details bata sakti hoon.',
-      hindiRoman: 'Ji samjha. Agar aap chahein to main sankshipt me zaruri details bata sakti hoon.',
-      hindi: 'Ji samjha. Agar aap chahein to main sankshipt me zaruri details bata sakti hoon.',
-      defaultText: 'Understood. I can quickly explain the key details in one line if you want.',
+      english: 'Sorry, I did not understand what you said. Could you please repeat that?',
+      hinglish: 'Sorry ji, main aapki baat samajh nahi paayi. Kya aap dobara bata sakte hain?',
+      hindiRoman: 'Maaf kijiye, main aapki baat samajh nahi paayi. Kya aap dobara bata sakte hain?',
+      hindi: 'माफ़ कीजिए, मैं आपकी बात समझ नहीं पाई। क्या आप दोबारा बता सकते हैं?',
+      defaultText: 'Sorry, I did not understand what you said. Could you please repeat that?',
     });
   }
 
@@ -444,6 +632,120 @@ export class LLMConversationManager {
       hindi: 'Kya main ab ek quick eligibility check proceed karun?',
       defaultText: 'Should I proceed with a quick eligibility check now?',
     });
+  }
+
+  joinReplyParts(...parts) {
+    return parts
+      .map((part) => String(part || '').trim())
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+  }
+
+  humanizeLoanTypeForReply() {
+    return String(this.extractedData.loanType || '')
+      .replace(/_/g, ' ')
+      .trim();
+  }
+
+  buildAdaptiveRepetitionReply() {
+    return this.joinReplyParts(
+      this.getLanguageText({
+        english: 'Understood. I have already noted the details you shared, so I will not repeat them.',
+        hinglish: 'Ji, samjha. Aapne jo details share ki hain maine note kar li hain, main unhe repeat nahi karungi.',
+        hindiRoman: 'Ji, samjha. Aapne jo details batayi hain maine note kar li hain, main unhe dobara repeat nahi karungi.',
+        hindi: 'Ji, samjha. Aapne jo details batayi hain maine note kar li hain, main unhe dobara repeat nahi karungi.',
+        defaultText: 'Understood. I have already noted the details you shared, so I will not repeat them.',
+      }),
+      this.buildProgressiveFollowUpMessage()
+    );
+  }
+
+  buildAdaptiveEligibilityReply() {
+    return this.joinReplyParts(
+      this.getLanguageText({
+        english: 'The maximum eligible amount depends on income, credit profile, repayment capacity, and documents.',
+        hinglish: 'Exact maximum loan amount income, credit profile, repayment capacity aur documents par depend karta hai.',
+        hindiRoman: 'Exact maximum loan amount income, credit profile, repayment capacity aur documents par depend karta hai.',
+        hindi: 'Exact maximum loan amount income, credit profile, repayment capacity aur documents par depend karta hai.',
+        defaultText: 'The maximum eligible amount depends on income, credit profile, repayment capacity, and documents.',
+      }),
+      this.buildProgressiveFollowUpMessage()
+    );
+  }
+
+  buildAdaptiveProceedReply() {
+    return this.joinReplyParts(
+      this.getLanguageText({
+        english: 'Sure. I can continue from here.',
+        hinglish: 'Theek hai ji, main yahin se continue karti hoon.',
+        hindiRoman: 'Theek hai ji, main yahin se continue karti hoon.',
+        hindi: 'Theek hai ji, main yahin se continue karti hoon.',
+        defaultText: 'Sure. I can continue from here.',
+      }),
+      this.buildProgressiveFollowUpMessage()
+    );
+  }
+
+  buildAdaptiveExplanationReply() {
+    const loanTypeLabel = this.humanizeLoanTypeForReply();
+    const explanationPrefix = loanTypeLabel
+      ? this.getLanguageText({
+          english: `Sure. For ${loanTypeLabel}, the exact offer depends on profile, amount, and repayment capacity.`,
+          hinglish: `Sure ji. ${loanTypeLabel} ke liye exact offer profile, amount aur repayment capacity par depend karta hai.`,
+          hindiRoman: `Sure ji. ${loanTypeLabel} ke liye exact offer profile, amount aur repayment capacity par depend karta hai.`,
+          hindi: `Sure ji. ${loanTypeLabel} ke liye exact offer profile, amount aur repayment capacity par depend karta hai.`,
+          defaultText: `Sure. For ${loanTypeLabel}, the exact offer depends on profile, amount, and repayment capacity.`,
+        })
+      : this.getLanguageText({
+          english: 'Sure. I can explain the key loan details in one line.',
+          hinglish: 'Sure ji. Main key loan details ek line me explain kar deti hoon.',
+          hindiRoman: 'Sure ji. Main key loan details ek line me explain kar deti hoon.',
+          hindi: 'Sure ji. Main key loan details ek line me explain kar deti hoon.',
+          defaultText: 'Sure. I can explain the key loan details in one line.',
+        });
+
+    return this.joinReplyParts(explanationPrefix, this.buildProgressiveFollowUpMessage());
+  }
+
+  buildAdaptiveReplyForCustomerMessage(customerMessage, candidateMessage = '') {
+    const normalizedCustomerMessage = normalizeMessageForRepeatCheck(customerMessage);
+    if (!normalizedCustomerMessage) {
+      return null;
+    }
+
+    if (hasRepetitionComplaint(customerMessage)) {
+      return this.buildAdaptiveRepetitionReply();
+    }
+
+    if (hasMaximumEligibilityQuestion(customerMessage)) {
+      return this.buildAdaptiveEligibilityReply();
+    }
+
+    if (hasProceedSignal(customerMessage) || hasAvailabilityConfirmation(customerMessage)) {
+      return this.buildAdaptiveProceedReply();
+    }
+
+    if (!hasInquirySignal(customerMessage)) {
+      return null;
+    }
+
+    const latestAiMessage = this.getRecentAiMessages(1)[0] || '';
+    const candidatePromptSlot = detectPromptSlot(candidateMessage);
+    const repeatsPromptSlot = Boolean(
+      candidatePromptSlot && this.getRecentPromptSlots(2).includes(candidatePromptSlot)
+    );
+    const candidateLooksRepeated = Boolean(
+      candidateMessage && latestAiMessage && areMessagesNearDuplicate(latestAiMessage, candidateMessage)
+    );
+    const asksCapturedField = candidateMessage ? this.messageAsksForCapturedField(candidateMessage) : false;
+    const wordCount = normalizedCustomerMessage.split(' ').filter(Boolean).length;
+
+    if (repeatsPromptSlot || candidateLooksRepeated || asksCapturedField || wordCount <= 4) {
+      return this.buildAdaptiveExplanationReply();
+    }
+
+    return null;
   }
 
   avoidRepeatedPrompt(candidateMessage) {
@@ -641,6 +943,9 @@ Customer Profile:
   - Keep each reply short and natural for voice call rhythm
   - Keep language mirroring strict and consistent
   - Be persuasive but never forceful
+  - If customer asks a direct question about amount, eligibility, process, or next step, answer that first in one short line before asking the next missing detail
+  - If the latest customer response is unclear or you do not understand it, politely say you did not understand and ask them to repeat once instead of moving to the next scripted question
+  - If customer says a short confirmation like "kar do", "please do", or "do that", continue from the current step instead of restarting the script
   - Never ask for a field that already exists in Extracted Data So Far
   - If customer says you already asked, acknowledge once and move to the next missing field
   - End only when customer clearly declines, asks not to be called, requests callback, or conversation is fully completed.`;
@@ -797,6 +1102,16 @@ Customer Profile:
         return acknowledgementMessage;
       }
 
+      if (this.callMeta.awaitingClarification) {
+        const clarificationMessage = this.getFallbackClarificationMessage();
+        this.conversationHistory.push({
+          role: 'ai',
+          message: clarificationMessage,
+          timestamp: new Date(),
+        });
+        return clarificationMessage;
+      }
+
       const aiOutput = await runAIWithFailover({
         task: 'CALL_TURN',
         payload: {
@@ -826,7 +1141,10 @@ Customer Profile:
 
       let aiMessage = String(aiOutput?.result?.reply || '').trim() || this.getOpeningGreeting();
       aiMessage = humanizeCallReply(aiMessage, activeLanguageSignal, this.currentStage);
-      aiMessage = this.avoidRepeatedPrompt(aiMessage);
+      const adaptiveReply = customerMessage
+        ? this.buildAdaptiveReplyForCustomerMessage(customerMessage, aiMessage)
+        : null;
+      aiMessage = adaptiveReply || this.avoidRepeatedPrompt(aiMessage);
       
       // Add to history
       this.conversationHistory.push({
@@ -838,10 +1156,16 @@ Customer Profile:
       return aiMessage;
     } catch (error) {
       console.error('Error calling AI API:', error.message);
-      let fallbackMessage = this.currentStage === CONVERSATION_STAGES.OPENING
-        ? this.getOpeningGreeting()
-        : this.getFallbackClarificationMessage();
-      fallbackMessage = humanizeCallReply(fallbackMessage, this.getLanguageSignal(), this.currentStage);
+      let fallbackMessage = customerMessage
+        ? this.buildAdaptiveReplyForCustomerMessage(customerMessage)
+        : null;
+
+      if (!fallbackMessage) {
+        fallbackMessage = this.currentStage === CONVERSATION_STAGES.OPENING
+          ? this.getOpeningGreeting()
+          : this.getFallbackClarificationMessage();
+        fallbackMessage = humanizeCallReply(fallbackMessage, this.getLanguageSignal(), this.currentStage);
+      }
 
       this.conversationHistory.push({
         role: 'ai',
@@ -890,6 +1214,13 @@ Customer Profile:
         extracted.loanType || extracted.amount || extracted.timeline || employmentType
       );
       const repetitionComplaint = hasRepetitionComplaint(customerMessage);
+      const clarificationRequired = shouldAskCustomerToRepeat({
+        customerMessage,
+        detectedIntent,
+        extracted,
+        employmentType,
+        languagePreferenceCommand,
+      });
 
       let finalIntent = String(detectedIntent.intent || 'neutral').toLowerCase();
       let finalConfidence = normalizeConfidence(detectedIntent.confidence, 0.5);
@@ -905,8 +1236,8 @@ Customer Profile:
       }
 
       try {
-        // Skip summary intent override on explicit language-switch turns.
-        if (!languagePreferenceCommand || isHardStopIntent) {
+        // Skip summary intent override on explicit language-switch turns and low-information clarification turns.
+        if ((!languagePreferenceCommand && !clarificationRequired) || isHardStopIntent) {
           const summaryOutput = await runAIWithFailover({
             task: 'CALL_SUMMARY',
             payload: {
@@ -932,13 +1263,30 @@ Customer Profile:
 
           providerIntent = normalizeProviderIntent(summaryOutput?.result?.intent);
           if (providerIntent && providerIntent !== 'neutral') {
-            finalIntent = providerIntent;
-            finalConfidence = Math.max(finalConfidence, 0.8);
-            reasoning = `provider-intent:${summaryOutput.provider?.name || 'unknown'}`;
+            // Never let provider escalate to do_not_call — requires explicit customer keywords in rule-based detection.
+            if (providerIntent === 'do_not_call' && ruleBasedIntent !== 'do_not_call') {
+              console.log('[LLMConversationManager] Blocked provider do_not_call escalation — rule-based:', ruleBasedIntent);
+            // Don't let provider downgrade rule-based interested to a terminal intent.
+            } else if (
+              END_INTENTS.has(providerIntent) &&
+              ruleBasedIntent === 'interested'
+            ) {
+              console.log('[LLMConversationManager] Blocked provider terminal override — rule-based: interested');
+            } else {
+              finalIntent = providerIntent;
+              finalConfidence = Math.max(finalConfidence, 0.8);
+              reasoning = `provider-intent:${summaryOutput.provider?.name || 'unknown'}`;
+            }
           }
         }
       } catch (summaryError) {
         console.warn('[LLMConversationManager] Provider summary fallback to rule-based intent:', summaryError.message);
+      }
+
+      if (clarificationRequired && !END_INTENTS.has(finalIntent)) {
+        finalIntent = 'neutral';
+        finalConfidence = Math.max(finalConfidence, 0.72);
+        reasoning = `${reasoning}:clarification_required`;
       }
 
       const ruleBasedTerminalIntent = ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(ruleBasedIntent);
@@ -962,6 +1310,12 @@ Customer Profile:
       const explicitNegativeSignal = hasExplicitNegativeSignal(customerMessage);
       const lateTimingSignal = hasLateTimingSignal(customerMessage);
       const callbackPreference = detectCallbackPreference(customerMessage);
+      const proceedSignal = hasProceedSignal(customerMessage);
+      const availabilityConfirmation = hasAvailabilityConfirmation(customerMessage);
+      const positiveProceedSignal =
+        !explicitNegativeSignal &&
+        !callbackPreference &&
+        (proceedSignal || availabilityConfirmation);
       if (
         providerIntent &&
         ['not_interested', 'busy', 'call_back_later'].includes(finalIntent) &&
@@ -972,6 +1326,17 @@ Customer Profile:
         finalIntent = 'interested';
         finalConfidence = Math.max(finalConfidence, 0.76);
         reasoning = `${reasoning}:inquiry_guard`;
+      }
+
+      if (
+        positiveProceedSignal &&
+        finalIntent !== 'do_not_call' &&
+        ['neutral', 'busy', 'call_back_later'].includes(finalIntent)
+      ) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.82);
+        this.callMeta.callbackTime = null;
+        reasoning = `${reasoning}:proceed_confirmation_guard`;
       }
 
       // Do not let provider-neutral classification block progression when user gave concrete loan details.
@@ -1047,6 +1412,7 @@ Customer Profile:
       // Update call meta
       this.callMeta.intent = finalIntent;
       this.callMeta.confidence = finalConfidence;
+      this.callMeta.awaitingClarification = clarificationRequired && !shouldEnd;
 
       return {
         intent: finalIntent,
@@ -1061,6 +1427,7 @@ Customer Profile:
       };
     } catch (error) {
       console.error('Error processing customer response:', error.message);
+      this.callMeta.awaitingClarification = false;
       return {
         intent: 'neutral',
         confidence: 0.5,

@@ -475,7 +475,7 @@ async function rewriteReplyToLanguageStrict({
       return englishToHinglishHeuristic(baseReply);
     }
 
-    return translatedHindi || "Maaf kijiye, kripya dobara batayenge?";
+    return translatedHindi || getClarificationTurnReply(languageSignal);
   }
 
   if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
@@ -515,6 +515,16 @@ function getLanguageVariant(languageSignal, variants) {
   return variants.defaultText || variants.english || variants.hinglish || variants.hindiRoman || variants.hindi || "";
 }
 
+function getClarificationTurnReply(languageSignal) {
+  return getLanguageVariant(languageSignal, {
+    english: "Sorry, I did not understand what you said. Could you please repeat that?",
+    hinglish: "Sorry ji, main aapki baat samajh nahi paayi. Kya aap dobara bata sakte hain?",
+    hindiRoman: "Maaf kijiye, main aapki baat samajh nahi paayi. Kya aap dobara bata sakte hain?",
+    hindi: "माफ़ कीजिए, मैं आपकी बात समझ नहीं पाई। क्या आप दोबारा बता सकते हैं?",
+    defaultText: "Sorry, I did not understand what you said. Could you please repeat that?",
+  });
+}
+
 function resolveLatestUtterance(input) {
   return String(input?.latestCustomerMessage || input?.rawPayload?.latestCustomerMessage || "").trim();
 }
@@ -540,7 +550,21 @@ function inferFallbackIntentFromUtterance(utterance) {
     text.includes("nhi chahiye") ||
     text.includes("nhi lena") ||
     text.includes("mat call") ||
-    text.includes("interest nahi")
+    text.includes("interest nahi") ||
+    text.includes("zarurat nahi") ||
+    text.includes("zaroorat nahi") ||
+    text.includes("zarurat nhi") ||
+    text.includes("zaroorat nhi") ||
+    text.includes("jarurat nahi") ||
+    text.includes("jarurat nhi") ||
+    text.includes("jrurt nhi") ||
+    text.includes("jrurat nhi") ||
+    text.includes("nahi lu") ||
+    text.includes("nhi lu") ||
+    text.includes("na hi lu") ||
+    text.includes("nahi lunga") ||
+    text.includes("nhi lunga") ||
+    text.includes("na lunga")
   ) {
     return "not_interested";
   }
@@ -557,6 +581,39 @@ function inferFallbackIntentFromUtterance(utterance) {
     text.includes("baad me")
   ) {
     return "call_back_later";
+  }
+
+  if (
+    text.includes("theek hai") ||
+    text.includes("thik hai") ||
+    text.includes("thik h") ||
+    text.includes("theek h") ||
+    text.includes("kar lete hain") ||
+    text.includes("kar lete h") ||
+    text.includes("kar lete") ||
+    text.includes("kar lenge") ||
+    text.includes("kar dete hain") ||
+    text.includes("kar do") ||
+    text.includes("kara do") ||
+    text.includes("kardo") ||
+    text.includes("karado") ||
+    text.includes("kar dena") ||
+    text.includes("kara dena") ||
+    text.includes("kara dijiye") ||
+    text.includes("karwa do") ||
+    text.includes("please do") ||
+    text.includes("do that") ||
+    text.includes("do it") ||
+    text.includes("go ahead") ||
+    text.includes("proceed") ||
+    text.includes("continue") ||
+    text.includes("available now") ||
+    text.includes("i am available") ||
+    text.includes("abhi baat kar sakte") ||
+    text.includes("abhi baat kar sakta") ||
+    text.includes("abhi free hoon")
+  ) {
+    return "interested";
   }
 
   if (
@@ -909,17 +966,7 @@ async function adaptReplyToLanguage(reply, languageSignal, context = {}) {
   }
 
   if (isGenericDialogflowFallback(baseReply)) {
-    if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
-      return languageSignal.script === "roman"
-        ? "Maaf kijiye, kripya ek baar fir se batayenge?"
-        : "Maaf kijiye, kripya ek baar fir se batayenge?";
-    }
-
-    if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
-      return "Sorry ji, ek baar fir se bolenge?";
-    }
-
-    return baseReply;
+    return getClarificationTurnReply(languageSignal);
   }
 
   return rewriteReplyToLanguageStrict({
@@ -950,15 +997,7 @@ function resolveDialogflowLanguageCode(task, input, defaultCode) {
 }
 
 function getFallbackTurnReply(languageSignal) {
-  if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
-    return "Kripya continue kijiye, main sun rahi hoon.";
-  }
-
-  if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
-    return "Please continue, main sun rahi hoon.";
-  }
-
-  return "Please continue.";
+  return getClarificationTurnReply(languageSignal);
 }
 
 async function normalizeTurnResponse(replyText, intentName, languageSignal, context = {}, input = {}) {

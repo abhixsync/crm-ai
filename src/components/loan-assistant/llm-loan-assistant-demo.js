@@ -5,6 +5,12 @@ import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { detectLanguageStyleFromText } from "@/lib/ai/language-style";
+import {
+  getEffectiveAiToListenDelayMs,
+  getRecognitionRestartDelayMs,
+  getVoiceRetryNotice,
+  isMeaningfulVoiceTranscript,
+} from "@/modules/loan-assistant/voice-session-utils.js";
 
 function buildCustomerOptionLabel(customer) {
   const name = `${String(customer?.firstName || "").trim()} ${String(customer?.lastName || "").trim()}`.trim();
@@ -66,6 +72,7 @@ export function LLMLoanAssistantDemo() {
   const [languageScript, setLanguageScript] = useState("unknown");
   const [selectedVoiceLabel, setSelectedVoiceLabel] = useState("");
   const [voiceWarning, setVoiceWarning] = useState("");
+  const [voiceRetryNotice, setVoiceRetryNotice] = useState("");
   const recognitionRef = useRef(null);
   const activeAudioRef = useRef(null);
   const activeAudioUrlRef = useRef(null);
@@ -78,6 +85,8 @@ export function LLMLoanAssistantDemo() {
   const isLoadingRef = useRef(false);
   const messageInFlightRef = useRef(false);
   const lastVoiceTranscriptRef = useRef({ normalized: "", ts: 0 });
+  const recognitionRestartTimeoutRef = useRef(null);
+  const consecutiveSilentRecognitionRef = useRef(0);
 
   const updateVoiceWarning = (message) => {
     if (isSuperAdmin) {
@@ -128,9 +137,7 @@ export function LLMLoanAssistantDemo() {
   const canUseAnyTTS = useElevenLabsTTS ? canPlayAudioElement : canUseBrowserTTS;
 
   const parsedAiToListenDelayMs = Number(process.env.NEXT_PUBLIC_AI_TO_LISTEN_DELAY_MS);
-  const aiToListenDelayMs = Number.isFinite(parsedAiToListenDelayMs) && parsedAiToListenDelayMs >= 0
-    ? parsedAiToListenDelayMs
-    : 2000;
+  const aiToListenDelayMs = getEffectiveAiToListenDelayMs(parsedAiToListenDelayMs, activeTtsProvider);
 
   const elevenLabsVoiceIdDefault = String(process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID_DEFAULT || "").trim();
   const elevenLabsVoiceIdEn = String(process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID_EN || "").trim();
@@ -419,12 +426,53 @@ export function LLMLoanAssistantDemo() {
     }
   };
 
+  const clearRecognitionRestartTimeout = () => {
+    if (recognitionRestartTimeoutRef.current) {
+      clearTimeout(recognitionRestartTimeoutRef.current);
+      recognitionRestartTimeoutRef.current = null;
+    }
+
+    recognitionRestartScheduledRef.current = false;
+  };
+
+  const resetVoiceRetryState = () => {
+    consecutiveSilentRecognitionRef.current = 0;
+    setVoiceRetryNotice("");
+    clearRecognitionRestartTimeout();
+  };
+
+  const scheduleRecognitionRestart = (sessionIdForCallback, isVoiceModeForCallback, delayMs) => {
+    if (!sessionIdForCallback || !isVoiceModeForCallback || !callActiveRef.current) {
+      return;
+    }
+
+    clearRecognitionRestartTimeout();
+    recognitionRestartScheduledRef.current = true;
+    recognitionRestartTimeoutRef.current = setTimeout(() => {
+      recognitionRestartTimeoutRef.current = null;
+      recognitionRestartScheduledRef.current = false;
+
+      if (!callActiveRef.current) {
+        console.log("[VOICE] ⏹️ Call ended before scheduled restart - not restarting recognition");
+        return;
+      }
+
+      if (isAISpeakingRef.current || isLoadingRef.current || messageInFlightRef.current) {
+        console.log("[VOICE] ⏳ Skipping scheduled restart while AI audio or network work is active");
+        return;
+      }
+
+      console.log("[VOICE] 🔁 AUTO-RESTARTING recognition for continuous listening");
+      startVoiceRecognition(sessionIdForCallback, isVoiceModeForCallback, false);
+    }, delayMs);
+  };
+
   const stopVoiceIO = () => {
     setIsListening(false);
     setIsSpeaking(false);
-    recognitionRestartScheduledRef.current = false;
     isAISpeakingRef.current = false;
     activeUtteranceRef.current = null;
+    resetVoiceRetryState();
 
     if (recognitionRef.current) {
       try {
@@ -493,11 +541,23 @@ export function LLMLoanAssistantDemo() {
     updateCallActive(false);
     messageInFlightRef.current = false;
     lastVoiceTranscriptRef.current = { normalized: "", ts: 0 };
+    resetVoiceRetryState();
     stopVoiceIO();
     setSessionId(null);
     setConversation([]);
     setLanguageStyle("unknown");
     setLanguageScript("unknown");
+  };
+
+  const handleResumeListening = () => {
+    if (!sessionId || !isVoiceMode || !isCallActive) {
+      return;
+    }
+
+    console.log("[VOICE] 🎤 Manual resume requested by user");
+    resetVoiceRetryState();
+    setError(null);
+    startVoiceRecognition(sessionId, true, false);
   };
 
   const startVoiceRecognition = (sessionIdParam, isVoiceModeParam, isSpeakingParam) => {
@@ -558,6 +618,8 @@ export function LLMLoanAssistantDemo() {
       return;
     }
 
+    clearRecognitionRestartTimeout();
+
     console.log("[VOICE] 🚀 Creating new SpeechRecognition instance");
     const recognition = new SpeechRecognition();
     const instanceId = Math.random().toString(36).substr(2, 9);
@@ -573,6 +635,7 @@ export function LLMLoanAssistantDemo() {
     recognition.onstart = () => {
       console.log(`[VOICE] ✅ Recognition STARTED (instance: ${instanceId}) - now listening for speech`);
       console.log("[VOICE] 🎤 SPEAK NOW! (waiting for audio...)");
+      setVoiceRetryNotice("");
       setIsListening(true);
     };
 
@@ -595,7 +658,20 @@ export function LLMLoanAssistantDemo() {
       }
 
       console.log("[VOICE] 📝 Final Transcript:", transcript);
-      setCustomerMessage(transcript);
+      const acceptedTranscript = isMeaningfulVoiceTranscript(transcript);
+
+      if (acceptedTranscript) {
+        didReceiveFinalTranscript = true;
+        consecutiveSilentRecognitionRef.current = 0;
+        setVoiceRetryNotice("");
+        setError(null);
+        setCustomerMessage(transcript);
+      } else {
+        console.log(`[VOICE] ⚠️ Ignoring low-signal transcript (instance: ${instanceId})`);
+        setVoiceRetryNotice(
+          "I did not catch a clear request. Please say one short sentence, for example 'business loan', '1 crore', or 'call later'."
+        );
+      }
 
       const localSignal = detectLanguageStyleFromText(transcript);
       if (localSignal.style && localSignal.style !== "unknown") {
@@ -610,7 +686,7 @@ export function LLMLoanAssistantDemo() {
 
       // Automatically send the customer's speech as their message
       // Pass the sessionId explicitly to avoid closure issues
-      if (transcript.trim()) {
+      if (acceptedTranscript && transcript.trim()) {
         console.log("[VOICE] 📤 Sending transcript to server automatically with sessionId:", effectiveSessionId);
         sendMessageToServer(transcript, effectiveSessionId, effectiveIsVoiceMode);
       }
@@ -622,6 +698,8 @@ export function LLMLoanAssistantDemo() {
       // "aborted" is expected when we intentionally stop() during AI speech
       if (event.error === "aborted") {
         console.log("[VOICE] 🎤 Recognition aborted (expected - AI was speaking)");
+      } else if (event.error === "no-speech") {
+        console.warn(`[VOICE] ⚠️ No speech detected on this attempt (instance: ${instanceId})`);
       } else {
         console.error("[VOICE] 🎤 Speech recognition error:", event.error);
         
@@ -629,7 +707,7 @@ export function LLMLoanAssistantDemo() {
         let userMessage = "";
         switch(event.error) {
           case "no-speech":
-            userMessage = "🎤 I didn't hear anything. Please speak clearly!";
+            userMessage = "";
             break;
           case "audio-capture":
             userMessage = "🎙️ Microphone issue. Please check your microphone and try again.";
@@ -645,7 +723,9 @@ export function LLMLoanAssistantDemo() {
             userMessage = `🎤 Please speak clearly. If this continues, try refreshing the page. (Error: ${event.error})`;
         }
         
-        setError(userMessage);
+        if (userMessage) {
+          setError(userMessage);
+        }
       }
       setIsListening(false);
     };
@@ -658,6 +738,9 @@ export function LLMLoanAssistantDemo() {
 
       console.log(`[VOICE] 🛑 Recognition ENDED (instance: ${instanceId}, stopped listening)`);
       setIsListening(false);
+      if (recognitionRef.current === recognition) {
+        recognitionRef.current = null;
+      }
 
       // Only restart if AI is NOT currently speaking
       // Auto-restart is controlled by speech synthesis callbacks, not here
@@ -685,21 +768,19 @@ export function LLMLoanAssistantDemo() {
 
       // Only auto-restart if we're definitely not during AI speech
       if (effectiveIsVoiceMode && effectiveSessionId && !isAISpeakingRef.current && callActiveRef.current) {
-        if (!recognitionRestartScheduledRef.current) {
-          recognitionRestartScheduledRef.current = true;
-          console.log("[VOICE] ⏱️  Waiting 1s before restarting (browser needs gap between attempts)");
-          setTimeout(() => {
-            recognitionRestartScheduledRef.current = false;
-            if (!callActiveRef.current) {
-              console.log("[VOICE] ⏹️ Call ended before scheduled restart - not restarting recognition");
-              return;
-            }
-            console.log("[VOICE] 🔁 AUTO-RESTARTING recognition for continuous listening");
-            startVoiceRecognition(effectiveSessionId, effectiveIsVoiceMode, false);
-          }, 1000);
-        } else {
-          console.log("[VOICE] ⏳ Recognition restart already scheduled, skipping duplicate");
+        consecutiveSilentRecognitionRef.current += 1;
+        const silentCount = consecutiveSilentRecognitionRef.current;
+        const restartDelayMs = getRecognitionRestartDelayMs(silentCount);
+        const retryNotice = getVoiceRetryNotice(silentCount);
+
+        if (retryNotice) {
+          setVoiceRetryNotice(retryNotice);
         }
+
+        console.log(
+          `[VOICE] ⏱️ Waiting ${restartDelayMs}ms before restarting after ${silentCount} silent attempt(s)`
+        );
+        scheduleRecognitionRestart(effectiveSessionId, effectiveIsVoiceMode, restartDelayMs);
       }
     };
 
@@ -738,6 +819,8 @@ export function LLMLoanAssistantDemo() {
 
   const handleSpeechStarted = () => {
     console.log("[VOICE] 🔊 AI STARTED SPEAKING");
+    clearRecognitionRestartTimeout();
+    setVoiceRetryNotice("");
     isAISpeakingRef.current = true;
     setIsSpeaking(true);
 
@@ -991,6 +1074,7 @@ export function LLMLoanAssistantDemo() {
     console.log("[CALL] handleStartCall() - Starting call initialization");
     console.log(`[CALL] Mode: isVoiceMode=${isVoiceMode}, autoPlayVoice=${autoPlayVoice}, canUseAnyTTS=${canUseAnyTTS}`);
     
+    resetVoiceRetryState();
     messageInFlightRef.current = false;
     lastVoiceTranscriptRef.current = { normalized: "", ts: 0 };
     setError(null);
@@ -1103,6 +1187,8 @@ export function LLMLoanAssistantDemo() {
     }
 
     setError(null);
+  setVoiceRetryNotice("");
+  clearRecognitionRestartTimeout();
     setIsLoading(true);
 
     // Add user message to conversation
@@ -1364,11 +1450,22 @@ export function LLMLoanAssistantDemo() {
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
                 {getStatusText()}
               </span>
+              {isVoiceMode && voiceRetryNotice && !isListening && !isSpeaking && !isLoading && (
+                <Button onClick={handleResumeListening} variant="outline">
+                  Resume Listening
+                </Button>
+              )}
               <Button onClick={handleEndCall} variant="outline">
                 End Call
               </Button>
             </div>
           </div>
+
+          {isVoiceMode && voiceRetryNotice && (
+            <div className="mb-4 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              {voiceRetryNotice}
+            </div>
+          )}
 
           {/* Conversation History */}
           <div className="mb-4 max-h-96 space-y-3 overflow-y-auto rounded bg-gray-50 p-4">
