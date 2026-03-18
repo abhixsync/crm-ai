@@ -13,6 +13,8 @@ const ROMAN_HINDI_TOKENS = new Set([
   "nah",
   "chahiye",
   "zaroorat",
+  "zarurat",
+  "jarurat",
   "baad",
   "mein",
   "abhi",
@@ -48,6 +50,77 @@ const ROMAN_HINDI_TOKENS = new Set([
   "karna",
   "karo",
   "mat",
+  // common Hindi verbs and helpers
+  "kara",
+  "kardo",
+  "karenge",
+  "karungi",
+  "karunga",
+  "kar",
+  "hai",
+  "hoon",
+  "ho",
+  "hain",
+  "tha",
+  "thi",
+  "raha",
+  "rahi",
+  "rahe",
+  "jaye",
+  "jao",
+  "dedo",
+  "dijiye",
+  "dena",
+  "milega",
+  "mil",
+  "sakta",
+  "sakti",
+  "sakte",
+  // common Hindi adjectives/adverbs
+  "jyada",
+  "zyada",
+  "jaldi",
+  "bahut",
+  "achha",
+  "acha",
+  "accha",
+  "pehle",
+  "badhiya",
+  "sab",
+  "sirf",
+  "bhi",
+  "phir",
+  "lekin",
+  "toh",
+  // common Hindi pronouns/particles
+  "utna",
+  "jitna",
+  "wala",
+  "wali",
+  "se",
+  "ke",
+  "ko",
+  "ka",
+  "ki",
+  "pe",
+  "par",
+  // money/quantity terms
+  "lakh",
+  "lac",
+  "lacs",
+  "crore",
+  "rupay",
+  "rupaye",
+  "paisa",
+  "paise",
+  // common loan conversation words
+  "soch",
+  "socha",
+  "dekh",
+  "dekhte",
+  "lunga",
+  "lungi",
+  "lu",
 ]);
 
 const ENGLISH_HINT_TOKENS = new Set([
@@ -78,6 +151,39 @@ const ENGLISH_HINT_TOKENS = new Set([
   "emi",
   "salary",
   "company",
+  // common English verbs and functional words
+  "said",
+  "asked",
+  "told",
+  "called",
+  "want",
+  "need",
+  "know",
+  "think",
+  "give",
+  "take",
+  "tell",
+  "call",
+  "late",
+  "time",
+  "question",
+  "before",
+  "after",
+  "already",
+  "just",
+  "about",
+  "very",
+  "much",
+  "really",
+  "actually",
+  "never",
+  "always",
+  "would",
+  "could",
+  "should",
+  "provide",
+  "number",
+  "money",
 ]);
 
 export const LANGUAGE_STYLES = {
@@ -147,8 +253,12 @@ export function detectLanguageStyleFromText(text) {
       return buildSignal(LANGUAGE_STYLES.HINGLISH, "roman", 0.85);
     }
 
-    if (englishHits >= 2 || latinTokens.length >= 4) {
+    if (englishHits >= 2 && englishHits > romanHindiHits) {
       return buildSignal(LANGUAGE_STYLES.ENGLISH, "latin", 0.75);
+    }
+
+    if (englishHits >= 2 && romanHindiHits >= 1) {
+      return buildSignal(LANGUAGE_STYLES.HINGLISH, "roman", 0.85);
     }
 
     if (romanHindiHits >= 1) {
@@ -203,7 +313,7 @@ export function getLanguageMirroringInstruction(signal) {
     return "Customer language style is Hinglish. Respond in natural Hinglish and mirror the customer's Hindi-English mix naturally.";
   }
 
-  return "Customer language style is not clear yet. Use simple English first, then mirror the customer's language in the next turn.";
+  return "Customer language style is not clear yet. Default to Hinglish (Hindi in Roman script mixed with English). Mirror the customer's language as soon as you detect it.";
 }
 
 /**

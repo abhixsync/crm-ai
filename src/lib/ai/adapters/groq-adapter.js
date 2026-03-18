@@ -1,5 +1,5 @@
 import Groq from "groq-sdk";
-import { AI_TASKS, createEngineAdapter } from "@/lib/ai/engine-contract";
+import { AI_TASKS, createEngineAdapter, buildCallSummaryPrompt } from "@/lib/ai/engine-contract";
 import {
   detectLanguageStyleFromText,
   getLanguageMirroringInstruction,
@@ -160,12 +160,17 @@ async function invokeGroqAI({ task, input, config }) {
       };
     }
 
-    const prompt = `Analyze this loan sales call transcript and return JSON with keys summary, intent, nextAction. Keep summary to 50 words max. Transcript: ${transcript}`;
+    const prompt = buildCallSummaryPrompt({
+      transcript,
+      extractedData: input.extractedData || null,
+      customer: input.customer || null,
+      stage: input.context?.conversationStage || null,
+    });
 
     try {
       const message = await client.chat.completions.create({
         model,
-        max_tokens: 300,
+        max_tokens: 400,
         messages: [{ role: "user", content: prompt }],
       });
 
@@ -209,8 +214,10 @@ async function invokeGroqAI({ task, input, config }) {
 Keep responses concise (1-2 sentences max).
 Customer context: ${JSON.stringify(context)}
 Current turn: ${turn}
-Language rule: ${languageInstruction}
-Always mirror customer language style in this turn.`;
+
+CRITICAL LANGUAGE RULE (must follow strictly):
+${languageInstruction}
+You MUST respond in the same language the customer is using. If the customer speaks Hindi or Hinglish, you MUST reply in Hindi/Hinglish — never switch to English on your own. Only switch language if the customer explicitly switches.`;
 
     const userPrompt = `Conversation so far:\n${
       transcript || "(call just started)"

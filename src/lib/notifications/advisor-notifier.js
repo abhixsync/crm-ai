@@ -2,12 +2,13 @@ import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
 import { ACTIONABLE_INTENTS, canonicalizeIntent } from "@/lib/journey/intent-normalization";
 import { normalizeE164Digits, normalizePhoneNumber } from "@/lib/telephony/utils";
+import { getWhatsAppToken } from "@/lib/notifications/whatsapp-token-manager";
 
 const WHATSAPP_API_MODES = new Set(["meta", "generic"]);
 const MAX_WHATSAPP_BODY_LENGTH = 1400;
 const META_TEMPLATE_NAME = "advisor_callback_alert_v1";
-const META_TEMPLATE_FALLBACK_NAME = "advisor_callback_alert_simple_v1";
-const META_TEMPLATE_LANGUAGE = "en";
+const META_TEMPLATE_FALLBACK_NAME = "";
+const META_TEMPLATE_LANGUAGE = "en_IN";
 const MAX_TEMPLATE_PARAM_LENGTH = 900;
 
 function buildCustomerName(customer) {
@@ -247,6 +248,11 @@ function resolveProviderMessageId(data) {
 }
 
 async function postWhatsAppPayload({ endpoint, headers, payload }) {
+  console.info("[advisor-notifier] POST WhatsApp", {
+    url: endpoint,
+    payloadType: payload?.type || payload?.template?.name || "unknown",
+    to: payload?.to,
+  });
   const response = await fetch(endpoint, {
     method: "POST",
     headers,
@@ -255,6 +261,14 @@ async function postWhatsAppPayload({ endpoint, headers, payload }) {
 
   const rawBody = await response.text().catch(() => "");
   const data = parseRawResponse(rawBody);
+
+  if (!response.ok) {
+    console.error("[advisor-notifier] WhatsApp API error", {
+      status: response.status,
+      url: endpoint,
+      responseBody: rawBody?.slice(0, 500),
+    });
+  }
 
   return {
     ok: response.ok,
@@ -374,6 +388,7 @@ async function resolveTenantNotificationContext(tenantId) {
       crmName: true,
       loanAssistantHumanAdvisorName: true,
       loanAssistantCallbackPhone: true,
+      loanAssistantNotificationEmail: true,
     },
   });
 }
@@ -406,6 +421,14 @@ async function resolveAdvisorEmail(callLog) {
     return assignedAdvisorEmail;
   }
 
+  // Tenant-configured notification email (from loan settings)
+  const tenantEmail = String(
+    callLog?.tenant?.loanAssistantNotificationEmail || ""
+  ).trim();
+  if (tenantEmail) {
+    return tenantEmail;
+  }
+
   const fallbackEmail = String(process.env.ADVISOR_EMAIL_TO || "").trim();
   if (fallbackEmail) {
     return fallbackEmail;
@@ -433,7 +456,7 @@ async function resolveAdvisorEmail(callLog) {
 
 async function sendAdvisorWhatsAppNotification({ to, body, template }) {
   const endpoint = String(process.env.WHATSAPP_API_URL || "").trim();
-  const token = String(process.env.WHATSAPP_API_TOKEN || "").trim();
+  const token = await getWhatsAppToken();
   const mode = getNormalizedWhatsAppMode();
   const from = String(process.env.WHATSAPP_API_FROM || "").trim();
 
@@ -500,6 +523,15 @@ async function sendAdvisorWhatsAppNotification({ to, body, template }) {
     languageCode: fallbackTemplatePayload?.template?.language?.code || null,
     parameterCount: fallbackTemplatePayload?.template?.components?.[0]?.parameters?.length || 0,
     parameters: (fallbackTemplatePayload?.template?.components?.[0]?.parameters || []).map((param) => param?.text || null),
+  });
+
+  console.info("[advisor-notifier] WhatsApp API debug", {
+    endpoint,
+    mode,
+    hasToken: Boolean(token),
+    tokenPrefix: token ? `${token.slice(0, 8)}...${token.slice(-4)}` : "(none)",
+    recipient: normalizedTo,
+    from: from || "(not set)",
   });
 
   try {
@@ -690,6 +722,7 @@ export async function notifyAdvisorForCallLog(callLogId, options = {}) {
             crmName: true,
             loanAssistantHumanAdvisorName: true,
             loanAssistantCallbackPhone: true,
+            loanAssistantNotificationEmail: true,
           },
         },
         customer: {

@@ -14,6 +14,21 @@ describe("voice session utils", () => {
     expect(isMeaningfulVoiceTranscript("you already asked me this question before")).toBe(true);
   });
 
+  it("accepts Hindi action and urgency phrases in Roman script", () => {
+    expect(isMeaningfulVoiceTranscript("jaldi se dila do")).toBe(true);
+    expect(isMeaningfulVoiceTranscript("kar do")).toBe(true);
+    expect(isMeaningfulVoiceTranscript("kara do")).toBe(true);
+    expect(isMeaningfulVoiceTranscript("chahiye")).toBe(true);
+    expect(isMeaningfulVoiceTranscript("turant")).toBe(true);
+    expect(isMeaningfulVoiceTranscript("chalo shuru karo")).toBe(true);
+  });
+
+  it("accepts Devanagari script transcripts", () => {
+    expect(isMeaningfulVoiceTranscript("जल्दी दिला दो")).toBe(true);
+    expect(isMeaningfulVoiceTranscript("जिला तू जल्दी से जल्दी")).toBe(true);
+    expect(isMeaningfulVoiceTranscript("हाँ जी")).toBe(true);
+  });
+
   it("filters low-signal garbage transcripts", () => {
     expect(isMeaningfulVoiceTranscript("you are shit")).toBe(false);
     expect(isMeaningfulVoiceTranscript("first get yourself for brain")).toBe(false);

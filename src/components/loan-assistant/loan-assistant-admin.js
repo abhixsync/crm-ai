@@ -13,6 +13,7 @@ export function LoanAssistantAdmin() {
   const { data: session } = useSession();
   const [companyName, setCompanyName] = useState("");
   const [callbackPhone, setCallbackPhone] = useState("");
+  const [notificationEmail, setNotificationEmail] = useState("");
   const [aiAgentName, setAiAgentName] = useState("Priya");
   const [humanAdvisorName, setHumanAdvisorName] = useState("John Doe");
   const [tenantName, setTenantName] = useState("");
@@ -63,6 +64,7 @@ export function LoanAssistantAdmin() {
       if (data.success && data.data) {
         setCompanyName(data.data.loanAssistantCompanyName || "");
         setCallbackPhone(data.data.loanAssistantCallbackPhone || "");
+        setNotificationEmail(data.data.loanAssistantNotificationEmail || "");
         setAiAgentName(data.data.aiAgentName || "Priya");
         setHumanAdvisorName(data.data.loanAssistantHumanAdvisorName || "John Doe");
         setTenantName(data.data.tenantName);
@@ -99,6 +101,7 @@ export function LoanAssistantAdmin() {
           loanAssistantCompanyName: companyName || null,
           loanAssistantHumanAdvisorName: humanAdvisorName || "John Doe",
           loanAssistantCallbackPhone: callbackPhone || null,
+          loanAssistantNotificationEmail: notificationEmail || null,
           aiAgentName: aiAgentName || "Priya",
         }),
       });
@@ -196,7 +199,23 @@ export function LoanAssistantAdmin() {
                 onChange={(e) => setCallbackPhone(e.target.value)}
               />
               <p className="text-xs text-slate-500">
-                Customers will hear this number in the closing message to call your team back.
+                Will be used as the callback number for customers and for WhatsApp notifications to your team.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="notification-email" className="text-sm font-medium text-slate-700">
+                Notification Email
+              </label>
+              <Input
+                id="notification-email"
+                type="email"
+                placeholder="e.g., advisor@yourcompany.com"
+                value={notificationEmail}
+                onChange={(e) => setNotificationEmail(e.target.value)}
+              />
+              <p className="text-xs text-slate-500">
+                Interested customer details and important loan assistant emails will be sent to this address.
               </p>
             </div>
 

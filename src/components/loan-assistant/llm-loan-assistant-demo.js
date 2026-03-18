@@ -653,10 +653,6 @@ export function LLMLoanAssistantDemo() {
         })
         .join("");
 
-      if (transcript.trim()) {
-        didReceiveFinalTranscript = true;
-      }
-
       console.log("[VOICE] 📝 Final Transcript:", transcript);
       const acceptedTranscript = isMeaningfulVoiceTranscript(transcript);
 

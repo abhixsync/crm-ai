@@ -98,3 +98,54 @@ export function createEngineAdapter({ id, supportedTasks, invoke }) {
     },
   };
 }
+
+/**
+ * Build a structured CALL_SUMMARY prompt that includes extracted data
+ * for accurate advisor-facing summaries.
+ */
+export function buildCallSummaryPrompt({ transcript, extractedData, customer, stage }) {
+  const parts = [];
+
+  parts.push(
+    "You are summarising a loan sales call between an AI loan assistant and a customer.",
+    "Your audience is a human loan advisor who will follow up with this customer.",
+    "Return ONLY valid JSON with keys: summary, intent, nextAction.",
+    ""
+  );
+
+  // Include extracted data so the LLM knows what was discussed
+  const data = extractedData || {};
+  const facts = [];
+  if (data.loanType) facts.push(`Loan type: ${data.loanType}`);
+  if (data.amount) facts.push(`Loan amount: ${data.amount}`);
+  if (data.employmentType) facts.push(`Employment: ${data.employmentType}`);
+  if (data.monthlyIncome) facts.push(`Monthly income: ${data.monthlyIncome}`);
+  if (data.city) facts.push(`City: ${data.city}`);
+  if (data.preferredCallbackTime) facts.push(`Callback preference: ${data.preferredCallbackTime}`);
+  if (customer?.firstName) facts.push(`Customer name: ${customer.firstName}`);
+  if (stage) facts.push(`Conversation stage reached: ${stage}`);
+
+  if (facts.length > 0) {
+    parts.push("Extracted data from the conversation:");
+    facts.forEach(f => parts.push(`  - ${f}`));
+    parts.push("");
+  }
+
+  parts.push(
+    "Rules for the summary field (60 words max):",
+    "- State what the customer wants (loan type, amount, purpose) and their disposition.",
+    "- Mention key qualifying info discussed (employment, income, city).",
+    "- Do NOT include agent prompts or questions. Only describe what was discussed.",
+    "- Write in third person (e.g. \"Customer is interested in…\").",
+    "",
+    "Rules for intent (one of: interested, not_interested, call_back_later, busy, do_not_call, neutral).",
+    "",
+    "Rules for nextAction:",
+    "- A concrete next step for the advisor (e.g. \"Call customer to verify documents\").",
+    "",
+    "Transcript:",
+    transcript || "(no transcript available)"
+  );
+
+  return parts.join("\n");
+}

@@ -291,12 +291,16 @@ export async function POST(request) {
     console.log('📊 Analysis:', analysisResult);
     console.log('Should end session:', shouldEndSession);
 
-    const callSummary = shouldEndSession ? manager.getCallSummary() : null;
+    let callSummary = null;
     const transcript = shouldEndSession ? manager.getTranscript() : null;
     let notification = null;
     let finalizedCallLogId = null;
 
     if (shouldEndSession) {
+      // Regenerate summary with full context before retrieving it
+      await manager.generateFinalSummary();
+      callSummary = manager.getCallSummary();
+
       const summaryText =
         callSummary?.summary ||
         buildLoanAssistantFallbackSummary({
