@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 const MAX_HISTORY_TURNS = 50;
+export const GLOBAL_SYSTEM_PROMPT_KEY = "default";
 
 const VALID_LANGUAGES = ["english", "hindi", "hinglish"];
 
@@ -89,6 +90,24 @@ function buildDefaultSystemPrompt(language) {
 
 const DEFAULT_SYSTEM_PROMPT = buildDefaultSystemPrompt("hinglish");
 
+export function getSystemPromptKeyForTenant(tenantId) {
+  const normalizedTenantId = String(tenantId || "").trim();
+  if (!normalizedTenantId) {
+    return GLOBAL_SYSTEM_PROMPT_KEY;
+  }
+
+  return `tenant:${normalizedTenantId}`;
+}
+
+function getSystemPromptLookupKeys(tenantId) {
+  const tenantKey = getSystemPromptKeyForTenant(tenantId);
+  if (tenantKey === GLOBAL_SYSTEM_PROMPT_KEY) {
+    return [GLOBAL_SYSTEM_PROMPT_KEY];
+  }
+
+  return [tenantKey, GLOBAL_SYSTEM_PROMPT_KEY];
+}
+
 const DEFAULT_HUMAN_ADVISOR_NAME = "our loan advisor";
 
 /**
@@ -125,12 +144,21 @@ function injectAdvisorName(prompt, advisorName) {
  */
 export async function getActiveSystemPrompt(tenantId) {
   const { language, humanAdvisorName } = await getTenantSettings(tenantId);
+  const [tenantKey, globalKey] = getSystemPromptLookupKeys(tenantId);
 
   try {
-    const row = await prisma.aiSystemPrompt.findFirst({
-      where: { isActive: true },
+    const tenantScopedRow = await prisma.aiSystemPrompt.findFirst({
+      where: { key: tenantKey, isActive: true },
       orderBy: { updatedAt: "desc" },
     });
+    const row = tenantScopedRow || (
+      globalKey
+        ? await prisma.aiSystemPrompt.findFirst({
+            where: { key: globalKey, isActive: true },
+            orderBy: { updatedAt: "desc" },
+          })
+        : null
+    );
 
     if (row?.prompt) {
       // If the saved prompt contains a LANGUAGE RULES: section, replace it

@@ -3,7 +3,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
+import {
+  DEFAULT_SYSTEM_PROMPT,
+  GLOBAL_SYSTEM_PROMPT_KEY,
+  getSystemPromptKeyForTenant,
+} from "@/lib/ai/system-prompt";
 import { AiSystemPromptEditor } from "@/components/admin/ai-system-prompt-editor";
 
 export default async function AiSystemPromptPage() {
@@ -13,28 +17,57 @@ export default async function AiSystemPromptPage() {
     redirect("/login");
   }
 
-  if (session.user.role !== "SUPER_ADMIN") {
+  if (!["SUPER_ADMIN", "ADMIN"].includes(session.user.role)) {
     redirect("/dashboard");
   }
+
+  const tenantId = session.user.role === "SUPER_ADMIN" ? null : session.user.tenantId || null;
+  if (session.user.role === "ADMIN" && !tenantId) {
+    redirect("/dashboard");
+  }
+
+  const promptKey = getSystemPromptKeyForTenant(tenantId);
+
+  const adminBackHref = session.user.role === "SUPER_ADMIN"
+    ? "/admin/providers"
+    : "/admin/settings?type=profile";
+  const adminBackLabel = session.user.role === "SUPER_ADMIN" ? "Providers" : "Admin";
+  const promptScopeDescription = session.user.role === "SUPER_ADMIN"
+    ? "global default"
+    : "your tenant";
 
   let initialPrompt = null;
   try {
     initialPrompt = await prisma.aiSystemPrompt.findFirst({
-      where: { isActive: true },
+      where: { key: promptKey, isActive: true },
       orderBy: { updatedAt: "desc" },
     });
+
+    if (!initialPrompt && session.user.role !== "SUPER_ADMIN") {
+      initialPrompt = await prisma.aiSystemPrompt.findFirst({
+        where: { key: GLOBAL_SYSTEM_PROMPT_KEY, isActive: true },
+        orderBy: { updatedAt: "desc" },
+      });
+    }
   } catch {
     // DB might not have the table yet; use default
   }
 
   const promptData = initialPrompt || {
     id: null,
-    key: "default",
+    key: promptKey,
     label: "Default System Prompt",
     prompt: DEFAULT_SYSTEM_PROMPT,
     isActive: true,
     createdAt: null,
     updatedAt: null,
+  };
+
+  const initialScope = {
+    key: promptKey,
+    tenantId,
+    isSuperAdmin: session.user.role === "SUPER_ADMIN",
+    inheritedFromGlobal: session.user.role !== "SUPER_ADMIN" && (!initialPrompt || initialPrompt.key === GLOBAL_SYSTEM_PROMPT_KEY),
   };
 
   return (
@@ -46,22 +79,22 @@ export default async function AiSystemPromptPage() {
               Home
             </Link>
             <span className="px-1">→</span>
-            <Link href="/admin/providers" className="hover:text-slate-800">
-              Providers
+            <Link href={adminBackHref} className="hover:text-slate-800">
+              {adminBackLabel}
             </Link>
             <span className="px-1">→</span>
             <span className="text-slate-700">AI System Prompt</span>
           </nav>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">AI System Prompt</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Edit the shared system prompt used by all AI providers (OpenAI, Claude, Groq).
-            Changes apply immediately to new calls. The last 50 conversation turns per customer are
-            automatically appended at runtime.
+            Edit the {promptScopeDescription} system prompt used by all AI providers (OpenAI, Claude, Groq).
+            Changes apply immediately to new calls in this scope. The last 50 conversation turns per customer
+            are automatically appended at runtime.
           </p>
         </div>
       </div>
 
-      <AiSystemPromptEditor initialPrompt={promptData} />
+      <AiSystemPromptEditor initialPrompt={promptData} initialScope={initialScope} />
     </main>
   );
 }

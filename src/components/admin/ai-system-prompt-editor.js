@@ -4,9 +4,10 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-export function AiSystemPromptEditor({ initialPrompt }) {
+export function AiSystemPromptEditor({ initialPrompt, initialScope = null }) {
   const [prompt, setPrompt] = useState(initialPrompt?.prompt || "");
   const [label, setLabel] = useState(initialPrompt?.label || "Default System Prompt");
+  const [scope, setScope] = useState(initialScope);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [lastSaved, setLastSaved] = useState(
@@ -16,6 +17,24 @@ export function AiSystemPromptEditor({ initialPrompt }) {
 
   const charCount = prompt.length;
   const MAX_CHARS = 50000;
+  const isSuperAdminScope = Boolean(scope?.isSuperAdmin);
+  const isInheritedFromGlobal = Boolean(scope?.inheritedFromGlobal);
+  const hasTenantOverride = Boolean(!isSuperAdminScope && !isInheritedFromGlobal);
+  const scopeBadgeClass = isSuperAdminScope
+    ? "border-slate-200 bg-slate-100 text-slate-700"
+    : hasTenantOverride
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-amber-200 bg-amber-50 text-amber-700";
+  const scopeBadgeLabel = isSuperAdminScope
+    ? "Global prompt"
+    : hasTenantOverride
+      ? "Tenant override active"
+      : "Inherited from global prompt";
+  const scopeHelpText = isSuperAdminScope
+    ? "Changes here affect the global prompt baseline."
+    : hasTenantOverride
+      ? "Changes here affect only this tenant."
+      : "This tenant currently uses the global prompt. Saving creates a tenant override.";
 
   const handleSave = useCallback(async () => {
     const trimmed = prompt.trim();
@@ -45,6 +64,9 @@ export function AiSystemPromptEditor({ initialPrompt }) {
       setPrompt(data.prompt.prompt);
       setLabel(data.prompt.label);
       setLastSaved(new Date(data.prompt.updatedAt));
+      if (data.scope) {
+        setScope(data.scope);
+      }
       toast.success("System prompt saved successfully.");
     } catch {
       toast.error("Network error — could not save prompt.");
@@ -74,7 +96,10 @@ export function AiSystemPromptEditor({ initialPrompt }) {
 
       setPrompt(data.prompt.prompt);
       setLabel(data.prompt.label);
-      setLastSaved(new Date(data.prompt.updatedAt));
+      setLastSaved(data.prompt.updatedAt ? new Date(data.prompt.updatedAt) : null);
+      if (data.scope) {
+        setScope(data.scope);
+      }
       toast.success("System prompt reset to default.");
     } catch {
       toast.error("Network error — could not reset prompt.");
@@ -102,6 +127,15 @@ export function AiSystemPromptEditor({ initialPrompt }) {
         providers (OpenAI, Claude, Groq) on every call turn. At runtime, the customer&apos;s profile
         and up to their last 50 conversation transcripts are automatically appended to give the AI
         full context. Dialogflow uses intent matching and is not affected by this prompt.
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-semibold ${scopeBadgeClass}`}>
+            {scopeBadgeLabel}
+          </span>
+          {scope?.key ? (
+            <span className="text-blue-700/80">Key: {scope.key}</span>
+          ) : null}
+          <span className="text-blue-700/80">{scopeHelpText}</span>
+        </div>
       </div>
 
       {/* Label input */}

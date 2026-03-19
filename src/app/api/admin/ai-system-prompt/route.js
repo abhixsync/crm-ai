@@ -1,41 +1,93 @@
 import { prisma } from "@/lib/prisma";
-import { requireSession, hasRole } from "@/lib/server/auth-guard";
+import { requireSession, hasRole, getTenantContext } from "@/lib/server/auth-guard";
 import { isDatabaseUnavailable, databaseUnavailableResponse } from "@/lib/server/database-error";
-import { DEFAULT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
+import {
+  DEFAULT_SYSTEM_PROMPT,
+  GLOBAL_SYSTEM_PROMPT_KEY,
+  getSystemPromptKeyForTenant,
+} from "@/lib/ai/system-prompt";
 
-async function requireSuperAdmin() {
+function resolvePromptScope(session) {
+  const tenant = getTenantContext(session);
+  const tenantId = tenant.isSuperAdmin ? null : tenant.tenantId;
+
+  return {
+    tenantId,
+    isSuperAdmin: tenant.isSuperAdmin,
+    promptKey: getSystemPromptKeyForTenant(tenantId),
+  };
+}
+
+async function findPromptByKey(promptKey) {
+  return prisma.aiSystemPrompt.findFirst({
+    where: { key: promptKey, isActive: true },
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
+async function resolvePromptRowForScope(scope) {
+  const scopedRow = await findPromptByKey(scope.promptKey);
+  if (scopedRow) {
+    return { row: scopedRow, inheritedFromGlobal: false };
+  }
+
+  if (!scope.isSuperAdmin) {
+    const globalRow = await findPromptByKey(GLOBAL_SYSTEM_PROMPT_KEY);
+    if (globalRow) {
+      return { row: globalRow, inheritedFromGlobal: true };
+    }
+  }
+
+  return { row: null, inheritedFromGlobal: false };
+}
+
+async function requirePromptManager() {
   const auth = await requireSession();
   if (auth.error) return auth;
 
-  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+  if (!hasRole(auth.session, ["SUPER_ADMIN", "ADMIN"])) {
     return { error: Response.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
-  return auth;
+  try {
+    const scope = resolvePromptScope(auth.session);
+    return { session: auth.session, scope };
+  } catch (error) {
+    return {
+      error: Response.json(
+        { error: error?.message || "Unable to resolve tenant prompt scope." },
+        { status: 400 }
+      ),
+    };
+  }
+
 }
 
 /**
  * GET — Fetch the active system prompt (or default).
  */
 export async function GET() {
-  const auth = await requireSuperAdmin();
+  const auth = await requirePromptManager();
   if (auth.error) return auth.error;
 
   try {
-    const row = await prisma.aiSystemPrompt.findFirst({
-      where: { isActive: true },
-      orderBy: { updatedAt: "desc" },
-    });
+    const { row, inheritedFromGlobal } = await resolvePromptRowForScope(auth.scope);
 
     return Response.json({
       prompt: row || {
         id: null,
-        key: "default",
+        key: auth.scope.promptKey,
         label: "Default System Prompt",
         prompt: DEFAULT_SYSTEM_PROMPT,
         isActive: true,
         createdAt: null,
         updatedAt: null,
+      },
+      scope: {
+        key: auth.scope.promptKey,
+        tenantId: auth.scope.tenantId,
+        isSuperAdmin: auth.scope.isSuperAdmin,
+        inheritedFromGlobal,
       },
     });
   } catch (error) {
@@ -48,7 +100,7 @@ export async function GET() {
  * PUT — Create or update the active system prompt.
  */
 export async function PUT(request) {
-  const auth = await requireSuperAdmin();
+  const auth = await requirePromptManager();
   if (auth.error) return auth.error;
 
   const body = await request.json();
@@ -64,21 +116,20 @@ export async function PUT(request) {
   }
 
   try {
-    const existing = await prisma.aiSystemPrompt.findFirst({
-      where: { isActive: true },
-      orderBy: { updatedAt: "desc" },
+    const existing = await prisma.aiSystemPrompt.findUnique({
+      where: { key: auth.scope.promptKey },
     });
 
     let row;
     if (existing) {
       row = await prisma.aiSystemPrompt.update({
-        where: { id: existing.id },
+        where: { key: auth.scope.promptKey },
         data: { prompt: promptText, label },
       });
     } else {
       row = await prisma.aiSystemPrompt.create({
         data: {
-          key: "default",
+          key: auth.scope.promptKey,
           label,
           prompt: promptText,
           isActive: true,
@@ -86,7 +137,15 @@ export async function PUT(request) {
       });
     }
 
-    return Response.json({ prompt: row });
+    return Response.json({
+      prompt: row,
+      scope: {
+        key: auth.scope.promptKey,
+        tenantId: auth.scope.tenantId,
+        isSuperAdmin: auth.scope.isSuperAdmin,
+        inheritedFromGlobal: false,
+      },
+    });
   } catch (error) {
     if (isDatabaseUnavailable(error)) return databaseUnavailableResponse();
     throw error;
@@ -97,7 +156,7 @@ export async function PUT(request) {
  * POST — Reset prompt to default.
  */
 export async function POST(request) {
-  const auth = await requireSuperAdmin();
+  const auth = await requirePromptManager();
   if (auth.error) return auth.error;
 
   const body = await request.json().catch(() => ({}));
@@ -107,29 +166,62 @@ export async function POST(request) {
   }
 
   try {
-    const existing = await prisma.aiSystemPrompt.findFirst({
-      where: { isActive: true },
-      orderBy: { updatedAt: "desc" },
-    });
-
-    let row;
-    if (existing) {
-      row = await prisma.aiSystemPrompt.update({
-        where: { id: existing.id },
-        data: { prompt: DEFAULT_SYSTEM_PROMPT, label: "Default System Prompt" },
+    if (auth.scope.isSuperAdmin) {
+      const existing = await prisma.aiSystemPrompt.findUnique({
+        where: { key: GLOBAL_SYSTEM_PROMPT_KEY },
       });
-    } else {
-      row = await prisma.aiSystemPrompt.create({
-        data: {
-          key: "default",
-          label: "Default System Prompt",
-          prompt: DEFAULT_SYSTEM_PROMPT,
-          isActive: true,
+
+      let row;
+      if (existing) {
+        row = await prisma.aiSystemPrompt.update({
+          where: { key: GLOBAL_SYSTEM_PROMPT_KEY },
+          data: { prompt: DEFAULT_SYSTEM_PROMPT, label: "Default System Prompt" },
+        });
+      } else {
+        row = await prisma.aiSystemPrompt.create({
+          data: {
+            key: GLOBAL_SYSTEM_PROMPT_KEY,
+            label: "Default System Prompt",
+            prompt: DEFAULT_SYSTEM_PROMPT,
+            isActive: true,
+          },
+        });
+      }
+
+      return Response.json({
+        prompt: row,
+        scope: {
+          key: auth.scope.promptKey,
+          tenantId: auth.scope.tenantId,
+          isSuperAdmin: auth.scope.isSuperAdmin,
+          inheritedFromGlobal: false,
         },
       });
     }
 
-    return Response.json({ prompt: row });
+    await prisma.aiSystemPrompt.deleteMany({
+      where: { key: auth.scope.promptKey },
+    });
+
+    const { row, inheritedFromGlobal } = await resolvePromptRowForScope(auth.scope);
+
+    return Response.json({
+      prompt: row || {
+        id: null,
+        key: auth.scope.promptKey,
+        label: "Default System Prompt",
+        prompt: DEFAULT_SYSTEM_PROMPT,
+        isActive: true,
+        createdAt: null,
+        updatedAt: null,
+      },
+      scope: {
+        key: auth.scope.promptKey,
+        tenantId: auth.scope.tenantId,
+        isSuperAdmin: auth.scope.isSuperAdmin,
+        inheritedFromGlobal,
+      },
+    });
   } catch (error) {
     if (isDatabaseUnavailable(error)) return databaseUnavailableResponse();
     throw error;

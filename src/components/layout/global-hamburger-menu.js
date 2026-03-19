@@ -25,11 +25,14 @@ function buildMenuItems(role) {
     items.push({ href: "/admin/automation", label: "Automation" });
   }
 
+  if (role === "ADMIN" || role === "SUPER_ADMIN") {
+    items.push({ href: "/admin/ai-system-prompt", label: "AI Prompt" });
+  }
+
   if (role === "SUPER_ADMIN") {
     items.push(
       { href: "/admin/tenants", label: "Tenants" },
-      { href: "/admin/providers", label: "Providers" },
-      { href: "/admin/ai-system-prompt", label: "AI Prompt" }
+      { href: "/admin/providers", label: "Providers" }
     );
   }
 
