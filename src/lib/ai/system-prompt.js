@@ -33,6 +33,25 @@ function getLanguageRulesBlock(language) {
   return LANGUAGE_RULES[key] || LANGUAGE_RULES.hinglish;
 }
 
+export function applyLanguageRulesToPrompt(promptText, language) {
+  const rulesBlock = getLanguageRulesBlock(language);
+  const baseText = String(promptText || "").trim();
+
+  if (!baseText) {
+    return buildDefaultSystemPrompt(language);
+  }
+
+  const hasLanguageSection = /LANGUAGE RULES:[\s\S]*?(?=\n\n[A-Z]|$)/.test(baseText);
+  if (hasLanguageSection) {
+    return baseText.replace(
+      /LANGUAGE RULES:[\s\S]*?(?=\n\n[A-Z]|$)/,
+      rulesBlock
+    );
+  }
+
+  return `${baseText}\n\n${rulesBlock}`;
+}
+
 const CORE_PROMPT_TEMPLATE = `You are an AI loan calling assistant in a live phone call.
 Your role is to qualify loan leads politely, efficiently, empathetically, and in a conversion-focused manner.
 
@@ -88,7 +107,7 @@ function buildDefaultSystemPrompt(language) {
   return `${CORE_PROMPT_TEMPLATE}\n\n${getLanguageRulesBlock(language)}`;
 }
 
-const DEFAULT_SYSTEM_PROMPT = buildDefaultSystemPrompt("hinglish");
+const DEFAULT_SYSTEM_PROMPT = `${CORE_PROMPT_TEMPLATE}\n\n${LANGUAGE_RULES.hinglish}`;
 
 export function getSystemPromptKeyForTenant(tenantId) {
   const normalizedTenantId = String(tenantId || "").trim();
@@ -115,16 +134,45 @@ const DEFAULT_HUMAN_ADVISOR_NAME = "our loan advisor";
  * Falls back to defaults if not set.
  */
 export async function getTenantSettings(tenantId) {
-  if (!tenantId) return { language: "hinglish", humanAdvisorName: DEFAULT_HUMAN_ADVISOR_NAME };
+  const normalizedTenantId = String(tenantId || "").trim();
+
+  function normalizeLanguage(value) {
+    const key = String(value || "hinglish").trim().toLowerCase();
+    return VALID_LANGUAGES.includes(key) ? key : "hinglish";
+  }
+
   try {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { loanAssistantLanguage: true, loanAssistantHumanAdvisorName: true },
-    });
-    const lang = String(tenant?.loanAssistantLanguage || "hinglish").trim().toLowerCase();
+    let tenant = null;
+
+    if (normalizedTenantId) {
+      tenant = await prisma.tenant.findUnique({
+        where: { id: normalizedTenantId },
+        select: { loanAssistantLanguage: true, loanAssistantHumanAdvisorName: true },
+      });
+    } else {
+      // If tenant context is missing, prefer the configured super-admin tenant defaults.
+      tenant = await prisma.tenant.findFirst({
+        where: { slug: "super-admin" },
+        select: { loanAssistantLanguage: true, loanAssistantHumanAdvisorName: true },
+      });
+    }
+
+    const lang = normalizeLanguage(tenant?.loanAssistantLanguage);
     const advisorName = String(tenant?.loanAssistantHumanAdvisorName || "").trim() || DEFAULT_HUMAN_ADVISOR_NAME;
+    const source = normalizedTenantId ? "explicit_tenant_id" : "super_admin_fallback";
+
+    console.log(
+      "[getTenantSettings]",
+      JSON.stringify({
+        requestedTenantId: tenantId ?? null,
+        normalizedTenantId: normalizedTenantId || null,
+        source,
+        resolvedLanguage: lang,
+      })
+    );
+
     return {
-      language: VALID_LANGUAGES.includes(lang) ? lang : "hinglish",
+      language: lang,
       humanAdvisorName: advisorName,
     };
   } catch {
@@ -144,6 +192,7 @@ function injectAdvisorName(prompt, advisorName) {
  */
 export async function getActiveSystemPrompt(tenantId) {
   const { language, humanAdvisorName } = await getTenantSettings(tenantId);
+  console.log('[getActiveSystemPrompt] tenantId:', tenantId, 'language:', language, 'humanAdvisorName:', humanAdvisorName);
   const [tenantKey, globalKey] = getSystemPromptLookupKeys(tenantId);
 
   try {
@@ -161,17 +210,7 @@ export async function getActiveSystemPrompt(tenantId) {
     );
 
     if (row?.prompt) {
-      // If the saved prompt contains a LANGUAGE RULES: section, replace it
-      const hasLanguageSection = /LANGUAGE RULES:[\s\S]*?(?=\n\n[A-Z]|$)/.test(row.prompt);
-      let result;
-      if (hasLanguageSection) {
-        result = row.prompt.replace(
-          /LANGUAGE RULES:[\s\S]*?(?=\n\n[A-Z]|$)/,
-          getLanguageRulesBlock(language)
-        );
-      } else {
-        result = `${row.prompt}\n\n${getLanguageRulesBlock(language)}`;
-      }
+      const result = applyLanguageRulesToPrompt(row.prompt, language);
       return injectAdvisorName(result, humanAdvisorName);
     }
 
@@ -225,6 +264,36 @@ export async function getCustomerChatHistory(customerId) {
   }
 }
 
+async function resolveTenantIdForPrompt({ tenantId, customer }) {
+  const explicitTenantId = String(tenantId || "").trim();
+  if (explicitTenantId) {
+    return explicitTenantId;
+  }
+
+  const customerTenantId = String(customer?.tenantId || "").trim();
+  if (customerTenantId) {
+    return customerTenantId;
+  }
+
+  const customerId = String(customer?.id || "").trim();
+  if (!customerId) {
+    return null;
+  }
+
+  try {
+    const customerRow = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { tenantId: true },
+    });
+
+    const resolvedTenantId = String(customerRow?.tenantId || "").trim();
+    return resolvedTenantId || null;
+  } catch (error) {
+    console.warn("[system-prompt] Unable to resolve tenantId from customer id:", customerId, error?.message || error);
+    return null;
+  }
+}
+
 /**
  * Build the complete system prompt for a CALL_TURN task.
  * Combines: active DB prompt + customer chat history + dynamic context.
@@ -239,9 +308,17 @@ export async function buildUnifiedCallTurnPrompt({
   conversationStage,
   tenantId,
 }) {
-  console.log('[system-prompt] buildUnifiedCallTurnPrompt called — tenantId:', tenantId, 'customerId:', customer?.id);
+  const resolvedTenantId = await resolveTenantIdForPrompt({ tenantId, customer });
+  console.log(
+    '[system-prompt] buildUnifiedCallTurnPrompt called — tenantId:',
+    tenantId,
+    'resolvedTenantId:',
+    resolvedTenantId,
+    'customerId:',
+    customer?.id
+  );
   const [basePrompt, chatHistory] = await Promise.all([
-    getActiveSystemPrompt(tenantId),
+    getActiveSystemPrompt(resolvedTenantId),
     getCustomerChatHistory(customer?.id),
   ]);
   console.log('[system-prompt] basePrompt length:', basePrompt.length, 'chatHistory length:', chatHistory.length);

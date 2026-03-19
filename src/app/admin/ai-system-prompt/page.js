@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
+  applyLanguageRulesToPrompt,
   DEFAULT_SYSTEM_PROMPT,
   GLOBAL_SYSTEM_PROMPT_KEY,
+  getTenantSettings,
   getSystemPromptKeyForTenant,
 } from "@/lib/ai/system-prompt";
 import { AiSystemPromptEditor } from "@/components/admin/ai-system-prompt-editor";
@@ -37,6 +39,7 @@ export default async function AiSystemPromptPage() {
     : "your tenant";
 
   let initialPrompt = null;
+  let editorPromptText = DEFAULT_SYSTEM_PROMPT;
   try {
     initialPrompt = await prisma.aiSystemPrompt.findFirst({
       where: { key: promptKey, isActive: true },
@@ -49,6 +52,9 @@ export default async function AiSystemPromptPage() {
         orderBy: { updatedAt: "desc" },
       });
     }
+
+    const { language } = await getTenantSettings(tenantId);
+    editorPromptText = applyLanguageRulesToPrompt(initialPrompt?.prompt || DEFAULT_SYSTEM_PROMPT, language);
   } catch {
     // DB might not have the table yet; use default
   }
@@ -57,11 +63,15 @@ export default async function AiSystemPromptPage() {
     id: null,
     key: promptKey,
     label: "Default System Prompt",
-    prompt: DEFAULT_SYSTEM_PROMPT,
+    prompt: editorPromptText,
     isActive: true,
     createdAt: null,
     updatedAt: null,
   };
+
+  if (initialPrompt) {
+    promptData.prompt = editorPromptText;
+  }
 
   const initialScope = {
     key: promptKey,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -13,7 +13,12 @@ export function AiSystemPromptEditor({ initialPrompt, initialScope = null }) {
   const [lastSaved, setLastSaved] = useState(
     initialPrompt?.updatedAt ? new Date(initialPrompt.updatedAt) : null
   );
+  const [hasMounted, setHasMounted] = useState(false);
   const textareaRef = useRef(null);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const charCount = prompt.length;
   const MAX_CHARS = 50000;
@@ -209,7 +214,7 @@ export function AiSystemPromptEditor({ initialPrompt, initialScope = null }) {
           </Button>
         </div>
 
-        {lastSaved && (
+        {hasMounted && lastSaved && (
           <p className="text-xs text-slate-400">
             Last saved: {lastSaved.toLocaleString()}
           </p>

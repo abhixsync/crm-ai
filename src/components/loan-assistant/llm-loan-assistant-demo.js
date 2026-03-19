@@ -533,6 +533,7 @@ export function LLMLoanAssistantDemo() {
 
     setSelectedCustomerContext({
       id: selected.id,
+      tenantId: selected.tenantId || null,
       name: fullName || null,
       phone: selected.phone || null,
       email: selected.email || null,
@@ -1087,6 +1088,9 @@ export function LLMLoanAssistantDemo() {
 
     try {
       console.log("[CALL] 📡 Sending init request to /api/loan-assistant/voice-conversation");
+      const tenantIdForRequest = String(
+        session?.user?.tenantId || selectedCustomerContext?.tenantId || ""
+      ).trim();
       const requestBody = {
         action: "init",
         customer_profile: {
@@ -1095,6 +1099,7 @@ export function LLMLoanAssistantDemo() {
           ...(selectedCustomerContext?.phone ? { phone: selectedCustomerContext.phone } : {}),
           ...(selectedCustomerContext?.email ? { email: selectedCustomerContext.email } : {}),
         },
+        ...(tenantIdForRequest ? { tenant_id: tenantIdForRequest } : {}),
         is_voice_call: isVoiceMode,
       };
 
@@ -1203,6 +1208,9 @@ export function LLMLoanAssistantDemo() {
 
     try {
       console.log("[MSG] 📡 Sending to server");
+      const tenantIdForRequest = String(
+        session?.user?.tenantId || selectedCustomerContext?.tenantId || ""
+      ).trim();
       const response = await fetch("/api/loan-assistant/voice-conversation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1210,6 +1218,7 @@ export function LLMLoanAssistantDemo() {
           action: "next",
           session_id: effectiveSessionId,
           customer_message: userMsg,
+          ...(tenantIdForRequest ? { tenant_id: tenantIdForRequest } : {}),
           is_voice_call: effectiveIsVoiceMode,
         }),
       });

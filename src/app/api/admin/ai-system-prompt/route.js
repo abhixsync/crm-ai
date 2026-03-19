@@ -2,8 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole, getTenantContext } from "@/lib/server/auth-guard";
 import { isDatabaseUnavailable, databaseUnavailableResponse } from "@/lib/server/database-error";
 import {
+  applyLanguageRulesToPrompt,
   DEFAULT_SYSTEM_PROMPT,
   GLOBAL_SYSTEM_PROMPT_KEY,
+  getTenantSettings,
   getSystemPromptKeyForTenant,
 } from "@/lib/ai/system-prompt";
 
@@ -41,6 +43,11 @@ async function resolvePromptRowForScope(scope) {
   return { row: null, inheritedFromGlobal: false };
 }
 
+async function buildEditorPromptText({ scope, row }) {
+  const { language } = await getTenantSettings(scope.tenantId);
+  return applyLanguageRulesToPrompt(row?.prompt || DEFAULT_SYSTEM_PROMPT, language);
+}
+
 async function requirePromptManager() {
   const auth = await requireSession();
   if (auth.error) return auth;
@@ -72,17 +79,21 @@ export async function GET() {
 
   try {
     const { row, inheritedFromGlobal } = await resolvePromptRowForScope(auth.scope);
+    const editorPromptText = await buildEditorPromptText({ scope: auth.scope, row });
+    const promptPayload = row
+      ? { ...row, prompt: editorPromptText }
+      : {
+          id: null,
+          key: auth.scope.promptKey,
+          label: "Default System Prompt",
+          prompt: editorPromptText,
+          isActive: true,
+          createdAt: null,
+          updatedAt: null,
+        };
 
     return Response.json({
-      prompt: row || {
-        id: null,
-        key: auth.scope.promptKey,
-        label: "Default System Prompt",
-        prompt: DEFAULT_SYSTEM_PROMPT,
-        isActive: true,
-        createdAt: null,
-        updatedAt: null,
-      },
+      prompt: promptPayload,
       scope: {
         key: auth.scope.promptKey,
         tenantId: auth.scope.tenantId,
@@ -137,8 +148,13 @@ export async function PUT(request) {
       });
     }
 
+    const editorPromptText = await buildEditorPromptText({ scope: auth.scope, row });
+
     return Response.json({
-      prompt: row,
+      prompt: {
+        ...row,
+        prompt: editorPromptText,
+      },
       scope: {
         key: auth.scope.promptKey,
         tenantId: auth.scope.tenantId,
@@ -188,8 +204,13 @@ export async function POST(request) {
         });
       }
 
+      const editorPromptText = await buildEditorPromptText({ scope: auth.scope, row });
+
       return Response.json({
-        prompt: row,
+        prompt: {
+          ...row,
+          prompt: editorPromptText,
+        },
         scope: {
           key: auth.scope.promptKey,
           tenantId: auth.scope.tenantId,
@@ -204,17 +225,21 @@ export async function POST(request) {
     });
 
     const { row, inheritedFromGlobal } = await resolvePromptRowForScope(auth.scope);
+    const editorPromptText = await buildEditorPromptText({ scope: auth.scope, row });
+    const promptPayload = row
+      ? { ...row, prompt: editorPromptText }
+      : {
+          id: null,
+          key: auth.scope.promptKey,
+          label: "Default System Prompt",
+          prompt: editorPromptText,
+          isActive: true,
+          createdAt: null,
+          updatedAt: null,
+        };
 
     return Response.json({
-      prompt: row || {
-        id: null,
-        key: auth.scope.promptKey,
-        label: "Default System Prompt",
-        prompt: DEFAULT_SYSTEM_PROMPT,
-        isActive: true,
-        createdAt: null,
-        updatedAt: null,
-      },
+      prompt: promptPayload,
       scope: {
         key: auth.scope.promptKey,
         tenantId: auth.scope.tenantId,
