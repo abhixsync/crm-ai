@@ -87,6 +87,7 @@ model Tenant {
   loanAssistantHumanAdvisorName String @default("John Doe") // Human advisor name announced in interested closing handoff
   loanAssistantCallbackPhone String? // Tenant-specific callback phone for loan assistant closing message and WhatsApp notifications
   loanAssistantNotificationEmail String? // Tenant email to receive interested customer details and important emails
+  loanAssistantLanguage String @default("hinglish") // Preferred AI language: "english", "hindi", "hinglish"
   isActive      Boolean  @default(true)
   metadata      Json?
   createdAt     DateTime @default(now())
@@ -384,6 +385,20 @@ model AiProviderConfig {
   updatedAt DateTime       @updatedAt
 
   @@index([enabled, isActive, priority])
+}
+
+//////////////////////////////////////////////////////
+// 🤖 AI SYSTEM PROMPT — SHARED PROMPT FOR ALL PROVIDERS
+//////////////////////////////////////////////////////
+
+model AiSystemPrompt {
+  id        String   @id @default(cuid())
+  key       String   @unique @default("default") // "default" is the active prompt
+  label     String   @default("Default System Prompt")
+  prompt    String   @db.Text // The main system prompt text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model FollowUpTask {

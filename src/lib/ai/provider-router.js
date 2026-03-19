@@ -66,7 +66,7 @@ async function resolveProviders() {
         type: AiProviderType.GROQ,
         endpoint: null,
         apiKey: process.env.GROQ_API_KEY,
-        model: "mixtral-8x7b-32768",
+        model: "llama-3.1-8b-instant",
         priority: 1,
         enabled: true,
         isActive: true,
@@ -145,18 +145,29 @@ async function callProvider(provider, task, payload) {
 }
 
 export async function runAIWithFailover({ task, payload, activeOnly = false }) {
+  console.log(`\n[provider-router] runAIWithFailover called — task: ${task}, activeOnly: ${activeOnly}`);
   const providers = await resolveProviders();
+  console.log(`[provider-router] Resolved ${providers.length} provider(s):`, providers.map(p => `${p.name}(${p.type}, active=${p.isActive})`).join(', '));
   const candidates = activeOnly
     ? (() => {
         const active = providers.find((provider) => provider.isActive);
-        return active ? [active] : providers.slice(0, 1);
+        if (!active) {
+          return providers;
+        }
+
+        // Active provider goes first, then fallback to remaining enabled providers.
+        return [active, ...providers.filter((provider) => provider.id !== active.id)];
       })()
     : providers;
+  console.log(`[provider-router] Using ${candidates.length} candidate(s):`, candidates.map(c => c.name).join(', '));
   const errors = [];
 
   for (const provider of candidates) {
     try {
+      console.log(`[provider-router] Trying provider: ${provider.name} (${provider.type}, model=${provider.model})`);
       const result = await callProvider(provider, task, payload);
+      console.log(`[provider-router] ✅ ${provider.name} succeeded for ${task}`);
+      console.log(`[provider-router] Result:`, JSON.stringify(result).substring(0, 300));
       return {
         provider,
         result,
@@ -164,6 +175,7 @@ export async function runAIWithFailover({ task, payload, activeOnly = false }) {
         errors,
       };
     } catch (error) {
+      console.error(`[provider-router] ❌ ${provider.name} failed:`, error?.message);
       errors.push({
         providerId: provider.id,
         providerName: provider.name,
@@ -173,6 +185,7 @@ export async function runAIWithFailover({ task, payload, activeOnly = false }) {
   }
 
   const message = errors[0]?.message || "No AI providers are available.";
+  console.error(`[provider-router] ❌ All providers failed. Errors:`, JSON.stringify(errors));
   const failure = new Error(`AI routing failed. ${message}`);
   failure.details = errors;
   throw failure;

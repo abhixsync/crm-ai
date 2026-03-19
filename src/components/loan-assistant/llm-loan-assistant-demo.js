@@ -87,6 +87,8 @@ export function LLMLoanAssistantDemo() {
   const lastVoiceTranscriptRef = useRef({ normalized: "", ts: 0 });
   const recognitionRestartTimeoutRef = useRef(null);
   const consecutiveSilentRecognitionRef = useRef(0);
+  const languageStyleRef = useRef("unknown");
+  const languageScriptRef = useRef("unknown");
 
   const updateVoiceWarning = (message) => {
     if (isSuperAdmin) {
@@ -547,6 +549,8 @@ export function LLMLoanAssistantDemo() {
     setConversation([]);
     setLanguageStyle("unknown");
     setLanguageScript("unknown");
+    languageStyleRef.current = "unknown";
+    languageScriptRef.current = "unknown";
   };
 
   const handleResumeListening = () => {
@@ -630,7 +634,8 @@ export function LLMLoanAssistantDemo() {
 
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.lang = getSpeechLangFromStyle(languageStyle, languageScript);
+    recognition.lang = getSpeechLangFromStyle(languageStyleRef.current, languageScriptRef.current);
+    console.log(`[VOICE] 🌐 Recognition lang set to: ${recognition.lang} (style=${languageStyleRef.current}, script=${languageScriptRef.current})`);
 
     recognition.onstart = () => {
       console.log(`[VOICE] ✅ Recognition STARTED (instance: ${instanceId}) - now listening for speech`);
@@ -673,6 +678,9 @@ export function LLMLoanAssistantDemo() {
       if (localSignal.style && localSignal.style !== "unknown") {
         setLanguageStyle(localSignal.style);
         setLanguageScript(localSignal.script || "unknown");
+        languageStyleRef.current = localSignal.style;
+        languageScriptRef.current = localSignal.script || "unknown";
+        console.log(`[VOICE] 🌐 Language detected: style=${localSignal.style}, script=${localSignal.script}`);
       }
 
       if (!callActiveRef.current) {

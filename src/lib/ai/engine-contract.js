@@ -83,13 +83,16 @@ export function normalizeEngineOutput({ task, input, rawResult }) {
 }
 
 export function createEngineAdapter({ id, supportedTasks, invoke }) {
+  const hasTask = supportedTasks instanceof Set
+    ? (t) => supportedTasks.has(t)
+    : (t) => supportedTasks.includes(t);
   return {
     id,
     supports(task) {
-      return supportedTasks.includes(task);
+      return hasTask(task);
     },
     async run({ task, input, config }) {
-      if (!supportedTasks.includes(task)) {
+      if (!hasTask(task)) {
         throw new Error(`${id} does not support task: ${task}`);
       }
 

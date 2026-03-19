@@ -6,6 +6,15 @@ import {
   LANGUAGE_STYLES,
   normalizeLanguageSignal,
 } from "@/lib/ai/language-style";
+import { buildUnifiedCallTurnPrompt } from "@/lib/ai/system-prompt";
+
+
+
+const DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant";
+const GROQ_MODEL_FALLBACK_ORDER = [
+  DEFAULT_GROQ_MODEL,
+  "llama-3.3-70b-versatile",
+];
 
 function fallbackScript(customer) {
   const amount = customer.loanAmount ? `for around ₹${customer.loanAmount}` : "";
@@ -24,6 +33,67 @@ function getClient(apiKey) {
   const key = String(apiKey || process.env.GROQ_API_KEY || "").trim();
   if (!key) return null;
   return new Groq({ apiKey: key });
+}
+
+function resolveGroqModel(model) {
+  const normalized = String(model || "").trim().toLowerCase();
+  if (!normalized) {
+    return DEFAULT_GROQ_MODEL;
+  }
+
+  return normalized;
+}
+
+function buildGroqModelCandidates(model) {
+  const primary = resolveGroqModel(model);
+  return [primary, ...GROQ_MODEL_FALLBACK_ORDER].filter(
+    (candidate, index, all) => candidate && all.indexOf(candidate) === index
+  );
+}
+
+function isGroqModelDecommissionedError(error) {
+  const errorCode = String(error?.error?.error?.code || error?.code || "").toLowerCase();
+  const errorMessage = String(error?.message || "").toLowerCase();
+
+  return errorCode === "model_decommissioned" ||
+    (errorMessage.includes("model") && errorMessage.includes("decommissioned"));
+}
+
+async function createGroqCompletionWithFallback({ client, model, maxTokens, messages, taskLabel }) {
+  const candidates = buildGroqModelCandidates(model);
+  let lastError = null;
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidateModel = candidates[index];
+    try {
+      if (index > 0) {
+        console.warn(`[groq-adapter] ${taskLabel} — retrying with fallback model: ${candidateModel}`);
+      }
+
+      const response = await client.chat.completions.create({
+        model: candidateModel,
+        max_tokens: maxTokens,
+        messages,
+      });
+
+      return {
+        response,
+        resolvedModel: candidateModel,
+      };
+    } catch (error) {
+      lastError = error;
+      if (isGroqModelDecommissionedError(error) && index < candidates.length - 1) {
+        console.warn(
+          `[groq-adapter] ${taskLabel} — model ${candidateModel} is unavailable/decommissioned, trying next model.`
+        );
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError || new Error(`[groq-adapter] ${taskLabel} failed without a detailed error.`);
 }
 
 function resolveLanguageSignal(input) {
@@ -113,15 +183,107 @@ function inferShouldEnd(replyText) {
   );
 }
 
+function stripMarkdownCodeFence(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+
+  const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenced?.[1]) {
+    return fenced[1].trim();
+  }
+
+  return text;
+}
+
+function extractLikelyJsonObject(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    return "";
+  }
+
+  return text.slice(firstBrace, lastBrace + 1).trim();
+}
+
+function parseJsonLenient(value) {
+  const raw = String(value || "").trim();
+  const candidates = [
+    raw,
+    stripMarkdownCodeFence(raw),
+    extractLikelyJsonObject(raw),
+    extractLikelyJsonObject(stripMarkdownCodeFence(raw)),
+  ].filter((candidate, index, all) => candidate && all.indexOf(candidate) === index);
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // Try the next candidate format.
+    }
+  }
+
+  return null;
+}
+
+function resolveReplyFromParsedTurn(parsedTurn) {
+  const replyCandidates = [
+    parsedTurn?.reply,
+    parsedTurn?.response,
+    parsedTurn?.message,
+    parsedTurn?.text,
+    parsedTurn?.result?.reply,
+  ];
+
+  for (const candidate of replyCandidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return "";
+}
+
+function resolveShouldEndFromParsedTurn(parsedTurn, fallbackText = "") {
+  const rawShouldEnd =
+    parsedTurn?.shouldEnd ??
+    parsedTurn?.should_end ??
+    parsedTurn?.endCall ??
+    parsedTurn?.end_call ??
+    parsedTurn?.result?.shouldEnd;
+
+  if (typeof rawShouldEnd === "boolean") {
+    return rawShouldEnd;
+  }
+
+  if (typeof rawShouldEnd === "string") {
+    const normalized = rawShouldEnd.trim().toLowerCase();
+    if (normalized === "true" || normalized === "yes" || normalized === "1") {
+      return true;
+    }
+    if (normalized === "false" || normalized === "no" || normalized === "0") {
+      return false;
+    }
+  }
+
+  return inferShouldEnd(fallbackText);
+}
+
 async function invokeGroqAI({ task, input, config }) {
   const client = getClient(config?.apiKey);
-  const model = config?.model || "llama-3.1-8b-instant"; // Fast and efficient Groq model
+  const model = config?.model || DEFAULT_GROQ_MODEL;
 
   if (task === AI_TASKS.CALL_SCRIPT) {
     const customer = input.customer;
 
     if (!client) {
-      return { script: fallbackScript(customer) };
+      throw new Error("Groq API key is missing for CALL_SCRIPT.");
     }
 
     const prompt = `You are a loan CRM voice assistant. Produce a concise call script (max 120 words) for this customer profile in conversational English. Include qualification questions and next-step ask. Customer: ${JSON.stringify(
@@ -129,14 +291,20 @@ async function invokeGroqAI({ task, input, config }) {
     )}`;
 
     try {
-      const message = await client.chat.completions.create({
+      const { response, resolvedModel } = await createGroqCompletionWithFallback({
+        client,
         model,
-        max_tokens: 300,
+        maxTokens: 300,
         messages: [{ role: "user", content: prompt }],
+        taskLabel: "CALL_SCRIPT",
       });
 
+      if (resolvedModel !== resolveGroqModel(model)) {
+        console.warn(`[groq-adapter] CALL_SCRIPT — resolved model changed to ${resolvedModel}`);
+      }
+
       const script =
-        message.choices[0]?.message?.content || fallbackScript(customer);
+        response.choices[0]?.message?.content || fallbackScript(customer);
 
       return { script };
     } catch (error) {
@@ -145,7 +313,7 @@ async function invokeGroqAI({ task, input, config }) {
         status: error.status,
         error: error.error || error,
       });
-      return { script: fallbackScript(customer) };
+      throw error;
     }
   }
 
@@ -153,11 +321,7 @@ async function invokeGroqAI({ task, input, config }) {
     const transcript = input.transcript || "";
 
     if (!client) {
-      return {
-        summary: "Call transcript captured. Manual review required.",
-        intent: "UNKNOWN",
-        nextAction: "Follow up by sales team.",
-      };
+      throw new Error("Groq API key is missing for CALL_SUMMARY.");
     }
 
     const prompt = buildCallSummaryPrompt({
@@ -168,35 +332,48 @@ async function invokeGroqAI({ task, input, config }) {
     });
 
     try {
-      const message = await client.chat.completions.create({
+      const { response, resolvedModel } = await createGroqCompletionWithFallback({
+        client,
         model,
-        max_tokens: 400,
+        maxTokens: 400,
         messages: [{ role: "user", content: prompt }],
+        taskLabel: "CALL_SUMMARY",
       });
 
-      const text =
-        message.choices[0]?.message?.content || "{}";
+      if (resolvedModel !== resolveGroqModel(model)) {
+        console.warn(`[groq-adapter] CALL_SUMMARY — resolved model changed to ${resolvedModel}`);
+      }
 
-      try {
-        return JSON.parse(text);
-      } catch {
+      const text =
+        response.choices[0]?.message?.content || "{}";
+
+      const parsedSummary = parseJsonLenient(text);
+      if (parsedSummary && typeof parsedSummary === "object") {
         return {
-          summary: text || "Transcript processed.",
-          intent: "UNKNOWN",
-          nextAction: "Review manually.",
+          ...parsedSummary,
+          summary: String(
+            parsedSummary.summary ||
+              parsedSummary.callSummary ||
+              parsedSummary.reply ||
+              "Transcript processed."
+          ).trim(),
+          intent: String(parsedSummary.intent || parsedSummary.classification || "UNKNOWN").trim(),
+          nextAction: String(parsedSummary.nextAction || parsedSummary.action || "Review manually.").trim(),
         };
       }
+
+      return {
+        summary: stripMarkdownCodeFence(text) || "Transcript processed.",
+        intent: "UNKNOWN",
+        nextAction: "Review manually.",
+      };
     } catch (error) {
       console.error("Groq CALL_SUMMARY error:", {
         message: error.message,
         status: error.status,
         error: error.error || error,
       });
-      return {
-        summary: "Transcript processed.",
-        intent: "UNKNOWN",
-        nextAction: "Review manually.",
-      };
+      throw error;
     }
   }
 
@@ -206,28 +383,35 @@ async function invokeGroqAI({ task, input, config }) {
     const languageInstruction =
       context.languageInstruction || getLanguageMirroringInstruction(languageSignal);
 
+    console.log('[groq-adapter] CALL_TURN — languageSignal:', JSON.stringify(languageSignal));
+    console.log('[groq-adapter] CALL_TURN — latestCustomerMessage:', input.latestCustomerMessage);
+
     if (!client) {
-      return fallbackTurnByLanguage(turn, languageSignal);
+      throw new Error("Groq API key is missing for CALL_TURN.");
     }
 
-    const systemPrompt = `You are an AI loan assistant in a live phone call. 
-Keep responses concise (1-2 sentences max).
-Customer context: ${JSON.stringify(context)}
-Current turn: ${turn}
-
-CRITICAL LANGUAGE RULE (must follow strictly):
-${languageInstruction}
-You MUST respond in the same language the customer is using. If the customer speaks Hindi or Hinglish, you MUST reply in Hindi/Hinglish — never switch to English on your own. Only switch language if the customer explicitly switches.`;
+    const systemPrompt = await buildUnifiedCallTurnPrompt({
+      customer: input.customer,
+      languageInstruction,
+      turn,
+      conversationStage: context.conversationStage,
+      tenantId: input.customer?.tenantId,
+    });
 
     const userPrompt = `Conversation so far:\n${
       transcript || "(call just started)"
     }\nLatest customer utterance: ${input.latestCustomerMessage || "(not provided)"}
 \nRespond naturally to continue the conversation. If customer declines or asks not to call, end the call. Return JSON with keys reply (string) and shouldEnd (boolean).`;
 
+    console.log('[groq-adapter] CALL_TURN — system prompt length:', systemPrompt.length);
+    console.log('[groq-adapter] CALL_TURN — user prompt:', userPrompt.substring(0, 300));
+    console.log('[groq-adapter] CALL_TURN — model:', resolveGroqModel(model));
+
     try {
-      const message = await client.chat.completions.create({
+      const { response, resolvedModel } = await createGroqCompletionWithFallback({
+        client,
         model,
-        max_tokens: 200,
+        maxTokens: 200,
         messages: [
           {
             role: "system",
@@ -238,23 +422,34 @@ You MUST respond in the same language the customer is using. If the customer spe
             content: userPrompt,
           },
         ],
+        taskLabel: "CALL_TURN",
       });
 
+      if (resolvedModel !== resolveGroqModel(model)) {
+        console.warn(`[groq-adapter] CALL_TURN — resolved model changed to ${resolvedModel}`);
+      }
+
       const responseText =
-        message.choices[0]?.message?.content || "";
+        response.choices[0]?.message?.content || "";
+
+      console.log('[groq-adapter] CALL_TURN — raw LLM response:', responseText);
 
       // Parse response - look for JSON or extract natural response
       let reply = responseText;
       let shouldEnd = false;
+      const parsedTurn = parseJsonLenient(responseText);
 
-      try {
-        const parsed = JSON.parse(responseText);
-        reply = parsed.reply || fallbackTurnByLanguage(turn, languageSignal).reply;
-        shouldEnd = typeof parsed.shouldEnd === "boolean" ? parsed.shouldEnd : inferShouldEnd(parsed.reply);
-      } catch {
+      if (parsedTurn && typeof parsedTurn === "object") {
+        const parsedReply = resolveReplyFromParsedTurn(parsedTurn);
+        reply = parsedReply || fallbackTurnByLanguage(turn, languageSignal).reply;
+        shouldEnd = resolveShouldEndFromParsedTurn(parsedTurn, reply);
+        console.log('[groq-adapter] CALL_TURN — parsed JSON: reply=%s, shouldEnd=%s', reply, shouldEnd);
+      } else {
         // Response is natural text, not JSON
         // Check for decline patterns
-        shouldEnd = inferShouldEnd(responseText);
+        reply = stripMarkdownCodeFence(responseText) || fallbackTurnByLanguage(turn, languageSignal).reply;
+        shouldEnd = inferShouldEnd(reply);
+        console.log('[groq-adapter] CALL_TURN — non-JSON response, inferred shouldEnd:', shouldEnd);
       }
 
       return {
@@ -267,9 +462,7 @@ You MUST respond in the same language the customer is using. If the customer spe
         status: error.status,
         error: error.error || error,
       });
-      return {
-        ...fallbackTurnByLanguage(turn, languageSignal),
-      };
+      throw error;
     }
   }
 

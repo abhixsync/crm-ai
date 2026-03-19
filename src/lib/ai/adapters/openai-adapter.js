@@ -6,6 +6,7 @@ import {
   LANGUAGE_STYLES,
   normalizeLanguageSignal,
 } from "@/lib/ai/language-style";
+import { buildUnifiedCallTurnPrompt } from "@/lib/ai/system-prompt";
 
 function fallbackScript(customer) {
   const amount = customer.loanAmount ? `for around ₹${customer.loanAmount}` : "";
@@ -170,31 +171,19 @@ async function invokeOpenAI({ task, input, config }) {
       return getFallbackTurnResponse(turn, languageSignal);
     }
 
-    const prompt = `You are an AI loan calling assistant in a live phone call.
-Customer profile: ${JSON.stringify(customer)}
-Conversation transcript so far:\n${transcript || "(no transcript)"}
-Latest customer utterance: ${input.latestCustomerMessage || "(not provided)"}
-Current turn index: ${turn}
-Conversation stage: ${context.conversationStage || "unknown"}
+    const unifiedSystemPrompt = await buildUnifiedCallTurnPrompt({
+      customer,
+      languageInstruction,
+      turn,
+      conversationStage: context.conversationStage,
+      tenantId: customer?.tenantId,
+    });
 
-Language rule:
-- ${languageInstruction}
-- Mirror customer language exactly in this reply.
+    const prompt = `${unifiedSystemPrompt}
 
-Additional manager policy:
-${context.systemPrompt || "(no additional policy)"}
-
-Return ONLY valid JSON:
-{"reply":"<short natural spoken response under 35 words>","shouldEnd":<true|false>}
-
-Rules:
-- Sound polite, concise, and sales-oriented.
-- Ask one focused qualification question at a time.
-- If enough qualification is captured or customer is busy/not interested, set shouldEnd=true.
-- If customer speaks English, reply only in English.
-- If customer speaks Hindi, reply in Hindi.
-- If customer speaks Hinglish, reply in Hinglish.
-- Never include markdown or extra text.`;
+Conversation transcript so far:
+${transcript || "(no transcript)"}
+Latest customer utterance: ${input.latestCustomerMessage || "(not provided)"}`;  
 
     const completion = await client.responses.create({ model, input: prompt });
 

@@ -6,6 +6,7 @@ import {
   LANGUAGE_STYLES,
   normalizeLanguageSignal,
 } from "@/lib/ai/language-style";
+import { buildUnifiedCallTurnPrompt } from "@/lib/ai/system-prompt";
 
 function fallbackScript(customer) {
   const amount = customer.loanAmount ? `for around ₹${customer.loanAmount}` : "";
@@ -200,23 +201,30 @@ async function invokeClaudeAI({ task, input, config }) {
     const languageInstruction =
       context.languageInstruction || getLanguageMirroringInstruction(languageSignal);
 
+    console.log('[claude-adapter] CALL_TURN — languageSignal:', JSON.stringify(languageSignal));
+    console.log('[claude-adapter] CALL_TURN — latestCustomerMessage:', input.latestCustomerMessage);
+
     if (!client) {
+      console.warn('[claude-adapter] No API client — returning fallback');
       return fallbackTurnByLanguage(turn, languageSignal);
     }
 
-    const systemPrompt = `You are an AI loan assistant in a live phone call. 
-Keep responses concise (1-2 sentences max).
-Customer context: ${JSON.stringify(context)}
-Current turn: ${turn}
-
-CRITICAL LANGUAGE RULE (must follow strictly):
-${languageInstruction}
-You MUST respond in the same language the customer is using. If the customer speaks Hindi or Hinglish, you MUST reply in Hindi/Hinglish — never switch to English on your own. Only switch language if the customer explicitly switches.`;
+    const systemPrompt = await buildUnifiedCallTurnPrompt({
+      customer: input.customer,
+      languageInstruction,
+      turn,
+      conversationStage: context.conversationStage,
+      tenantId: input.customer?.tenantId,
+    });
 
     const userPrompt = `Conversation so far:\n${
       transcript || "(call just started)"
     }\nLatest customer utterance: ${input.latestCustomerMessage || "(not provided)"}
 \nRespond naturally to continue the conversation. If customer declines or asks not to call, end the call. Return JSON with keys reply and shouldEnd.`;
+
+    console.log('[claude-adapter] CALL_TURN — system prompt length:', systemPrompt.length);
+    console.log('[claude-adapter] CALL_TURN — user prompt:', userPrompt.substring(0, 300));
+    console.log('[claude-adapter] CALL_TURN — model:', model);
 
     try {
       const message = await client.messages.create({
@@ -229,6 +237,8 @@ You MUST respond in the same language the customer is using. If the customer spe
       const responseText =
         message.content[0]?.type === "text" ? message.content[0].text : "";
 
+      console.log('[claude-adapter] CALL_TURN — raw LLM response:', responseText);
+
       // Parse response - look for JSON or extract natural response
       let reply = responseText;
       let shouldEnd = false;
@@ -237,10 +247,12 @@ You MUST respond in the same language the customer is using. If the customer spe
         const parsed = JSON.parse(responseText);
         reply = parsed.reply || fallbackTurnByLanguage(turn, languageSignal).reply;
         shouldEnd = typeof parsed.shouldEnd === "boolean" ? parsed.shouldEnd : inferShouldEnd(parsed.reply);
+        console.log('[claude-adapter] CALL_TURN — parsed JSON: reply=%s, shouldEnd=%s', reply, shouldEnd);
       } catch {
         // Response is natural text, not JSON
         // Check for decline patterns
         shouldEnd = inferShouldEnd(responseText);
+        console.log('[claude-adapter] CALL_TURN — non-JSON response, inferred shouldEnd:', shouldEnd);
       }
 
       return {

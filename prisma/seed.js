@@ -118,7 +118,7 @@ async function main() {
       data: {
         name: groqProviderName,
         type: AiProviderType.GROQ,
-        model: "mixtral-8x7b-32768",
+        model: "llama-3.1-8b-instant",
         apiKey: process.env.GROQ_API_KEY || null,
         priority: 3,
         enabled: true,

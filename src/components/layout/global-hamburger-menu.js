@@ -28,7 +28,8 @@ function buildMenuItems(role) {
   if (role === "SUPER_ADMIN") {
     items.push(
       { href: "/admin/tenants", label: "Tenants" },
-      { href: "/admin/providers", label: "Providers" }
+      { href: "/admin/providers", label: "Providers" },
+      { href: "/admin/ai-system-prompt", label: "AI Prompt" }
     );
   }
 
