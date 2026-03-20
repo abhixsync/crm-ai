@@ -45,12 +45,12 @@ export function LLMLoanAssistantDemo() {
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
   const [profile, setProfile] = useState({
     name: "John Doe",
-    city: "Meerut",
-    monthly_income: 500000,
-    employment_type: "salaried",
-    credit_score: 720,
-    existing_loans: "none",
-    loan_interest_type: "personal_loan",
+    city: "",
+    monthly_income: "",
+    employment_type: "",
+    credit_score: "",
+    existing_loans: "",
+    loan_interest_type: "",
   });
 
   const [sessionId, setSessionId] = useState(null);

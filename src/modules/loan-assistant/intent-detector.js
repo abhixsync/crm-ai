@@ -282,6 +282,46 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     };
   }
 
+  // CONFUSED / SKEPTICAL (customer did not understand, questions the call, or sounds confused)
+  const hasConfusionPhrase =
+    message.includes('samajh nahi') ||
+    message.includes('samajh nhi') ||
+    message.includes('smjha nhi') ||
+    message.includes('smjh nhi') ||
+    message.includes('smjha nahi') ||
+    message.includes('smjh nahi') ||
+    message.includes('samjha nahi') ||
+    message.includes('samjha nhi') ||
+    message.includes('kya bol rahi') ||
+    message.includes('kya bol raha') ||
+    message.includes('kya baat kar rahi') ||
+    message.includes('kya baat kr rhi') ||
+    message.includes('kis trah ki baat') ||
+    message.includes('kis tarah ki baat') ||
+    message.includes('kya matlab') ||
+    message.includes('matlab kya') ||
+    message.includes('i dont understand') ||
+    message.includes("i don't understand") ||
+    message.includes('what do you mean') ||
+    message.includes('what are you saying') ||
+    message.includes('confused') ||
+    message.includes('not clear') ||
+    message.includes('clear nahi') ||
+    message.includes('clear nhi') ||
+    message.includes('kuch samajh nahi') ||
+    message.includes('kuch smjh nhi') ||
+    message.includes('pata nahi kya') ||
+    message.includes('ye kya hai') ||
+    message.includes('ye kya h');
+
+  if (hasConfusionPhrase && !hasNotInterestedPhrase) {
+    return {
+      intent: INTENT_TYPES.CONFUSED,
+      confidence: 0.85,
+      details: { reason: 'Customer sounds confused or did not understand' },
+    };
+  }
+
   // CONVERTED (strong interest + key details)
   if (
     (message.includes("yes") ||
@@ -308,8 +348,7 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     hasInterestedWord ||
     message.includes("bilkul") ||
     message.includes("chalega") ||
-    message.includes("ok") ||
-    message.includes("think about it") ||
+    /\bok\b/.test(message) ||
     message.includes("batao") ||
     message.includes("bataye") ||
     message.includes("batayiye") ||

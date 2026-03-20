@@ -59,7 +59,7 @@ function isGroqModelDecommissionedError(error) {
     (errorMessage.includes("model") && errorMessage.includes("decommissioned"));
 }
 
-async function createGroqCompletionWithFallback({ client, model, maxTokens, messages, taskLabel }) {
+async function createGroqCompletionWithFallback({ client, model, maxTokens, messages, taskLabel, temperature, responseFormat }) {
   const candidates = buildGroqModelCandidates(model);
   let lastError = null;
 
@@ -70,11 +70,18 @@ async function createGroqCompletionWithFallback({ client, model, maxTokens, mess
         console.warn(`[groq-adapter] ${taskLabel} — retrying with fallback model: ${candidateModel}`);
       }
 
-      const response = await client.chat.completions.create({
+      const completionParams = {
         model: candidateModel,
         max_tokens: maxTokens,
+        temperature: temperature ?? 1.0,
         messages,
-      });
+      };
+
+      if (responseFormat) {
+        completionParams.response_format = responseFormat;
+      }
+
+      const response = await client.chat.completions.create(completionParams);
 
       return {
         response,
@@ -295,6 +302,7 @@ async function invokeGroqAI({ task, input, config }) {
         client,
         model,
         maxTokens: 300,
+        temperature: 0.5,
         messages: [{ role: "user", content: prompt }],
         taskLabel: "CALL_SCRIPT",
       });
@@ -336,6 +344,7 @@ async function invokeGroqAI({ task, input, config }) {
         client,
         model,
         maxTokens: 400,
+        temperature: 0.1,
         messages: [{ role: "user", content: prompt }],
         taskLabel: "CALL_SUMMARY",
       });
@@ -396,6 +405,7 @@ async function invokeGroqAI({ task, input, config }) {
       turn,
       conversationStage: context.conversationStage,
       tenantId: input.customer?.tenantId,
+      extractedData: context.extractedData,
     });
 
     const userPrompt = `Conversation so far:\n${
@@ -411,7 +421,9 @@ async function invokeGroqAI({ task, input, config }) {
       const { response, resolvedModel } = await createGroqCompletionWithFallback({
         client,
         model,
-        maxTokens: 200,
+        maxTokens: 350,
+        temperature: 0.2,
+        responseFormat: { type: "json_object" },
         messages: [
           {
             role: "system",

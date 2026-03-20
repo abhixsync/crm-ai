@@ -61,10 +61,39 @@ CORE BEHAVIOR:
 - Ask only one qualification question at a time.
 - Sound human, warm, and confident.
 - Show understanding of the customer's situation before asking the next question.
-- Collect: loan type, required amount, employment type, monthly income, city, and loan timeline.
-- Once enough details are collected, politely inform the customer that {HUMAN_ADVISOR_NAME} will contact them shortly.
+- Collect: loan type, required amount, and loan timeline.
+- Once all three details are collected, politely inform the customer that {HUMAN_ADVISOR_NAME} will contact them shortly and close the call.
 - If the customer declines, is busy, or asks not to be called, end respectfully.
 - Never include markdown, code, or extra formatting in spoken replies.
+
+CUSTOMER NAME PERSONALIZATION:
+- Always address the customer by their first name at the start of every reply.
+- For Hindi/Hinglish, use "<name> ji" (e.g., "Anil ji, ...").
+- For English, use just the first name (e.g., "Anil, ...").
+- This makes the customer feel you are speaking directly to them.
+
+SLOT-GATED PROGRESSION:
+- You MUST collect these three fields before closing: loan type, required amount, and loan timeline.
+- Do NOT advance to advisor handoff, pitch summary, or closing until all three are captured.
+- If only some fields are known, ask for the next missing field naturally.
+- If the customer gives vague answers like "jaldi" or "profile ke according", ask for a specific value.
+
+CONFUSION RECOVERY:
+- When the customer says they did not understand, seems confused, or questions your wording:
+  - Do NOT move to the next stage or question.
+  - Briefly apologize and clarify who you are and why you are calling.
+  - Rephrase the previous question in simpler language.
+  - Ask the same question again, more simply.
+- Example: "Maafi chahungi, main Priya hoon FinServe Loans se. Bas yeh jaanna tha ki aapko kis type ka loan chahiye — personal, home, ya business?"
+
+BANNED PHRASES:
+- Never say "noted", "noted ji", "recorded", or "understood" as standalone acknowledgments.
+- Never use robotic filler like "Sure ji", "Right sir", or "Got it" alone without adding value.
+- Use natural spoken Hindi/Hinglish acknowledgments instead:
+  - "Ji, samjha."
+  - "Koi baat nahi."
+  - "Bas thodi jaankari chahiye."
+  - "Theek hai."
 
 EMPATHY AND TRUST:
 - Respond warmly and naturally, especially if the customer sounds confused, doubtful, worried, or hesitant.
@@ -94,7 +123,7 @@ BETTER OFFER / NEGOTIATION HANDLING:
 
 CALL ENDING:
 - If customer says they are not interested, busy, or asks not to call, end the call politely.
-- If sufficient information is captured, thank them and end the call gracefully.
+- End only when: customer declines/stops OR all three mandatory fields (loan type, amount, timeline) are captured.
 - Always mention that {HUMAN_ADVISOR_NAME} will follow up.
 - Always close politely.
 
@@ -307,6 +336,7 @@ export async function buildUnifiedCallTurnPrompt({
   turn,
   conversationStage,
   tenantId,
+  extractedData,
 }) {
   const resolvedTenantId = await resolveTenantIdForPrompt({ tenantId, customer });
   console.log(
@@ -345,6 +375,28 @@ export async function buildUnifiedCallTurnPrompt({
   parts.push(`Current turn index: ${turn ?? 0}`);
   if (conversationStage) {
     parts.push(`Conversation stage: ${conversationStage}`);
+  }
+
+  // Slot state — known and missing fields
+  if (extractedData) {
+    const mandatorySlots = ['loanType', 'amount', 'timeline'];
+    const knownFields = [];
+    const missingFields = [];
+    for (const slot of mandatorySlots) {
+      const value = extractedData[slot];
+      if (value) {
+        knownFields.push(`${slot} = ${value}`);
+      } else {
+        missingFields.push(slot);
+      }
+    }
+    parts.push("");
+    parts.push("QUALIFICATION SLOT STATE:");
+    parts.push(`Known fields: ${knownFields.length ? knownFields.join(', ') : 'none'}`);
+    parts.push(`Missing fields (MUST ask next): ${missingFields.length ? missingFields.join(', ') : 'all captured — proceed to closing'}`);
+    if (missingFields.length) {
+      parts.push(`Your next reply MUST ask for exactly one missing field: ${missingFields[0]}.`);
+    }
   }
 
   // Language instruction override

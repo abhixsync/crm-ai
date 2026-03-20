@@ -215,6 +215,7 @@ async function invokeClaudeAI({ task, input, config }) {
       turn,
       conversationStage: context.conversationStage,
       tenantId: input.customer?.tenantId,
+      extractedData: context.extractedData,
     });
 
     const userPrompt = `Conversation so far:\n${

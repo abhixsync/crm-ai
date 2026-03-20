@@ -177,6 +177,7 @@ async function invokeOpenAI({ task, input, config }) {
       turn,
       conversationStage: context.conversationStage,
       tenantId: customer?.tenantId,
+      extractedData: context.extractedData,
     });
 
     const prompt = `${unifiedSystemPrompt}

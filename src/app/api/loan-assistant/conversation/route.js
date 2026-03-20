@@ -225,7 +225,7 @@ export async function POST(request) {
       }
 
       // Generate opening message
-      const aiMessage = manager.generateAIResponse();
+      const aiMessage = await manager.generateAIResponse();
 
       console.log('\n✅ SUCCESS - Conversation initialized!');
       console.log('Session ID:', newSessionId);
@@ -276,11 +276,11 @@ export async function POST(request) {
     console.log('✅ All validations passed for next action');
     console.log('Processing customer message:', customer_message);
 
-    // Process customer response
-    const analysisResult = manager.processCustomerResponse(customer_message);
+    // Process customer response (intent + slot extraction)
+    const analysisResult = await manager.processCustomerResponse(customer_message);
 
-    // Generate AI response
-    const aiMessage = manager.generateAIResponse();
+    // Generate AI response — pass customer_message so adaptive overrides can fire
+    const aiMessage = await manager.generateAIResponse(customer_message);
 
     // Check if should end session
       const shouldEndSession =
