@@ -121,6 +121,18 @@ const ROMAN_HINDI_TOKENS = new Set([
   "lunga",
   "lungi",
   "lu",
+  // common pronouns/determiners frequently missing from detection
+  "uska",
+  "uski",
+  "uske",
+  "muje",
+  "mujhe",
+  "ek",
+  "woh",
+  "yeh",
+  "ye",
+  "unka",
+  "unki",
 ]);
 
 const ENGLISH_HINT_TOKENS = new Set([
@@ -132,11 +144,8 @@ const ENGLISH_HINT_TOKENS = new Set([
   "okay",
   "interested",
   "not",
-  "interest",
-  "loan",
-  "amount",
-  "income",
-  "monthly",
+  // Loan/banking domain words intentionally excluded — they are used in all languages
+  // (loan, interest, amount, income, monthly, emi, salary) and should not count as English signals.
   "apply",
   "week",
   "today",
@@ -148,8 +157,6 @@ const ENGLISH_HINT_TOKENS = new Set([
   "busy",
   "later",
   "details",
-  "emi",
-  "salary",
   "company",
   // common English verbs and functional words
   "said",

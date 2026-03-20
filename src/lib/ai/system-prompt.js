@@ -379,23 +379,41 @@ export async function buildUnifiedCallTurnPrompt({
 
   // Slot state — known and missing fields
   if (extractedData) {
-    const mandatorySlots = ['loanType', 'amount', 'timeline'];
-    const knownFields = [];
-    const missingFields = [];
-    for (const slot of mandatorySlots) {
-      const value = extractedData[slot];
-      if (value) {
-        knownFields.push(`${slot} = ${value}`);
+    if (extractedData.loanType === 'balance_transfer') {
+      // For balance transfer / interest-rate reduction, we do NOT collect new loan amount or timeline.
+      // The customer wants to reduce interest on their existing loan — route them to an advisor.
+      parts.push("");
+      parts.push("BALANCE TRANSFER / INTEREST RATE REDUCTION REQUEST:");
+      parts.push("The customer wants to reduce the interest rate on their existing loan — this is a balance transfer case.");
+      parts.push("Do NOT ask for a new loan amount or a repayment timeline.");
+      if (conversationStage === 'qualification') {
+        parts.push("You are now moving toward closing. The customer has been informed that an advisor will call them.");
+        parts.push("Ask the customer: what time of day would work best for the advisor to call — subah (morning) or shaam (evening)?");
+        parts.push("Keep the reply warm, brief, and natural. Do not ask any other questions.");
       } else {
-        missingFields.push(slot);
+        parts.push("Acknowledge their request warmly and empathetically.");
+        parts.push("Inform them that our advisor will find them the best possible offer and will call them shortly.");
+        parts.push("Move toward a warm closing — ask if subah (morning) or shaam (evening) callback suits them better.");
       }
-    }
-    parts.push("");
-    parts.push("QUALIFICATION SLOT STATE:");
-    parts.push(`Known fields: ${knownFields.length ? knownFields.join(', ') : 'none'}`);
-    parts.push(`Missing fields (MUST ask next): ${missingFields.length ? missingFields.join(', ') : 'all captured — proceed to closing'}`);
-    if (missingFields.length) {
-      parts.push(`Your next reply MUST ask for exactly one missing field: ${missingFields[0]}.`);
+    } else {
+      const mandatorySlots = ['loanType', 'amount', 'timeline'];
+      const knownFields = [];
+      const missingFields = [];
+      for (const slot of mandatorySlots) {
+        const value = extractedData[slot];
+        if (value) {
+          knownFields.push(`${slot} = ${value}`);
+        } else {
+          missingFields.push(slot);
+        }
+      }
+      parts.push("");
+      parts.push("QUALIFICATION SLOT STATE:");
+      parts.push(`Known fields: ${knownFields.length ? knownFields.join(', ') : 'none'}`);
+      parts.push(`Missing fields (MUST ask next): ${missingFields.length ? missingFields.join(', ') : 'all captured — proceed to closing'}`);
+      if (missingFields.length) {
+        parts.push(`Your next reply MUST ask for exactly one missing field: ${missingFields[0]}.`);
+      }
     }
   }
 

@@ -169,7 +169,7 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     /\b\d{2,}\b/.test(message) ||
     /\b(amount|lakh|lac|thousand|k|rupees|rs)\b/.test(message);
   const hasLoanTypeSignal =
-    /\b(personal|home|business|working capital|auto|car)\b/.test(message);
+    /\b(personal|home|business|working capital|auto|car|bt|balance transfer|refinance)\b/.test(message);
   const hasTimelineSignal =
     /\b(week|month|quarter|immediate|asap|today|tomorrow|by tomorrow|turant|kal)\b/.test(message);
   const hasStructuredLoanSignal = hasLoanTypeSignal || hasAmountSignal || hasTimelineSignal;
@@ -232,8 +232,29 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   }
 
   // NOT INTERESTED keywords (high priority, before neutral/interested)
+  // Guard: if the message contains a BT/balance-transfer signal OR a "but"/"lekin"/"magar"
+  // contrasting clause after a negative phrase, the customer is redirecting — not declining.
+  const hasBtSignal =
+    /\bbt\b/.test(message) ||
+    message.includes('balance transfer') ||
+    message.includes('refinance') ||
+    (message.includes('transfer') && (message.includes('loan') || message.includes('existing')));
+  const hasContrastClause =
+    /\b(but|lekin|magar|par|parantu|however)\b/.test(message) &&
+    (message.includes('haan') ||
+      message.includes('han') ||
+      message.includes('yes') ||
+      message.includes('hai') ||
+      message.includes('chahiye') ||
+      message.includes('existing') ||
+      message.includes('already') ||
+      message.includes('ek'));
+
+  const hasOverridingPositiveContext = hasBtSignal || hasContrastClause;
+
   if (
-    hasNotInterestedPhrase ||
+    !hasOverridingPositiveContext &&
+    (hasNotInterestedPhrase ||
     message.includes("interested nahi") ||
     message.includes("chahiye nahi") ||
     message.includes("nhi chahiye") ||
@@ -262,12 +283,21 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     message.includes("nhi lunga") ||
     message.includes("na lunga") ||
     (message.includes("nhi ") && hasLoanDeclineContext) ||
-    (/\b(nahi|nahin|nhi)\b/.test(message) && hasLoanDeclineContext)
+    (/\b(nahi|nahin|nhi)\b/.test(message) && hasLoanDeclineContext))
   ) {
     return {
       intent: INTENT_TYPES.NOT_INTERESTED,
       confidence: 0.95,
       details: { reason: 'Customer expressed no interest' },
+    };
+  }
+
+  // Customer declined fresh loan but has a BT/balance transfer need
+  if (hasBtSignal) {
+    return {
+      intent: INTENT_TYPES.INTERESTED,
+      confidence: 0.85,
+      details: { reason: 'Customer interested in balance transfer' },
     };
   }
 
@@ -411,7 +441,27 @@ export function extractLoanDetails(message) {
     .replace(/\blaks?\b/g, 'lakh');
 
   // Detect loan type
-  if (lowerMsg.includes('personal')) {
+  // Balance transfer checked first — customer may say "personal loan...BT karana h"
+  // and BT intent should take priority over the generic loan type.
+  // Also catches rate-reduction phrases like "interest km karana h" / "uska interest km ho skta h".
+  if (
+    lowerMsg.includes('balance transfer') ||
+    lowerMsg.includes('bt loan') ||
+    /\bbt\b/.test(lowerMsg) ||
+    lowerMsg.includes('refinanc') ||
+    (lowerMsg.includes('transfer') && (lowerMsg.includes('loan') || lowerMsg.includes('existing'))) ||
+    lowerMsg.includes('interest km') ||
+    lowerMsg.includes('interest rate km') ||
+    lowerMsg.includes('rate km') ||
+    lowerMsg.includes('rate reduce') ||
+    lowerMsg.includes('interest reduce') ||
+    lowerMsg.includes('interest lower') ||
+    (lowerMsg.includes('existing') && lowerMsg.includes('loan') && lowerMsg.includes('interest')) ||
+    (lowerMsg.includes('purana') && lowerMsg.includes('loan') && lowerMsg.includes('interest')) ||
+    (lowerMsg.includes('interest') && (lowerMsg.includes('kum') || lowerMsg.includes('ghata')))
+  ) {
+    details.loanType = LOAN_TYPES.BALANCE_TRANSFER;
+  } else if (lowerMsg.includes('personal')) {
     details.loanType = LOAN_TYPES.PERSONAL;
   } else if (lowerMsg.includes('home')) {
     details.loanType = LOAN_TYPES.HOME;

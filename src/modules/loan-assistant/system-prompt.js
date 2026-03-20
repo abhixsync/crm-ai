@@ -92,4 +92,5 @@ export const LOAN_TYPES = {
   AUTO: 'auto_loan',
   EDUCATION: 'education_loan',
   WORKING_CAPITAL: 'working_capital',
+  BALANCE_TRANSFER: 'balance_transfer',
 };

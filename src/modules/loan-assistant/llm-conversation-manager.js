@@ -245,6 +245,37 @@ function hasRepetitionComplaint(message) {
   );
 }
 
+function hasFrustrationSignal(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) return false;
+
+  return (
+    // "why aren't you answering my question?"
+    text.includes('question ka answer') ||
+    text.includes('answer kyu nhi') ||
+    text.includes('answer kyu nahi') ||
+    text.includes('answer nahi') ||
+    text.includes('answer nhi') ||
+    text.includes('jawab kyu nhi') ||
+    text.includes('jawab nahi') ||
+    text.includes('jawab nhi') ||
+    text.includes('meri baat nahi sun') ||
+    text.includes('meri baat nhi sun') ||
+    text.includes('sun nahi rahi') ||
+    text.includes('sun nhi rahi') ||
+    text.includes('sunta nahi') ||
+    text.includes('sunti nahi') ||
+    text.includes('you are not answering') ||
+    text.includes("you're not answering") ||
+    text.includes('not answering my') ||
+    text.includes('answer my question') ||
+    text.includes('ignoring my question') ||
+    text.includes('mere sawaal') ||
+    text.includes('mera sawaal') ||
+    text.includes('meri baat ignore')
+  );
+}
+
 function hasMaximumEligibilityQuestion(message) {
   const text = normalizeMessageForRepeatCheck(message);
   if (!text) return false;
@@ -367,6 +398,14 @@ function isLowInformationOnlyMessage(message) {
   return tokens.every((token) => LOW_INFORMATION_RESPONSE_TOKENS.has(token));
 }
 
+// Pure acknowledgment messages — customer is confirming/agreeing, not confused.
+// These should never trigger a "please repeat yourself" response.
+function hasSimpleAcknowledgement(message) {
+  const text = normalizeMessageForRepeatCheck(message);
+  if (!text) return false;
+  return /^(okay|ok|thik|thik h|thik hai|theek|theek h|theek hai|sahi|sahi h|sahi hai|bilkul|bilkul sahi|right|sure|samjh gaya|smjh gaya|samajh gaya|samajh liya|samjh li|samajh li|got it|noted|understood|haan thik|acha thik|acha theek|theek hai ji)$/.test(text.trim());
+}
+
 function shouldAskCustomerToRepeat({
   customerMessage,
   detectedIntent,
@@ -392,8 +431,10 @@ function shouldAskCustomerToRepeat({
     hasAvailabilityConfirmation(customerMessage) ||
     hasExplicitNegativeSignal(customerMessage) ||
     hasConfusionSignal(customerMessage) ||
+    hasFrustrationSignal(customerMessage) ||
     detectCallbackPreference(customerMessage) ||
-    hasGreetingOrCourtesySignal(customerMessage)
+    hasGreetingOrCourtesySignal(customerMessage) ||
+    hasSimpleAcknowledgement(customerMessage)
   ) {
     return false;
   }
@@ -411,7 +452,7 @@ function shouldAskCustomerToRepeat({
     return true;
   }
 
-  const hasQuestionWord = /\b(what|why|how|when|where|which|kya|kaise|kab|kitna|kyun|kaun)\b/.test(text);
+  const hasQuestionWord = /\b(what|why|how|when|where|which|kya|kaise|kab|kitna|kyun|kaun|kon|kahan|kise|kisko|kaisa|kitne)\b/.test(text);
   const substantiveTokenCount = tokens.filter(
     (token) => /[a-z\u0900-\u097f]/i.test(token) && token.length >= 4
   ).length;
@@ -420,7 +461,7 @@ function shouldAskCustomerToRepeat({
     return true;
   }
 
-  if (tokens.length <= 4 && substantiveTokenCount === 0 && !/\d/.test(text)) {
+  if (tokens.length <= 4 && substantiveTokenCount === 0 && !/\d/.test(text) && !hasQuestionWord) {
     return true;
   }
 
@@ -771,12 +812,24 @@ export class LLMConversationManager {
     const namePrefix = this.getCustomerNamePrefix();
     const nameComma = namePrefix ? `${namePrefix}, ` : '';
 
+    // For balance transfer / interest-rate reduction, skip amount & timeline collection.
+    // The customer wants to reduce interest on their existing loan — hand off to advisor.
+    if (this.extractedData.loanType === 'balance_transfer') {
+      const advisor = this.humanAdvisorName || 'hamara advisor';
+      return this.getLanguageText({
+        hindi: `${nameComma}hamari company aapko best se best offer degi. ${advisor} aapko kuch hi der mein call karenge aur aapko best offer dene ki zimmedari hamari hai.`,
+        hinglish: `${nameComma}hamari company aapko best offer degi. ${advisor} aapko jald hi call karenge — aapka balance transfer possible hai.`,
+        english: `${nameComma}our company will get you the best possible offer. ${advisor} will call you shortly to arrange the balance transfer.`,
+        defaultText: `${nameComma}our advisor will call you shortly with the best offer for your balance transfer.`,
+      });
+    }
+
     if (!this.extractedData.loanType) {
       return this.getLanguageText({
-        english: `${nameComma}to guide you correctly, is this for personal, home, business, or auto loan?`,
-        hinglish: `${nameComma}aapko sahi guide karne ke liye bataye, personal, home, business ya auto loan chahiye?`,
-        hindi: `${nameComma}aapko sahi guide karne ke liye bataye, personal, home, business ya auto loan chahiye?`,
-        defaultText: `${nameComma}to guide you correctly, is this for personal, home, business, or auto loan?`,
+        english: `${nameComma}to guide you correctly, is this for personal, home, business, auto, or balance transfer loan?`,
+        hinglish: `${nameComma}aapko sahi guide karne ke liye bataye, personal, home, business, auto, ya balance transfer loan chahiye?`,
+        hindi: `${nameComma}aapko sahi guide karne ke liye bataye, personal, home, business, auto, ya balance transfer loan chahiye?`,
+        defaultText: `${nameComma}to guide you correctly, is this for personal, home, business, auto, or balance transfer loan?`,
       });
     }
 
@@ -845,6 +898,22 @@ export class LLMConversationManager {
         defaultText: `${nameComma}sorry if that was unclear. I am ${this.aiAgentName} from ${this.companyName}. Let me ask simply.`,
       }),
       nextQuestion
+    );
+  }
+
+  buildFrustrationAcknowledgementReply() {
+    const namePrefix = this.getCustomerNamePrefix();
+    const nameComma = namePrefix ? `${namePrefix}, ` : '';
+    const advisorName = this.humanAdvisorName || 'our advisor';
+    const nextQuestion = this.buildProgressiveFollowUpMessage();
+
+    return this.joinReplyParts(
+      this.getLanguageText({
+        english: `${nameComma}I completely understand your concern. Specific rate and offer details will be shared by ${advisorName} who can check the best option for your profile. ${nextQuestion}`,
+        hinglish: `${nameComma}main samajhti hoon aapki baat. Rate aur offer ki exact details ${advisorName} aapko personally batayenge jo aapke profile ke hisaab se best option check karenge. ${nextQuestion}`,
+        hindi: `${nameComma}main samajhti hoon aapki baat. Rate aur offer ki exact jaankari ${advisorName} aapko personally batayenge jo aapke profile ke hisaab se best option dekhenge. ${nextQuestion}`,
+        defaultText: `${nameComma}I understand. ${advisorName} will share the exact offer and rate details. ${nextQuestion}`,
+      })
     );
   }
 
@@ -926,6 +995,11 @@ export class LLMConversationManager {
       return this.buildConfusionRepairReply();
     }
 
+    // Customer frustrated that their question isn't being answered
+    if (hasFrustrationSignal(customerMessage)) {
+      return this.buildFrustrationAcknowledgementReply();
+    }
+
     if (hasRepetitionComplaint(customerMessage)) {
       return this.buildAdaptiveRepetitionReply();
     }
@@ -944,8 +1018,11 @@ export class LLMConversationManager {
 
     const latestAiMessage = this.getRecentAiMessages(1)[0] || '';
     const candidatePromptSlot = detectPromptSlot(candidateMessage);
+    // Only suppress a repeated slot question when that slot is already captured.
+    // If the customer still hasn't answered, asking again is valid — don't override.
+    const slotAlreadyCaptured = candidatePromptSlot ? Boolean(this.extractedData[candidatePromptSlot]) : false;
     const repeatsPromptSlot = Boolean(
-      candidatePromptSlot && this.getRecentPromptSlots(2).includes(candidatePromptSlot)
+      slotAlreadyCaptured && this.getRecentPromptSlots(2).includes(candidatePromptSlot)
     );
     const candidateLooksRepeated = Boolean(
       candidateMessage && latestAiMessage && areMessagesNearDuplicate(latestAiMessage, candidateMessage)
@@ -974,8 +1051,11 @@ export class LLMConversationManager {
     );
 
     const asksAlreadyCapturedField = this.messageAsksForCapturedField(candidateMessage);
+    // Only treat it as a repeated slot if the slot is already captured — otherwise the
+    // customer hasn't answered yet and persistence is correct, not a bug.
+    const slotAlreadyCapturedAvoid = candidatePromptSlot ? Boolean(this.extractedData[candidatePromptSlot]) : false;
     const repeatsPromptSlot = Boolean(
-      candidatePromptSlot && recentPromptSlots.includes(candidatePromptSlot)
+      slotAlreadyCapturedAvoid && recentPromptSlots.includes(candidatePromptSlot)
     );
 
     if (!hasNearDuplicate && !asksAlreadyCapturedField && !repeatsPromptSlot) {
@@ -1207,6 +1287,15 @@ Customer Profile:
     }
 
     if (shouldUseHumanAdvisorHandoff) {
+      // BT-specific closing: ask for preferred callback time + give callback number + proper goodbye
+      if (this.extractedData.loanType === 'balance_transfer') {
+        return this.getLanguageText({
+          hindi: `${nameComma}bahut achha. ${this.humanAdvisorName} aapko jald callback karenge aur best balance transfer offer ke saath aapki poori madad karenge. Aapke liye subah ya shaam mein kab call karna zyada suit karega? Agar zarurat ho to aap hume ${spokenCallbackNumber} par bhi khud call kar sakte hain. Dhanyavaad, namaste!`,
+          hinglish: `${nameComma}bahut badhiya. ${this.humanAdvisorName} jald aapko callback karenge — best balance transfer offer ke saath. Aapko subah ya shaam kab suit karega call ke liye? Aap hume ${spokenCallbackNumber} par bhi sampark kar sakte hain. Dhanyavaad!`,
+          english: `${nameComma}${this.humanAdvisorName} will call you back soon with the best balance transfer offer. Would morning or evening be more convenient for you? You can also reach us directly on ${spokenCallbackNumber}. Thank you!`,
+          defaultText: `${nameComma}our advisor will call you back with the best offer. Morning or evening — when would be more convenient? You can also reach us on ${spokenCallbackNumber}. Thank you!`,
+        });
+      }
       return this.getLanguageText({
         english: `${nameComma}great. I will now connect you with our best human advisor ${this.humanAdvisorName}. He will give you the best loan offer and call you shortly. You can also call us on ${spokenCallbackNumber}.`,
         hinglish: `${nameComma}bahut badhiya. Main ab aapko hamare best human advisor ${this.humanAdvisorName} se connect karwa rahi hoon. Wo aapko best loan offer denge aur jaldi call karenge. Aap hume ${spokenCallbackNumber} par bhi call kar sakte hain.`,
@@ -1534,16 +1623,11 @@ Customer Profile:
 
           providerIntent = normalizeProviderIntent(summaryOutput?.result?.intent);
           if (providerIntent && providerIntent !== 'neutral') {
-            // Never let provider escalate to do_not_call — requires explicit customer keywords in rule-based detection.
+            // do_not_call requires explicit customer keywords — never set by LLM alone.
             if (providerIntent === 'do_not_call' && ruleBasedIntent !== 'do_not_call') {
               console.log('[LLMConversationManager] Blocked provider do_not_call escalation — rule-based:', ruleBasedIntent);
-            // Don't let provider downgrade rule-based interested to a terminal intent.
-            } else if (
-              END_INTENTS.has(providerIntent) &&
-              ruleBasedIntent === 'interested'
-            ) {
-              console.log('[LLMConversationManager] Blocked provider terminal override — rule-based: interested');
             } else {
+              // LLM is the primary source of truth for all other intents.
               finalIntent = providerIntent;
               finalConfidence = Math.max(finalConfidence, 0.8);
               reasoning = `provider-intent:${summaryOutput.provider?.name || 'unknown'}`;
@@ -1560,15 +1644,7 @@ Customer Profile:
         reasoning = `${reasoning}:clarification_required`;
       }
 
-      const ruleBasedTerminalIntent = ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(ruleBasedIntent);
-      const currentTerminalIntent = ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(finalIntent);
-      if (ruleBasedTerminalIntent && !currentTerminalIntent) {
-        finalIntent = ruleBasedIntent;
-        finalConfidence = Math.max(finalConfidence, normalizeConfidence(detectedIntent.confidence, 0.9));
-        reasoning = `${reasoning}:rule_terminal_priority`;
-      }
-
-      // Require loanType+amount+timeline before treating intent as converted.
+      // Slot gate: require loanType + amount + timeline before treating intent as converted.
       const hasConversionSignals = Boolean(this.extractedData.loanType && this.extractedData.amount && this.extractedData.timeline);
       if (finalIntent === 'converted' && !hasConversionSignals) {
         finalIntent = 'interested';
@@ -1576,71 +1652,17 @@ Customer Profile:
         reasoning = `${reasoning}:downgraded_pre_qualification`;
       }
 
-      // Prevent terminal override on inquiry-style utterances like "please tell me details".
-      const inquirySignal = hasInquirySignal(customerMessage);
-      const explicitNegativeSignal = hasExplicitNegativeSignal(customerMessage);
-      const lateTimingSignal = hasLateTimingSignal(customerMessage);
-      const callbackPreference = detectCallbackPreference(customerMessage);
-      const proceedSignal = hasProceedSignal(customerMessage);
-      const availabilityConfirmation = hasAvailabilityConfirmation(customerMessage);
-      const positiveProceedSignal =
-        !explicitNegativeSignal &&
-        !callbackPreference &&
-        (proceedSignal || availabilityConfirmation);
-      if (
-        providerIntent &&
-        ['not_interested', 'busy', 'call_back_later'].includes(finalIntent) &&
-        inquirySignal &&
-        !explicitNegativeSignal &&
-        ['neutral', 'interested'].includes(ruleBasedIntent)
-      ) {
-        finalIntent = 'interested';
-        finalConfidence = Math.max(finalConfidence, 0.76);
-        reasoning = `${reasoning}:inquiry_guard`;
-      }
-
-      if (
-        positiveProceedSignal &&
-        finalIntent !== 'do_not_call' &&
-        ['neutral', 'busy', 'call_back_later'].includes(finalIntent)
-      ) {
-        finalIntent = 'interested';
-        finalConfidence = Math.max(finalConfidence, 0.82);
-        this.callMeta.callbackTime = null;
-        reasoning = `${reasoning}:proceed_confirmation_guard`;
-      }
-
-      // Do not let provider-neutral classification block progression when user gave concrete loan details.
+      // Safety net: LLM said neutral but customer gave concrete loan data — promote to interested.
       if (!END_INTENTS.has(finalIntent) && finalIntent === 'neutral' && hasStructuredLoanSignal) {
         finalIntent = 'interested';
         finalConfidence = Math.max(finalConfidence, 0.74);
         reasoning = `${reasoning}:structured_signal_guard`;
       }
 
-      // If customer says the assistant is repeating, keep flow in interested path.
-      if (!END_INTENTS.has(finalIntent) && repetitionComplaint) {
-        finalIntent = 'interested';
-        finalConfidence = Math.max(finalConfidence, 0.72);
-        reasoning = `${reasoning}:repetition_complaint_guard`;
-      }
-
-      if (
-        !END_INTENTS.has(finalIntent) &&
-        finalIntent === 'neutral' &&
-        inquirySignal &&
-        !explicitNegativeSignal &&
-        (
-          hadPriorPositiveIntent ||
-          activeStage === CONVERSATION_STAGES.DISCOVERY ||
-          activeStage === CONVERSATION_STAGES.PITCH ||
-          activeStage === CONVERSATION_STAGES.QUALIFICATION
-        )
-      ) {
-        finalIntent = 'interested';
-        finalConfidence = Math.max(finalConfidence, 0.74);
-        reasoning = `${reasoning}:inquiry_interest_guard`;
-      }
-
+      // Late-timing guard: LLM has no time-of-day context — override to callback when relevant.
+      const explicitNegativeSignal = hasExplicitNegativeSignal(customerMessage);
+      const callbackPreference = detectCallbackPreference(customerMessage);
+      const lateTimingSignal = hasLateTimingSignal(customerMessage);
       if (lateTimingSignal && !explicitNegativeSignal) {
         finalIntent = 'call_back_later';
         finalConfidence = Math.max(finalConfidence, 0.9);
@@ -1648,30 +1670,9 @@ Customer Profile:
         reasoning = `${reasoning}:late_timing_callback_guard`;
       }
 
-      if (
-        ['busy', 'call_back_later'].includes(ruleBasedIntent) &&
-        !explicitNegativeSignal &&
-        finalIntent !== 'do_not_call'
-      ) {
-        finalIntent = ruleBasedIntent;
-        finalConfidence = Math.max(finalConfidence, normalizeConfidence(detectedIntent.confidence, 0.88));
-        this.callMeta.callbackTime = this.callMeta.callbackTime || callbackPreference?.callbackTime || inferCallbackTimeFromMessage(customerMessage);
-        reasoning = `${reasoning}:rule_callback_priority`;
-      }
-
-      // Keep previously interested leads from dropping to neutral on short acknowledgement turns
-      // once qualification signals are already captured, unless there is an explicit negative signal.
-      const hasQualifiedSignals = Boolean(this.extractedData.loanType && this.extractedData.amount && this.extractedData.timeline);
-      if (
-        !END_INTENTS.has(finalIntent) &&
-        finalIntent === 'neutral' &&
-        hadPriorPositiveIntent &&
-        hasQualifiedSignals &&
-        !explicitNegativeSignal
-      ) {
-        finalIntent = 'interested';
-        finalConfidence = Math.max(finalConfidence, 0.75);
-        reasoning = `${reasoning}:prior_interest_persistence_guard`;
+      // Persist callback time when LLM independently chose a callback intent.
+      if (['busy', 'call_back_later'].includes(finalIntent) && !this.callMeta.callbackTime) {
+        this.callMeta.callbackTime = callbackPreference?.callbackTime || inferCallbackTimeFromMessage(customerMessage) || null;
       }
 
       // Determine next stage
@@ -1734,7 +1735,9 @@ Customer Profile:
     const hasLoanType = Boolean(this.extractedData.loanType);
     const hasAmount = Boolean(this.extractedData.amount);
     const hasTimeline = Boolean(this.extractedData.timeline);
-    const hasMandatorySlots = hasLoanType && hasAmount && hasTimeline;
+    // For balance transfer, amount and timeline are never collected — only loanType is mandatory.
+    const isBt = this.extractedData.loanType === 'balance_transfer';
+    const hasMandatorySlots = isBt ? hasLoanType : (hasLoanType && hasAmount && hasTimeline);
 
     // Converted should close only after all mandatory fields are captured.
     if (intent === 'converted') {
