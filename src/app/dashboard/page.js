@@ -80,6 +80,11 @@ export default async function DashboardPage({ searchParams }) {
     // fall back to modern
   }
 
+  // Modern layout: redirect ?view=customers to the dedicated /customers page
+  if (uiLayout === "modern" && params?.view === "customers") {
+    redirect("/customers");
+  }
+
   // Modern layout dashboard overview (no view param)
   if (uiLayout === "modern" && !params?.view) {
     return (

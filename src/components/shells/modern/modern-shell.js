@@ -90,7 +90,7 @@ function getInitials(name) {
 function buildNavItems(role) {
   const items = [
     { key: "dashboard", href: "/dashboard", label: "Dashboard", icon: icons.dashboard, section: "Main" },
-    { key: "customers", href: "/dashboard?view=customers", label: "Customers", icon: icons.customers, section: "Main" },
+    { key: "customers", href: "/customers", label: "Customers", icon: icons.customers, section: "Main" },
     { key: "calls", href: "/calls", label: "Call Logs", icon: icons.calls, section: "Main" },
   ];
 
@@ -115,9 +115,9 @@ function buildNavItems(role) {
 
 function getActiveKey(pathname, searchParams) {
   if (pathname === "/dashboard") {
-    const view = searchParams?.get?.("view");
-    return view === "customers" ? "customers" : "dashboard";
+    return "dashboard";
   }
+  if (pathname.startsWith("/customers")) return "customers";
   if (pathname.startsWith("/calls")) return "calls";
   if (pathname.startsWith("/admin/automation")) return "campaigns";
   if (pathname.startsWith("/admin/ai-system-prompt") || pathname.startsWith("/admin/providers") || pathname.startsWith("/admin/telephony-providers") || pathname.startsWith("/admin/ai-providers")) return "aiconfig";

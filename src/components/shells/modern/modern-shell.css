@@ -175,9 +175,15 @@
 
 /* ─── CARDS ─── */
 .ms-card {
-  background: var(--ms-surface); border: 1px solid var(--ms-border);
-  border-radius: 12px; overflow: hidden;
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-border);
+  border-radius: 12px;
+  overflow: hidden;
   transition: background .25s;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
 }
 .ms-card-hd {
   padding: 14px 20px; border-bottom: 1px solid var(--ms-border);
@@ -384,7 +390,12 @@
 .ms-chip.active { background: var(--ms-accent-dim); color: var(--ms-accent-txt); border-color: var(--ms-accent); }
 
 /* Tables */
-.ms-tbl-wrap { overflow-x: auto; }
+.ms-tbl-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  flex: 1 1 0%;
+  min-height: 0;
+}
 .ms-tbl { width: 100%; border-collapse: collapse; }
 .ms-tbl th { font-size: 10px; font-weight: 600; color: var(--ms-text3); padding: 9px 16px; text-align: left; border-bottom: 1px solid var(--ms-border); background: var(--ms-bg3); white-space: nowrap; letter-spacing: .05em; text-transform: uppercase; }
 .ms-tbl td { font-size: 12px; color: var(--ms-text); padding: 11px 16px; border-bottom: 1px solid var(--ms-border); white-space: nowrap; vertical-align: middle; }
