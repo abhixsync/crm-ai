@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { InlineLoader } from "@/components/ui/loader";
 import { Select } from "@/components/ui/select";
 import { useTheme } from "@/core/theme/useTheme";
+import { useShellLayout } from "@/components/shells/shell-context";
 
 const STATUS_OPTIONS = [
   "NEW",
@@ -86,6 +87,8 @@ export function DashboardClient({
 }) {
   const { data: session } = useSession();
   const { theme } = useTheme();
+  const { layout: shellLayout } = useShellLayout();
+  const isModernShell = shellLayout === "modern";
   const isSuperAdmin = user.role === "SUPER_ADMIN";
   const canConfigureUploadEnqueue = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
   const searchParams = useSearchParams();
@@ -1418,6 +1421,7 @@ export function DashboardClient({
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
+      {!isModernShell && (
       <div className="flex flex-col gap-3 pr-12 sm:flex-row sm:items-center sm:justify-between sm:pr-0">
         <div className="flex items-center">
           {theme.logoUrl && (
@@ -1447,6 +1451,7 @@ export function DashboardClient({
           ) : null}
         </div>
       </div>
+      )}
 
       {activeCall ? (
         <Card>

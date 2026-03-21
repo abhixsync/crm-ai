@@ -3,6 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { SettingsTabs } from "@/components/admin/settings-tabs";
+import { ModernSettingsView } from "@/components/modern/settings-view";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 export default async function AdminSettingsPage({ searchParams }) {
   const session = await getServerSession(authOptions);
@@ -27,6 +29,19 @@ export default async function AdminSettingsPage({ searchParams }) {
     redirect("/admin/settings?type=profile");
   }
 
+  // Resolve UI layout
+  let uiLayout = "modern";
+  try {
+    const theme = await resolveTenantTheme(session.user.tenantId);
+    uiLayout = theme.uiLayout || "modern";
+  } catch {
+    // fall back to modern
+  }
+
+  if (uiLayout === "modern") {
+    return <ModernSettingsView initialRole={role} initialLayout={uiLayout} />;
+  }
+
   return (
     <main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -43,7 +58,7 @@ export default async function AdminSettingsPage({ searchParams }) {
         </div>
       </div>
 
-      <SettingsTabs />
+      <SettingsTabs initialRole={role} initialLayout={uiLayout} />
     </main>
   );
 }

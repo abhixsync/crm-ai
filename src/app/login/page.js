@@ -7,10 +7,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import "@/components/shells/modern/modern-shell.css";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [theme, setTheme] = useState({ loginBackgroundUrl: null, themeName: null, displayName: null, primaryColor: null, secondaryColor: null, accentColor: null });
+  const [theme, setTheme] = useState({ loginBackgroundUrl: null, themeName: null, displayName: null, primaryColor: null, secondaryColor: null, accentColor: null, uiLayout: null });
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,6 +31,14 @@ export default function LoginPage() {
 
     fetchPublicTheme();
   }, []);
+
+  // Apply modern theme to <html> for CSS variables
+  useEffect(() => {
+    if (theme.uiLayout === "modern") {
+      const saved = localStorage.getItem("ms-ui-theme") || "dark";
+      document.documentElement.setAttribute("data-ui-theme", saved);
+    }
+  }, [theme.uiLayout]);
 
   async function onSubmit(event) {
     event.preventDefault();
@@ -51,6 +60,42 @@ export default function LoginPage() {
     router.refresh();
   }
 
+  // Modern login
+  if (theme.uiLayout === "modern") {
+    return (
+      <div className="ms-login">
+        <div className="ms-login-card">
+          <div className="ms-login-title">
+            Sign in to {process.env.NEXT_PUBLIC_APP_NAME || "CRM AI"}
+          </div>
+          <div className="ms-login-subtitle">Enter your credentials to continue</div>
+          <form className="ms-login-form" onSubmit={onSubmit}>
+            <input
+              className="ms-login-input"
+              type="text"
+              placeholder="Username or Email"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              required
+            />
+            <input
+              className="ms-login-input"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button className="ms-login-btn" type="submit" disabled={loading}>
+              {loading ? "Signing in…" : "Sign In"}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Classic login
   return (
     <main
       className="flex min-h-screen items-center justify-center p-4 sm:p-6"

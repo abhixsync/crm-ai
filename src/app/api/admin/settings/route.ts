@@ -25,10 +25,26 @@ export async function GET(request: Request) {
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { crmName: true, name: true },
+      select: {
+        name: true,
+        crmName: true,
+        aiAgentName: true,
+        loanAssistantHumanAdvisorName: true,
+        loanAssistantCallbackPhone: true,
+        loanAssistantNotificationEmail: true,
+      },
     });
 
     return Response.json({
+      settings: {
+        name: tenant?.name || null,
+        crmName: tenant?.crmName || null,
+        aiAgentName: tenant?.aiAgentName || null,
+        humanAdvisorName: tenant?.loanAssistantHumanAdvisorName || null,
+        callbackPhone: tenant?.loanAssistantCallbackPhone || null,
+        notificationEmail: tenant?.loanAssistantNotificationEmail || null,
+      },
+      // Legacy compat
       crmName: tenant?.crmName || null,
       tenantName: tenant?.name || null,
       tenantDisplayName: tenant?.name || null,
@@ -66,7 +82,7 @@ export async function PUT(request: Request) {
       return Response.json({ error: "Tenant context required." }, { status: 400 });
     }
 
-    const updateData: { crmName?: string | null; name?: string } = {};
+    const updateData: Record<string, any> = {};
 
     if (crmName !== undefined) {
       updateData.crmName = String(crmName || "").trim() || null;
@@ -78,6 +94,29 @@ export async function PUT(request: Request) {
         return Response.json({ error: "Tenant display name is required." }, { status: 400 });
       }
       updateData.name = normalizedTenantDisplayName;
+    }
+
+    // Support direct field name "name"
+    if (payload?.name !== undefined && tenantDisplayName === undefined) {
+      const normalizedName = String(payload.name || "").trim();
+      if (!normalizedName) {
+        return Response.json({ error: "Tenant name is required." }, { status: 400 });
+      }
+      updateData.name = normalizedName;
+    }
+
+    // Additional tenant fields
+    if (payload?.aiAgentName !== undefined) {
+      updateData.aiAgentName = String(payload.aiAgentName || "").trim() || "Priya";
+    }
+    if (payload?.humanAdvisorName !== undefined) {
+      updateData.loanAssistantHumanAdvisorName = String(payload.humanAdvisorName || "").trim() || "John Doe";
+    }
+    if (payload?.callbackPhone !== undefined) {
+      updateData.loanAssistantCallbackPhone = String(payload.callbackPhone || "").trim() || null;
+    }
+    if (payload?.notificationEmail !== undefined) {
+      updateData.loanAssistantNotificationEmail = String(payload.notificationEmail || "").trim() || null;
     }
 
     if (Object.keys(updateData).length === 0) {

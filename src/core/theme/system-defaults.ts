@@ -55,6 +55,9 @@ export const SYSTEM_THEME_DEFAULT = {
   // 🎨 Custom CSS
   customCss: null,
 
+  // 🖥️ UI Layout
+  uiLayout: "modern",
+
   // 🏷️ Metadata
   isActive: true,
   createdAt: new Date().toISOString(),
@@ -100,6 +103,7 @@ export type EditableTheme = {
   loginBackgroundUrl: string | null;
   applicationBackgroundUrl: string | null;
   customCss: string | null;
+  uiLayout: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

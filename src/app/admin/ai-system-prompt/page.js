@@ -11,6 +11,8 @@ import {
   getSystemPromptKeyForTenant,
 } from "@/lib/ai/system-prompt";
 import { AiSystemPromptEditor } from "@/components/admin/ai-system-prompt-editor";
+import { ModernAiConfigView } from "@/components/modern/ai-config-view";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 export default async function AiSystemPromptPage() {
   const session = await getServerSession(authOptions);
@@ -79,6 +81,19 @@ export default async function AiSystemPromptPage() {
     isSuperAdmin: session.user.role === "SUPER_ADMIN",
     inheritedFromGlobal: session.user.role !== "SUPER_ADMIN" && (!initialPrompt || initialPrompt.key === GLOBAL_SYSTEM_PROMPT_KEY),
   };
+
+  // Resolve UI layout
+  let uiLayout = "modern";
+  try {
+    const theme = await resolveTenantTheme(session.user.tenantId);
+    uiLayout = theme.uiLayout || "modern";
+  } catch {
+    // fall back to modern
+  }
+
+  if (uiLayout === "modern") {
+    return <ModernAiConfigView initialPrompt={promptData} initialScope={initialScope} />;
+  }
 
   return (
     <main className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8">

@@ -26,6 +26,7 @@ export async function GET(request: Request) {
       faviconUrl: theme?.faviconUrl || null,
       loginBackgroundUrl: theme?.loginBackgroundUrl || null,
       applicationBackgroundUrl: theme?.applicationBackgroundUrl || null,
+      uiLayout: (theme as any)?.uiLayout || "modern",
     };
 
     return Response.json({ theme: publicTheme });
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
         faviconUrl: fallback.faviconUrl || null,
         loginBackgroundUrl: fallback.loginBackgroundUrl || null,
         applicationBackgroundUrl: fallback.applicationBackgroundUrl || null,
+        uiLayout: "modern",
       },
     });
   }

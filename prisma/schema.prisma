@@ -159,6 +159,9 @@ model TenantTheme {
   // 🎨 Custom CSS
   customCss            String?
 
+  // 🖥️ UI Layout
+  uiLayout             String   @default("modern") // "classic" | "modern"
+
   // 🏷️ Metadata
   isActive             Boolean  @default(true)
   createdAt            DateTime @default(now())

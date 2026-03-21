@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Priya CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ═══════════════════ THEMES ═══════════════════ */
+[data-theme="dark"] {
+  --bg:        #0e0f11;
+  --bg2:       #141518;
+  --bg3:       #1a1c20;
+  --bg4:       #222428;
+  --surface:   #1e2025;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --text:      #f0f0ee;
+  --text2:     #8a8a88;
+  --text3:     #555553;
+  --accent:    #22c993;
+  --accent-dim:#0d3d2a;
+  --accent-txt:#6ee7b7;
+  --red:       #f25858;
+  --amber:     #f5a623;
+  --blue:      #4f9cf9;
+  --purple:    #a78bfa;
+  --sb-w:      220px;
+}
+[data-theme="light"] {
+  --bg:        #f4f4f0;
+  --bg2:       #eeede9;
+  --bg3:       #e8e7e2;
+  --bg4:       #dddcd7;
+  --surface:   #ffffff;
+  --border:    rgba(0,0,0,0.07);
+  --border2:   rgba(0,0,0,0.13);
+  --text:      #111110;
+  --text2:     #6b6b67;
+  --text3:     #b0b0ac;
+  --accent:    #0ea86b;
+  --accent-dim:#dcf5ec;
+  --accent-txt:#0a6b45;
+  --red:       #d94040;
+  --amber:     #c47f00;
+  --blue:      #2563eb;
+  --purple:    #7c3aed;
+  --sb-w:      220px;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Geist', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  transition: background .25s, color .25s;
+}
+
+/* ═══════════════════ LAYOUT ═══════════════════ */
+.shell { display: flex; height: 100vh; overflow: hidden; }
+
+/* ─── SIDEBAR ─── */
+.sb {
+  width: var(--sb-w); flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transition: background .25s;
+}
+.brand {
+  padding: 20px 16px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 11px;
+}
+.brand-mark {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--accent); display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+}
+.brand-mark svg { width: 15px; height: 15px; }
+.brand-name { font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: -.01em; }
+.brand-sub  { font-size: 10px; color: var(--text3); margin-top: 1px; }
+
+.nav { padding: 10px 8px; flex: 1; overflow-y: auto; }
+.nav-sec { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); padding: 12px 8px 4px; }
+.nav-btn {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%; padding: 8px 10px; border-radius: 7px;
+  font-size: 12.5px; font-family: 'Geist', sans-serif;
+  cursor: pointer; color: var(--text2);
+  background: none; border: none; text-align: left;
+  margin-bottom: 2px; transition: background .1s, color .1s;
+}
+.nav-btn:hover { background: var(--bg3); color: var(--text); }
+.nav-btn.on { background: var(--accent-dim); color: var(--accent-txt); font-weight: 500; }
+.nav-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.nav-pill {
+  margin-left: auto; font-size: 10px; font-weight: 600;
+  background: var(--accent); color: var(--bg);
+  padding: 2px 7px; border-radius: 8px;
+}
+
+.sb-foot {
+  padding: 14px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.user-av {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent-dim); color: var(--accent-txt);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; flex-shrink: 0;
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--text); }
+.user-role { font-size: 10px; color: var(--text3); margin-top: 1px; }
+
+/* ─── TOPBAR ─── */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.topbar {
+  height: 52px; background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 24px; gap: 8px; flex-shrink: 0;
+  transition: background .25s;
+}
+.pg-title { font-size: 15px; font-weight: 600; flex: 1; letter-spacing: -.01em; }
+
+/* ─── BUTTONS ─── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 13px; border-radius: 7px;
+  font-size: 12px; font-weight: 500; font-family: 'Geist', sans-serif;
+  cursor: pointer; border: 1px solid var(--border2);
+  background: transparent; color: var(--text2);
+  transition: all .12s; white-space: nowrap;
+}
+.btn:hover { background: var(--bg3); color: var(--text); }
+.btn.pri  { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.btn.pri:hover { opacity: .88; }
+.btn svg  { width: 12px; height: 12px; }
+
+/* theme toggle */
+.theme-toggle {
+  width: 34px; height: 34px; border-radius: 7px;
+  background: none; border: 1px solid var(--border2);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: var(--text2); transition: all .12s; flex-shrink: 0;
+}
+.theme-toggle:hover { background: var(--bg3); color: var(--text); }
+.theme-toggle svg { width: 14px; height: 14px; }
+
+/* ─── PANE ─── */
+.pane { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+.view { display: none; flex-direction: column; gap: 20px; }
+.view.on { display: flex; }
+
+/* ─── CARDS ─── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+  transition: background .25s;
+}
+.card-hd {
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.card-title { font-size: 12.5px; font-weight: 600; color: var(--text); flex: 1; }
+.card-hint  { font-size: 11px; color: var(--text3); }
+
+/* ─── BADGE ─── */
+.bdg {
+  display: inline-block; padding: 3px 8px; border-radius: 6px;
+  font-size: 10px; font-weight: 600; white-space: nowrap; letter-spacing: .02em;
+}
+
+/* ═══════════════════════════════════════════════
+   DASHBOARD — REDESIGNED
+═══════════════════════════════════════════════ */
+
+/* 4 metric tiles */
+.dash-metrics {
+  display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px;
+}
+.m-tile {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px 22px;
+  transition: background .25s;
+}
+.m-tile-lbl { font-size: 11px; color: var(--text2); font-weight: 500; margin-bottom: 10px; letter-spacing: .02em; }
+.m-tile-val { font-size: 32px; font-weight: 300; color: var(--text); line-height: 1; letter-spacing: -.03em; }
+.m-tile-delta { font-size: 11px; margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+.delta-up { color: var(--accent); }
+.delta-dn { color: var(--red); }
+
+/* MAIN dashboard grid: left wide + right narrow */
+.dash-body { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 20px; align-items: start; }
+.dash-left  { display: flex; flex-direction: column; gap: 20px; }
+.dash-right { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── PIPELINE: horizontal funnel bars ── */
+.pipeline-list { padding: 6px 0; }
+.pipe-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 52px;
+  align-items: center; gap: 14px;
+  padding: 9px 20px; cursor: pointer;
+  transition: background .1s; border-radius: 0;
+}
+.pipe-row:hover { background: var(--bg3); }
+.pipe-row.on    { background: var(--accent-dim); }
+.pipe-row-label { font-size: 12px; color: var(--text2); font-weight: 500; white-space: nowrap; }
+.pipe-row.on .pipe-row-label { color: var(--accent-txt); }
+.pipe-track { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.pipe-fill  { height: 100%; border-radius: 3px; transition: width .4s ease; }
+.pipe-row-count { font-size: 13px; font-weight: 600; color: var(--text); text-align: right; }
+.pipe-row.on .pipe-row-count { color: var(--accent-txt); }
+
+/* ── CUSTOMER ROWS ── */
+.cust-toolbar {
+  padding: 10px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.cust-toolbar-label { font-size: 12px; font-weight: 500; color: var(--text); flex: 1; }
+.srch {
+  padding: 6px 11px; border-radius: 7px; font-size: 12px;
+  border: 1px solid var(--border2); background: var(--bg3);
+  color: var(--text); font-family: 'Geist', sans-serif;
+  width: 175px; outline: none; transition: border-color .15s;
+}
+.srch:focus { border-color: var(--accent); }
+.srch::placeholder { color: var(--text3); }
+
+.cust-cols {
+  display: grid;
+  grid-template-columns: 36px minmax(0,1fr) 100px 90px;
+  gap: 16px; padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+.cust-cols span { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+.cust-cols span:last-child { text-align: right; }
+.cust-list { display: flex; flex-direction: column; }
+.cust-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0,1fr) 100px 90px;
+  align-items: center; gap: 16px;
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .1s;
+}
+.cust-row:last-child { border-bottom: none; }
+.cust-row:hover { background: var(--bg3); }
+.cust-av {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; flex-shrink: 0;
+}
+.cust-name  { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cust-sub   { font-size: 11px; color: var(--text3); font-family: 'Geist Mono', monospace; margin-top: 2px; }
+.cust-loan  { font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cust-amt   { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 2px; }
+.cust-time  { font-size: 11px; color: var(--text3); text-align: right; }
+
+/* ── RIGHT COLUMN ── */
+/* AI Agent */
+.ai-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 11px; }
+.ai-orb {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--accent-dim); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ai-orb svg { width: 17px; height: 17px; }
+.ai-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.ai-live  { font-size: 11px; color: var(--text2); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+.pulse {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  display: inline-block; animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.25;transform:scale(.75)} }
+
+.ai-nums { display: grid; grid-template-columns: 1fr 1fr; }
+.ai-n { padding: 12px 16px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.ai-n:nth-child(even) { border-right: none; }
+.ai-n:nth-child(3), .ai-n:nth-child(4) { border-bottom: none; }
+.ai-n-lbl { font-size: 10px; color: var(--text3); font-weight: 500; margin-bottom: 3px; }
+.ai-n-val { font-size: 20px; font-weight: 300; color: var(--text); line-height: 1; }
+
+.feed { padding: 12px 16px; display: flex; flex-direction: column; gap: 9px; }
+.feed-row { display: flex; align-items: center; gap: 9px; }
+.feed-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.feed-name { font-size: 12px; font-weight: 500; color: var(--text); }
+.feed-sub  { font-size: 10px; color: var(--text3); margin-top: 1px; }
+.feed-time { font-size: 10px; color: var(--text3); margin-left: auto; flex-shrink: 0; }
+
+/* Campaign */
+.prog-area { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.prog-top { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 8px; }
+.prog-bar  { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+.prog-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+.camp-grid { display: flex; }
+.c-num { flex: 1; text-align: center; padding: 10px 6px; border-right: 1px solid var(--border); }
+.c-num:last-child { border-right: none; }
+.c-num-v { font-size: 16px; font-weight: 300; color: var(--text); }
+.c-num-l { font-size: 10px; color: var(--text3); margin-top: 2px; font-weight: 500; }
+
+/* Follow-ups */
+.fu-list { padding: 10px 14px; display: flex; flex-direction: column; gap: 7px; }
+.fu-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px; border-radius: 8px;
+  background: var(--bg3); cursor: pointer; transition: background .1s;
+}
+.fu-row:hover { background: var(--bg4); }
+.fu-av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.fu-name   { font-size: 12px; font-weight: 500; color: var(--text); }
+.fu-detail { font-size: 10px; color: var(--text3); margin-top: 1px; }
+
+/* ═══════════════════ OTHER VIEWS ═══════════════════ */
+.tabs { display: flex; padding: 0 20px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.tab { font-size: 12px; font-weight: 500; padding: 11px 11px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color .12s; }
+.tab:hover { color: var(--text); }
+.tab.on  { color: var(--accent); border-bottom-color: var(--accent); }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font-size: 11px; font-weight: 500; padding: 4px 11px; border-radius: 10px; cursor: pointer; border: 1px solid var(--border2); color: var(--text2); background: transparent; font-family: 'Geist', sans-serif; transition: all .12s; }
+.chip:hover { background: var(--bg3); color: var(--text); }
+.chip.on { background: var(--accent-dim); color: var(--accent-txt); border-color: var(--accent); }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { font-size: 10px; font-weight: 600; color: var(--text3); padding: 9px 16px; text-align: left; border-bottom: 1px solid var(--border); background: var(--bg3); white-space: nowrap; letter-spacing: .05em; text-transform: uppercase; }
+td { font-size: 12px; color: var(--text); padding: 11px 16px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg3); cursor: pointer; }
+.mono { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--text2); }
+
+.tl { padding: 16px 20px; display: flex; flex-direction: column; gap: 18px; }
+.ti { display: flex; gap: 12px; }
+.ti-ic { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ti-ic svg { width: 12px; height: 12px; }
+.ti-b { flex: 1; min-width: 0; }
+.ti-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.ti-name { font-size: 13px; font-weight: 500; color: var(--text); }
+.ti-meta { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+.ti-sum  { font-size: 11px; color: var(--text2); background: var(--bg3); padding: 8px 12px; border-radius: 7px; line-height: 1.6; white-space: normal; }
+.ti-time { font-size: 11px; color: var(--text3); margin-top: 5px; }
+
+.metric-row { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+
+.settings-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 20px; }
+.field { margin-bottom: 13px; }
+.field-lbl { font-size: 11px; color: var(--text2); font-weight: 500; margin-bottom: 4px; }
+.field-inp { width: 100%; padding: 8px 11px; border-radius: 7px; border: 1px solid var(--border2); background: var(--bg3); color: var(--text); font-size: 12.5px; font-family: 'Geist', sans-serif; outline: none; transition: border-color .15s; }
+.field-inp:focus { border-color: var(--accent); }
+select.field-inp { cursor: pointer; }
+.auto-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.auto-row:last-child { border-bottom: none; }
+.auto-lbl { color: var(--text2); }
+.auto-val { font-weight: 600; color: var(--text); }
+.auto-val.on { color: var(--accent); }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.empty { padding: 40px 20px; text-align: center; color: var(--text3); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sb">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg fill="none" stroke="var(--bg)" stroke-width="2.5" viewBox="0 0 24 24">
+        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
+    </div>
+    <div>
+      <div class="brand-name">Priya CRM</div>
+      <div class="brand-sub">AI Sales Platform</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">Main</div>
+    <button class="nav-btn on" onclick="go('dash',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-btn" onclick="go('customers',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      Customers
+      <span class="nav-pill">1,248</span>
+    </button>
+    <button class="nav-btn" onclick="go('calls',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72"/></svg>
+      Call logs
+      <span class="nav-pill">87</span>
+    </button>
+    <button class="nav-btn" onclick="go('campaigns',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Campaigns
+    </button>
+    <div class="nav-sec">Config</div>
+    <button class="nav-btn" onclick="go('aiconfig',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+      AI config
+    </button>
+    <button class="nav-btn" onclick="go('settings',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </button>
+  </nav>
+  <div class="sb-foot">
+    <div class="user-av">AK</div>
+    <div>
+      <div class="user-name">Arjun Kapoor</div>
+      <div class="user-role">Admin · TechLend Co.</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main">
+  <div class="topbar">
+    <span class="pg-title" id="pg-title">Dashboard</span>
+    <button class="btn" onclick="alert('Follow-ups due today')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Follow-ups
+    </button>
+    <button class="btn pri" onclick="alert('Starting AI campaign for NEW customers')">
+      <svg fill="none" stroke="var(--bg)" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Start campaign
+    </button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" id="theme-btn">
+      <svg id="sun-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg id="moon-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+  </div>
+
+  <div class="pane" id="pane">
+
+    <!-- ══════ DASHBOARD ══════ -->
+    <div id="v-dash" class="view on">
+
+      <!-- 4 metric tiles -->
+      <div class="dash-metrics">
+        <div class="m-tile">
+          <div class="m-tile-lbl">Total customers</div>
+          <div class="m-tile-val">1,248</div>
+          <div class="m-tile-delta delta-up">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+            14 this week
+          </div>
+        </div>
+        <div class="m-tile">
+          <div class="m-tile-lbl">Calls today</div>
+          <div class="m-tile-val">87</div>
+          <div class="m-tile-delta delta-up">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+            23% vs yesterday
+          </div>
+        </div>
+        <div class="m-tile">
+          <div class="m-tile-lbl">Interested rate</div>
+          <div class="m-tile-val">34%</div>
+          <div class="m-tile-delta delta-up">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+            4.2pts this month
+          </div>
+        </div>
+        <div class="m-tile">
+          <div class="m-tile-lbl">Converted</div>
+          <div class="m-tile-val">62</div>
+          <div class="m-tile-delta delta-dn">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            3 below target
+          </div>
+        </div>
+      </div>
+
+      <!-- body: left + right -->
+      <div class="dash-body">
+
+        <!-- LEFT -->
+        <div class="dash-left">
+
+          <!-- Pipeline: horizontal bar chart style -->
+          <div class="card">
+            <div class="card-hd">
+              <span class="card-title">Pipeline</span>
+              <span class="card-hint" id="pipe-hint">Click to filter customers below</span>
+              <button class="btn" id="pipe-clear" onclick="clearPipe()" style="display:none;font-size:11px;padding:4px 10px">Clear</button>
+            </div>
+            <div class="pipeline-list" id="pipeline-list"></div>
+          </div>
+
+          <!-- Customer list -->
+          <div class="card">
+            <div class="cust-toolbar">
+              <span class="cust-toolbar-label" id="cust-label">All customers</span>
+              <input class="srch" id="dash-srch" placeholder="Search name, phone…" oninput="dashSearch()">
+            </div>
+            <div class="cust-cols">
+              <span></span><span>Customer</span><span>Loan</span><span>Last call</span>
+            </div>
+            <div class="cust-list" id="dash-list"></div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT -->
+        <div class="dash-right">
+
+          <!-- AI Agent -->
+          <div class="card">
+            <div class="ai-head">
+              <div class="ai-orb">
+                <svg fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 014-4h4a4 4 0 014 4v2"/>
+                </svg>
+              </div>
+              <div>
+                <div class="ai-label">Priya — AI agent</div>
+                <div class="ai-live"><span class="pulse"></span>3 live calls</div>
+              </div>
+            </div>
+            <div class="ai-nums">
+              <div class="ai-n"><div class="ai-n-lbl">Today</div><div class="ai-n-val">87</div></div>
+              <div class="ai-n"><div class="ai-n-lbl">Avg duration</div><div class="ai-n-val">2m 14s</div></div>
+              <div class="ai-n"><div class="ai-n-lbl">Interested</div><div class="ai-n-val" style="color:var(--accent)">28</div></div>
+              <div class="ai-n"><div class="ai-n-lbl">Failed</div><div class="ai-n-val" style="color:var(--red)">6</div></div>
+            </div>
+            <div class="feed" id="live-feed"></div>
+          </div>
+
+          <!-- Campaign -->
+          <div class="card">
+            <div class="card-hd">
+              <span class="card-title">Home Loan Drive · Mar 2026</span>
+              <span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Active</span>
+            </div>
+            <div class="prog-area">
+              <div class="prog-top"><span>62 of 180 completed</span><span style="font-weight:600;color:var(--text)">34%</span></div>
+              <div class="prog-bar"><div class="prog-fill" style="width:34%"></div></div>
+            </div>
+            <div class="camp-grid">
+              <div class="c-num"><div class="c-num-v">180</div><div class="c-num-l">Total</div></div>
+              <div class="c-num"><div class="c-num-v" style="color:var(--accent)">62</div><div class="c-num-l">Done</div></div>
+              <div class="c-num"><div class="c-num-v" style="color:var(--amber)">41</div><div class="c-num-l">Queued</div></div>
+              <div class="c-num"><div class="c-num-v" style="color:var(--red)">8</div><div class="c-num-l">Failed</div></div>
+            </div>
+          </div>
+
+          <!-- Follow-ups -->
+          <div class="card">
+            <div class="card-hd">
+              <span class="card-title">Follow-ups today</span>
+              <span class="bdg" style="background:rgba(245,166,35,.15);color:var(--amber)">3 due</span>
+            </div>
+            <div class="fu-list" id="fu-list"></div>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- /dash -->
+
+
+    <!-- ══════ CUSTOMERS ══════ -->
+    <div id="v-customers" class="view">
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title">All customers</span>
+          <input class="srch" id="all-srch" placeholder="Search…" oninput="allSearch()">
+          <button class="btn" onclick="alert('Upload CSV')">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload leads
+          </button>
+        </div>
+        <div class="tabs" id="cust-tabs">
+          <div class="tab on" data-st="" onclick="custTab(this)">All (1,248)</div>
+          <div class="tab" data-st="NEW" onclick="custTab(this)">New (312)</div>
+          <div class="tab" data-st="INTERESTED" onclick="custTab(this)">Interested (148)</div>
+          <div class="tab" data-st="FOLLOW_UP" onclick="custTab(this)">Follow-up (94)</div>
+          <div class="tab" data-st="CONVERTED" onclick="custTab(this)">Converted (62)</div>
+        </div>
+        <div class="cust-cols"><span></span><span>Customer</span><span>Loan</span><span>Last call</span></div>
+        <div class="cust-list" id="all-list"></div>
+      </div>
+    </div>
+
+
+    <!-- ══════ CALL LOGS ══════ -->
+    <div id="v-calls" class="view">
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title">Call logs</span>
+          <div class="chips">
+            <button class="chip on" onclick="callFilter('',this)">All</button>
+            <button class="chip" onclick="callFilter('COMPLETED',this)">Completed</button>
+            <button class="chip" onclick="callFilter('NO_ANSWER',this)">No answer</button>
+            <button class="chip" onclick="callFilter('FAILED',this)">Failed</button>
+          </div>
+        </div>
+        <div class="tl" id="call-tl"></div>
+      </div>
+    </div>
+
+
+    <!-- ══════ CAMPAIGNS ══════ -->
+    <div id="v-campaigns" class="view">
+      <div class="metric-row">
+        <div class="m-tile"><div class="m-tile-lbl">Active campaigns</div><div class="m-tile-val">3</div></div>
+        <div class="m-tile"><div class="m-tile-lbl">Total jobs</div><div class="m-tile-val">620</div></div>
+        <div class="m-tile"><div class="m-tile-lbl">Completed</div><div class="m-tile-val">411</div><div class="m-tile-delta delta-up">66% success</div></div>
+        <div class="m-tile"><div class="m-tile-lbl">Queued</div><div class="m-tile-val">176</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title">Campaign jobs</span>
+          <button class="btn pri" onclick="alert('New campaign')">+ New campaign</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Campaign</th><th>Customer</th><th>Status</th><th style="text-align:center">Attempts</th><th>Enqueued</th><th>Result</th></tr></thead>
+            <tbody id="camp-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══════ AI CONFIG ══════ -->
+    <div id="v-aiconfig" class="view">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">AI providers</span><button class="btn" onclick="alert('Add provider')">+ Add</button></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Model</th><th>Priority</th><th>Timeout</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td style="font-weight:500">OpenAI GPT-4o</td><td><span class="bdg" style="background:rgba(79,156,249,.15);color:var(--blue)">OPENAI</span></td><td class="mono">gpt-4o-mini</td><td>10</td><td class="mono" style="color:var(--text3)">12 000 ms</td><td><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Active</span></td></tr>
+              <tr><td style="font-weight:500">Claude Sonnet</td><td><span class="bdg" style="background:rgba(167,139,250,.15);color:var(--purple)">CLAUDE</span></td><td class="mono">claude-sonnet-4-20250514</td><td>20</td><td class="mono" style="color:var(--text3)">12 000 ms</td><td><span class="bdg" style="background:var(--bg3);color:var(--text3)">Standby</span></td></tr>
+              <tr><td style="font-weight:500">Groq Llama</td><td><span class="bdg" style="background:rgba(245,166,35,.15);color:var(--amber)">GROQ</span></td><td class="mono">llama3-70b-8192</td><td>30</td><td class="mono" style="color:var(--text3)">12 000 ms</td><td><span class="bdg" style="background:var(--bg3);color:var(--text3)">Standby</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Telephony providers</span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Endpoint</th><th>Active</th></tr></thead>
+            <tbody>
+              <tr><td style="font-weight:500">Twilio Primary</td><td><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">TWILIO</span></td><td class="mono">api.twilio.com</td><td><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Yes</span></td></tr>
+              <tr><td style="font-weight:500">Plivo Backup</td><td><span class="bdg" style="background:rgba(242,88,88,.12);color:var(--red)">PLIVO</span></td><td class="mono">api.plivo.com</td><td><span class="bdg" style="background:var(--bg3);color:var(--text3)">No</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" style="padding:20px">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">System prompt — Priya</div>
+        <textarea class="field-inp" rows="5" style="resize:vertical;line-height:1.7;font-size:12px">You are Priya, an AI loan assistant for TechLend Co. Speak in friendly, professional Hinglish. Understand the customer's loan needs, check eligibility, and connect interested customers to human advisor John Doe at the callback number. Always be empathetic and never pushy.</textarea>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn pri" onclick="alert('Saved')">Save prompt</button>
+          <button class="btn" onclick="alert('Reset')">Reset</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══════ SETTINGS ══════ -->
+    <div id="v-settings" class="view">
+      <div class="settings-grid">
+        <div class="card" style="padding:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:16px">Tenant settings</div>
+          <div class="field"><div class="field-lbl">Tenant name</div><input class="field-inp" value="TechLend Co."></div>
+          <div class="field"><div class="field-lbl">CRM display name</div><input class="field-inp" value="Priya CRM"></div>
+          <div class="field"><div class="field-lbl">AI agent name</div><input class="field-inp" value="Priya"></div>
+          <div class="field"><div class="field-lbl">AI language</div><select class="field-inp"><option>Hinglish</option><option>English</option><option>Hindi</option></select></div>
+          <div class="field"><div class="field-lbl">Human advisor name</div><input class="field-inp" value="John Doe"></div>
+          <div class="field"><div class="field-lbl">Callback phone</div><input class="field-inp" value="+91 98765 43210"></div>
+          <div class="field"><div class="field-lbl">Notification email</div><input class="field-inp" value="alerts@techlend.co"></div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button class="btn pri" onclick="alert('Saved')">Save settings</button>
+            <button class="btn" onclick="alert('Discarded')">Discard</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Users</span><button class="btn" onclick="alert('Add user')">+ Add</button></div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td style="font-weight:500">Arjun Kapoor</td><td class="mono">arjun@techlend.co</td><td><span class="bdg" style="background:rgba(245,166,35,.15);color:var(--amber)">ADMIN</span></td><td><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Active</span></td></tr>
+                  <tr><td style="font-weight:500">Sneha Rao</td><td class="mono">sneha@techlend.co</td><td><span class="bdg" style="background:rgba(79,156,249,.15);color:var(--blue)">SALES</span></td><td><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Active</span></td></tr>
+                  <tr><td style="font-weight:500">Ravi Kumar</td><td class="mono">ravi@techlend.co</td><td><span class="bdg" style="background:rgba(79,156,249,.15);color:var(--blue)">SALES</span></td><td><span class="bdg" style="background:var(--bg3);color:var(--text3)">Inactive</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card" style="padding:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px">Automation</div>
+            <div class="auto-row"><span class="auto-lbl">Max retries per customer</span><span class="auto-val">3</span></div>
+            <div class="auto-row"><span class="auto-lbl">Auto-schedule follow-ups</span><span class="auto-val on">Enabled</span></div>
+            <div class="auto-row"><span class="auto-lbl">WhatsApp notifications</span><span class="auto-val on">Enabled</span></div>
+            <div class="auto-row"><span class="auto-lbl">Daily call limit per agent</span><span class="auto-val">200</span></div>
+            <div class="auto-row"><span class="auto-lbl">Retry interval</span><span class="auto-val">24 hours</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pane -->
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+/* ══ THEME ══ */
+function toggleTheme() {
+  var html = document.documentElement;
+  var isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('sun-icon').style.display  = isDark ? '' : 'none';
+  document.getElementById('moon-icon').style.display = isDark ? 'none' : '';
+}
+
+/* ══ DATA ══ */
+var custs = [
+  {n:"Rohit Sharma",   ph:"98123 45670", loan:"Home Loan",     amt:4500000, st:"INTERESTED",     last:"2h ago",  ini:"RS", ib:"rgba(34,201,147,.18)", ic:"#6ee7b7"},
+  {n:"Priya Patel",    ph:"97234 56781", loan:"Personal Loan", amt:500000,  st:"FOLLOW_UP",      last:"5h ago",  ini:"PP", ib:"rgba(245,166,35,.18)", ic:"#fbbf24"},
+  {n:"Anjali Mishra",  ph:"91890 12347", loan:"Home Loan",     amt:5000000, st:"INTERESTED",     last:"30m ago", ini:"AM", ib:"rgba(34,201,147,.18)", ic:"#6ee7b7"},
+  {n:"Amit Verma",     ph:"96345 67892", loan:"Home Loan",     amt:7500000, st:"NEW",             last:"1d ago",  ini:"AV", ib:"rgba(79,156,249,.18)", ic:"#93c5fd"},
+  {n:"Meera Singh",    ph:"93678 90125", loan:"Home Loan",     amt:3200000, st:"CALL_PENDING",   last:"Never",   ini:"MS", ib:"rgba(242,88,88,.18)",  ic:"#fca5a5"},
+  {n:"Deepak Joshi",   ph:"92789 01236", loan:"Personal Loan", amt:300000,  st:"CALLING",        last:"Now",     ini:"DJ", ib:"rgba(34,201,147,.18)", ic:"#6ee7b7"},
+  {n:"Kavya Nair",     ph:"95456 78903", loan:"Car Loan",      amt:800000,  st:"CONVERTED",      last:"3d ago",  ini:"KN", ib:"rgba(167,139,250,.18)",ic:"#c4b5fd"},
+  {n:"Suresh Gupta",   ph:"94567 89014", loan:"Business Loan", amt:2000000, st:"NOT_INTERESTED", last:"2d ago",  ini:"SG", ib:"rgba(138,138,136,.18)",ic:"#9ca3af"},
+  {n:"Fatima Khan",    ph:"90123 45678", loan:"Home Loan",     amt:6000000, st:"NEW",             last:"3h ago",  ini:"FK", ib:"rgba(79,156,249,.18)", ic:"#93c5fd"},
+  {n:"Vikram Das",     ph:"89012 34567", loan:"Business Loan", amt:5000000, st:"FOLLOW_UP",      last:"1h ago",  ini:"VD", ib:"rgba(245,166,35,.18)", ic:"#fbbf24"},
+];
+
+function getBdgStyle(st) {
+  var m = {
+    NEW:             "background:rgba(79,156,249,.15);color:#93c5fd",
+    CALL_PENDING:    "background:rgba(242,88,88,.12);color:#fca5a5",
+    CALLING:         "background:rgba(34,201,147,.15);color:#6ee7b7",
+    INTERESTED:      "background:rgba(34,201,147,.15);color:#6ee7b7",
+    FOLLOW_UP:       "background:rgba(245,166,35,.15);color:#fbbf24",
+    NOT_INTERESTED:  "background:rgba(242,88,88,.12);color:#fca5a5",
+    CONVERTED:       "background:rgba(167,139,250,.15);color:#c4b5fd",
+    DO_NOT_CALL:     "background:rgba(138,138,136,.14);color:#9ca3af",
+    CALL_FAILED:     "background:rgba(242,88,88,.12);color:#fca5a5",
+  };
+  return m[st] || "background:rgba(138,138,136,.14);color:#9ca3af";
+}
+function bdg(st) {
+  return '<span class="bdg" style="'+getBdgStyle(st)+'">'+st.replace(/_/g,' ')+'</span>';
+}
+function fmtAmt(a) { return a ? '₹'+(a/100000).toFixed(0)+'L' : '—'; }
+
+function rowHtml(c) {
+  return '<div class="cust-row" onclick="alert(\'Profile: '+c.n+'\')">'
+    +'<div class="cust-av" style="background:'+c.ib+';color:'+c.ic+'">'+c.ini+'</div>'
+    +'<div><div class="cust-name">'+c.n+'</div><div class="cust-sub">'+c.ph+'</div></div>'
+    +'<div><div class="cust-loan">'+c.loan+'</div><div class="cust-amt">'+fmtAmt(c.amt)+'</div></div>'
+    +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'+bdg(c.st)+'<div class="cust-time">'+c.last+'</div></div>'
+    +'</div>';
+}
+function renderList(list, id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = list.length ? list.map(rowHtml).join('') : '<div class="empty">No customers match.</div>';
+}
+renderList(custs, 'dash-list');
+renderList(custs, 'all-list');
+
+/* ── PIPELINE ── */
+var pipeData = [
+  {st:"NEW",             label:"New",           count:312, pct:25, col:"#4f9cf9"},
+  {st:"CALL_PENDING",    label:"Call pending",  count:87,  pct:7,  col:"#f472b6"},
+  {st:"CALLING",         label:"Calling",       count:12,  pct:1,  col:"#22c993"},
+  {st:"INTERESTED",      label:"Interested",    count:148, pct:12, col:"#22c993"},
+  {st:"FOLLOW_UP",       label:"Follow-up",     count:94,  pct:8,  col:"#f5a623"},
+  {st:"CONVERTED",       label:"Converted",     count:62,  pct:5,  col:"#a78bfa"},
+  {st:"NOT_INTERESTED",  label:"Not interested",count:421, pct:34, col:"#f25858"},
+  {st:"DO_NOT_CALL",     label:"Do not call",   count:23,  pct:2,  col:"#6b7280"},
+];
+
+var activeSt = '';
+document.getElementById('pipeline-list').innerHTML = pipeData.map(function(p) {
+  return '<div class="pipe-row" onclick="pipeFilter(\''+p.st+'\',this)" data-st="'+p.st+'">'
+    +'<div class="pipe-row-label">'+p.label+'</div>'
+    +'<div class="pipe-track"><div class="pipe-fill" style="width:'+p.pct+'%;background:'+p.col+'"></div></div>'
+    +'<div class="pipe-row-count">'+p.count+'</div>'
+    +'</div>';
+}).join('');
+
+function pipeFilter(st, el) {
+  document.querySelectorAll('.pipe-row').forEach(function(r){r.classList.remove('on');});
+  var clearBtn = document.getElementById('pipe-clear');
+  if (activeSt === st) {
+    activeSt = '';
+    renderList(srchFilter(custs, document.getElementById('dash-srch').value), 'dash-list');
+    document.getElementById('cust-label').textContent = 'All customers';
+    clearBtn.style.display = 'none';
+    document.getElementById('pipe-hint').textContent = 'Click to filter customers below';
+  } else {
+    activeSt = st;
+    el.classList.add('on');
+    var p = pipeData.find(function(d){return d.st===st;});
+    var base = custs.filter(function(c){return c.st===st;});
+    renderList(srchFilter(base, document.getElementById('dash-srch').value), 'dash-list');
+    var lbl = p ? p.label : st.replace(/_/g,' ');
+    document.getElementById('cust-label').textContent = lbl+' — '+base.length+' customer'+(base.length!==1?'s':'');
+    clearBtn.style.display = 'inline-flex';
+    document.getElementById('pipe-hint').textContent = lbl+' selected';
+  }
+}
+function clearPipe() {
+  activeSt = '';
+  document.querySelectorAll('.pipe-row').forEach(function(r){r.classList.remove('on');});
+  renderList(srchFilter(custs, document.getElementById('dash-srch').value), 'dash-list');
+  document.getElementById('cust-label').textContent = 'All customers';
+  document.getElementById('pipe-clear').style.display = 'none';
+  document.getElementById('pipe-hint').textContent = 'Click to filter customers below';
+}
+function srchFilter(list, q) {
+  if (!q) return list;
+  q = q.toLowerCase();
+  return list.filter(function(c){return c.n.toLowerCase().includes(q)||c.ph.includes(q);});
+}
+function dashSearch() {
+  var base = activeSt ? custs.filter(function(c){return c.st===activeSt;}) : custs;
+  renderList(srchFilter(base, document.getElementById('dash-srch').value), 'dash-list');
+}
+function allSearch() {
+  var active = document.querySelector('#cust-tabs .tab.on');
+  var st = active ? active.getAttribute('data-st') : '';
+  var base = st ? custs.filter(function(c){return c.st===st;}) : custs;
+  renderList(srchFilter(base, document.getElementById('all-srch').value), 'all-list');
+}
+function custTab(el) {
+  document.querySelectorAll('#cust-tabs .tab').forEach(function(t){t.classList.remove('on');});
+  el.classList.add('on');
+  var st = el.getAttribute('data-st');
+  var base = st ? custs.filter(function(c){return c.st===st;}) : custs;
+  renderList(srchFilter(base, document.getElementById('all-srch').value), 'all-list');
+}
+
+/* ── LIVE FEED ── */
+document.getElementById('live-feed').innerHTML = [
+  {n:"Deepak Joshi", d:"Personal Loan · ₹3L · Pune",    col:"#22c993", t:"Now"},
+  {n:"Aryan Shah",   d:"Home Loan · ₹30L · Surat",       col:"#22c993", t:"2m ago"},
+  {n:"Fatima Khan",  d:"Car Loan · ₹8L · Hyderabad",     col:"#a78bfa", t:"7m ago"},
+  {n:"Pooja Sharma", d:"Home Loan · ₹40L · Noida",       col:"#f25858", t:"12m ago"},
+].map(function(f){
+  return '<div class="feed-row"><div class="feed-dot" style="background:'+f.col+'"></div>'
+    +'<div style="flex:1;min-width:0"><div class="feed-name">'+f.n+'</div><div class="feed-sub">'+f.d+'</div></div>'
+    +'<div class="feed-time">'+f.t+'</div></div>';
+}).join('');
+
+/* ── FOLLOW-UPS ── */
+document.getElementById('fu-list').innerHTML = [
+  {ini:"PP",ib:"rgba(245,166,35,.18)",ic:"#fbbf24",n:"Priya Patel",   d:"Personal Loan · docs pending"},
+  {ini:"RS",ib:"rgba(34,201,147,.18)",ic:"#6ee7b7",n:"Rohit Sharma",  d:"Home Loan · EMI calc requested"},
+  {ini:"AM",ib:"rgba(34,201,147,.18)",ic:"#6ee7b7",n:"Anjali Mishra", d:"Home Loan · very urgent ₹50L"},
+].map(function(f){
+  return '<div class="fu-row" onclick="alert(\''+f.n+'\')">'
+    +'<div class="fu-av" style="background:'+f.ib+';color:'+f.ic+'">'+f.ini+'</div>'
+    +'<div style="flex:1;min-width:0"><div class="fu-name">'+f.n+'</div><div class="fu-detail">'+f.d+'</div></div>'
+    +'</div>';
+}).join('');
+
+/* ── CALL LOGS ── */
+var callLogs = [
+  {n:"Rohit Sharma", ph:"98123 45670",st:"COMPLETED",dur:"3m 42s",sum:"Very interested in ₹45L home loan. Wants EMI calculation. Follow-up scheduled for tomorrow.",att:1,t:"Today 2:14 PM"},
+  {n:"Priya Patel",  ph:"97234 56781",st:"COMPLETED",dur:"1m 58s",sum:"Asked for more time. Will gather income documents. Follow-up scheduled.",att:2,t:"Today 1:47 PM"},
+  {n:"Amit Verma",   ph:"96345 67892",st:"NO_ANSWER", dur:"—",    sum:"No answer on first attempt. Retry queued for tomorrow morning.",att:1,t:"Today 11:30 AM"},
+  {n:"Kavya Nair",   ph:"95456 78903",st:"COMPLETED",dur:"4m 11s",sum:"Loan approved and disbursed. Customer very satisfied. Offered referrals.",att:1,t:"Yesterday"},
+  {n:"Suresh Gupta", ph:"94567 89014",st:"COMPLETED",dur:"2m 03s",sum:"Not looking for a loan currently. Politely declined. Marked DNC.",att:1,t:"2 days ago"},
+  {n:"Fatima Khan",  ph:"90123 45678",st:"FAILED",    dur:"—",    sum:"Call failed — Twilio error 30008. Retry via Plivo backup.",att:2,t:"2 days ago"},
+];
+var callCol = {COMPLETED:"#22c993",NO_ANSWER:"#f25858",ANSWERED:"#4f9cf9",FAILED:"#f25858"};
+function renderCalls(list) {
+  document.getElementById('call-tl').innerHTML = list.map(function(l){
+    var c = callCol[l.st]||"#6b7280";
+    return '<div class="ti">'
+      +'<div class="ti-ic" style="background:'+c+'18"><svg fill="none" stroke="'+c+'" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72"/></svg></div>'
+      +'<div class="ti-b"><div class="ti-top"><span class="ti-name">'+l.n+'</span><span class="bdg" style="background:'+c+'18;color:'+c+'">'+l.st+'</span>'+(l.dur!=='—'?'<span style="font-size:11px;color:var(--text3)">'+l.dur+'</span>':'')+'</div>'
+      +'<div class="ti-meta">'+l.ph+' · OUTBOUND · Attempt '+l.att+'</div>'
+      +'<div class="ti-sum">'+l.sum+'</div>'
+      +'<div class="ti-time">'+l.t+'</div></div></div>';
+  }).join('');
+}
+renderCalls(callLogs);
+function callFilter(st, el) {
+  document.querySelectorAll('#v-calls .chip').forEach(function(c){c.classList.remove('on');});
+  el.classList.add('on');
+  renderCalls(st ? callLogs.filter(function(l){return l.st===st;}) : callLogs);
+}
+
+/* ── CAMPAIGNS ── */
+var campJobs = [
+  {nm:"Home Loan Drive",  cu:"Rohit Sharma", st:"COMPLETED",att:1,eq:"Today 9:00 AM", res:"Interested"},
+  {nm:"Home Loan Drive",  cu:"Priya Patel",  st:"ACTIVE",   att:2,eq:"Today 9:05 AM", res:"In progress"},
+  {nm:"Home Loan Drive",  cu:"Amit Verma",   st:"QUEUED",   att:0,eq:"Today 9:10 AM", res:"—"},
+  {nm:"Personal Loan Q1", cu:"Deepak Joshi", st:"ACTIVE",   att:1,eq:"Today 10:00 AM",res:"Calling"},
+  {nm:"Personal Loan Q1", cu:"Anjali Mishra",st:"FAILED",   att:3,eq:"Yesterday",     res:"Max retries"},
+  {nm:"Car Loan Apr",     cu:"Kavya Nair",   st:"COMPLETED",att:1,eq:"3 days ago",    res:"Converted"},
+  {nm:"Home Loan Drive",  cu:"Meera Singh",  st:"QUEUED",   att:0,eq:"Today 11:15 AM",res:"—"},
+];
+var cjStyle = {
+  COMPLETED:"background:rgba(34,201,147,.15);color:#6ee7b7",
+  ACTIVE:   "background:rgba(34,201,147,.10);color:#6ee7b7",
+  QUEUED:   "background:rgba(245,166,35,.15);color:#fbbf24",
+  FAILED:   "background:rgba(242,88,88,.12);color:#fca5a5",
+};
+document.getElementById('camp-tbody').innerHTML = campJobs.map(function(j){
+  var s = cjStyle[j.st]||"background:rgba(138,138,136,.14);color:#9ca3af";
+  return '<tr onclick="alert(\''+j.nm+'\')"><td style="font-weight:500">'+j.nm+'</td><td>'+j.cu+'</td>'
+    +'<td><span class="bdg" style="'+s+'">'+j.st+'</span></td>'
+    +'<td style="text-align:center;color:var(--text2)">'+j.att+'</td>'
+    +'<td style="color:var(--text3)">'+j.eq+'</td><td>'+j.res+'</td></tr>';
+}).join('');
+
+/* ── NAV ── */
+var views = ['dash','customers','calls','campaigns','aiconfig','settings'];
+var titles = {dash:'Dashboard',customers:'Customers',calls:'Call logs',campaigns:'Campaigns',aiconfig:'AI config',settings:'Settings'};
+function go(v, el) {
+  views.forEach(function(id){ var e=document.getElementById('v-'+id); if(e)e.classList.remove('on'); });
+  var t = document.getElementById('v-'+v); if(t)t.classList.add('on');
+  document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('on');});
+  if(el)el.classList.add('on');
+  document.getElementById('pg-title').textContent = titles[v]||v;
+  document.getElementById('pane').scrollTop = 0;
+}
+</script>
+</body>
+</html>
