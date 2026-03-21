@@ -65,7 +65,7 @@ export function ModernAiConfigView({ initialPrompt, initialScope }) {
   }, [promptText, initialScope?.key]);
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div className="ms-ai-config-view" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       {/* AI Providers */}
       <div className="ms-card">
         <div className="ms-card-hd">

@@ -434,6 +434,18 @@ select.ms-field-inp { cursor: pointer; }
 .ms-auto-val { font-weight: 600; color: var(--ms-text); }
 .ms-auto-val.on { color: var(--ms-accent); }
 
+/* Modern AI config uses content-sized cards instead of stretch panels. */
+.ms-ai-config-view .ms-card {
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+.ms-ai-config-view .ms-tbl-wrap {
+  overflow-y: visible;
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
 /* Pagination */
 .ms-pagination {
   display: flex; align-items: center; justify-content: center; gap: 8px;
