@@ -147,18 +147,16 @@ function ClassicUiSettingsPanel({ initialLayout }) {
   const [currentLayout, setCurrentLayout] = useState(initialLayout || "classic");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    // Refresh from API to stay in sync, but initialLayout prevents flash
-    fetch("/api/theme/active")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.theme?.uiLayout) setCurrentLayout(data.theme.uiLayout);
-      })
-      .catch(() => {});
-  }, []);
+  // initialLayout from the server is the source of truth;
+  // no client-side re-fetch needed (avoids race conditions during switch).
 
   const switchLayout = useCallback(async (layout) => {
+    if (layout === currentLayout) return;
+    const prevLayout = currentLayout;
+    // Instantly reflect the selection in the UI
+    setCurrentLayout(layout);
     setSaving(true);
+    const toastId = toast.loading(`Applying ${layout} layout…`);
     try {
       const res = await fetch("/api/admin/theme", {
         method: "PUT",
@@ -166,20 +164,19 @@ function ClassicUiSettingsPanel({ initialLayout }) {
         body: JSON.stringify({ uiLayout: layout, isBaseTheme: true }),
       });
       if (res.ok) {
-        setCurrentLayout(layout);
-        toast.success(`UI layout set to "${layout}". Applying changes…`);
-        // Hard reload: bypasses Next.js Router Cache and forces a fresh server render
-        // so the new shell (modern/classic) is picked up immediately.
-        setTimeout(() => window.location.reload(), 800);
+        toast.success(`${layout === "modern" ? "Modern" : "Classic"} layout applied!`, { id: toastId });
+        setTimeout(() => window.location.reload(), 600);
       } else {
-        toast.error("Failed to update UI layout");
+        setCurrentLayout(prevLayout);
+        toast.error("Failed to update UI layout", { id: toastId });
+        setSaving(false);
       }
     } catch {
-      toast.error("Failed to update UI layout");
-    } finally {
+      setCurrentLayout(prevLayout);
+      toast.error("Failed to update UI layout", { id: toastId });
       setSaving(false);
     }
-  }, []);
+  }, [currentLayout]);
 
   const layouts = [
     { key: "modern", label: "Modern", desc: "Sidebar + topbar shell with dark/light theme toggle" },
@@ -191,7 +188,7 @@ function ClassicUiSettingsPanel({ initialLayout }) {
       <div>
         <h3 className="text-lg font-semibold text-foreground">UI Layout</h3>
         <p className="text-sm text-muted-foreground">
-          Choose the UI layout for this tenant. Changes apply after page reload.
+          Choose the UI layout. The page will reload automatically to apply changes.
         </p>
       </div>
       <div className="flex flex-col gap-3">

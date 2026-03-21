@@ -28,11 +28,10 @@ export function ModernSettingsView({ initialRole, initialLayout }) {
 
   const fetchData = useCallback(async () => {
     try {
-      const [settingsRes, usersRes, autoRes, themeRes] = await Promise.all([
+      const [settingsRes, usersRes, autoRes] = await Promise.all([
         fetch("/api/admin/settings"),
         fetch("/api/admin/user-management/users"),
         fetch("/api/automation/toggle"),
-        fetch("/api/theme/active"),
       ]);
 
       if (settingsRes.ok) {
@@ -46,10 +45,6 @@ export function ModernSettingsView({ initialRole, initialLayout }) {
       if (autoRes.ok) {
         const data = await autoRes.json();
         setAutomation(data);
-      }
-      if (themeRes.ok) {
-        const data = await themeRes.json();
-        setCurrentLayout(data.theme?.uiLayout || "modern");
       }
     } catch {
       // silently fail
@@ -267,7 +262,11 @@ function UiSettingsPanel({ currentLayout, onLayoutChange }) {
   const [saving, setSaving] = useState(false);
 
   const switchLayout = useCallback(async (layout) => {
+    if (layout === currentLayout) return;
+    // Instantly reflect the selection in the UI
+    onLayoutChange(layout);
     setSaving(true);
+    const toastId = toast.loading(`Applying ${layout} layout…`);
     try {
       const res = await fetch("/api/admin/theme", {
         method: "PUT",
@@ -275,20 +274,19 @@ function UiSettingsPanel({ currentLayout, onLayoutChange }) {
         body: JSON.stringify({ uiLayout: layout, isBaseTheme: true }),
       });
       if (res.ok) {
-        onLayoutChange(layout);
-        toast.success(`UI layout set to "${layout}". Applying changes…`);
-        // Hard reload: bypasses Next.js Router Cache and forces a fresh server render
-        // so the new shell (modern/classic) is picked up immediately.
-        setTimeout(() => window.location.reload(), 800);
+        toast.success(`${layout === "modern" ? "Modern" : "Classic"} layout applied!`, { id: toastId });
+        setTimeout(() => window.location.reload(), 600);
       } else {
-        toast.error("Failed to update UI layout");
+        onLayoutChange(currentLayout);
+        toast.error("Failed to update UI layout", { id: toastId });
+        setSaving(false);
       }
     } catch {
-      toast.error("Failed to update UI layout");
-    } finally {
+      onLayoutChange(currentLayout);
+      toast.error("Failed to update UI layout", { id: toastId });
       setSaving(false);
     }
-  }, [onLayoutChange]);
+  }, [onLayoutChange, currentLayout]);
 
   const layouts = [
     { key: "modern", label: "Modern", desc: "Sidebar + topbar shell with dark/light theme toggle" },
@@ -299,7 +297,7 @@ function UiSettingsPanel({ currentLayout, onLayoutChange }) {
     <div className="ms-card" style={{ padding: 20 }}>
       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>UI Layout</div>
       <p style={{ fontSize: 12, color: "var(--ms-text2)", marginBottom: 16 }}>
-        Choose the UI layout for this tenant. Changes apply after page reload.
+        Choose the UI layout. The page will reload automatically to apply changes.
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {layouts.map(({ key, label, desc }) => (
