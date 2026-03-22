@@ -81,7 +81,7 @@ export default async function CallsPage() {
   }
 
   if (uiLayout === "modern") {
-    return <ModernCallLogsView callLogs={callLogs} />;
+    return <ModernCallLogsView callLogs={callLogs} customers={callCustomers} role={session.user.role} />;
   }
 
   return (

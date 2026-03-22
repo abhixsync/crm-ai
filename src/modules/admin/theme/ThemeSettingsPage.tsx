@@ -156,7 +156,7 @@ function ColorControl({
   const hsl = useMemo(() => hexToHsl(value), [value]);
 
   return (
-    <div className="space-y-2">
+    <div className="theme-editor-color-control space-y-2">
       <label className="text-sm font-medium text-muted-foreground">{label}</label>
       <div className="grid grid-cols-[42px_1fr] gap-2">
         <Input
@@ -631,19 +631,19 @@ export function ThemeSettingsPage() {
   }
 
   return (
-    <div className="space-y-6 pb-28">
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card>
+    <div className="theme-editor-root space-y-6 pb-28">
+      <div className="theme-editor-layout grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <Card className="theme-editor-main">
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center gap-2">
               Tenant Theme Editor
               {themeStatus ? (
-                <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${themeStatus.hasCustomTheme ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>
+                <span className={`theme-editor-pill inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${themeStatus.hasCustomTheme ? "theme-editor-pill-custom bg-blue-100 text-blue-800" : "theme-editor-pill-inherited bg-slate-100 text-slate-700"}`}>
                   {themeStatus.hasCustomTheme ? "Custom" : "Inherited"}
                 </span>
               ) : null}
               {hasUnsavedChanges ? (
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">
+                <span className="theme-editor-pill theme-editor-pill-warning inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">
                   Unsaved changes
                 </span>
               ) : null}
@@ -652,9 +652,9 @@ export function ThemeSettingsPage() {
               Enterprise theming with safe inheritance, white-label controls, and token-level editing.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="theme-editor-content space-y-6">
             {isSuperAdmin ? (
-              <label className="space-y-2">
+              <label className="theme-editor-scope space-y-2">
                 <span className="text-sm font-medium text-muted-foreground">Target Scope</span>
                 <Select
                   className="w-full"
@@ -676,12 +676,12 @@ export function ThemeSettingsPage() {
             ) : null}
 
             {applyTarget?.overwritesTenantTheme ? (
-              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <div className="theme-editor-callout theme-editor-callout-warning rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                 This tenant currently has a custom theme. Applying recommended tokens will overwrite tenant-specific values.
               </div>
             ) : null}
 
-            <section className="space-y-3 rounded-lg border border-border p-4">
+            <section className="theme-editor-section space-y-3 rounded-lg border border-border p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Color Tokens</h3>
                 <Button className="w-full sm:w-auto" variant="secondary" onClick={() => resetSection("colors")} disabled={!canManage}>
@@ -703,7 +703,7 @@ export function ThemeSettingsPage() {
               </p>
             </section>
 
-            <section className="space-y-3 rounded-lg border border-border p-4">
+            <section className="theme-editor-section space-y-3 rounded-lg border border-border p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Typography</h3>
                 <Button className="w-full sm:w-auto" variant="secondary" onClick={() => resetSection("typography")} disabled={!canManage}>
@@ -738,7 +738,7 @@ export function ThemeSettingsPage() {
               </div>
             </section>
 
-            <section className="space-y-3 rounded-lg border border-border p-4">
+            <section className="theme-editor-section space-y-3 rounded-lg border border-border p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Layout & Density</h3>
                 <Button className="w-full sm:w-auto" variant="secondary" onClick={() => resetSection("layout")} disabled={!canManage}>
@@ -768,7 +768,7 @@ export function ThemeSettingsPage() {
               </div>
             </section>
 
-            <section className="space-y-3 rounded-lg border border-border p-4">
+            <section className="theme-editor-section space-y-3 rounded-lg border border-border p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Assets</h3>
                 <div className="flex flex-col gap-2 sm:flex-row">
@@ -791,7 +791,7 @@ export function ThemeSettingsPage() {
                 <label className="space-y-1 text-sm text-muted-foreground">
                   <span>Logo</span>
                   {theme.logoUrl ? (
-                    <div className="mb-2 flex items-center gap-2">
+                    <div className="theme-editor-asset-preview mb-2 flex items-center gap-2">
                       <img src={theme.logoUrl} alt="Current logo" className="h-8 w-auto rounded border" />
                       <Button variant="secondary" onClick={() => clearAsset("logo")} disabled={saving}>Clear</Button>
                     </div>
@@ -801,7 +801,7 @@ export function ThemeSettingsPage() {
                 <label className="space-y-1 text-sm text-muted-foreground">
                   <span>Favicon</span>
                   {theme.faviconUrl ? (
-                    <div className="mb-2 flex items-center gap-2">
+                    <div className="theme-editor-asset-preview mb-2 flex items-center gap-2">
                       <img src={theme.faviconUrl} alt="Current favicon" className="h-6 w-6 rounded border" />
                       <Button variant="secondary" onClick={() => clearAsset("favicon")} disabled={saving}>Clear</Button>
                     </div>
@@ -811,7 +811,7 @@ export function ThemeSettingsPage() {
                 <label className="space-y-1 text-sm text-muted-foreground">
                   <span>Login Background</span>
                   {theme.loginBackgroundUrl ? (
-                    <div className="mb-2 flex items-center gap-2">
+                    <div className="theme-editor-asset-preview mb-2 flex items-center gap-2">
                       <img src={theme.loginBackgroundUrl} alt="Current login background" className="h-12 w-20 rounded border object-cover" />
                       <Button variant="secondary" onClick={() => clearAsset("loginBackground")} disabled={saving}>Clear</Button>
                     </div>
@@ -821,7 +821,7 @@ export function ThemeSettingsPage() {
                 <label className="space-y-1 text-sm text-muted-foreground">
                   <span>Application Background</span>
                   {theme.applicationBackgroundUrl ? (
-                    <div className="mb-2 flex items-center gap-2">
+                    <div className="theme-editor-asset-preview mb-2 flex items-center gap-2">
                       <img src={theme.applicationBackgroundUrl} alt="Current application background" className="h-12 w-20 rounded border object-cover" />
                       <Button variant="secondary" onClick={() => clearAsset("applicationBackground")} disabled={saving}>Clear</Button>
                     </div>
@@ -831,7 +831,7 @@ export function ThemeSettingsPage() {
               </div>
             </section>
 
-            <section className="space-y-3 rounded-lg border border-border p-4">
+            <section className="theme-editor-section space-y-3 rounded-lg border border-border p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Advanced</h3>
                 <Button className="w-full sm:w-auto" variant="secondary" onClick={() => resetSection("advanced")} disabled={!canManage}>
@@ -854,14 +854,14 @@ export function ThemeSettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="theme-editor-preview-card">
           <CardHeader>
             <CardTitle>Live Preview</CardTitle>
             <CardDescription>Theme preview for card, button, and table behaviors.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4 rounded-lg border p-4" style={previewStyle}>
-              <div className="rounded-md border p-4" style={{ background: draft.surfaceColor, borderColor: draft.borderColor }}>
+            <div className="theme-editor-live-preview space-y-4 rounded-lg border p-4" style={previewStyle}>
+              <div className="theme-editor-preview-panel rounded-md border p-4" style={{ background: draft.surfaceColor, borderColor: draft.borderColor }}>
                 <h4 className="text-sm font-semibold" style={{ color: draft.textPrimary }}>Themed Card</h4>
                 <p className="mt-1 text-sm" style={{ color: draft.textSecondary }}>
                   This card previews typography, background/surface, and border tokens.
@@ -899,7 +899,7 @@ export function ThemeSettingsPage() {
         </Card>
       </div>
 
-      <div className="theme-savebar fixed inset-x-0 bottom-0 z-40 border-t px-4 py-3 backdrop-blur sm:px-6">
+      <div className="theme-savebar theme-editor-savebar fixed inset-x-0 bottom-0 z-40 border-t px-4 py-3 backdrop-blur sm:px-6">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
             {hasUnsavedChanges ? "You have unsaved theme changes." : "All changes saved."}
@@ -950,13 +950,13 @@ export function ThemeSettingsPage() {
             Target: <span className="font-medium text-foreground">{applyTarget?.label || "-"}</span>
           </p>
           {applyTarget?.isBaseTheme ? (
-            <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+            <p className="theme-editor-callout rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
               This updates inherited defaults for tenants that do not have active custom themes.
             </p>
           ) : null}
           {applyTarget?.overwritesTenantTheme ? (
-            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Warning: this replaces the selected tenant's current custom theme values.
+            <p className="theme-editor-callout theme-editor-callout-warning rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Warning: this replaces the selected tenant&apos;s current custom theme values.
             </p>
           ) : null}
           <div className="flex justify-end gap-2">

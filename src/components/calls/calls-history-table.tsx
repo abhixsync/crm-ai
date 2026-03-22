@@ -166,8 +166,8 @@ export function CallsHistoryTable({ callLogs }: CallsHistoryTableProps) {
   );
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="calls-history-root space-y-4">
+      <div className="calls-history-filters flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</span>
         <Button
           size="sm"
@@ -183,23 +183,25 @@ export function CallsHistoryTable({ callLogs }: CallsHistoryTableProps) {
             variant={selectedSource === option.key ? "default" : "secondary"}
             onClick={() => setSelectedSource(option.key)}
           >
-            {option.key} ({option.count})
+            {toSourceLabel(option.key)} ({option.count})
           </Button>
         ))}
       </div>
 
       {selectedSource !== SOURCE_ALL_KEY ? (
         <p className="text-xs text-muted-foreground">
-          Showing source: <span className="font-medium text-foreground">{selectedSource}</span> ({toSourceLabel(selectedSource)})
+          Showing source: <span className="font-medium text-foreground">{toSourceLabel(selectedSource)}</span>
         </p>
       ) : null}
 
       <DataTable
         columns={columns}
         data={filteredCallLogs}
+        className="calls-history-table"
         emptyMessage="No call logs available yet."
         enableColumnFilters={false}
         enableGlobalFilter
+        globalFilterPlaceholder="Search calls..."
       />
     </div>
   );

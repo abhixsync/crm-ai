@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Priya CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+[data-theme="dark"]{
+  --bg:#0d0e10;--bg2:#13151a;--bg3:#1a1d23;--bg4:#22262e;--bg5:#2a2f38;
+  --surface:#1c1f26;--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.12);--border3:rgba(255,255,255,.2);
+  --text:#ededeb;--text2:#8a8a88;--text3:#4a4a48;
+  --accent:#22c993;--accent2:#1aaa7c;--accent-dim:#0a2e1e;--accent-txt:#5cdba8;
+  --red:#f05454;--red-dim:#2e1010;--amber:#f5a623;--amber-dim:#2a1e08;
+  --blue:#5b9cf6;--blue-dim:#0e1f3a;--purple:#a78bfa;--purple-dim:#1e1538;--pink:#f472b6;--pink-dim:#2a1020;
+}
+[data-theme="light"]{
+  --bg:#f0efeb;--bg2:#e8e7e3;--bg3:#dfded9;--bg4:#d4d3ce;--bg5:#c9c8c3;
+  --surface:#ffffff;--border:rgba(0,0,0,.06);--border2:rgba(0,0,0,.13);--border3:rgba(0,0,0,.22);
+  --text:#111110;--text2:#6b6b67;--text3:#b0afab;
+  --accent:#0ea86b;--accent2:#0d8f5c;--accent-dim:#dcf5ec;--accent-txt:#0a6b45;
+  --red:#d93f3f;--red-dim:#fee2e2;--amber:#c47f00;--amber-dim:#fef3c7;
+  --blue:#2563eb;--blue-dim:#dbeafe;--purple:#7c3aed;--purple-dim:#ede9fe;--pink:#db2777;--pink-dim:#fce7f3;
+}
+
+html,body{height:100%;font-family:'Geist',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;-webkit-font-smoothing:antialiased;line-height:1.5;transition:background .2s,color .2s}
+.shell{display:flex;height:100vh;overflow:hidden}
+
+/* ═══ SIDEBAR ═══ */
+.sb{width:226px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:background .2s}
+.brand{padding:18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:11px;flex-shrink:0}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.brand-mark svg{width:15px;height:15px}
+.brand-name{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--text)}
+.brand-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.nav{padding:8px;flex:1;overflow-y:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav-sec{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:12px 8px 4px}
+.nb{display:flex;align-items:center;gap:9px;width:100%;padding:7px 10px;border-radius:7px;font-size:12.5px;font-family:'Geist',sans-serif;cursor:pointer;color:var(--text2);background:none;border:none;text-align:left;margin-bottom:2px;transition:background .1s,color .1s}
+.nb:hover{background:var(--bg3);color:var(--text)}
+.nb.on{background:var(--accent-dim);color:var(--accent-txt);font-weight:500}
+.nb svg{width:14px;height:14px;flex-shrink:0}
+.np{margin-left:auto;font-size:10px;font-weight:600;background:var(--accent);color:var(--bg);padding:2px 6px;border-radius:8px}
+.np.warn{background:var(--amber);color:var(--bg)}
+.np.alert{background:var(--red);color:#fff}
+.sb-foot{padding:13px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.u-av{width:30px;height:30px;border-radius:50%;background:var(--accent-dim);color:var(--accent-txt);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.u-name{font-size:12px;font-weight:500;color:var(--text)}
+.u-role{font-size:10px;color:var(--text3);margin-top:1px}
+
+/* ═══ TOPBAR ═══ */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:8px;flex-shrink:0;transition:background .2s}
+.pg-title{font-size:15px;font-weight:600;flex:1;letter-spacing:-.01em;color:var(--text)}
+.pg-crumb{font-size:11px;color:var(--text3);margin-left:8px;font-weight:400}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:7px;font-size:12px;font-weight:500;font-family:'Geist',sans-serif;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2);transition:all .12s;white-space:nowrap}
+.btn:hover{background:var(--bg3);color:var(--text)}
+.btn.pri{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.btn.pri:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn.danger{background:var(--red-dim);color:var(--red);border-color:rgba(240,84,84,.3)}
+.btn.warn{background:var(--amber-dim);color:var(--amber);border-color:rgba(245,166,35,.3)}
+.btn svg{width:12px;height:12px}
+.icon-btn{width:34px;height:34px;border-radius:7px;background:none;border:1px solid var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);transition:all .12s;flex-shrink:0}
+.icon-btn:hover{background:var(--bg3);color:var(--text)}
+.icon-btn svg{width:14px;height:14px}
+
+/* ═══ PANE ═══ */
+.pane{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px}
+.view{display:none;flex-direction:column;gap:20px}
+.view.on{display:flex}
+
+/* ═══ CARD ═══ */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:background .2s}
+.card-hd{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card-title{font-size:12.5px;font-weight:600;color:var(--text);flex:1}
+.card-sub{font-size:11px;color:var(--text3)}
+.card-body{padding:20px}
+.bdg{display:inline-block;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;white-space:nowrap;letter-spacing:.02em}
+
+/* ═══ FORM ═══ */
+.field{margin-bottom:14px}
+.field-lbl{font-size:11px;color:var(--text2);font-weight:500;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.field-hint{font-size:10px;color:var(--text3);font-weight:400}
+.inp{width:100%;padding:8px 11px;border-radius:7px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:12.5px;font-family:'Geist',sans-serif;outline:none;transition:border-color .15s}
+.inp:focus{border-color:var(--accent)}
+.inp::placeholder{color:var(--text3)}
+select.inp{cursor:pointer}
+textarea.inp{resize:vertical;line-height:1.7}
+.two-col-form{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.three-col-form{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-lbl{font-size:12.5px;color:var(--text2)}
+.toggle-desc{font-size:10px;color:var(--text3);margin-top:2px}
+.toggle{position:relative;width:36px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;border-radius:10px;background:var(--bg4);cursor:pointer;transition:background .2s}
+.toggle input:checked+.toggle-track{background:var(--accent)}
+.toggle-thumb{position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;pointer-events:none}
+.toggle input:checked~.toggle-thumb{transform:translateX(16px)}
+
+/* ═══ METRICS ═══ */
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.mtile{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px;transition:background .2s}
+.mtile-lbl{font-size:11px;color:var(--text2);font-weight:500;margin-bottom:10px;letter-spacing:.02em}
+.mtile-val{font-size:30px;font-weight:300;color:var(--text);line-height:1;letter-spacing:-.03em}
+.mtile-delta{font-size:11px;margin-top:8px;display:flex;align-items:center;gap:4px}
+.up{color:var(--accent)}.dn{color:var(--red)}
+
+/* ═══ TABLE ═══ */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;font-weight:600;color:var(--text3);padding:9px 16px;text-align:left;border-bottom:1px solid var(--border);background:var(--bg3);white-space:nowrap;letter-spacing:.05em;text-transform:uppercase}
+td{font-size:12px;color:var(--text);padding:11px 16px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3);cursor:pointer}
+.mono{font-family:'Geist Mono',monospace;font-size:11px;color:var(--text2)}
+
+/* ═══ TABS/CHIPS ═══ */
+.tabs{display:flex;padding:0 20px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.tab{font-size:12px;font-weight:500;padding:11px 11px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:color .12s}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11px;font-weight:500;padding:4px 11px;border-radius:10px;cursor:pointer;border:1px solid var(--border2);color:var(--text2);background:transparent;font-family:'Geist',sans-serif;transition:all .12s}
+.chip:hover{background:var(--bg3);color:var(--text)}
+.chip.on{background:var(--accent-dim);color:var(--accent-txt);border-color:var(--accent)}
+
+/* ═══ TIMELINE ═══ */
+.tl{padding:16px 20px;display:flex;flex-direction:column;gap:16px}
+.ti{display:flex;gap:12px}
+.ti-ic{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ti-ic svg{width:12px;height:12px}
+.ti-b{flex:1;min-width:0}
+.ti-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px}
+.ti-name{font-size:13px;font-weight:500;color:var(--text)}
+.ti-meta{font-size:11px;color:var(--text3);margin-bottom:5px}
+.ti-sum{font-size:11px;color:var(--text2);background:var(--bg3);padding:8px 12px;border-radius:7px;line-height:1.6;white-space:normal}
+.ti-time{font-size:11px;color:var(--text3);margin-top:5px}
+
+/* ═══ SETTINGS ═══ */
+.settings-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.auto-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);font-size:12.5px}
+.auto-row:last-child{border-bottom:none}
+.auto-lbl{color:var(--text2)}
+.auto-val{font-weight:600;color:var(--text)}
+.auto-val.on{color:var(--accent)}
+
+/* ═══ DASHBOARD ═══ */
+.dash-body{display:grid;grid-template-columns:minmax(0,1fr) 282px;gap:20px;align-items:start}
+.dash-left{display:flex;flex-direction:column;gap:20px}
+.dash-right{display:flex;flex-direction:column;gap:16px}
+.pipe-row{display:grid;grid-template-columns:116px 1fr 52px;align-items:center;gap:14px;padding:9px 20px;cursor:pointer;transition:background .1s}
+.pipe-row:hover{background:var(--bg3)}
+.pipe-row.on{background:var(--accent-dim)}
+.pipe-lbl{font-size:12px;color:var(--text2);font-weight:500;white-space:nowrap}
+.pipe-row.on .pipe-lbl{color:var(--accent-txt)}
+.pipe-track{height:6px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.pipe-fill{height:100%;border-radius:3px}
+.pipe-cnt{font-size:13px;font-weight:600;color:var(--text);text-align:right}
+.pipe-row.on .pipe-cnt{color:var(--accent-txt)}
+.cust-toolbar{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.cust-toolbar-lbl{font-size:12px;font-weight:500;color:var(--text);flex:1}
+.srch{padding:6px 11px;border-radius:7px;font-size:12px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:'Geist',sans-serif;width:175px;outline:none;transition:border-color .15s}
+.srch:focus{border-color:var(--accent)}
+.srch::placeholder{color:var(--text3)}
+.cust-cols{display:grid;grid-template-columns:36px minmax(0,1fr) 100px 100px;gap:16px;padding:7px 20px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.cust-cols span{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.cust-cols span:last-child{text-align:right}
+.cust-list{display:flex;flex-direction:column}
+.cust-row{display:grid;grid-template-columns:36px minmax(0,1fr) 100px 100px;align-items:center;gap:16px;padding:11px 20px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.cust-row:last-child{border-bottom:none}
+.cust-row:hover{background:var(--bg3)}
+.cust-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.cust-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cust-sub{font-size:11px;color:var(--text3);font-family:'Geist Mono',monospace;margin-top:2px}
+.cust-loan{font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cust-amt{font-size:13px;font-weight:600;color:var(--text);margin-top:2px}
+.cust-time{font-size:11px;color:var(--text3);text-align:right}
+
+/* ═══ AI AGENT SIDEBAR CARD ═══ */
+.ai-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:11px}
+.ai-orb{width:36px;height:36px;border-radius:50%;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ai-orb svg{width:17px;height:17px}
+.ai-label{font-size:13px;font-weight:600;color:var(--text)}
+.ai-live{font-size:11px;color:var(--text2);margin-top:2px;display:flex;align-items:center;gap:5px}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.75)}}
+.ai-nums{display:grid;grid-template-columns:1fr 1fr}
+.ai-n{padding:12px 16px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.ai-n:nth-child(even){border-right:none}
+.ai-n:nth-child(3),.ai-n:nth-child(4){border-bottom:none}
+.ai-n-lbl{font-size:10px;color:var(--text3);font-weight:500;margin-bottom:3px}
+.ai-n-val{font-size:20px;font-weight:300;color:var(--text);line-height:1}
+.feed-list{padding:12px 16px;display:flex;flex-direction:column;gap:9px}
+.feed-row{display:flex;align-items:center;gap:9px}
+.feed-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.feed-name{font-size:12px;font-weight:500;color:var(--text)}
+.feed-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.feed-time{font-size:10px;color:var(--text3);margin-left:auto;flex-shrink:0}
+.prog-area{padding:14px 18px;border-bottom:1px solid var(--border)}
+.prog-top{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:8px}
+.prog-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--accent);border-radius:2px}
+.camp-nums{display:flex}
+.c-n{flex:1;text-align:center;padding:10px 6px;border-right:1px solid var(--border)}
+.c-n:last-child{border-right:none}
+.c-nv{font-size:16px;font-weight:300;color:var(--text)}
+.c-nl{font-size:10px;color:var(--text3);margin-top:2px;font-weight:500}
+.fu-list{padding:10px 14px;display:flex;flex-direction:column;gap:7px}
+.fu-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;background:var(--bg3);cursor:pointer;transition:background .1s}
+.fu-row:hover{background:var(--bg4)}
+.fu-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.fu-name{font-size:12px;font-weight:500;color:var(--text)}
+.fu-detail{font-size:10px;color:var(--text3);margin-top:1px}
+
+/* ═══ LAYOUT HELPERS ═══ */
+.stack{display:flex;flex-direction:column;gap:16px}
+.row-split{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+.section-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:16px 0 10px;border-bottom:1px solid var(--border);margin-bottom:14px}
+
+/* ═══ PROVIDER CARD ═══ */
+.prov-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:15px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px}
+.prov-card.active-prov{border-color:var(--accent);background:var(--accent-dim)}
+.prov-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.prov-name{font-size:13px;font-weight:600;color:var(--text)}
+.prov-model{font-size:11px;color:var(--text3);font-family:'Geist Mono',monospace;margin-bottom:6px}
+.prov-meta{display:flex;gap:10px;flex-wrap:wrap}
+.prov-meta-i{font-size:10px;color:var(--text2)}
+.priority-bdg{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:600;margin-bottom:6px}
+
+/* ═══ ROLE CARD ═══ */
+.role-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:15px;margin-bottom:10px}
+.role-hd{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+.role-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.role-nm{font-size:13px;font-weight:600;color:var(--text)}
+.role-key{font-size:10px;color:var(--text3);font-family:'Geist Mono',monospace;margin-top:2px}
+.role-desc{font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.5}
+.perm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.perm-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)}
+.perm-check{width:14px;height:14px;border-radius:3px;border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.perm-check.yes{background:var(--accent-dim);border-color:var(--accent)}
+.perm-check.yes svg{width:9px;height:9px;stroke:var(--accent-txt)}
+
+/* ═══ TASKS ═══ */
+.task-row{display:flex;align-items:center;gap:14px;padding:13px 20px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.task-row:last-child{border-bottom:none}
+.task-row:hover{background:var(--bg3)}
+.task-check{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.task-check.done{background:var(--accent);border-color:var(--accent)}
+.task-check.done svg{width:10px;height:10px;stroke:#fff}
+.task-main{flex:1;min-width:0}
+.task-cust{font-size:13px;font-weight:500;color:var(--text)}
+.task-note{font-size:11px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.overdue{color:var(--red)}
+.today{color:var(--amber)}
+.upcoming{color:var(--text3)}
+
+/* ═══ UPLOAD ═══ */
+.upload-zone{border:1.5px dashed var(--border2);border-radius:10px;padding:36px 24px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;margin-bottom:16px}
+.upload-zone:hover{border-color:var(--accent);background:var(--accent-dim)}
+.upload-icon{width:40px;height:40px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.upload-icon svg{width:20px;height:20px;color:var(--text3)}
+.upload-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px}
+.upload-sub{font-size:11px;color:var(--text3)}
+.upload-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.us-item{background:var(--bg3);border-radius:8px;padding:12px 14px;text-align:center}
+.us-val{font-size:20px;font-weight:300;color:var(--text)}
+.us-lbl{font-size:10px;color:var(--text3);margin-top:3px;font-weight:500}
+
+/* ═══ AUDIT ═══ */
+.audit-row{display:flex;align-items:flex-start;gap:14px;padding:12px 20px;border-bottom:1px solid var(--border)}
+.audit-row:last-child{border-bottom:none}
+.audit-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.audit-icon svg{width:12px;height:12px}
+.audit-action{font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px}
+.audit-meta{font-size:11px;color:var(--text3)}
+.audit-time{font-size:10px;color:var(--text3);margin-left:auto;flex-shrink:0;white-space:nowrap;margin-top:2px}
+
+/* ═══ HEALTH / CRON ═══ */
+.health-status{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.health-indicator{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.health-indicator.online{background:var(--accent);animation:pulse 2s ease-in-out infinite}
+.health-indicator.offline{background:var(--red)}
+.health-indicator.warn{background:var(--amber)}
+.health-label{font-size:13px;font-weight:600;color:var(--text)}
+.health-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.health-action{margin-left:auto;display:flex;gap:8px;flex-shrink:0}
+.job-status-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}
+.jsg-item{padding:16px;text-align:center;border-right:1px solid var(--border)}
+.jsg-item:last-child{border-right:none}
+.jsg-val{font-size:22px;font-weight:300;color:var(--text);line-height:1}
+.jsg-lbl{font-size:10px;color:var(--text3);margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.cron-log{padding:12px 16px;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto}
+.cron-log-row{display:flex;align-items:center;gap:10px;font-size:11px}
+.cron-log-time{color:var(--text3);font-family:'Geist Mono',monospace;flex-shrink:0;width:140px}
+.cron-log-status{font-weight:600;flex-shrink:0;width:80px}
+.cron-log-detail{color:var(--text2)}
+
+/* ═══ AI DEMO / CALL TEST ═══ */
+.demo-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+.chat-window{display:flex;flex-direction:column;height:460px;background:var(--bg3);border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin}
+.chat-msg{max-width:80%;padding:10px 13px;border-radius:10px;font-size:12px;line-height:1.6}
+.chat-msg.ai{background:var(--bg4);color:var(--text);align-self:flex-start;border-radius:4px 10px 10px 10px}
+.chat-msg.user{background:var(--accent-dim);color:var(--accent-txt);align-self:flex-end;border-radius:10px 10px 4px 10px;border:1px solid rgba(34,201,147,.2)}
+.chat-msg.system{background:none;color:var(--text3);align-self:center;font-size:11px;font-style:italic}
+.chat-input-row{padding:12px;border-top:1px solid var(--border);display:flex;gap:8px;background:var(--surface)}
+.chat-inp{flex:1;padding:8px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:'Geist',sans-serif;font-size:12px;outline:none}
+.chat-inp:focus{border-color:var(--accent)}
+.chat-inp::placeholder{color:var(--text3)}
+.analysis-panel{display:flex;flex-direction:column;gap:12px}
+.analysis-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px}
+.analysis-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.intent-display{font-size:20px;font-weight:300;color:var(--text);margin-bottom:6px}
+.confidence-bar{height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;margin-bottom:4px}
+.confidence-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .4s ease}
+.confidence-lbl{font-size:10px;color:var(--text3)}
+.extracted-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.extracted-row:last-child{border-bottom:none}
+.extracted-key{color:var(--text3)}
+.extracted-val{color:var(--text);font-weight:500}
+.stage-flow{display:flex;gap:0;overflow-x:auto}
+.stage-item{flex:1;min-width:80px;text-align:center;padding:10px 8px;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);border-right:1px solid var(--border);position:relative;cursor:default}
+.stage-item:last-child{border-right:none}
+.stage-item.done{color:var(--accent);background:var(--accent-dim)}
+.stage-item.current{color:var(--text);background:var(--bg4)}
+.stage-item.current::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent)}
+.scenario-list{display:flex;flex-direction:column;gap:6px}
+.scenario{padding:9px 12px;border-radius:7px;background:var(--bg4);border:1px solid var(--border);cursor:pointer;transition:all .12s}
+.scenario:hover{background:var(--bg5);border-color:var(--accent)}
+.scenario-text{font-size:12px;font-weight:500;color:var(--text)}
+.scenario-result{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* ═══ INTENT TRAINING ═══ */
+.intent-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.intent-hd{padding:12px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .1s}
+.intent-hd:hover{background:var(--bg4)}
+.intent-name{font-size:13px;font-weight:500;color:var(--text);flex:1}
+.intent-count{font-size:11px;color:var(--text3)}
+.intent-body{padding:12px 16px;border-top:1px solid var(--border)}
+.phrase-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.phrase-tag{padding:3px 10px;border-radius:8px;font-size:11px;background:var(--bg4);color:var(--text2);border:1px solid var(--border)}
+.response-item{font-size:11px;color:var(--text2);background:var(--bg4);padding:8px 12px;border-radius:6px;margin-bottom:6px;line-height:1.5;border-left:2px solid var(--accent)}
+
+/* ═══ THEME ═══ */
+.theme-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:20px;align-items:start}
+.theme-preview{position:sticky;top:0}
+.color-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.color-item{display:flex;flex-direction:column;gap:5px}
+.color-item-label{font-size:11px;color:var(--text2);font-weight:500}
+.color-strip{height:28px;border-radius:6px;border:1px solid var(--border2);cursor:pointer;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'Geist Mono',monospace;letter-spacing:.04em}
+.color-strip input[type=color]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.font-option{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);cursor:pointer;margin-bottom:8px;transition:all .15s}
+.font-option:hover{background:var(--bg3)}
+.font-option.sel{border-color:var(--accent);background:var(--accent-dim)}
+.font-option-name{font-size:13px;font-weight:500;color:var(--text);flex:1}
+.font-option-sample{font-size:11px;color:var(--text3)}
+
+/* ═══ ALERT BANNER ═══ */
+.alert-banner{padding:13px 18px;border-radius:10px;display:flex;align-items:flex-start;gap:12px;margin-bottom:0}
+.alert-banner.warn{background:var(--amber-dim);border:1px solid rgba(245,166,35,.25)}
+.alert-banner.info{background:var(--blue-dim);border:1px solid rgba(91,156,246,.25)}
+.alert-banner svg{flex-shrink:0;margin-top:1px}
+.alert-title{font-size:12.5px;font-weight:500;color:var(--text)}
+.alert-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ═══ SCROLLBAR ═══ */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.empty{padding:40px 20px;text-align:center;color:var(--text3);font-size:12px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ═══════ SIDEBAR ═══════ -->
+<aside class="sb">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg fill="none" stroke="var(--bg)" stroke-width="2.5" viewBox="0 0 24 24">
+        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
+    </div>
+    <div><div class="brand-name">Priya CRM</div><div class="brand-sub">AI Sales Platform</div></div>
+  </div>
+
+  <nav class="nav">
+    <div class="nav-sec">Main</div>
+    <button class="nb on" onclick="go('dash',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="nb" onclick="go('customers',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      Customers<span class="np">1,248</span>
+    </button>
+    <button class="nb" onclick="go('calls',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72"/></svg>
+      Call logs<span class="np">87</span>
+    </button>
+    <button class="nb" onclick="go('campaigns',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Campaigns
+    </button>
+    <button class="nb" onclick="go('followups',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>
+      Follow-up tasks<span class="np warn">3</span>
+    </button>
+    <button class="nb" onclick="go('uploads',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Lead uploads
+    </button>
+    <button class="nb" onclick="go('audit',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Audit logs
+    </button>
+
+    <div class="nav-sec">AI Engine</div>
+    <button class="nb" onclick="go('health',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Automation health<span class="np" style="background:var(--accent)">Live</span>
+    </button>
+    <button class="nb" onclick="go('demo',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+      AI call demo
+    </button>
+    <button class="nb" onclick="go('ai',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+      AI assistance
+    </button>
+    <button class="nb" onclick="go('intents',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      Intent training
+    </button>
+
+    <div class="nav-sec">Config</div>
+    <button class="nb" onclick="go('roles',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="23 21 23 19 19 15"/><line x1="17" y1="17" x2="23" y2="17"/></svg>
+      Roles & permissions
+    </button>
+    <button class="nb" onclick="go('tenant',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Tenant settings
+    </button>
+
+    <div class="nav-sec">Theme</div>
+    <button class="nb" onclick="go('theme',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      Modular theme
+    </button>
+    <button class="nb" onclick="go('globaltheme',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      Global theme
+    </button>
+  </nav>
+
+  <div class="sb-foot">
+    <div class="u-av">AK</div>
+    <div><div class="u-name">Arjun Kapoor</div><div class="u-role">Admin · TechLend Co.</div></div>
+  </div>
+</aside>
+
+<!-- ═══════ MAIN ═══════ -->
+<div class="main">
+  <div class="topbar">
+    <span class="pg-title" id="pg-title">Dashboard</span>
+    <button class="btn" onclick="alert('Follow-ups today')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Follow-ups
+    </button>
+    <button class="btn pri" onclick="alert('Start campaign')">
+      <svg fill="none" stroke="var(--bg)" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Start campaign
+    </button>
+    <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">
+      <svg id="sun-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg id="moon-ico" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+  </div>
+
+  <div class="pane" id="pane">
+
+    <!-- ══════════════════ DASHBOARD ══════════════════ -->
+    <div id="v-dash" class="view on">
+      <div class="metrics">
+        <div class="mtile"><div class="mtile-lbl">Total customers</div><div class="mtile-val">1,248</div><div class="mtile-delta up"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>14 this week</div></div>
+        <div class="mtile"><div class="mtile-lbl">Calls today</div><div class="mtile-val">87</div><div class="mtile-delta up"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>23% vs yesterday</div></div>
+        <div class="mtile"><div class="mtile-lbl">Interested rate</div><div class="mtile-val">34%</div><div class="mtile-delta up"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>4.2pts this month</div></div>
+        <div class="mtile"><div class="mtile-lbl">Converted</div><div class="mtile-val">62</div><div class="mtile-delta dn"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>3 below target</div></div>
+      </div>
+      <div class="dash-body">
+        <div class="dash-left">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Pipeline</span><span class="card-sub" id="pipe-hint">Click to filter</span><button class="btn" id="pipe-clear" onclick="clearPipe()" style="display:none;font-size:11px;padding:4px 10px">Clear</button></div>
+            <div id="pipeline-list"></div>
+          </div>
+          <div class="card">
+            <div class="cust-toolbar"><span class="cust-toolbar-lbl" id="cust-lbl">All customers</span><input class="srch" id="dash-srch" placeholder="Search name, phone…" oninput="dashSearch()"></div>
+            <div class="cust-cols"><span></span><span>Customer</span><span>Loan</span><span>Last call</span></div>
+            <div class="cust-list" id="dash-list"></div>
+          </div>
+        </div>
+        <div class="dash-right">
+          <div class="card">
+            <div class="ai-head">
+              <div class="ai-orb"><svg fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg></div>
+              <div><div class="ai-label">Priya — AI agent</div><div class="ai-live"><span class="pulse"></span>3 live calls</div></div>
+            </div>
+            <div class="ai-nums">
+              <div class="ai-n"><div class="ai-n-lbl">Today</div><div class="ai-n-val">87</div></div>
+              <div class="ai-n"><div class="ai-n-lbl">Avg duration</div><div class="ai-n-val">2m 14s</div></div>
+              <div class="ai-n"><div class="ai-n-lbl">Interested</div><div class="ai-n-val" style="color:var(--accent)">28</div></div>
+              <div class="ai-n"><div class="ai-n-lbl">Failed</div><div class="ai-n-val" style="color:var(--red)">6</div></div>
+            </div>
+            <div class="feed-list" id="live-feed"></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Home Loan Drive · Mar 2026</span><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Active</span></div>
+            <div class="prog-area"><div class="prog-top"><span>62 of 180 completed</span><span style="font-weight:600;color:var(--text)">34%</span></div><div class="prog-bar"><div class="prog-fill" style="width:34%"></div></div></div>
+            <div class="camp-nums">
+              <div class="c-n"><div class="c-nv">180</div><div class="c-nl">Total</div></div>
+              <div class="c-n"><div class="c-nv" style="color:var(--accent)">62</div><div class="c-nl">Done</div></div>
+              <div class="c-n"><div class="c-nv" style="color:var(--amber)">41</div><div class="c-nl">Queued</div></div>
+              <div class="c-n"><div class="c-nv" style="color:var(--red)">8</div><div class="c-nl">Failed</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Follow-ups today</span><span class="bdg" style="background:var(--amber-dim);color:var(--amber)">3 due</span></div>
+            <div class="fu-list" id="fu-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ CUSTOMERS ══════════════════ -->
+    <div id="v-customers" class="view">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">All customers</span><input class="srch" id="all-srch" placeholder="Search…" oninput="allSearch()"><button class="btn pri" onclick="alert('Upload CSV')">+ Upload leads</button></div>
+        <div class="tabs" id="cust-tabs">
+          <div class="tab on" data-st="" onclick="custTab(this)">All (1,248)</div>
+          <div class="tab" data-st="NEW" onclick="custTab(this)">New (312)</div>
+          <div class="tab" data-st="INTERESTED" onclick="custTab(this)">Interested (148)</div>
+          <div class="tab" data-st="FOLLOW_UP" onclick="custTab(this)">Follow-up (94)</div>
+          <div class="tab" data-st="CONVERTED" onclick="custTab(this)">Converted (62)</div>
+        </div>
+        <div class="cust-cols"><span></span><span>Customer</span><span>Loan</span><span>Last call</span></div>
+        <div class="cust-list" id="all-list"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ CALL LOGS ══════════════════ -->
+    <div id="v-calls" class="view">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Call logs</span>
+          <div class="chips"><button class="chip on" onclick="callF('',this)">All</button><button class="chip" onclick="callF('COMPLETED',this)">Completed</button><button class="chip" onclick="callF('NO_ANSWER',this)">No answer</button><button class="chip" onclick="callF('FAILED',this)">Failed</button></div>
+        </div>
+        <div class="tl" id="call-tl"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ CAMPAIGNS ══════════════════ -->
+    <div id="v-campaigns" class="view">
+      <div class="metrics">
+        <div class="mtile"><div class="mtile-lbl">Active campaigns</div><div class="mtile-val">3</div></div>
+        <div class="mtile"><div class="mtile-lbl">Total jobs</div><div class="mtile-val">620</div></div>
+        <div class="mtile"><div class="mtile-lbl">Completed</div><div class="mtile-val">411</div><div class="mtile-delta up">66%</div></div>
+        <div class="mtile"><div class="mtile-lbl">Skipped</div><div class="mtile-val" style="color:var(--amber)">24</div><div class="mtile-delta" style="color:var(--text3)">not eligible</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Campaign jobs</span>
+          <div class="chips"><button class="chip on" onclick="campF('',this)">All</button><button class="chip" onclick="campF('ACTIVE',this)">Active</button><button class="chip" onclick="campF('QUEUED',this)">Queued</button><button class="chip" onclick="campF('COMPLETED',this)">Completed</button><button class="chip" onclick="campF('FAILED',this)">Failed</button><button class="chip" onclick="campF('SKIPPED',this)">Skipped</button></div>
+          <button class="btn pri" onclick="alert('New campaign')">+ New</button>
+        </div>
+        <div style="padding:10px 20px;border-bottom:1px solid var(--border);background:var(--bg3);font-size:10px;color:var(--text3)">
+          Note: Attempts column shows <strong style="color:var(--text2)">attemptsMade + 1</strong> (human-friendly count). A value of 0 internally = first attempt in progress.
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>Campaign</th><th>Customer</th><th>Status</th><th style="text-align:center">Attempt</th><th>Enqueued</th><th>Result / Reason</th></tr></thead>
+          <tbody id="camp-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ FOLLOW-UP TASKS ══════════════════ -->
+    <div id="v-followups" class="view">
+      <div class="metrics">
+        <div class="mtile"><div class="mtile-lbl">Open tasks</div><div class="mtile-val">8</div><div class="mtile-delta dn">3 overdue</div></div>
+        <div class="mtile"><div class="mtile-lbl">Due today</div><div class="mtile-val">3</div></div>
+        <div class="mtile"><div class="mtile-lbl">Done this week</div><div class="mtile-val">14</div><div class="mtile-delta up">+6 vs last week</div></div>
+        <div class="mtile"><div class="mtile-lbl">Cancelled</div><div class="mtile-val">2</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Tasks</span>
+          <div class="chips"><button class="chip on" onclick="taskF('',this)">All</button><button class="chip" onclick="taskF('OPEN',this)">Open</button><button class="chip" onclick="taskF('overdue',this)">Overdue</button><button class="chip" onclick="taskF('DONE',this)">Done</button><button class="chip" onclick="taskF('CANCELLED',this)">Cancelled</button></div>
+          <button class="btn pri" onclick="alert('New task')">+ New task</button>
+        </div>
+        <div id="task-list"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ LEAD UPLOADS ══════════════════ -->
+    <div id="v-uploads" class="view">
+      <div class="upload-stats">
+        <div class="us-item"><div class="us-val">24</div><div class="us-lbl">Total uploads</div></div>
+        <div class="us-item"><div class="us-val">18,432</div><div class="us-lbl">Total leads</div></div>
+        <div class="us-item"><div class="us-val">94.2%</div><div class="us-lbl">Avg success rate</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Upload new leads</span></div>
+        <div class="card-body">
+          <div class="upload-zone" onclick="alert('File picker')">
+            <div class="upload-icon"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+            <div class="upload-title">Drop CSV or Excel here</div>
+            <div class="upload-sub">or click to browse · .csv, .xlsx · Max 10MB</div>
+          </div>
+          <div class="three-col-form">
+            <div class="field"><div class="field-lbl">Map: Phone</div><select class="inp"><option>phone</option><option>mobile</option><option>contact_number</option></select></div>
+            <div class="field"><div class="field-lbl">Map: First name</div><select class="inp"><option>first_name</option><option>name</option><option>full_name</option></select></div>
+            <div class="field"><div class="field-lbl">Duplicate handling</div><select class="inp"><option>Skip duplicates</option><option>Overwrite</option></select></div>
+          </div>
+          <div style="display:flex;gap:8px"><button class="btn pri" onclick="alert('Processing…')">Upload & process</button><button class="btn" onclick="alert('Download template')">Download template</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Upload history</span></div>
+        <div class="tbl-wrap"><table><thead><tr><th>File name</th><th>Total</th><th>Imported</th><th>Failed</th><th>Success %</th><th>By</th><th>Date</th></tr></thead><tbody id="uploads-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ AUDIT LOGS ══════════════════ -->
+    <div id="v-audit" class="view">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Audit logs</span>
+          <div class="chips"><button class="chip on" onclick="auditF('all',this)">All events</button><button class="chip" onclick="auditF('user',this)">User mgmt</button><button class="chip" onclick="auditF('customer',this)">Transitions</button></div>
+        </div>
+        <div id="audit-body"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ AUTOMATION HEALTH ══════════════════ -->
+    <div id="v-health" class="view">
+      <div class="metrics">
+        <div class="mtile"><div class="mtile-lbl">Jobs today</div><div class="mtile-val">312</div><div class="mtile-delta up">+48 vs yesterday</div></div>
+        <div class="mtile"><div class="mtile-lbl">Active now</div><div class="mtile-val" style="color:var(--accent)">3</div><div class="mtile-delta up">In progress</div></div>
+        <div class="mtile"><div class="mtile-lbl">Failed today</div><div class="mtile-val" style="color:var(--red)">6</div><div class="mtile-delta dn">2 need attention</div></div>
+        <div class="mtile"><div class="mtile-lbl">Skipped today</div><div class="mtile-val" style="color:var(--amber)">24</div><div class="mtile-delta" style="color:var(--text3)">not eligible</div></div>
+      </div>
+
+      <!-- Scheduler Status -->
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Cron scheduler</span><span class="card-sub">GET /api/cron/ai-campaign</span></div>
+        <div class="health-status">
+          <div class="health-indicator online"></div>
+          <div>
+            <div class="health-label">Scheduler online</div>
+            <div class="health-sub">Last run: 3 min 12s ago · Next: in 1m 48s · Interval: 5 min</div>
+          </div>
+          <div class="health-action">
+            <button class="btn" onclick="alert('Manual run triggered')">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.6"/></svg>
+              Manual run
+            </button>
+            <button class="btn" onclick="alert('Opening health API: /api/calls/automation/health')">Health API</button>
+          </div>
+        </div>
+        <div style="border-bottom:1px solid var(--border)">
+          <div class="job-status-grid">
+            <div class="jsg-item"><div class="jsg-val" style="color:var(--text2)">277</div><div class="jsg-lbl">Completed</div></div>
+            <div class="jsg-item"><div class="jsg-val" style="color:var(--accent)">3</div><div class="jsg-lbl">Active</div></div>
+            <div class="jsg-item"><div class="jsg-val" style="color:var(--blue)">42</div><div class="jsg-lbl">Queued</div></div>
+            <div class="jsg-item"><div class="jsg-val" style="color:var(--amber)">24</div><div class="jsg-lbl">Skipped</div></div>
+            <div class="jsg-item"><div class="jsg-val" style="color:var(--red)">6</div><div class="jsg-lbl">Failed</div></div>
+          </div>
+        </div>
+        <div class="card-hd" style="border-top:none;padding-top:12px"><span class="card-title">Run log</span><span class="card-sub">Last 10 executions</span></div>
+        <div class="cron-log" id="cron-log"></div>
+      </div>
+
+      <!-- Automation Settings -->
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-hd"><span class="card-title">Runtime config</span><button class="btn pri" onclick="alert('Settings saved')">Save</button></div>
+          <div class="card-body">
+            <div class="two-col-form">
+              <div class="field"><div class="field-lbl">Cron interval (min) <span class="field-hint">CRON_INTERVAL_MINUTES</span></div><input class="inp" value="5" type="number" min="1"></div>
+              <div class="field"><div class="field-lbl">Daily call cap</div><input class="inp" value="200" type="number"></div>
+              <div class="field"><div class="field-lbl">Max retries per customer</div><input class="inp" value="3" type="number" min="1" max="10"></div>
+              <div class="field"><div class="field-lbl">Retry interval (hours)</div><input class="inp" value="24" type="number" min="1"></div>
+              <div class="field"><div class="field-lbl">Batch size per run</div><input class="inp" value="50" type="number"></div>
+              <div class="field"><div class="field-lbl">Call timeout (sec)</div><input class="inp" value="45" type="number"></div>
+            </div>
+            <div class="toggle-row"><div><div class="toggle-lbl">AI campaign enabled</div><div class="toggle-desc">AI_CAMPAIGN_ENABLED setting</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+            <div class="toggle-row"><div><div class="toggle-lbl">Cron auth required</div><div class="toggle-desc">x-cron-secret header enforcement</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+          </div>
+        </div>
+
+        <div class="stack">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Execution model</span></div>
+            <div class="card-body">
+              <div style="margin-bottom:12px">
+                <div class="field-lbl" style="margin-bottom:8px">Current: Vercel cron → <code style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent)">GET /api/cron/ai-campaign</code></div>
+                <select class="inp">
+                  <option selected>Vercel cron (current)</option>
+                  <option>Postgres polling (pg-boss)</option>
+                  <option>SQS queue + Lambda</option>
+                  <option>Temporal workflow engine</option>
+                </select>
+              </div>
+              <div style="font-size:11px;color:var(--text3);background:var(--bg3);padding:10px 12px;border-radius:7px;line-height:1.6">
+                <strong style="color:var(--text2)">Recommendation:</strong> Keep cron for low-to-moderate volume. Move to queue/workflow engine when batch duration or concurrency exceeds serverless limits.
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Local testing</span></div>
+            <div class="card-body">
+              <div style="font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:10px">Run cron locally without deploying:</div>
+              <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-txt);line-height:1.8">
+                <div style="color:var(--text3)"># Run once</div>
+                node scripts/run-cron-local.js --once<br>
+                <div style="color:var(--text3);margin-top:6px"># Loop every 5min</div>
+                node scripts/run-cron-local.js<br>
+                <div style="color:var(--text3);margin-top:6px"># With auth</div>
+                node scripts/run-cron-local.js --secret=key
+              </div>
+              <div style="margin-top:10px;font-size:11px;color:var(--text3)">Set <code style="font-family:'Geist Mono',monospace;color:var(--amber)">DISABLE_REDIS=true</code> if Redis not available locally.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ AI CALL DEMO ══════════════════ -->
+    <div id="v-demo" class="view">
+      <div class="alert-banner info">
+        <svg width="16" height="16" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div>
+          <div class="alert-title">Live LLM conversation tester — powered by GPT-4o-mini</div>
+          <div class="alert-sub">Requires OPENAI_API_KEY in .env.local · <code style="font-family:'Geist Mono',monospace">POST /api/loan-assistant/voice-conversation</code></div>
+        </div>
+      </div>
+
+      <div class="demo-layout">
+        <div class="stack">
+          <!-- Customer profile -->
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Customer profile</span>
+              <button class="btn pri" id="start-btn" onclick="startDemo()">
+                <svg fill="none" stroke="var(--bg)" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Start call
+              </button>
+              <button class="btn" id="end-btn" onclick="endDemo()" style="display:none">End call</button>
+            </div>
+            <div class="card-body">
+              <div class="three-col-form">
+                <div class="field"><div class="field-lbl">Name</div><input class="inp" id="dp-name" value="Rahul Sharma"></div>
+                <div class="field"><div class="field-lbl">City</div><input class="inp" id="dp-city" value="Delhi"></div>
+                <div class="field"><div class="field-lbl">Monthly income</div><input class="inp" id="dp-income" value="50000" type="number"></div>
+                <div class="field"><div class="field-lbl">Employment</div><select class="inp" id="dp-emp"><option>salaried</option><option>business</option><option>self-employed</option></select></div>
+                <div class="field"><div class="field-lbl">Credit score</div><input class="inp" id="dp-credit" value="720" type="number"></div>
+                <div class="field"><div class="field-lbl">Loan interest</div><select class="inp" id="dp-loan"><option>personal_loan</option><option>home_loan</option><option>business_loan</option><option>car_loan</option></select></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick scenarios -->
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Quick test scenarios</span><span class="card-sub">Click to send</span></div>
+            <div style="padding:12px 16px">
+              <div class="scenario-list" id="scenario-list"></div>
+            </div>
+          </div>
+
+          <!-- Chat window -->
+          <div class="card">
+            <div class="card-hd">
+              <span class="card-title">Conversation</span>
+              <div class="stage-flow" id="stage-flow" style="flex:none;width:auto">
+                <div class="stage-item current">Opening</div>
+                <div class="stage-item">Discovery</div>
+                <div class="stage-item">Pitch</div>
+                <div class="stage-item">Qualify</div>
+                <div class="stage-item">Closing</div>
+              </div>
+            </div>
+            <div class="chat-window" style="height:340px;border:none;border-radius:0">
+              <div class="chat-messages" id="chat-msgs">
+                <div class="chat-msg system">Start a call to begin the conversation</div>
+              </div>
+              <div class="chat-input-row">
+                <input class="chat-inp" id="chat-inp" placeholder="Type a customer response… (Enter to send)" onkeydown="if(event.key==='Enter')sendDemo()">
+                <button class="btn pri" onclick="sendDemo()" style="padding:7px 14px">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Analysis panel -->
+        <div class="analysis-panel">
+          <div class="analysis-card">
+            <div class="analysis-title">Detected intent</div>
+            <div class="intent-display" id="intent-display">—</div>
+            <div class="confidence-bar"><div class="confidence-fill" id="conf-fill" style="width:0%"></div></div>
+            <div class="confidence-lbl" id="conf-lbl">Confidence: —</div>
+          </div>
+
+          <div class="analysis-card">
+            <div class="analysis-title">Extracted data</div>
+            <div id="extracted-data">
+              <div class="extracted-row"><span class="extracted-key">Loan type</span><span class="extracted-val" id="ex-loantype">—</span></div>
+              <div class="extracted-row"><span class="extracted-key">Amount</span><span class="extracted-val" id="ex-amount">—</span></div>
+              <div class="extracted-row"><span class="extracted-key">Timeline</span><span class="extracted-val" id="ex-timeline">—</span></div>
+              <div class="extracted-row"><span class="extracted-key">Employment</span><span class="extracted-val" id="ex-emp">—</span></div>
+            </div>
+          </div>
+
+          <div class="analysis-card">
+            <div class="analysis-title">Session info</div>
+            <div class="extracted-row"><span class="extracted-key">Session ID</span><span class="extracted-val mono" id="session-id-display" style="font-size:10px">—</span></div>
+            <div class="extracted-row"><span class="extracted-key">Turns</span><span class="extracted-val" id="turn-count">0</span></div>
+            <div class="extracted-row"><span class="extracted-key">Status</span><span class="extracted-val" id="session-status">Idle</span></div>
+          </div>
+
+          <div class="analysis-card">
+            <div class="analysis-title">Intent reference</div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)"><span class="extracted-key">interested</span><span style="color:var(--accent)">→ proceed</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)"><span class="extracted-key">not_interested</span><span style="color:var(--red)">→ end call</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)"><span class="extracted-key">busy</span><span style="color:var(--amber)">→ schedule</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)"><span class="extracted-key">do_not_call</span><span style="color:var(--red)">→ end + flag</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)"><span class="extracted-key">converted</span><span style="color:var(--purple)">→ handoff</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0"><span class="extracted-key">neutral</span><span style="color:var(--text3)">→ continue</span></div>
+            </div>
+          </div>
+
+          <div class="analysis-card">
+            <div class="analysis-title">Cost estimate</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.7">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>OpenAI (GPT-4o-mini)</span><span style="color:var(--text)">~$0.015/conv</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Deepgram STT</span><span style="color:var(--text)">$0.0043/min</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>ElevenLabs TTS</span><span style="color:var(--text)">$0.30/1k chars</span></div>
+              <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:1px solid var(--border);font-weight:600"><span>5-min call total</span><span style="color:var(--accent)">~$0.03-0.05</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ AI ASSISTANCE ══════════════════ -->
+    <div id="v-ai" class="view">
+      <div class="row-split">
+        <div class="stack">
+
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Agent identity</span></div>
+            <div class="card-body">
+              <div class="two-col-form">
+                <div class="field"><div class="field-lbl">AI agent name</div><input class="inp" value="Priya"></div>
+                <div class="field"><div class="field-lbl">Company name <span class="field-hint">defaults to tenant.name</span></div><input class="inp" placeholder="TechLend Co."></div>
+                <div class="field"><div class="field-lbl">Human advisor name</div><input class="inp" value="John Doe"></div>
+                <div class="field"><div class="field-lbl">Callback phone</div><input class="inp" value="+91 98765 43210"></div>
+                <div class="field"><div class="field-lbl">Notification email</div><input class="inp" value="alerts@techlend.co"></div>
+                <div class="field"><div class="field-lbl">Preferred language</div><select class="inp"><option>Hinglish</option><option>English</option><option>Hindi</option></select></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-hd"><span class="card-title">System prompt</span><span class="card-sub" id="prompt-chars">0 chars</span><button class="btn" onclick="alert('Reset')">Reset</button><button class="btn pri" onclick="alert('Saved')">Save</button></div>
+            <div style="padding:16px">
+              <textarea class="inp" id="prompt-ta" rows="8" oninput="countChars(this)" style="font-size:11.5px;font-family:'Geist Mono',monospace;line-height:1.7">You are Priya, an AI loan calling assistant for TechLend Co. Speak in friendly, professional Hinglish.
+
+Your role:
+1. Greet warmly and introduce yourself
+2. Understand customer loan needs (type, amount, timeline)
+3. Check eligibility based on income and employment
+4. Connect interested customers to human advisor John Doe
+5. Never be pushy — respect customer decisions immediately
+
+Guidelines:
+- If customer says "mat call karna" or "do not call" → end immediately and flag as DO_NOT_CALL
+- If customer is busy → ask for callback time
+- Extract: loan type, amount, monthly income, timeline
+- Speak naturally in Hinglish — mix Hindi and English naturally</textarea>
+              <div style="margin-top:10px;display:flex;gap:6px"><button class="btn" onclick="alert('Test with sample')">Test with sample call</button><button class="btn" onclick="alert('Version history')">Version history</button></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Conversation stages</span><span class="card-sub">Flow: opening → discovery → pitch → qualification → closing</span></div>
+            <div style="padding:14px">
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">
+                <div style="padding:14px 12px;border-right:1px solid var(--border);text-align:center">
+                  <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-txt);margin-bottom:4px">Opening</div>
+                  <div style="font-size:10px;color:var(--text3)">Greeting + permission</div>
+                </div>
+                <div style="padding:14px 12px;border-right:1px solid var(--border);text-align:center">
+                  <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:4px">Discovery</div>
+                  <div style="font-size:10px;color:var(--text3)">Understand needs</div>
+                </div>
+                <div style="padding:14px 12px;border-right:1px solid var(--border);text-align:center">
+                  <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:4px">Pitch</div>
+                  <div style="font-size:10px;color:var(--text3)">Present options</div>
+                </div>
+                <div style="padding:14px 12px;border-right:1px solid var(--border);text-align:center">
+                  <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:4px">Qualify</div>
+                  <div style="font-size:10px;color:var(--text3)">Gather details</div>
+                </div>
+                <div style="padding:14px 12px;text-align:center">
+                  <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:4px">Closing</div>
+                  <div style="font-size:10px;color:var(--text3)">Handoff / end</div>
+                </div>
+              </div>
+              <div style="font-size:11px;color:var(--text3);line-height:1.6">AI automatically transitions between stages based on conversation context. No manual stage management required when using the LLM system.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Call behaviour</span></div>
+            <div class="card-body">
+              <div class="two-col-form">
+                <div class="field"><div class="field-lbl">Max retries</div><input class="inp" type="number" value="3"></div>
+                <div class="field"><div class="field-lbl">Retry interval (hrs)</div><input class="inp" type="number" value="24"></div>
+                <div class="field"><div class="field-lbl">Call timeout (sec)</div><input class="inp" type="number" value="45"></div>
+                <div class="field"><div class="field-lbl">Max call duration (min)</div><input class="inp" type="number" value="10"></div>
+              </div>
+              <div class="toggle-row"><div><div class="toggle-lbl">Auto-schedule follow-ups</div><div class="toggle-desc">Creates FollowUpTask when customer says "call later"</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+              <div class="toggle-row"><div><div class="toggle-lbl">WhatsApp on INTERESTED</div><div class="toggle-desc">Sends summary to callback phone</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+              <div class="toggle-row"><div><div class="toggle-lbl">Email on CONVERTED</div><div class="toggle-desc">Sends to notification email</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+              <div class="toggle-row"><div><div class="toggle-lbl">Manual review on ambiguous intent</div><div class="toggle-desc">Sets manualReview = true when AI confidence &lt; 0.6</div></div><label class="toggle"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="stack">
+
+          <!-- AI Providers -->
+          <div class="card">
+            <div class="card-hd"><span class="card-title">AI providers</span><button class="btn" onclick="alert('Add provider')">+ Add</button></div>
+            <div style="padding:14px">
+              <div class="prov-card active-prov">
+                <div class="prov-icon" style="background:rgba(91,156,246,.15);color:var(--blue)">AI</div>
+                <div style="flex:1;min-width:0">
+                  <div class="priority-bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Priority 1 — Active</div>
+                  <div class="prov-name">OpenAI GPT-4o</div>
+                  <div class="prov-model">gpt-4o-mini</div>
+                  <div class="prov-meta"><span class="prov-meta-i">Type: OPENAI</span><span class="prov-meta-i">Timeout: 12s</span></div>
+                </div>
+                <button class="btn" style="font-size:11px;padding:4px 9px" onclick="alert('Edit provider')">Edit</button>
+              </div>
+              <div class="prov-card">
+                <div class="prov-icon" style="background:rgba(167,139,250,.15);color:var(--purple)">AI</div>
+                <div style="flex:1;min-width:0">
+                  <div class="priority-bdg" style="background:var(--bg4);color:var(--text2)">Priority 2 — Standby</div>
+                  <div class="prov-name">Claude Sonnet</div>
+                  <div class="prov-model">claude-sonnet-4-20250514</div>
+                  <div class="prov-meta"><span class="prov-meta-i">Type: CLAUDE</span><span class="prov-meta-i">Timeout: 12s</span></div>
+                </div>
+                <button class="btn" style="font-size:11px;padding:4px 9px" onclick="alert('Edit')">Edit</button>
+              </div>
+              <div class="prov-card">
+                <div class="prov-icon" style="background:rgba(245,166,35,.15);color:var(--amber)">AI</div>
+                <div style="flex:1;min-width:0">
+                  <div class="priority-bdg" style="background:var(--bg4);color:var(--text2)">Priority 3 — Standby</div>
+                  <div class="prov-name">Groq Llama</div>
+                  <div class="prov-model">llama3-70b-8192</div>
+                  <div class="prov-meta"><span class="prov-meta-i">Type: GROQ</span><span class="prov-meta-i">Timeout: 12s</span></div>
+                </div>
+                <button class="btn" style="font-size:11px;padding:4px 9px" onclick="alert('Edit')">Edit</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Voice Pipeline -->
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Voice pipeline</span><span class="card-sub">Speech-to-text + Text-to-speech</span></div>
+            <div style="padding:14px">
+              <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Speech-to-text — Deepgram</div>
+              <div class="prov-card" style="margin-bottom:14px">
+                <div class="prov-icon" style="background:rgba(244,114,182,.15);color:var(--pink)">STT</div>
+                <div style="flex:1;min-width:0">
+                  <div class="priority-bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Active</div>
+                  <div class="prov-name">Deepgram Nova-2</div>
+                  <div class="prov-model">nova-2-general</div>
+                  <div class="prov-meta"><span class="prov-meta-i">$0.0043/min</span><span class="prov-meta-i">Hindi + English</span></div>
+                </div>
+                <button class="btn" style="font-size:11px;padding:4px 9px" onclick="alert('Configure Deepgram')">Configure</button>
+              </div>
+
+              <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Text-to-speech — ElevenLabs</div>
+              <div class="prov-card" style="margin-bottom:10px">
+                <div class="prov-icon" style="background:rgba(167,139,250,.15);color:var(--purple)">TTS</div>
+                <div style="flex:1;min-width:0">
+                  <div class="priority-bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Active</div>
+                  <div class="prov-name">ElevenLabs Priya Voice</div>
+                  <div class="prov-model">21m00Tcm4TlvDq8ikWAM</div>
+                  <div class="prov-meta"><span class="prov-meta-i">$0.30/1k chars</span></div>
+                </div>
+                <button class="btn" style="font-size:11px;padding:4px 9px" onclick="alert('Change voice')">Change voice</button>
+              </div>
+              <div class="field"><div class="field-lbl">Voice ID</div><select class="inp"><option>Rachel (default)</option><option>Bella</option><option>Adam</option><option>Arnold</option><option>Custom Priya</option></select></div>
+
+              <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin:14px 0 10px">Telephony — Twilio</div>
+              <div class="prov-card active-prov" style="margin-bottom:8px">
+                <div class="prov-icon" style="background:var(--accent-dim);color:var(--accent-txt)">Tel</div>
+                <div style="flex:1;min-width:0">
+                  <div class="priority-bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Priority 1 — Active</div>
+                  <div class="prov-name">Twilio Primary</div>
+                  <div class="prov-model">api.twilio.com</div>
+                </div>
+                <button class="btn" style="font-size:11px;padding:4px 9px" onclick="alert('Edit')">Edit</button>
+              </div>
+              <div class="prov-card">
+                <div class="prov-icon" style="background:var(--red-dim);color:var(--red)">Tel</div>
+                <div style="flex:1;min-width:0">
+                  <div class="priority-bdg" style="background:var(--bg4);color:var(--text2)">Priority 2 — Standby</div>
+                  <div class="prov-name">Plivo Backup</div>
+                  <div class="prov-model">api.plivo.com</div>
+                </div>
+                <button class="btn" style="font-size:11px;padding:4px 9px" onclick="alert('Edit')">Edit</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- LLM vs Keyword -->
+          <div class="card">
+            <div class="card-hd"><span class="card-title">AI mode</span></div>
+            <div style="padding:14px">
+              <div style="display:flex;gap:8px;margin-bottom:12px">
+                <div style="flex:1;padding:12px;border-radius:8px;border:2px solid var(--accent);background:var(--accent-dim);cursor:pointer">
+                  <div style="font-size:12px;font-weight:600;color:var(--accent-txt);margin-bottom:4px">LLM (active)</div>
+                  <div style="font-size:10px;color:var(--text3);line-height:1.5">GPT-4o-mini · Context-aware · Unlimited Hinglish variants · $0.015/call · 95%+ accuracy</div>
+                </div>
+                <div style="flex:1;padding:12px;border-radius:8px;border:1px solid var(--border);cursor:pointer" onclick="alert('Switch to keyword system (legacy)')">
+                  <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px">Keyword (legacy)</div>
+                  <div style="font-size:10px;color:var(--text3);line-height:1.5">Pattern matching · ~50 Hinglish phrases · Free · ~70% accuracy</div>
+                </div>
+              </div>
+              <div style="font-size:11px;color:var(--text3);background:var(--bg3);padding:10px 12px;border-radius:7px;line-height:1.6">Keyword system is available as fallback if LLM provider fails. Edit phrases in <strong style="color:var(--text2)">Intent Training</strong> page.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ INTENT TRAINING ══════════════════ -->
+    <div id="v-intents" class="view">
+      <div class="settings-grid">
+        <div class="stack">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Intent training packs</span>
+              <div class="chips">
+                <button class="chip on" onclick="switchLang('en',this)">English (EN)</button>
+                <button class="chip" onclick="switchLang('hi',this)">Hindi (HI)</button>
+              </div>
+              <button class="btn pri" onclick="alert('Add new intent')">+ New intent</button>
+            </div>
+            <div style="padding:14px" id="intent-list"></div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Dialogflow export</span></div>
+            <div class="card-body">
+              <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">Export training data for Dialogflow CX or ES. Used as fallback when LLM provider is unavailable (DIALOGFLOW provider type).</div>
+              <div class="field"><div class="field-lbl">Provider type</div><select class="inp"><option>DIALOGFLOW</option><option>RASA</option><option>GENERIC_HTTP</option></select></div>
+              <div class="field"><div class="field-lbl">Language code</div><select class="inp"><option>en</option><option>hi</option></select></div>
+              <div style="display:flex;gap:8px">
+                <button class="btn pri" onclick="alert('Exporting intent pack...')">Export JSON</button>
+                <button class="btn" onclick="alert('Import from file')">Import</button>
+              </div>
+              <div style="margin-top:14px;background:var(--bg3);border-radius:7px;padding:12px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent-txt);line-height:1.8;overflow-x:auto">
+{"languageCode":"en","intents":[{"displayName":"interested","trainingPhrases":["i need a personal loan","mujhe loan chahiye","haan interested hoon",...],"responses":["Great. What loan amount are you looking for?"]},...]}
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Intent summary</span></div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Intent</th><th>EN phrases</th><th>HI phrases</th><th>Action</th></tr></thead>
+                <tbody>
+                  <tr><td>interested</td><td>12</td><td>8</td><td><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Proceed</span></td></tr>
+                  <tr><td>not_interested</td><td>10</td><td>6</td><td><span class="bdg" style="background:var(--red-dim);color:var(--red)">End call</span></td></tr>
+                  <tr><td>call_back_later</td><td>10</td><td>7</td><td><span class="bdg" style="background:var(--amber-dim);color:var(--amber)">Schedule</span></td></tr>
+                  <tr><td>do_not_call</td><td>8</td><td>5</td><td><span class="bdg" style="background:var(--red-dim);color:var(--red)">Flag + end</span></td></tr>
+                  <tr><td>loan_type_shared</td><td>9</td><td>8</td><td><span class="bdg" style="background:var(--blue-dim);color:var(--blue)">Extract</span></td></tr>
+                  <tr><td>loan_amount_shared</td><td>9</td><td>7</td><td><span class="bdg" style="background:var(--blue-dim);color:var(--blue)">Extract</span></td></tr>
+                  <tr><td>emi_or_income_shared</td><td>8</td><td>7</td><td><span class="bdg" style="background:var(--blue-dim);color:var(--blue)">Extract</span></td></tr>
+                  <tr><td>greeting</td><td>8</td><td>6</td><td><span class="bdg" style="background:var(--bg4);color:var(--text3)">Continue</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ ROLES ══════════════════ -->
+    <div id="v-roles" class="view">
+      <div class="row-split">
+        <div class="stack">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Custom roles</span><button class="btn pri" onclick="alert('New role')">+ New role</button></div>
+            <div style="padding:14px" id="roles-list"></div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Base system roles</span></div>
+            <div style="padding:14px">
+              <div class="role-card" style="border-color:rgba(245,166,35,.3)"><div class="role-hd"><div class="role-icon" style="background:var(--amber-dim);color:var(--amber)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="role-nm">SUPER_ADMIN</div><div class="role-key">System role · tenantId = null</div></div></div><div class="role-desc">Full platform access across all tenants. Manages providers, base themes, global settings.</div></div>
+              <div class="role-card" style="border-color:rgba(91,156,246,.3)"><div class="role-hd"><div class="role-icon" style="background:var(--blue-dim);color:var(--blue)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><circle cx="12" cy="12" r="3"/></svg></div><div><div class="role-nm">ADMIN</div><div class="role-key">Tenant-scoped</div></div></div><div class="role-desc">Manages users, themes, AI config, campaigns, and all customers within tenant.</div></div>
+              <div class="role-card" style="border-color:rgba(34,201,147,.3)"><div class="role-hd"><div class="role-icon" style="background:var(--accent-dim);color:var(--accent-txt)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div><div class="role-nm">SALES</div><div class="role-key">Tenant-scoped</div></div></div><div class="role-desc">Views assigned customers and call logs. Can add notes and create follow-up tasks.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ TENANT SETTINGS ══════════════════ -->
+    <div id="v-tenant" class="view">
+      <div class="settings-grid">
+        <div class="card card-body" style="padding:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:16px">Tenant configuration</div>
+          <div class="field"><div class="field-lbl">Tenant name</div><input class="inp" value="TechLend Co."></div>
+          <div class="field"><div class="field-lbl">Slug <span class="field-hint">URL identifier</span></div><input class="inp" value="techlend" style="font-family:'Geist Mono',monospace"></div>
+          <div class="field"><div class="field-lbl">CRM display name</div><input class="inp" value="Priya CRM"></div>
+          <div class="field"><div class="field-lbl">AI agent name</div><input class="inp" value="Priya"></div>
+          <div class="field"><div class="field-lbl">AI language</div><select class="inp"><option>Hinglish</option><option>English</option><option>Hindi</option></select></div>
+          <div class="field"><div class="field-lbl">Human advisor name</div><input class="inp" value="John Doe"></div>
+          <div class="field"><div class="field-lbl">Callback phone</div><input class="inp" value="+91 98765 43210"></div>
+          <div class="field"><div class="field-lbl">Notification email</div><input class="inp" value="alerts@techlend.co"></div>
+          <div class="toggle-row"><div><div class="toggle-lbl">Tenant active</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+          <div style="display:flex;gap:8px;margin-top:16px"><button class="btn pri" onclick="alert('Saved')">Save settings</button><button class="btn" onclick="alert('Discarded')">Discard</button></div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Users</span><button class="btn" onclick="alert('Add user')">+ Add</button></div>
+            <div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead><tbody>
+              <tr><td style="font-weight:500">Arjun Kapoor</td><td class="mono">arjun@techlend.co</td><td><span class="bdg" style="background:var(--amber-dim);color:var(--amber)">ADMIN</span></td><td><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Active</span></td></tr>
+              <tr><td style="font-weight:500">Sneha Rao</td><td class="mono">sneha@techlend.co</td><td><span class="bdg" style="background:var(--blue-dim);color:var(--blue)">SALES</span></td><td><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Active</span></td></tr>
+              <tr><td style="font-weight:500">Ravi Kumar</td><td class="mono">ravi@techlend.co</td><td><span class="bdg" style="background:var(--blue-dim);color:var(--blue)">SALES</span></td><td><span class="bdg" style="background:var(--bg3);color:var(--text3)">Inactive</span></td></tr>
+            </tbody></table></div>
+          </div>
+          <div class="card" style="padding:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px">Automation defaults</div>
+            <div class="auto-row"><span class="auto-lbl">Max retries</span><span class="auto-val">3</span></div>
+            <div class="auto-row"><span class="auto-lbl">Auto follow-ups</span><span class="auto-val on">Enabled</span></div>
+            <div class="auto-row"><span class="auto-lbl">WhatsApp alerts</span><span class="auto-val on">Enabled</span></div>
+            <div class="auto-row"><span class="auto-lbl">Daily call limit</span><span class="auto-val">200</span></div>
+            <div class="auto-row"><span class="auto-lbl">Retry interval</span><span class="auto-val">24 hours</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ MODULAR THEME ══════════════════ -->
+    <div id="v-theme" class="view">
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title">Modular theme — TechLend Co.</span>
+          <span class="bdg" style="background:var(--purple-dim);color:var(--purple)">Tenant override</span>
+          <div style="display:flex;align-items:center;gap:6px;margin-left:auto"><span style="font-size:11px;color:var(--text3)">Dark mode</span><label class="toggle"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+          <button class="btn" onclick="alert('Reset to global')">Reset to global</button>
+          <button class="btn pri" onclick="alert('Saved')">Save theme</button>
+        </div>
+      </div>
+      <div class="theme-layout">
+        <div class="stack">
+          <div class="card" style="padding:20px"><div class="section-label">Core colors</div><div class="color-grid" id="core-colors"></div></div>
+          <div class="card" style="padding:20px"><div class="section-label">Text & border</div><div class="color-grid" id="text-colors"></div></div>
+          <div class="card" style="padding:20px"><div class="section-label">Status colors</div><div class="color-grid" id="status-colors"></div></div>
+          <div class="card" style="padding:20px">
+            <div class="section-label">Typography</div>
+            <div class="font-option sel" onclick="selFont(this)"><div><div class="font-option-name">Geist</div><div class="font-option-sample">The quick brown fox jumps</div></div></div>
+            <div class="font-option" onclick="selFont(this)"><div><div class="font-option-name">Inter</div><div class="font-option-sample" style="font-family:sans-serif">The quick brown fox jumps</div></div></div>
+            <div class="font-option" onclick="selFont(this)"><div><div class="font-option-name">DM Sans</div><div class="font-option-sample">The quick brown fox jumps</div></div></div>
+            <div class="two-col-form" style="margin-top:12px">
+              <div class="field"><div class="field-lbl">Font scale</div><select class="inp"><option>Small</option><option selected>Medium</option><option>Large</option></select></div>
+            </div>
+          </div>
+          <div class="card" style="padding:20px">
+            <div class="section-label">Layout & spacing</div>
+            <div class="three-col-form">
+              <div class="field"><div class="field-lbl">Border radius</div><input class="inp" value="8px"></div>
+              <div class="field"><div class="field-lbl">Button radius</div><input class="inp" value="6px"></div>
+              <div class="field"><div class="field-lbl">Card radius</div><input class="inp" value="12px"></div>
+              <div class="field"><div class="field-lbl">Shadow intensity</div><select class="inp"><option>None</option><option>Light</option><option selected>Medium</option><option>Heavy</option></select></div>
+              <div class="field"><div class="field-lbl">Layout density</div><select class="inp"><option>Compact</option><option selected>Comfortable</option><option>Spacious</option></select></div>
+              <div class="field"><div class="field-lbl">Sidebar style</div><select class="inp"><option selected>Default</option><option>Minimal</option><option>Floating</option></select></div>
+            </div>
+          </div>
+          <div class="card" style="padding:20px">
+            <div class="section-label">Brand assets</div>
+            <div class="two-col-form">
+              <div class="field"><div class="field-lbl">Logo</div><div class="upload-zone" style="padding:14px;margin-bottom:0" onclick="alert('Upload logo')"><div style="font-size:11px;color:var(--text3)">PNG, SVG · 200×60px</div></div></div>
+              <div class="field"><div class="field-lbl">Favicon</div><div class="upload-zone" style="padding:14px;margin-bottom:0" onclick="alert('Upload favicon')"><div style="font-size:11px;color:var(--text3)">ICO, PNG · 32×32px</div></div></div>
+            </div>
+          </div>
+          <div class="card" style="padding:20px">
+            <div class="section-label">Custom CSS</div>
+            <textarea class="inp" rows="5" placeholder="/* Tenant-scoped overrides */&#10;.sidebar { border-right: 2px solid var(--accent); }" style="font-family:'Geist Mono',monospace;font-size:11px;line-height:1.7"></textarea>
+          </div>
+        </div>
+        <div class="theme-preview">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Live preview</span></div>
+            <div style="padding:14px" id="theme-preview-container"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ GLOBAL THEME ══════════════════ -->
+    <div id="v-globaltheme" class="view">
+      <div class="alert-banner warn">
+        <svg width="16" height="16" fill="none" stroke="var(--amber)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div>
+          <div class="alert-title">Global changes apply platform-wide · SUPER_ADMIN only</div>
+          <div class="alert-sub">This base theme (isBaseTheme = true) is the fallback for all tenants. Individual tenants override via Modular Theme.</div>
+        </div>
+      </div>
+      <div class="settings-grid">
+        <div class="stack">
+          <div class="card" style="padding:20px"><div class="section-label">Default color palette</div><div class="color-grid" id="global-colors"></div></div>
+          <div class="card" style="padding:20px">
+            <div class="section-label">Default typography & layout</div>
+            <div class="three-col-form">
+              <div class="field"><div class="field-lbl">Font family</div><select class="inp"><option selected>Geist</option><option>Inter</option><option>DM Sans</option></select></div>
+              <div class="field"><div class="field-lbl">Font scale</div><select class="inp"><option>Small</option><option selected>Medium</option><option>Large</option></select></div>
+              <div class="field"><div class="field-lbl">Border radius</div><input class="inp" value="8px"></div>
+              <div class="field"><div class="field-lbl">Shadow intensity</div><select class="inp"><option>None</option><option>Light</option><option selected>Medium</option></select></div>
+              <div class="field"><div class="field-lbl">Layout density</div><select class="inp"><option>Compact</option><option selected>Comfortable</option><option>Spacious</option></select></div>
+            </div>
+          </div>
+          <div class="card" style="padding:20px">
+            <div class="section-label">Platform toggles</div>
+            <div class="toggle-row"><div><div class="toggle-lbl">Dark mode default</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+            <div class="toggle-row"><div><div class="toggle-lbl">Allow tenant dark mode override</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+            <div class="toggle-row"><div><div class="toggle-lbl">Allow tenant custom CSS</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+            <div class="toggle-row"><div><div class="toggle-lbl">Allow logo upload</div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+            <div style="margin-top:14px;display:flex;gap:8px"><button class="btn pri" onclick="alert('Global theme saved')">Save global theme</button></div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">Tenants using base theme</span></div>
+            <div class="tbl-wrap"><table><thead><tr><th>Tenant</th><th>Slug</th><th>Override</th></tr></thead><tbody>
+              <tr><td style="font-weight:500">TechLend Co.</td><td class="mono">techlend</td><td><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Partial</span></td></tr>
+              <tr><td style="font-weight:500">LoanFirst</td><td class="mono">loanfirst</td><td><span class="bdg" style="background:var(--bg3);color:var(--text3)">None</span></td></tr>
+              <tr><td style="font-weight:500">FinanceHub</td><td class="mono">financehub</td><td><span class="bdg" style="background:var(--bg3);color:var(--text3)">None</span></td></tr>
+              <tr><td style="font-weight:500">RapidLoans</td><td class="mono">rapidloans</td><td><span class="bdg" style="background:var(--accent-dim);color:var(--accent-txt)">Partial</span></td></tr>
+            </tbody></table></div>
+          </div>
+          <div class="card" style="padding:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">DB deployment</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:12px">After changing global theme schema or seed data, run:</div>
+            <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-txt);line-height:1.9">
+              npx prisma migrate deploy<br>
+              npm run db:seed<br>
+              npm run theme:assets:apply
+            </div>
+            <div style="margin-top:10px;font-size:10px;color:var(--text3)">Never use <code style="font-family:'Geist Mono',monospace;color:var(--red)">db:push</code> or <code style="font-family:'Geist Mono',monospace;color:var(--red)">migrate dev</code> in production.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pane -->
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+/* ══ THEME ══ */
+function toggleTheme(){var h=document.documentElement,d=h.getAttribute('data-theme')==='dark';h.setAttribute('data-theme',d?'light':'dark');document.getElementById('sun-ico').style.display=d?'':'none';document.getElementById('moon-ico').style.display=d?'none':'';}
+
+/* ══ DATA ══ */
+var custs=[
+  {n:"Rohit Sharma",  ph:"98123 45670",loan:"Home Loan",    amt:4500000,st:"INTERESTED",    last:"2h ago", ini:"RS",ib:"rgba(34,201,147,.18)",ic:"#5cdba8"},
+  {n:"Priya Patel",   ph:"97234 56781",loan:"Personal Loan",amt:500000, st:"FOLLOW_UP",     last:"5h ago", ini:"PP",ib:"rgba(245,166,35,.18)",ic:"#f5a623"},
+  {n:"Anjali Mishra", ph:"91890 12347",loan:"Home Loan",    amt:5000000,st:"INTERESTED",    last:"30m ago",ini:"AM",ib:"rgba(34,201,147,.18)",ic:"#5cdba8"},
+  {n:"Amit Verma",    ph:"96345 67892",loan:"Home Loan",    amt:7500000,st:"NEW",            last:"1d ago", ini:"AV",ib:"rgba(91,156,246,.18)", ic:"#5b9cf6"},
+  {n:"Meera Singh",   ph:"93678 90125",loan:"Home Loan",    amt:3200000,st:"CALL_PENDING",  last:"Never",  ini:"MS",ib:"rgba(240,84,84,.18)",   ic:"#f05454"},
+  {n:"Deepak Joshi",  ph:"92789 01236",loan:"Personal Loan",amt:300000, st:"CALLING",       last:"Now",    ini:"DJ",ib:"rgba(34,201,147,.18)",ic:"#5cdba8"},
+  {n:"Kavya Nair",    ph:"95456 78903",loan:"Car Loan",     amt:800000, st:"CONVERTED",     last:"3d ago", ini:"KN",ib:"rgba(167,139,250,.18)",ic:"#a78bfa"},
+  {n:"Suresh Gupta",  ph:"94567 89014",loan:"Business Loan",amt:2000000,st:"NOT_INTERESTED",last:"2d ago", ini:"SG",ib:"rgba(138,138,136,.18)",ic:"#8a8a88"},
+  {n:"Fatima Khan",   ph:"90123 45678",loan:"Home Loan",    amt:6000000,st:"NEW",            last:"3h ago", ini:"FK",ib:"rgba(91,156,246,.18)", ic:"#5b9cf6"},
+  {n:"Vikram Das",    ph:"89012 34567",loan:"Business Loan",amt:5000000,st:"FOLLOW_UP",     last:"1h ago", ini:"VD",ib:"rgba(245,166,35,.18)",ic:"#f5a623"},
+];
+
+function stStyle(st){var m={NEW:"background:rgba(91,156,246,.14);color:#5b9cf6",CALL_PENDING:"background:rgba(240,84,84,.12);color:#f05454",CALLING:"background:rgba(34,201,147,.14);color:#5cdba8",INTERESTED:"background:rgba(34,201,147,.14);color:#5cdba8",FOLLOW_UP:"background:rgba(245,166,35,.14);color:#f5a623",NOT_INTERESTED:"background:rgba(240,84,84,.12);color:#f05454",CONVERTED:"background:rgba(167,139,250,.14);color:#a78bfa",DO_NOT_CALL:"background:rgba(138,138,136,.14);color:#8a8a88",CALL_FAILED:"background:rgba(240,84,84,.12);color:#f05454",SKIPPED:"background:rgba(138,138,136,.12);color:#8a8a88"};return m[st]||"background:rgba(138,138,136,.12);color:#8a8a88";}
+function bdgH(st){return '<span class="bdg" style="'+stStyle(st)+'">'+st.replace(/_/g,' ')+'</span>';}
+function fmtAmt(a){return a?'₹'+(a/100000).toFixed(0)+'L':'—';}
+function custRowHtml(c){return '<div class="cust-row" onclick="alert(\'Profile: '+c.n+'\')">'+'<div class="cust-av" style="background:'+c.ib+';color:'+c.ic+'">'+c.ini+'</div>'+'<div><div class="cust-name">'+c.n+'</div><div class="cust-sub">'+c.ph+'</div></div>'+'<div><div class="cust-loan">'+c.loan+'</div><div class="cust-amt">'+fmtAmt(c.amt)+'</div></div>'+'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'+bdgH(c.st)+'<div class="cust-time">'+c.last+'</div></div>'+'</div>';}
+function renderList(list,id){var el=document.getElementById(id);if(el)el.innerHTML=list.length?list.map(custRowHtml).join(''):'<div class="empty">No customers match.</div>';}
+renderList(custs,'dash-list');renderList(custs,'all-list');
+
+/* pipeline */
+var pipeData=[
+  {st:"NEW",           label:"New",           count:312,pct:25,col:"#5b9cf6"},
+  {st:"CALL_PENDING",  label:"Call pending",  count:87, pct:7, col:"#f472b6"},
+  {st:"CALLING",       label:"Calling",       count:12, pct:1, col:"#22c993"},
+  {st:"INTERESTED",    label:"Interested",    count:148,pct:12,col:"#22c993"},
+  {st:"FOLLOW_UP",     label:"Follow-up",     count:94, pct:8, col:"#f5a623"},
+  {st:"CONVERTED",     label:"Converted",     count:62, pct:5, col:"#a78bfa"},
+  {st:"NOT_INTERESTED",label:"Not interested",count:421,pct:34,col:"#f05454"},
+  {st:"DO_NOT_CALL",   label:"Do not call",   count:23, pct:2, col:"#6b7280"},
+];
+var activeSt='';
+document.getElementById('pipeline-list').innerHTML=pipeData.map(function(p){return '<div class="pipe-row" onclick="pipeFilter(\''+p.st+'\',this)" data-st="'+p.st+'">'+'<div class="pipe-lbl">'+p.label+'</div>'+'<div class="pipe-track"><div class="pipe-fill" style="width:'+p.pct+'%;background:'+p.col+'"></div></div>'+'<div class="pipe-cnt">'+p.count+'</div></div>';}).join('');
+function pipeFilter(st,el){document.querySelectorAll('.pipe-row').forEach(function(r){r.classList.remove('on');});var clr=document.getElementById('pipe-clear');if(activeSt===st){activeSt='';renderList(sflt(custs,document.getElementById('dash-srch').value),'dash-list');document.getElementById('cust-lbl').textContent='All customers';clr.style.display='none';document.getElementById('pipe-hint').textContent='Click to filter';}else{activeSt=st;el.classList.add('on');var p=pipeData.find(function(d){return d.st===st;});var base=custs.filter(function(c){return c.st===st;});renderList(sflt(base,document.getElementById('dash-srch').value),'dash-list');var lbl=p?p.label:st.replace(/_/g,' ');document.getElementById('cust-lbl').textContent=lbl+' — '+base.length;clr.style.display='inline-flex';document.getElementById('pipe-hint').textContent=lbl+' selected';}}
+function clearPipe(){activeSt='';document.querySelectorAll('.pipe-row').forEach(function(r){r.classList.remove('on');});renderList(sflt(custs,document.getElementById('dash-srch').value),'dash-list');document.getElementById('cust-lbl').textContent='All customers';document.getElementById('pipe-clear').style.display='none';document.getElementById('pipe-hint').textContent='Click to filter';}
+function sflt(list,q){if(!q)return list;q=q.toLowerCase();return list.filter(function(c){return c.n.toLowerCase().includes(q)||c.ph.includes(q);});}
+function dashSearch(){var base=activeSt?custs.filter(function(c){return c.st===activeSt;}):custs;renderList(sflt(base,document.getElementById('dash-srch').value),'dash-list');}
+function allSearch(){var a=document.querySelector('#cust-tabs .tab.on');var st=a?a.getAttribute('data-st'):'';var base=st?custs.filter(function(c){return c.st===st;}):custs;renderList(sflt(base,document.getElementById('all-srch').value),'all-list');}
+function custTab(el){document.querySelectorAll('#cust-tabs .tab').forEach(function(t){t.classList.remove('on');});el.classList.add('on');var st=el.getAttribute('data-st');var base=st?custs.filter(function(c){return c.st===st;}):custs;renderList(sflt(base,document.getElementById('all-srch').value),'all-list');}
+
+/* live feed */
+document.getElementById('live-feed').innerHTML=[
+  {n:"Deepak Joshi",d:"Personal Loan · ₹3L · Pune",   col:"#22c993",t:"Now"},
+  {n:"Aryan Shah",  d:"Home Loan · ₹30L · Surat",      col:"#22c993",t:"2m ago"},
+  {n:"Fatima Khan", d:"Car Loan · ₹8L · Hyderabad",    col:"#a78bfa",t:"7m ago"},
+  {n:"Pooja Sharma",d:"Home Loan · ₹40L · Noida",      col:"#f05454",t:"12m ago"},
+].map(function(f){return '<div class="feed-row"><div class="feed-dot" style="background:'+f.col+'"></div><div style="flex:1;min-width:0"><div class="feed-name">'+f.n+'</div><div class="feed-sub">'+f.d+'</div></div><div class="feed-time">'+f.t+'</div></div>';}).join('');
+
+/* followups */
+document.getElementById('fu-list').innerHTML=[
+  {ini:"PP",ib:"rgba(245,166,35,.18)",ic:"#f5a623",n:"Priya Patel",   d:"Personal Loan · docs pending"},
+  {ini:"RS",ib:"rgba(34,201,147,.18)",ic:"#5cdba8",n:"Rohit Sharma",  d:"Home Loan · EMI calc requested"},
+  {ini:"AM",ib:"rgba(34,201,147,.18)",ic:"#5cdba8",n:"Anjali Mishra", d:"Home Loan · very urgent ₹50L"},
+].map(function(f){return '<div class="fu-row" onclick="alert(\''+f.n+'\')"><div class="fu-av" style="background:'+f.ib+';color:'+f.ic+'">'+f.ini+'</div><div style="flex:1;min-width:0"><div class="fu-name">'+f.n+'</div><div class="fu-detail">'+f.d+'</div></div></div>';}).join('');
+
+/* call logs */
+var callLogs=[
+  {n:"Rohit Sharma",ph:"98123 45670",st:"COMPLETED",dur:"3m 42s",sum:"Very interested in ₹45L home loan. Wants EMI calculation. Follow-up scheduled.",att:1,t:"Today 2:14 PM"},
+  {n:"Priya Patel", ph:"97234 56781",st:"COMPLETED",dur:"1m 58s",sum:"Asked for more time, will gather documents. Follow-up scheduled.",att:2,t:"Today 1:47 PM"},
+  {n:"Amit Verma",  ph:"96345 67892",st:"NO_ANSWER", dur:"—",    sum:"No answer on first attempt. Retry queued for tomorrow morning.",att:1,t:"Today 11:30 AM"},
+  {n:"Kavya Nair",  ph:"95456 78903",st:"COMPLETED",dur:"4m 11s",sum:"Loan approved and disbursed. Customer very satisfied.",att:1,t:"Yesterday"},
+  {n:"Suresh Gupta",ph:"94567 89014",st:"COMPLETED",dur:"2m 03s",sum:"Not looking for a loan currently. Politely declined. Marked DNC.",att:1,t:"2 days ago"},
+  {n:"Fatima Khan", ph:"90123 45678",st:"FAILED",    dur:"—",    sum:"Call failed — Twilio error 30008. Retry via Plivo backup.",att:2,t:"2 days ago"},
+];
+var callCol={COMPLETED:"#22c993",NO_ANSWER:"#f05454",ANSWERED:"#5b9cf6",FAILED:"#f05454"};
+function renderCalls(list){document.getElementById('call-tl').innerHTML=list.map(function(l){var c=callCol[l.st]||"#8a8a88";return '<div class="ti"><div class="ti-ic" style="background:'+c+'18"><svg fill="none" stroke="'+c+'" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72"/></svg></div>'+'<div class="ti-b"><div class="ti-top"><span class="ti-name">'+l.n+'</span><span class="bdg" style="background:'+c+'18;color:'+c+'">'+l.st+'</span>'+(l.dur!=='—'?'<span style="font-size:11px;color:var(--text3)">'+l.dur+'</span>':'')+'</div><div class="ti-meta">'+l.ph+' · OUTBOUND · Attempt '+l.att+'</div><div class="ti-sum">'+l.sum+'</div><div class="ti-time">'+l.t+'</div></div></div>';}).join('');}
+renderCalls(callLogs);
+function callF(st,el){document.querySelectorAll('#v-calls .chip').forEach(function(c){c.classList.remove('on');});el.classList.add('on');renderCalls(st?callLogs.filter(function(l){return l.st===st;}):callLogs);}
+
+/* campaigns — with SKIPPED status, attemptsMade + 1 display */
+var campJobs=[
+  {nm:"Home Loan Drive",  cu:"Rohit Sharma", st:"COMPLETED",att:0,eq:"Today 9:00 AM", res:"Interested"},
+  {nm:"Home Loan Drive",  cu:"Priya Patel",  st:"ACTIVE",   att:1,eq:"Today 9:05 AM", res:"In progress"},
+  {nm:"Home Loan Drive",  cu:"Amit Verma",   st:"QUEUED",   att:0,eq:"Today 9:10 AM", res:"—"},
+  {nm:"Personal Loan Q1", cu:"Deepak Joshi", st:"ACTIVE",   att:0,eq:"Today 10:00 AM",res:"Calling"},
+  {nm:"Personal Loan Q1", cu:"Anjali Mishra",st:"FAILED",   att:2,eq:"Yesterday",     res:"Max retries exceeded"},
+  {nm:"Car Loan Apr",     cu:"Kavya Nair",   st:"COMPLETED",att:0,eq:"3 days ago",    res:"Converted"},
+  {nm:"Home Loan Drive",  cu:"Meera Singh",  st:"SKIPPED",  att:0,eq:"Today 9:15 AM", res:"CALL_PENDING — interval not met"},
+  {nm:"Home Loan Drive",  cu:"Suresh Gupta", st:"SKIPPED",  att:0,eq:"Today 9:20 AM", res:"DO_NOT_CALL — flagged"},
+];
+var cjStyle={COMPLETED:"background:rgba(34,201,147,.14);color:#5cdba8",ACTIVE:"background:rgba(34,201,147,.10);color:#5cdba8",QUEUED:"background:rgba(245,166,35,.14);color:#f5a623",FAILED:"background:rgba(240,84,84,.12);color:#f05454",SKIPPED:"background:rgba(138,138,136,.12);color:#8a8a88"};
+function renderCamp(list){document.getElementById('camp-tbody').innerHTML=list.map(function(j){var s=cjStyle[j.st]||"background:rgba(138,138,136,.12);color:#8a8a88";var displayAtt=j.att+1;return '<tr><td style="font-weight:500">'+j.nm+'</td><td>'+j.cu+'</td><td><span class="bdg" style="'+s+'">'+j.st+'</span></td><td style="text-align:center;color:var(--text2)">'+displayAtt+'</td><td class="mono" style="color:var(--text3)">'+j.eq+'</td><td style="color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis">'+j.res+'</td></tr>';}).join('');}
+renderCamp(campJobs);
+function campF(st,el){document.querySelectorAll('#v-campaigns .chip').forEach(function(c){c.classList.remove('on');});el.classList.add('on');renderCamp(st?campJobs.filter(function(j){return j.st===st;}):campJobs);}
+
+/* tasks */
+var tasks=[
+  {cust:"Priya Patel",   note:"Documents not submitted — follow up on loan application",assignee:"Ravi Kumar",due:"Today",dc:"today",st:"OPEN"},
+  {cust:"Rohit Sharma",  note:"Send EMI calculation sheet for ₹45L home loan",           assignee:"Sneha Rao", due:"Today",dc:"today",st:"OPEN"},
+  {cust:"Anjali Mishra", note:"Urgent — verify income documents and submit",             assignee:"Sneha Rao", due:"Today",dc:"today",st:"OPEN"},
+  {cust:"Vikram Das",    note:"Proposal review pending — awaiting client feedback",      assignee:"Ravi Kumar",due:"Yesterday",dc:"overdue",st:"OPEN"},
+  {cust:"Meera Singh",   note:"Initial call not made — reschedule outbound",             assignee:"Sneha Rao", due:"2 days ago",dc:"overdue",st:"OPEN"},
+  {cust:"Fatima Khan",   note:"Re-attempt after Twilio failure",                         assignee:"Ravi Kumar",due:"Mar 25",dc:"upcoming",st:"OPEN"},
+  {cust:"Kavya Nair",    note:"Loan disbursed — collect NPS feedback",                  assignee:"Sneha Rao", due:"Mar 20",dc:"upcoming",st:"DONE"},
+  {cust:"Amit Verma",    note:"No answer × 3 — mark for retry next week",               assignee:"Ravi Kumar",due:"Mar 18",dc:"upcoming",st:"CANCELLED"},
+];
+function taskRowHtml(t){var done=t.st==='DONE',cancelled=t.st==='CANCELLED';var check=done?'<div class="task-check done"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>':'<div class="task-check"></div>';return '<div class="task-row">'+check+'<div class="task-main"><div class="task-cust" style="'+(done||cancelled?'text-decoration:line-through;opacity:.5':'')+'">'+t.cust+'</div><div class="task-note">'+t.note+'</div></div><div style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0">'+t.assignee+'</div><span class="bdg" style="'+(cancelled?"background:rgba(138,138,136,.12);color:#8a8a88":done?"background:rgba(34,201,147,.14);color:#5cdba8":"background:rgba(91,156,246,.14);color:#5b9cf6")+'">'+t.st+'</span><div class="task-due '+t.dc+'" style="white-space:nowrap;flex-shrink:0;font-size:11px;font-weight:500">'+t.due+'</div></div>';}
+function renderTasks(list){document.getElementById('task-list').innerHTML=list.length?list.map(taskRowHtml).join(''):'<div class="empty">No tasks match.</div>';}
+renderTasks(tasks);
+function taskF(f,el){document.querySelectorAll('#v-followups .chip').forEach(function(c){c.classList.remove('on');});el.classList.add('on');var r=f?tasks.filter(function(t){if(f==='overdue')return t.st==='OPEN'&&t.dc==='overdue';return t.st===f;}):tasks;renderTasks(r);}
+
+/* uploads */
+var uploads=[
+  {file:"home_loan_leads_march.csv",total:1200,ok:1158,fail:42,by:"Arjun Kapoor",date:"Mar 21, 10:14 AM"},
+  {file:"personal_loans_q1.xlsx",  total:840, ok:831, fail:9, by:"Sneha Rao",   date:"Mar 18, 3:42 PM"},
+  {file:"car_loans_april.csv",     total:560, ok:548, fail:12,by:"Arjun Kapoor",date:"Mar 15, 11:30 AM"},
+  {file:"business_leads_feb.csv",  total:320, ok:298, fail:22,by:"Ravi Kumar",  date:"Feb 28, 9:00 AM"},
+];
+document.getElementById('uploads-tbody').innerHTML=uploads.map(function(u){var rate=((u.ok/u.total)*100).toFixed(1);var rc=parseFloat(rate)>=95?'color:var(--accent)':parseFloat(rate)>=90?'color:var(--amber)':'color:var(--red)';return '<tr><td style="font-weight:500">'+u.file+'</td><td>'+u.total.toLocaleString()+'</td><td style="color:var(--accent)">'+u.ok.toLocaleString()+'</td><td style="color:var(--red)">'+u.fail+'</td><td style="font-weight:600;'+rc+'">'+rate+'%</td><td>'+u.by+'</td><td class="mono" style="color:var(--text3)">'+u.date+'</td></tr>';}).join('');
+
+/* audit */
+var auditEvents=[
+  {type:"user",    col:"#5b9cf6",action:"User created — Sneha Rao (SALES)",       meta:"Actor: Arjun Kapoor · IP: 103.24.xx.xx",    t:"Today 9:12 AM"},
+  {type:"customer",col:"#22c993",action:"Status: NEW → INTERESTED — Rohit Sharma", meta:"Source: AI call · Confidence: 0.95",         t:"Today 2:14 PM"},
+  {type:"customer",col:"#f5a623",action:"Status: INTERESTED → FOLLOW_UP — Priya Patel",meta:"Source: AI call · Needs docs",           t:"Today 1:47 PM"},
+  {type:"user",    col:"#a78bfa",action:"Role updated — Ravi Kumar → SALES",       meta:"Actor: Arjun Kapoor",                         t:"Mar 20, 4:30 PM"},
+  {type:"customer",col:"#22c993",action:"Status: FOLLOW_UP → CONVERTED — Kavya Nair",meta:"Source: Manual · Agent: Sneha Rao",        t:"Mar 19, 11:00 AM"},
+  {type:"user",    col:"#f05454",action:"User deactivated — Ravi Kumar",            meta:"Actor: Arjun Kapoor · Reason: Resigned",     t:"Mar 18, 6:00 PM"},
+  {type:"customer",col:"#f05454",action:"Status: CALLING → NOT_INTERESTED — Suresh Gupta",meta:"Source: AI call · DNC flag set",      t:"Mar 17, 3:15 PM"},
+];
+function renderAudit(list){document.getElementById('audit-body').innerHTML=list.map(function(a){return '<div class="audit-row"><div class="audit-icon" style="background:'+a.col+'18"><svg fill="none" stroke="'+a.col+'" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div style="flex:1;min-width:0"><div class="audit-action">'+a.action+'</div><div class="audit-meta">'+a.meta+'</div></div><div class="audit-time">'+a.t+'</div></div>';}).join('');}
+renderAudit(auditEvents);
+function auditF(f,el){document.querySelectorAll('#v-audit .chip').forEach(function(c){c.classList.remove('on');});el.classList.add('on');var r=f==='all'?auditEvents:auditEvents.filter(function(a){return a.type===f.replace('user','user').replace('customer','customer');});renderAudit(r);}
+
+/* cron log */
+var cronRuns=[
+  {t:"Today 2:53 PM", status:"OK",    col:"#22c993",detail:"queued=4, attempted=12, interval=5min"},
+  {t:"Today 2:48 PM", status:"OK",    col:"#22c993",detail:"queued=3, attempted=8"},
+  {t:"Today 2:43 PM", status:"SKIP",  col:"#f5a623",detail:"interval_not_reached (3m elapsed)"},
+  {t:"Today 2:38 PM", status:"OK",    col:"#22c993",detail:"queued=6, attempted=15"},
+  {t:"Today 2:33 PM", status:"OK",    col:"#22c993",detail:"queued=2, attempted=9"},
+  {t:"Today 2:28 PM", status:"ERROR", col:"#f05454",detail:"Twilio provider timeout — retried with Plivo"},
+  {t:"Today 2:23 PM", status:"OK",    col:"#22c993",detail:"queued=5, attempted=11"},
+  {t:"Today 2:18 PM", status:"OK",    col:"#22c993",detail:"queued=7, attempted=14"},
+  {t:"Today 2:13 PM", status:"OK",    col:"#22c993",detail:"queued=1, attempted=6"},
+  {t:"Today 2:08 PM", status:"OK",    col:"#22c993",detail:"queued=4, attempted=10"},
+];
+document.getElementById('cron-log').innerHTML=cronRuns.map(function(r){return '<div class="cron-log-row"><span class="cron-log-time">'+r.t+'</span><span class="cron-log-status" style="color:'+r.col+'">'+r.status+'</span><span class="cron-log-detail">'+r.detail+'</span></div>';}).join('');
+
+/* ══ AI DEMO ══ */
+var demoSession=null, demoTurns=0;
+var scenarios=[
+  {text:"Haan, mujhe loan chahiye",result:"→ INTERESTED · proceeds"},
+  {text:"5 lakh personal loan chahiye",result:"→ extracts amount + type"},
+  {text:"20 lakh home ke liye",result:"→ extracts amount + home_loan"},
+  {text:"nhi chahiye",result:"→ NOT_INTERESTED · ends gracefully"},
+  {text:"abhi busy hoon, baad mein call karo",result:"→ BUSY · schedules callback"},
+  {text:"dobara call mat karna",result:"→ DO_NOT_CALL · flags + ends"},
+  {text:"meri income 60000 hai",result:"→ extracts monthly_income"},
+];
+document.getElementById('scenario-list').innerHTML=scenarios.map(function(s){return '<div class="scenario" onclick="sendScenario(\''+s.text.replace(/'/g,"\\'")+'\')"><div class="scenario-text">'+s.text+'</div><div class="scenario-result">'+s.result+'</div></div>';}).join('');
+
+function addChatMsg(role,text){var msgs=document.getElementById('chat-msgs');var div=document.createElement('div');div.className='chat-msg '+role;div.textContent=text;msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;}
+function startDemo(){
+  demoSession='llm_'+Date.now();demoTurns=0;
+  document.getElementById('chat-msgs').innerHTML='';
+  document.getElementById('start-btn').style.display='none';
+  document.getElementById('end-btn').style.display='inline-flex';
+  document.getElementById('session-id-display').textContent=demoSession;
+  document.getElementById('session-status').textContent='Active';
+  document.getElementById('turn-count').textContent='0';
+  var name=document.getElementById('dp-name').value||'Customer';
+  addChatMsg('ai','Namaste '+name+' ji,\n\nMain TechLend Finance se Priya bol rahi hoon. Kya abhi 30 seconds baat karna convenient hai?');
+  updateStage(0);
+  demoTurns++;document.getElementById('turn-count').textContent=demoTurns;
+}
+function endDemo(){demoSession=null;addChatMsg('system','— Call ended —');document.getElementById('start-btn').style.display='inline-flex';document.getElementById('end-btn').style.display='none';document.getElementById('session-status').textContent='Ended';}
+function sendScenario(text){document.getElementById('chat-inp').value=text;sendDemo();}
+function sendDemo(){
+  if(!demoSession){alert('Start a call first');return;}
+  var inp=document.getElementById('chat-inp');var msg=inp.value.trim();if(!msg)return;
+  addChatMsg('user',msg);inp.value='';demoTurns++;document.getElementById('turn-count').textContent=demoTurns;
+  var lm=msg.toLowerCase();
+  var intent='neutral',confidence=0.7,reply='';
+  if(/nhi|nahi|not interested|nahi chahiye|nhi chahiye/.test(lm)){intent='not_interested';confidence=.94;reply='Bilkul samajh sakta hoon. Aapke time ke liye bahut shukriya. Agar kabhi zaroorat ho toh humse contact kar sakte hain. Dhanyavaad!';endDemo();}
+  else if(/mat call|do not call|dobara.*call|call mat/.test(lm)){intent='do_not_call';confidence=.98;reply='Samajh gaya. Aapka number Do-Not-Call list mein add kar diya gaya hai. Maafi chahta hoon. Dhanyavaad.';endDemo();}
+  else if(/busy|baad|later|meeting|time nahi/.test(lm)){intent='busy';confidence=.88;reply='Bilkul, koi baat nahi. Kab call karu? Aaj shaam ko ya kal?';updateStage(1);}
+  else if(/lakh|loan chahiye|chahiye|interested|haan|apply/.test(lm)){intent='interested';confidence=.92;reply='Bahut badhiya! Aapko kitni loan amount chahiye, aur kaunsa loan type — personal, home, car, ya business?';updateStage(2);extractData(msg);}
+  else if(/personal|home|business|car|auto|education/.test(lm)){intent='loan_type_shared';confidence=.90;reply='Samajh gaya. Kitni amount chahiye, aur kab tak chahiye?';extractData(msg);}
+  else if(/\d.*lakh|\d+00000|[0-9]+k/.test(lm)){intent='loan_amount_shared';confidence=.93;reply='Thank you! Monthly income kitni hai approximately?';updateStage(3);extractData(msg);}
+  else if(/income|salary|\d{4,6}/.test(lm)){intent='emi_or_income_shared';confidence=.87;reply='Perfect. Aapke details note kar liye hain. Hamare loan officer John Doe aapko detail mein guide karenge. Kya aap callback chahenge?';updateStage(4);extractData(msg);}
+  else{intent='neutral';confidence=.65;reply='Samajh gaya. Kya aap currently kisi loan ke baare mein sochh rahe hain — personal, home, ya business?';}
+  setTimeout(function(){addChatMsg('ai',reply);updateIntent(intent,confidence);},600);
+}
+function extractData(msg){var lm=msg.toLowerCase();var m;if(m=lm.match(/(\d+)\s*lakh/)){document.getElementById('ex-amount').textContent='₹'+m[1]+'L';}if(/personal/.test(lm))document.getElementById('ex-loantype').textContent='personal_loan';else if(/home/.test(lm))document.getElementById('ex-loantype').textContent='home_loan';else if(/business/.test(lm))document.getElementById('ex-loantype').textContent='business_loan';else if(/car|auto/.test(lm))document.getElementById('ex-loantype').textContent='car_loan';if(m=lm.match(/(\d{4,6})/))document.getElementById('ex-emp').textContent='₹'+parseInt(m[1]).toLocaleString('en-IN')+'/mo';}
+function updateIntent(intent,conf){document.getElementById('intent-display').textContent=intent;document.getElementById('conf-fill').style.width=(conf*100)+'%';document.getElementById('conf-lbl').textContent='Confidence: '+(conf*100).toFixed(0)+'%';}
+function updateStage(idx){var items=document.querySelectorAll('.stage-item');items.forEach(function(it,i){it.className='stage-item'+(i<idx?' done':i===idx?' current':'');});}
+
+/* ══ INTENT TRAINING ══ */
+var intentsEN=[
+  {name:"interested",phrases:["i need a personal loan","yes i am interested","i want to apply for a loan","loan chahiye","mujhe loan chahiye","haan interested hoon","can you help me with loan"],responses:["Great. What loan amount are you looking for?","Happy to help. Please share the loan type and approximate amount."]},
+  {name:"not_interested",phrases:["not interested","no thanks","i do not need a loan","loan nahi chahiye","nhi chahiye","interest nahi hai","abhi loan nahi lena"],responses:["Understood. Thank you for your time.","No problem. We will close this call. Thank you."]},
+  {name:"call_back_later",phrases:["call me later","i am busy now","call back later","abhi busy hoon","baad me call karo","kal call karna","abhi time nahi hai"],responses:["Sure, no problem. Please share a suitable callback time.","Understood. We will call you back at a better time."]},
+  {name:"do_not_call",phrases:["do not call me again","stop calling me","remove my number","dobara call mat karna","mera number hata do","call mat karo"],responses:["Understood. We will mark this number as do-not-call.","Sorry for the inconvenience. We will not call this number again."]},
+  {name:"loan_type_shared",phrases:["personal loan","home loan","business loan","car loan","personal loan chahiye","home loan chahiye"],responses:["Got it. What loan amount do you need?","Understood. Please share the expected amount."]},
+  {name:"loan_amount_shared",phrases:["i need 5 lakh","around 10 lakh","mujhe 5 lakh chahiye","amount 12 lakh","i need 3 lakh"],responses:["Thanks. Is this for personal, home, business, or auto loan?"]},
+  {name:"emi_or_income_shared",phrases:["my monthly income is 60000","income 50000","salary 75000","meri income 70000 hai","meri salary 80000 hai"],responses:["Thank you. Our advisor will evaluate eligibility and guide next steps."]},
+  {name:"greeting",phrases:["hello","hi","good morning","haan bolo","ji","hello ji","yes"],responses:["Hello. Are you currently looking for a personal, home, business, or auto loan?"]},
+];
+var intentsHI=[
+  {name:"interested",phrases:["मुझे पर्सनल लोन चाहिए","हां मैं इंटरेस्टेड हूं","मैं लोन के लिए अप्लाई करना चाहता हूं","मुझे होम लोन चाहिए"],responses:["बहुत अच्छा। आपको कितनी लोन राशि चाहिए?"]},
+  {name:"not_interested",phrases:["मुझे दिलचस्पी नहीं है","नहीं चाहिए","मुझे लोन नहीं चाहिए","नो थैंक्स"],responses:["समझ गया। आपके समय के लिए धन्यवाद।"]},
+  {name:"call_back_later",phrases:["बाद में कॉल करें","कल कॉल करना","मैं अभी व्यस्त हूं","अभी समय नहीं है"],responses:["ज़रूर, कोई समस्या नहीं। कृपया उपयुक्त समय बताइए।"]},
+  {name:"do_not_call",phrases:["मुझे दोबारा कॉल मत करना","मेरा नंबर हटा दो","कृपया दोबारा फोन न करें"],responses:["समझ गया। हम इस नंबर को डू-नॉट-कॉल में मार्क कर देंगे।"]},
+  {name:"greeting",phrases:["नमस्ते","हैलो","हाय","जी बोलिए"],responses:["नमस्ते। क्या आप लोन देख रहे हैं?"]},
+];
+var activeLang='en';
+function renderIntents(lang){var data=lang==='en'?intentsEN:intentsHI;document.getElementById('intent-list').innerHTML=data.map(function(intent){return '<div class="intent-card"><div class="intent-hd" onclick="this.parentElement.querySelector(\'.intent-body\').style.display=this.parentElement.querySelector(\'.intent-body\').style.display===\'none\'?\'block\':\'none\'"><div class="intent-name">'+intent.name+'</div><span class="intent-count">'+intent.phrases.length+' phrases</span><span class="bdg" style="background:var(--bg4);color:var(--text3);font-size:10px">'+lang.toUpperCase()+'</span><button class="btn" style="font-size:10px;padding:3px 8px" onclick="event.stopPropagation();alert(\'Edit intent: '+intent.name+'\')">Edit</button></div><div class="intent-body" style="display:none"><div style="font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Training phrases</div><div class="phrase-grid">'+intent.phrases.map(function(p){return '<span class="phrase-tag">'+p+'</span>';}).join('')+'</div><div style="font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;margin-top:12px">Responses</div>'+intent.responses.map(function(r){return '<div class="response-item">'+r+'</div>';}).join('')+'</div></div>';}).join('');}
+renderIntents('en');
+function switchLang(lang,el){document.querySelectorAll('#v-intents .chip').forEach(function(c){c.classList.remove('on');});el.classList.add('on');activeLang=lang;renderIntents(lang);}
+
+/* ══ ROLES ══ */
+var roles=[
+  {key:"sales_basic",name:"Sales Basic",desc:"View assigned customers, add call notes, create follow-up tasks. Cannot see other reps' customers.",base:"SALES",active:true,perms:{viewCustomers:true,editCustomers:false,viewCallLogs:true,manageCampaigns:false,viewReports:false,manageUsers:false}},
+  {key:"sales_senior",name:"Sales Senior",desc:"Full customer management, view all pipelines, manage campaigns.",base:"SALES",active:true,perms:{viewCustomers:true,editCustomers:true,viewCallLogs:true,manageCampaigns:true,viewReports:true,manageUsers:false}},
+  {key:"team_lead",name:"Team Lead",desc:"All sales permissions plus user management, role assignment, and report exports.",base:"ADMIN",active:true,perms:{viewCustomers:true,editCustomers:true,viewCallLogs:true,manageCampaigns:true,viewReports:true,manageUsers:true}},
+];
+function permHtml(val,label){return '<div class="perm-item"><div class="perm-check '+(val?'yes':'')+'">'+( val?'<svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>':'')+'</div>'+label+'</div>';}
+document.getElementById('roles-list').innerHTML=roles.map(function(r){var p=r.perms;return '<div class="role-card"><div class="role-hd"><div class="role-icon" style="background:var(--accent-dim);color:var(--accent-txt)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div style="flex:1"><div class="role-nm">'+r.name+'</div><div class="role-key">'+r.key+' · base: '+r.base+'</div></div><span class="bdg" style="'+(r.active?'background:var(--accent-dim);color:var(--accent-txt)':'background:var(--bg4);color:var(--text3)')+'">'+( r.active?'Active':'Inactive')+'</span><button class="btn" style="font-size:11px;padding:4px 9px" onclick="alert(\'Edit '+r.name+'\')">Edit</button></div><div class="role-desc">'+r.desc+'</div><div class="perm-grid">'+permHtml(p.viewCustomers,'View customers')+permHtml(p.editCustomers,'Edit customers')+permHtml(p.viewCallLogs,'View call logs')+permHtml(p.manageCampaigns,'Campaigns')+permHtml(p.viewReports,'Reports')+permHtml(p.manageUsers,'Manage users')+'</div></div>';}).join('');
+
+/* ══ THEME COLOR PICKERS ══ */
+function mkColors(id,colors){var el=document.getElementById(id);if(!el)return;el.innerHTML=colors.map(function(c){var isDark=parseInt(c.val.replace('#',''),16)>0x888888;return '<div class="color-item"><div class="color-item-label">'+c.label+'</div><div class="color-strip" style="background:'+c.val+';color:'+(isDark?'#000':'#fff')+'" onclick="this.querySelector(\'input\').click()"><span>'+c.val+'</span><input type="color" value="'+c.val+'" oninput="this.parentElement.style.background=this.value;this.parentElement.querySelector(\'span\').textContent=this.value.toUpperCase()"></div></div>';}).join('');}
+mkColors('core-colors',[{label:'Primary',val:'#2563eb'},{label:'Secondary',val:'#64748b'},{label:'Accent',val:'#22c55e'},{label:'Background',val:'#f8fafc'},{label:'Surface',val:'#ffffff'},{label:'Sidebar',val:'#f1f5f9'}]);
+mkColors('text-colors',[{label:'Text primary',val:'#0f172a'},{label:'Text secondary',val:'#64748b'},{label:'Border color',val:'#e2e8f0'}]);
+mkColors('status-colors',[{label:'Success',val:'#22c55e'},{label:'Warning',val:'#f59e0b'},{label:'Error',val:'#ef4444'},{label:'Info',val:'#3b82f6'}]);
+mkColors('global-colors',[{label:'Primary',val:'#2563eb'},{label:'Secondary',val:'#64748b'},{label:'Accent',val:'#22c55e'},{label:'Background',val:'#f8fafc'},{label:'Surface',val:'#ffffff'},{label:'Sidebar',val:'#f1f5f9'},{label:'Text primary',val:'#0f172a'},{label:'Text secondary',val:'#64748b'}]);
+
+document.getElementById('theme-preview-container').innerHTML='<div style="display:flex;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.08);font-size:10px"><div style="width:72px;background:#13151a;padding:8px;display:flex;flex-direction:column;gap:4px"><div style="display:flex;align-items:center;gap:4px;margin-bottom:6px"><div style="width:18px;height:18px;background:#22c993;border-radius:4px"></div><div style="width:28px;height:4px;background:#2a2f38;border-radius:2px"></div></div><div style="height:4px;background:#22c993;border-radius:2px;width:80%"></div><div style="height:4px;background:#2a2f38;border-radius:2px;width:70%;margin-top:3px"></div><div style="height:4px;background:#2a2f38;border-radius:2px;width:60%;margin-top:3px"></div><div style="height:4px;background:#2a2f38;border-radius:2px;width:75%;margin-top:3px"></div></div><div style="flex:1;background:#0d0e10;padding:8px;display:flex;flex-direction:column;gap:6px"><div style="height:14px;background:#13151a;border-radius:4px"></div><div style="display:flex;gap:4px"><div style="flex:1;height:26px;background:#1c1f26;border-radius:5px;border:1px solid rgba(255,255,255,.06)"></div><div style="flex:1;height:26px;background:#1c1f26;border-radius:5px;border:1px solid rgba(255,255,255,.06)"></div><div style="flex:1;height:26px;background:#1c1f26;border-radius:5px;border:1px solid rgba(255,255,255,.06)"></div><div style="flex:1;height:26px;background:#1c1f26;border-radius:5px;border:1px solid rgba(255,255,255,.06)"></div></div><div style="background:#1c1f26;border-radius:6px;border:1px solid rgba(255,255,255,.06);padding:6px"><div style="height:3px;background:#22c993;border-radius:2px;width:34%;margin-bottom:4px"></div><div style="height:3px;background:#2a2f38;border-radius:2px;width:100%"></div><div style="height:3px;background:#222528;border-radius:2px;width:90%;margin-top:2px"></div></div></div></div>';
+
+function selFont(el){document.querySelectorAll('.font-option').forEach(function(f){f.classList.remove('sel');});el.classList.add('sel');}
+function countChars(el){document.getElementById('prompt-chars').textContent=(el.value||'').length+' chars';}
+setTimeout(function(){var ta=document.getElementById('prompt-ta');if(ta)countChars(ta);},100);
+
+/* ══ NAVIGATION ══ */
+var views=['dash','customers','calls','campaigns','followups','uploads','audit','health','demo','ai','intents','roles','tenant','theme','globaltheme'];
+var titles={dash:'Dashboard',customers:'Customers',calls:'Call logs',campaigns:'Campaigns',followups:'Follow-up tasks',uploads:'Lead uploads',audit:'Audit logs',health:'Automation health',demo:'AI call demo',ai:'AI assistance',intents:'Intent training',roles:'Roles & permissions',tenant:'Tenant settings',theme:'Modular theme',globaltheme:'Global theme'};
+function go(v,el){
+  views.forEach(function(id){var e=document.getElementById('v-'+id);if(e)e.classList.remove('on');});
+  var t=document.getElementById('v-'+v);if(t)t.classList.add('on');
+  document.querySelectorAll('.nb').forEach(function(b){b.classList.remove('on');});
+  if(el)el.classList.add('on');
+  document.getElementById('pg-title').textContent=titles[v]||v;
+  document.getElementById('pane').scrollTop=0;
+}
+</script>
+</body>
+</html>

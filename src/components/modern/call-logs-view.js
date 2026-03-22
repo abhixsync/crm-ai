@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { CallsAiCallPanel } from "@/components/calls/calls-ai-call-panel";
+import { CallsHistoryTable } from "@/components/calls/calls-history-table";
 
 const STATUS_COLORS = {
   COMPLETED: "#22c993",
@@ -18,7 +20,7 @@ const FILTER_CHIPS = [
 ];
 
 function formatDuration(seconds) {
-  if (!seconds) return "—";
+  if (!seconds) return "-";
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}m ${s.toString().padStart(2, "0")}s`;
@@ -44,7 +46,7 @@ function formatCustomerName(customer) {
   return `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || "Unknown";
 }
 
-export function ModernCallLogsView({ callLogs }) {
+export function ModernCallLogsView({ callLogs, customers, role }) {
   const [filter, setFilter] = useState("");
 
   const filteredLogs = useMemo(() => {
@@ -52,11 +54,42 @@ export function ModernCallLogsView({ callLogs }) {
     return callLogs.filter((log) => log.status === filter);
   }, [callLogs, filter]);
 
+  const summary = useMemo(() => {
+    return callLogs.reduce((accumulator, log) => {
+      const key = String(log.status || "UNKNOWN");
+      accumulator[key] = (accumulator[key] || 0) + 1;
+      return accumulator;
+    }, {});
+  }, [callLogs]);
+
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+      <div className="ms-metrics">
+        <div className="ms-m-tile">
+          <div className="ms-m-tile-lbl">Total calls</div>
+          <div className="ms-m-tile-val">{callLogs.length}</div>
+        </div>
+        <div className="ms-m-tile">
+          <div className="ms-m-tile-lbl">Completed</div>
+          <div className="ms-m-tile-val">{summary.COMPLETED || 0}</div>
+        </div>
+        <div className="ms-m-tile">
+          <div className="ms-m-tile-lbl">No answer</div>
+          <div className="ms-m-tile-val">{summary.NO_ANSWER || 0}</div>
+        </div>
+        <div className="ms-m-tile">
+          <div className="ms-m-tile-lbl">Failed</div>
+          <div className="ms-m-tile-val">{summary.FAILED || 0}</div>
+        </div>
+      </div>
+
+      <div className="ms-module-frame ms-module-skin ms-calls-panel-module">
+        <CallsAiCallPanel customers={customers} role={role} />
+      </div>
+
       <div className="ms-card">
         <div className="ms-card-hd">
-          <span className="ms-card-title">Call logs</span>
+          <span className="ms-card-title">Call activity</span>
           <div className="ms-chips">
             {FILTER_CHIPS.map(({ label, value }) => (
               <button
@@ -73,7 +106,7 @@ export function ModernCallLogsView({ callLogs }) {
           {filteredLogs.length === 0 && (
             <div className="ms-empty">No call logs match this filter.</div>
           )}
-          {filteredLogs.map((log) => {
+          {filteredLogs.slice(0, 12).map((log) => {
             const color = STATUS_COLORS[log.status] || "#6b7280";
             const name = formatCustomerName(log.customer);
             const phone = log.customer?.phone || "N/A";
@@ -95,7 +128,7 @@ export function ModernCallLogsView({ callLogs }) {
                     )}
                   </div>
                   <div className="ms-ti-meta">
-                    {phone} · {log.direction || "OUTBOUND"} · Attempt {log.attemptNumber || 1}
+                    {phone} | {log.direction || "OUTBOUND"} | Attempt {log.attemptNumber || 1}
                   </div>
                   {log.summary && <div className="ms-ti-sum">{log.summary}</div>}
                   <div className="ms-ti-time">{formatTime(log.createdAt)}</div>
@@ -104,6 +137,13 @@ export function ModernCallLogsView({ callLogs }) {
             );
           })}
         </div>
+      </div>
+
+      <div className="ms-card ms-module-skin ms-calls-history-module" style={{ padding: 20 }}>
+        <div className="ms-card-hd" style={{ marginBottom: 12 }}>
+          <span className="ms-card-title">Detailed call history</span>
+        </div>
+        <CallsHistoryTable callLogs={callLogs} />
       </div>
     </div>
   );

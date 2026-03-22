@@ -28,15 +28,13 @@ export function LoanAssistantAdmin() {
       setIsLoading(true);
       setError(null);
 
-      // Get tenant ID from session - for super admin, get from API
       let finalTenantId = session?.user?.tenantId;
 
-      // For super admins (tenantId is null), fetch the super admin tenant
       if (!finalTenantId) {
-        const tenantResponse = await fetch('/api/tenant/super-admin-tenant', {
-          method: 'GET',
+        const tenantResponse = await fetch("/api/tenant/super-admin-tenant", {
+          method: "GET",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         });
 
@@ -53,10 +51,10 @@ export function LoanAssistantAdmin() {
 
       setTenantId(finalTenantId);
 
-      const response = await fetch('/api/tenant/loan-assistant-settings', {
-        method: 'GET',
+      const response = await fetch("/api/tenant/loan-assistant-settings", {
+        method: "GET",
         headers: {
-          'X-Tenant-ID': finalTenantId,
+          "X-Tenant-ID": finalTenantId,
         },
       });
 
@@ -74,14 +72,13 @@ export function LoanAssistantAdmin() {
         setError(data.error || "Failed to load settings");
       }
     } catch (err) {
-      console.error('Error loading settings:', err);
-      setError("Failed to load settings: " + err.message);
+      console.error("Error loading settings:", err);
+      setError(`Failed to load settings: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
   }, [session?.user?.tenantId]);
 
-  // Load settings on mount
   useEffect(() => {
     if (session?.user) {
       loadSettings();
@@ -93,11 +90,11 @@ export function LoanAssistantAdmin() {
       setIsSaving(true);
       setError(null);
 
-      const response = await fetch('/api/tenant/loan-assistant-settings', {
-        method: 'PUT',
+      const response = await fetch("/api/tenant/loan-assistant-settings", {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': tenantId,
+          "Content-Type": "application/json",
+          "X-Tenant-ID": tenantId,
         },
         body: JSON.stringify({
           loanAssistantCompanyName: companyName || null,
@@ -120,9 +117,9 @@ export function LoanAssistantAdmin() {
         toast.error(data.error || "Failed to save settings");
       }
     } catch (err) {
-      console.error('Error saving settings:', err);
-      setError("Failed to save settings: " + err.message);
-      toast.error("Failed to save settings: " + err.message);
+      console.error("Error saving settings:", err);
+      setError(`Failed to save settings: ${err.message}`);
+      toast.error(`Failed to save settings: ${err.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -133,18 +130,16 @@ export function LoanAssistantAdmin() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Error Banner */}
-      {error && (
-        <Card className="border-red-200 bg-red-50">
+    <div className="loan-assistant-root space-y-6">
+      {error ? (
+        <Card className="loan-assistant-alert border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <div className="text-sm text-red-700">{error}</div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
-      {/* Configuration Card */}
-      <Card>
+      <Card className="loan-assistant-card">
         <CardHeader>
           <CardTitle>Loan Assistant Settings</CardTitle>
           <CardDescription>
@@ -152,6 +147,7 @@ export function LoanAssistantAdmin() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="loan-assistant-form-grid">
             <div className="space-y-2">
               <label htmlFor="company-name" className="text-sm font-medium text-slate-700">
                 Loan Assistant Company Name
@@ -160,17 +156,17 @@ export function LoanAssistantAdmin() {
                 id="company-name"
                 placeholder={`Leave empty to use: ${tenantName}`}
                 value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
+                onChange={(event) => setCompanyName(event.target.value)}
               />
               <p className="text-xs text-slate-500">
-                💡 The name the AI will mention when calling customers.
+                Tip: The name the AI will mention when calling customers.
                 {companyName ? (
-                  <span className="block text-blue-600 mt-1">
+                  <span className="block mt-1 text-blue-600">
                     Will use: <strong>{companyName}</strong>
                   </span>
                 ) : (
-                  <span className="block text-slate-600 mt-1">
-                    If empty, will fallback to: <strong>{tenantName}</strong>
+                  <span className="block mt-1 text-slate-600">
+                    If empty, fallback to: <strong>{tenantName}</strong>
                   </span>
                 )}
               </p>
@@ -184,10 +180,10 @@ export function LoanAssistantAdmin() {
                 id="ai-agent-name"
                 placeholder="e.g., Priya"
                 value={aiAgentName}
-                onChange={(e) => setAiAgentName(e.target.value)}
+                onChange={(event) => setAiAgentName(event.target.value)}
               />
               <p className="text-xs text-slate-500">
-                The name of the AI agent customers will interact with.
+                The name customers hear when the assistant introduces itself.
               </p>
             </div>
 
@@ -199,10 +195,10 @@ export function LoanAssistantAdmin() {
                 id="callback-phone"
                 placeholder="e.g., +91-XXXXXXXXXX"
                 value={callbackPhone}
-                onChange={(e) => setCallbackPhone(e.target.value)}
+                onChange={(event) => setCallbackPhone(event.target.value)}
               />
               <p className="text-xs text-slate-500">
-                Will be used as the callback number for customers and for WhatsApp notifications to your team.
+                Used as the callback number for customers and for WhatsApp notifications to your team.
               </p>
             </div>
 
@@ -215,10 +211,10 @@ export function LoanAssistantAdmin() {
                 type="email"
                 placeholder="e.g., advisor@yourcompany.com"
                 value={notificationEmail}
-                onChange={(e) => setNotificationEmail(e.target.value)}
+                onChange={(event) => setNotificationEmail(event.target.value)}
               />
               <p className="text-xs text-slate-500">
-                Interested customer details and important loan assistant emails will be sent to this address.
+                Interested customer details and important loan assistant emails will be sent here.
               </p>
             </div>
 
@@ -230,7 +226,7 @@ export function LoanAssistantAdmin() {
                 id="human-advisor-name"
                 placeholder="e.g., John Doe"
                 value={humanAdvisorName}
-                onChange={(e) => setHumanAdvisorName(e.target.value)}
+                onChange={(event) => setHumanAdvisorName(event.target.value)}
               />
               <p className="text-xs text-slate-500">
                 This name is used in the final handoff line for interested customers.
@@ -239,92 +235,91 @@ export function LoanAssistantAdmin() {
 
             <div className="space-y-2">
               <p className="text-sm font-medium text-slate-700">Default Loan Types</p>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-                ✓ Personal Loan
-                <br />✓ Home Loan
-                <br />✓ Business Loan
-                <br />✓ Auto Loan
-                <br />✓ Education Loan
+              <div className="loan-assistant-token-list rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                <div>Personal Loan</div>
+                <div>Home Loan</div>
+                <div>Business Loan</div>
+                <div>Auto Loan</div>
+                <div>Education Loan</div>
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="loan-assistant-span-full space-y-2">
               <p className="text-sm font-medium text-slate-700">Supported Languages</p>
-              <div className="space-y-2">
+              <div className="loan-assistant-language-grid">
                 {[
                   { value: "english", label: "English", desc: "Pure English responses" },
                   { value: "hindi", label: "Hindi", desc: "Hindi (Roman script) with common English loan terms" },
-                  { value: "hinglish", label: "Hinglish (Hindi Heavy + English)", desc: "Natural Hindi-English mix — default" },
-                ].map((opt) => (
+                  { value: "hinglish", label: "Hinglish (Hindi Heavy + English)", desc: "Natural Hindi-English mix - default" },
+                ].map((option) => (
                   <label
-                    key={opt.value}
-                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-                      language === opt.value
-                        ? "border-blue-500 bg-blue-50"
+                    key={option.value}
+                    className={`loan-assistant-language-option flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                      language === option.value
+                        ? "loan-assistant-language-option-active border-blue-500 bg-blue-50"
                         : "border-slate-200 bg-slate-50 hover:border-slate-300"
                     }`}
                   >
                     <input
                       type="radio"
                       name="loanAssistantLanguage"
-                      value={opt.value}
-                      checked={language === opt.value}
-                      onChange={(e) => setLanguage(e.target.value)}
+                      value={option.value}
+                      checked={language === option.value}
+                      onChange={(event) => setLanguage(event.target.value)}
                       className="mt-0.5"
                     />
                     <div>
-                      <span className="text-sm font-medium text-slate-800">{opt.label}</span>
-                      <p className="text-xs text-slate-500">{opt.desc}</p>
+                      <span className="text-sm font-medium text-slate-800">{option.label}</span>
+                      <p className="text-xs text-slate-500">{option.desc}</p>
                     </div>
                   </label>
                 ))}
               </div>
               <p className="text-xs text-slate-500">
-                This controls the LANGUAGE RULES in the AI system prompt. The AI will respond in the selected language style.
+                This controls the language rules in the AI system prompt. The assistant responds in the selected style.
               </p>
             </div>
+          </div>
 
-            <div className="flex gap-2">
-              <Button onClick={handleSave} loading={isSaving} loadingText="Saving settings..." disabled={!tenantId}>
-                Save Changes
-              </Button>
-            </div>
+          <div className="flex gap-2">
+            <Button onClick={handleSave} loading={isSaving} loadingText="Saving settings..." disabled={!tenantId}>
+              Save Changes
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Quick Actions Card */}
-      <Card>
+      <Card className="loan-assistant-quick-actions-card">
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
           <CardDescription>Common tasks for managing the loan assistant</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
+        <CardContent className="loan-assistant-quick-actions grid gap-3 sm:grid-cols-2">
           <Link href="/llm-loan-assistant-demo">
-            <Button variant="outline" className="w-full">
-              → Test Call Demo
+            <Button variant="secondary" className="w-full">
+              Open Test Call Demo
             </Button>
           </Link>
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={() => alert("Analytics coming soon!")}
           >
-            → View Call Analytics
+            View Call Analytics
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={() => alert("Pitch customization coming soon!")}
           >
-            → Customize Pitches
+            Customize Pitches
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={() => alert("Lead export coming soon!")}
           >
-            → Export Leads
+            Export Leads
           </Button>
         </CardContent>
       </Card>
-
     </div>
   );
 }

@@ -42,20 +42,42 @@ export default async function AiSystemPromptPage() {
 
   let initialPrompt = null;
   let editorPromptText = DEFAULT_SYSTEM_PROMPT;
+  let initialAiProviders = [];
+  let initialTelephonyProviders = [];
   try {
-    initialPrompt = await prisma.aiSystemPrompt.findFirst({
-      where: { key: promptKey, isActive: true },
-      orderBy: { updatedAt: "desc" },
-    });
-
-    if (!initialPrompt && session.user.role !== "SUPER_ADMIN") {
-      initialPrompt = await prisma.aiSystemPrompt.findFirst({
-        where: { key: GLOBAL_SYSTEM_PROMPT_KEY, isActive: true },
+    const [promptRecord, fallbackPrompt, tenantSettings, aiProviders, telephonyProviders] = await Promise.all([
+      prisma.aiSystemPrompt.findFirst({
+        where: { key: promptKey, isActive: true },
         orderBy: { updatedAt: "desc" },
-      });
+      }),
+      session.user.role !== "SUPER_ADMIN"
+        ? prisma.aiSystemPrompt.findFirst({
+            where: { key: GLOBAL_SYSTEM_PROMPT_KEY, isActive: true },
+            orderBy: { updatedAt: "desc" },
+          })
+        : Promise.resolve(null),
+      getTenantSettings(tenantId),
+      session.user.role === "SUPER_ADMIN"
+        ? prisma.aiProviderConfig.findMany({
+            orderBy: [{ isActive: "desc" }, { priority: "asc" }, { name: "asc" }],
+          })
+        : Promise.resolve([]),
+      session.user.role === "SUPER_ADMIN"
+        ? prisma.telephonyProviderConfig.findMany({
+            orderBy: [{ isActive: "desc" }, { priority: "asc" }, { name: "asc" }],
+          })
+        : Promise.resolve([]),
+    ]);
+
+    initialPrompt = promptRecord;
+    if (!initialPrompt && fallbackPrompt) {
+      initialPrompt = fallbackPrompt;
     }
 
-    const { language } = await getTenantSettings(tenantId);
+    initialAiProviders = aiProviders;
+    initialTelephonyProviders = telephonyProviders;
+
+    const { language } = tenantSettings;
     editorPromptText = applyLanguageRulesToPrompt(initialPrompt?.prompt || DEFAULT_SYSTEM_PROMPT, language);
   } catch {
     // DB might not have the table yet; use default
@@ -92,7 +114,14 @@ export default async function AiSystemPromptPage() {
   }
 
   if (uiLayout === "modern") {
-    return <ModernAiConfigView initialPrompt={promptData} initialScope={initialScope} />;
+    return (
+      <ModernAiConfigView
+        initialPrompt={promptData}
+        initialScope={initialScope}
+        initialAiProviders={initialAiProviders}
+        initialTelephonyProviders={initialTelephonyProviders}
+      />
+    );
   }
 
   return (

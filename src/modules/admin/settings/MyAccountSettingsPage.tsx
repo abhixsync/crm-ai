@@ -113,8 +113,8 @@ export function MyAccountSettingsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
+    <div className="my-account-settings-root space-y-4">
+      <Card className="my-account-settings-card">
         <CardHeader>
           <CardTitle>My Profile</CardTitle>
           <CardDescription>Your account email is shown below.</CardDescription>
@@ -134,7 +134,7 @@ export function MyAccountSettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="my-account-password-card">
         <CardHeader>
           <CardTitle>Change Password</CardTitle>
           <CardDescription>

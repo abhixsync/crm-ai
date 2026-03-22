@@ -382,21 +382,21 @@ export function AutomationSettingsAdminClient() {
   }
 
   return (
-    <Card>
+    <Card className="automation-admin-root">
       <CardHeader>
         <CardTitle>AI Campaign Controls</CardTitle>
         <CardDescription>
           Configure retries, daily limits, working hours, and batch execution for automated AI calling.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-6">
         {loading ? <InlineLoader label="Loading automation settings..." /> : null}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="automation-settings-grid grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <label className="space-y-2">
             <span className="text-sm font-medium text-slate-700">Automation Enabled</span>
             <select
-              className="h-9 w-full rounded-md border border-slate-300/90 bg-white px-3 text-sm text-slate-900"
+              className="automation-select h-9 w-full rounded-md border border-slate-300/90 bg-white px-3 text-sm text-slate-900"
               value={form.enabled ? "on" : "off"}
               onChange={(event) => updateField("enabled", event.target.value === "on")}
             >
@@ -430,7 +430,7 @@ export function AutomationSettingsAdminClient() {
           {workerEnabled ? (
             <div className="space-y-2">
               <span className="text-sm font-medium text-slate-700">Execution Mode</span>
-              <div className="h-9 w-full rounded-md border border-slate-300/90 bg-slate-50 px-3 text-sm text-slate-900 flex items-center">
+              <div className="automation-runtime-chip h-9 w-full rounded-md border border-slate-300/90 bg-slate-50 px-3 text-sm text-slate-900 flex items-center">
                 Worker (Cron disabled)
               </div>
             </div>
@@ -493,7 +493,7 @@ export function AutomationSettingsAdminClient() {
 
           <div className="space-y-2 md:col-span-2 lg:col-span-3">
             <span className="text-sm font-medium text-slate-700">Customer Statuses for Automation</span>
-            <details className="rounded-md border border-slate-300/90 bg-white px-3 py-2">
+            <details className="automation-status-picker rounded-md border border-slate-300/90 bg-white px-3 py-2">
               <summary className="cursor-pointer list-none text-sm text-slate-900">
                 {(form.eligibleStatuses || []).length
                   ? `${form.eligibleStatuses.length} selected: ${form.eligibleStatuses.join(", ")}`
@@ -519,7 +519,7 @@ export function AutomationSettingsAdminClient() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="automation-actions flex flex-wrap gap-2">
           <Button onClick={saveSettings} loading={saving} loadingText="Saving settings..." disabled={saving || loading}>
             Save Settings
           </Button>
@@ -559,22 +559,22 @@ export function AutomationSettingsAdminClient() {
           <h3 className="text-base font-semibold text-slate-900">Automation Runtime Health</h3>
           {loadingHealth ? <InlineLoader label="Loading health..." /> : null}
           {!loadingHealth && health ? (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-md border border-slate-200 bg-white p-3">
+            <div className="automation-health-grid grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <div className="automation-health-tile rounded-md border border-slate-200 bg-white p-3">
                 <p className="text-xs font-medium text-slate-500">{health.runtimeLabel || "Runtime"}</p>
                 <p className={`mt-1 text-sm font-semibold ${health.runtimeOnline ? "text-emerald-700" : "text-rose-700"}`}>
                   {health.runtimeOnline ? "ONLINE" : "OFFLINE"}
                 </p>
               </div>
-              <div className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="automation-health-tile rounded-md border border-slate-200 bg-white p-3">
                 <p className="text-xs font-medium text-slate-500">Jobs Queued</p>
                 <p className="mt-1 text-sm font-semibold text-slate-800">{health.queue?.waiting ?? 0}</p>
               </div>
-              <div className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="automation-health-tile rounded-md border border-slate-200 bg-white p-3">
                 <p className="text-xs font-medium text-slate-500">Jobs Active</p>
                 <p className="mt-1 text-sm font-semibold text-slate-800">{health.queue?.active ?? 0}</p>
               </div>
-              <div className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="automation-health-tile rounded-md border border-slate-200 bg-white p-3">
                 <p className="text-xs font-medium text-slate-500">Jobs Failed</p>
                 <p className="mt-1 text-sm font-semibold text-slate-800">{health.queue?.failed ?? 0}</p>
               </div>
@@ -597,6 +597,7 @@ export function AutomationSettingsAdminClient() {
           <DataTable
             columns={jobColumns}
             data={jobs}
+            className="automation-jobs-table"
             serverSide
             pageCount={jobPagination.totalPages || 1}
             pagination={jobsTablePagination}

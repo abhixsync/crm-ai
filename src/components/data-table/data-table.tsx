@@ -192,7 +192,7 @@ export function DataTable<TData, TValue>({
                           >
                             {flexRender(header.column.columnDef.header, header.getContext())}
                             <span className="text-xs text-muted-foreground">
-                              {sortDirection === "asc" ? "↑" : sortDirection === "desc" ? "↓" : "↕"}
+                              {sortDirection === "asc" ? "^" : sortDirection === "desc" ? "v" : "<>"}
                             </span>
                           </button>
                         ) : (

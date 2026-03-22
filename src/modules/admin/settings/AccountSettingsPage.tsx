@@ -113,12 +113,12 @@ export function AccountSettingsPage() {
   }
 
   return (
-    <Card>
+    <Card className="account-settings-card">
       <CardHeader>
         <CardTitle>Organization Settings</CardTitle>
         <CardDescription>Configure tenant display names and CRM label overrides.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5 account-settings-content">
         {isSuperAdmin && (
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">

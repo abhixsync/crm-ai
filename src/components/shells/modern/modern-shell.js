@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -45,6 +45,41 @@ const icons = {
     <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+    </svg>
+  ),
+  users: (
+    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+      <circle cx="8.5" cy="7" r="4" />
+      <path d="M20 8v6" />
+      <path d="M17 11h6" />
+    </svg>
+  ),
+  tenants: (
+    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M3 21h18" />
+      <path d="M5 21V7l7-4 7 4v14" />
+      <path d="M9 9h.01" />
+      <path d="M9 13h.01" />
+      <path d="M15 9h.01" />
+      <path d="M15 13h.01" />
+    </svg>
+  ),
+  providers: (
+    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M9 7V3" />
+      <path d="M15 7V3" />
+      <path d="M9 21v-4" />
+      <path d="M15 21v-4" />
+      <rect x="5" y="7" width="14" height="10" rx="2" />
+    </svg>
+  ),
+  appearance: (
+    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M12 3a9 9 0 100 18 1.5 1.5 0 001.5-1.5 1.5 1.5 0 00-.44-1.06 1.5 1.5 0 01-.44-1.06A1.5 1.5 0 0114.12 16H16a5 5 0 000-10h-4z" />
+      <circle cx="7.5" cy="10.5" r=".5" />
+      <circle cx="12" cy="7.5" r=".5" />
+      <circle cx="16.5" cy="10.5" r=".5" />
     </svg>
   ),
   menu: (
@@ -110,6 +145,20 @@ function buildNavItems(role) {
     { key: "settings", href: "/admin/settings?type=profile", label: "Settings", icon: icons.settings, section: "Config" },
   );
 
+  if (role === "ADMIN" || role === "SUPER_ADMIN") {
+    items.push(
+      { key: "users", href: "/admin/user-management", label: "Users", icon: icons.users, section: "Config" },
+    );
+  }
+
+  if (role === "SUPER_ADMIN") {
+    items.push(
+      { key: "tenants", href: "/admin/tenants", label: "Tenants", icon: icons.tenants, section: "Admin" },
+      { key: "providers", href: "/admin/providers", label: "Providers", icon: icons.providers, section: "Admin" },
+      { key: "appearance", href: "/admin/global-appearance", label: "Appearance", icon: icons.appearance, section: "Admin" },
+    );
+  }
+
   return items;
 }
 
@@ -120,8 +169,12 @@ function getActiveKey(pathname, searchParams) {
   if (pathname.startsWith("/customers")) return "customers";
   if (pathname.startsWith("/calls")) return "calls";
   if (pathname.startsWith("/admin/automation")) return "campaigns";
-  if (pathname.startsWith("/admin/ai-system-prompt") || pathname.startsWith("/admin/providers") || pathname.startsWith("/admin/telephony-providers") || pathname.startsWith("/admin/ai-providers")) return "aiconfig";
-  if (pathname.startsWith("/admin/settings") || pathname.startsWith("/admin/user-management") || pathname.startsWith("/admin/tenants") || pathname.startsWith("/admin/global-appearance")) return "settings";
+  if (pathname.startsWith("/admin/ai-system-prompt")) return "aiconfig";
+  if (pathname.startsWith("/admin/settings")) return "settings";
+  if (pathname.startsWith("/admin/user-management")) return "users";
+  if (pathname.startsWith("/admin/tenants")) return "tenants";
+  if (pathname.startsWith("/admin/providers") || pathname.startsWith("/admin/telephony-providers") || pathname.startsWith("/admin/ai-providers")) return "providers";
+  if (pathname.startsWith("/admin/global-appearance")) return "appearance";
   return "dashboard";
 }
 
@@ -133,6 +186,10 @@ function getPageTitle(activeKey) {
     campaigns: "Campaigns",
     aiconfig: "AI Config",
     settings: "Settings",
+    users: "Users",
+    tenants: "Tenants",
+    providers: "Providers",
+    appearance: "Appearance",
   };
   return titles[activeKey] || "Dashboard";
 }
@@ -141,15 +198,15 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
   const { data: session } = useSession();
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [uiTheme, setUiTheme] = useState("dark");
-
-  // Read theme preference from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored === "light" || stored === "dark") {
-      setUiTheme(stored);
+  const [uiTheme, setUiTheme] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY);
+      if (stored === "light" || stored === "dark") {
+        return stored;
+      }
     }
-  }, []);
+    return "dark";
+  });
 
   // Apply data-ui-theme to html element
   useEffect(() => {
@@ -167,6 +224,14 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
   const user = session?.user;
   const role = user?.role || initialRole || "SALES";
   const navItems = buildNavItems(role);
+  const groupedNavItems = useMemo(
+    () =>
+      navItems.map((item, index) => ({
+        ...item,
+        showSection: index === 0 || item.section !== navItems[index - 1].section,
+      })),
+    [navItems]
+  );
 
   // Build a URLSearchParams-like object from the pathname for active detection
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
@@ -177,14 +242,6 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
   const userInitials = getInitials(userName);
   const displayBrand = brandName || "CRM AI";
   const displaySub = brandSub || "AI Sales Platform";
-
-  // Close drawer on route change
-  useEffect(() => {
-    setDrawerOpen(false);
-  }, [pathname]);
-
-  // Group nav items by section
-  let currentSection = null;
 
   return (
     <div className="ms-shell">
@@ -211,12 +268,10 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
         </div>
 
         <nav className="ms-nav">
-          {navItems.map((item) => {
-            const showSection = item.section !== currentSection;
-            if (showSection) currentSection = item.section;
+          {groupedNavItems.map((item) => {
             return (
               <div key={item.key}>
-                {showSection && (
+                {item.showSection && (
                   <div className="ms-nav-sec">{item.section}</div>
                 )}
                 <Link

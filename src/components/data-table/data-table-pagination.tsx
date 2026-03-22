@@ -24,7 +24,7 @@ export function DataTablePagination<TData>({
     <div className="themed-table-pagination flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="text-sm text-muted-foreground">
         Page {pageIndex + 1} of {Math.max(pageCount, 1)}
-        {!serverSide ? ` • ${table.getFilteredRowModel().rows.length} rows` : ""}
+        {!serverSide ? ` - ${table.getFilteredRowModel().rows.length} rows` : ""}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

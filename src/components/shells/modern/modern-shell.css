@@ -446,6 +446,477 @@ select.ms-field-inp { cursor: pointer; }
   min-height: auto;
 }
 
+/* Modern skin for feature-rich modules reused inside the modern shell */
+.ms-module-skin {
+  --background: var(--ms-bg);
+  --foreground: var(--ms-text);
+  --primary: var(--ms-accent);
+  --primary-foreground: var(--ms-bg);
+  --secondary: var(--ms-bg3);
+  --secondary-foreground: var(--ms-text);
+  --accent: var(--ms-accent);
+  --accent-foreground: var(--ms-bg);
+  --muted: var(--ms-bg3);
+  --muted-foreground: var(--ms-text2);
+  --border: var(--ms-border);
+  --input: var(--ms-border2);
+  --card: var(--ms-surface);
+  --card-foreground: var(--ms-text);
+  --destructive: var(--ms-red);
+  --destructive-foreground: #fff;
+  --button-radius: 10px;
+  --card-radius: 14px;
+  --input-radius: 10px;
+  color: var(--ms-text);
+  font-family: var(--font-geist-sans, inherit);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ms-module-skin,
+.ms-module-skin button,
+.ms-module-skin input,
+.ms-module-skin select,
+.ms-module-skin textarea,
+.ms-module-skin label,
+.ms-module-skin p,
+.ms-module-skin div,
+.ms-module-skin span,
+.ms-module-skin h1,
+.ms-module-skin h2,
+.ms-module-skin h3,
+.ms-module-skin h4,
+.ms-module-skin h5,
+.ms-module-skin h6 {
+  font-family: inherit;
+}
+
+.ms-module-skin textarea,
+.ms-module-skin select,
+.ms-module-skin details,
+.ms-module-skin summary,
+.ms-module-skin label,
+.ms-module-skin p,
+.ms-module-skin span,
+.ms-module-skin h1,
+.ms-module-skin h2,
+.ms-module-skin h3,
+.ms-module-skin h4 {
+  color: inherit;
+}
+
+.ms-module-skin textarea,
+.ms-module-skin select {
+  background: var(--ms-bg3);
+  color: var(--ms-text);
+  border: 1px solid var(--ms-border2);
+  border-radius: 10px;
+}
+
+.ms-module-skin textarea:focus,
+.ms-module-skin select:focus {
+  outline: none;
+  border-color: var(--ms-accent);
+}
+
+.ms-module-skin pre {
+  background: var(--ms-bg3) !important;
+  color: var(--ms-text2) !important;
+  border: 1px solid var(--ms-border);
+  border-radius: 10px;
+}
+
+.ms-module-skin code,
+.ms-module-skin pre,
+.ms-module-skin .font-mono,
+.ms-module-skin .ms-mono {
+  font-family: var(--font-geist-mono, monospace) !important;
+}
+
+.ms-module-skin h1,
+.ms-module-skin h2 {
+  font-size: 15px !important;
+  line-height: 1.3 !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+}
+
+.ms-module-skin h3,
+.ms-module-skin h4,
+.ms-module-skin .text-lg,
+.ms-module-skin .text-xl {
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+}
+
+.ms-module-skin .text-base {
+  font-size: 12.5px !important;
+  line-height: 1.45 !important;
+}
+
+.ms-module-skin .text-sm {
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+.ms-module-skin .text-xs {
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+}
+
+.ms-module-skin .font-medium {
+  font-weight: 500 !important;
+}
+
+.ms-module-skin .font-semibold,
+.ms-module-skin .font-bold {
+  font-weight: 600 !important;
+}
+
+.ms-module-skin input,
+.ms-module-skin select,
+.ms-module-skin textarea,
+.ms-module-skin button {
+  font-size: 12px !important;
+}
+
+.ms-module-skin input,
+.ms-module-skin select,
+.ms-module-skin textarea {
+  min-height: 36px;
+}
+
+.ms-module-skin textarea {
+  padding: 10px 12px !important;
+}
+
+.ms-module-skin button {
+  border-radius: 9px !important;
+}
+
+.ms-module-skin .space-y-6 > * + *,
+.ms-module-skin .space-y-5 > * + * {
+  margin-top: 16px !important;
+}
+
+.ms-module-skin .space-y-4 > * + * {
+  margin-top: 12px !important;
+}
+
+.ms-module-skin .space-y-3 > * + * {
+  margin-top: 10px !important;
+}
+
+.ms-module-skin .space-y-2 > * + * {
+  margin-top: 6px !important;
+}
+
+.ms-module-skin .theme-savebar {
+  background: color-mix(in srgb, var(--ms-bg2) 92%, transparent);
+  border-color: var(--ms-border);
+}
+
+.ms-module-frame {
+  position: relative;
+}
+
+.ms-module-frame > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ms-module-skin .account-settings-card,
+.ms-module-skin .my-account-settings-card,
+.ms-module-skin .my-account-password-card,
+.ms-module-skin .loan-assistant-card,
+.ms-module-skin .loan-assistant-quick-actions-card,
+.ms-module-skin .theme-editor-main,
+.ms-module-skin .theme-editor-preview-card,
+.ms-module-skin .automation-admin-root,
+.ms-calls-panel-module > .border {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ms-surface) 96%, var(--ms-bg2)) 0%, var(--ms-surface) 100%) !important;
+  border-color: var(--ms-border) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+}
+
+.ms-module-skin .account-settings-content,
+.ms-module-skin .theme-editor-content {
+  gap: 18px;
+}
+
+.ms-module-skin .themed-table {
+  border-radius: 18px !important;
+  border-color: var(--ms-border) !important;
+  background: color-mix(in srgb, var(--ms-surface) 94%, var(--ms-bg2)) !important;
+  overflow: hidden;
+}
+
+.ms-module-skin .themed-table thead,
+.ms-module-skin .themed-table tr,
+.ms-module-skin .themed-table tbody,
+.ms-module-skin .themed-table th,
+.ms-module-skin .themed-table td {
+  border-color: var(--ms-border) !important;
+}
+
+.ms-module-skin .themed-table th {
+  background: color-mix(in srgb, var(--ms-bg2) 76%, var(--ms-surface)) !important;
+  color: var(--ms-text3) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ms-module-skin .themed-table td {
+  color: var(--ms-text) !important;
+}
+
+.ms-module-skin .themed-table tbody tr:hover td {
+  background: var(--ms-bg2) !important;
+}
+
+.ms-module-skin .themed-table-pagination {
+  border-color: var(--ms-border) !important;
+  padding-top: 14px;
+}
+
+.ms-module-skin .theme-editor-layout {
+  align-items: start;
+}
+
+.ms-module-skin .theme-editor-section,
+.ms-module-skin .theme-editor-callout,
+.ms-module-skin .loan-assistant-token-list,
+.ms-module-skin .loan-assistant-language-option,
+.ms-module-skin .automation-status-picker,
+.ms-module-skin .calls-manual-disposition,
+.ms-module-skin .calls-provider-notice,
+.ms-module-skin .calls-debug-panel,
+.ms-calls-panel-module .rounded-md.border {
+  background: color-mix(in srgb, var(--ms-surface) 90%, var(--ms-bg2)) !important;
+  border-color: var(--ms-border) !important;
+  border-radius: 16px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ms-module-skin .theme-editor-pill {
+  border: 1px solid transparent;
+}
+
+.ms-module-skin .theme-editor-pill-custom {
+  background: color-mix(in srgb, var(--ms-blue) 16%, var(--ms-surface)) !important;
+  border-color: color-mix(in srgb, var(--ms-blue) 32%, var(--ms-border));
+  color: var(--ms-blue) !important;
+}
+
+.ms-module-skin .theme-editor-pill-inherited {
+  background: color-mix(in srgb, var(--ms-bg3) 85%, var(--ms-surface)) !important;
+  border-color: var(--ms-border);
+  color: var(--ms-text2) !important;
+}
+
+.ms-module-skin .theme-editor-pill-warning,
+.ms-module-skin .theme-editor-callout-warning {
+  background: color-mix(in srgb, var(--ms-amber) 12%, var(--ms-surface)) !important;
+  border-color: color-mix(in srgb, var(--ms-amber) 28%, var(--ms-border)) !important;
+  color: color-mix(in srgb, var(--ms-amber) 86%, var(--ms-text)) !important;
+}
+
+.ms-module-skin .theme-editor-live-preview {
+  border-radius: 20px !important;
+  border-color: color-mix(in srgb, var(--ms-border) 88%, var(--ms-accent)) !important;
+  overflow: hidden;
+}
+
+.ms-module-skin .theme-editor-preview-panel {
+  border-radius: 16px !important;
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.08);
+}
+
+.ms-module-skin .theme-editor-asset-preview img {
+  border-color: var(--ms-border2) !important;
+  background: var(--ms-bg2);
+}
+
+.ms-module-skin .theme-editor-savebar {
+  background: color-mix(in srgb, var(--ms-bg2) 92%, transparent);
+  border-color: var(--ms-border) !important;
+  box-shadow: 0 -18px 36px rgba(15, 23, 42, 0.08);
+}
+
+.ms-module-skin .loan-assistant-alert {
+  background: color-mix(in srgb, var(--ms-red) 12%, var(--ms-surface)) !important;
+  border-color: color-mix(in srgb, var(--ms-red) 24%, var(--ms-border)) !important;
+}
+
+.ms-module-skin .loan-assistant-form-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ms-module-skin .loan-assistant-span-full {
+  grid-column: 1 / -1;
+}
+
+.ms-module-skin .loan-assistant-token-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ms-module-skin .loan-assistant-token-list > div {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--ms-border);
+  background: var(--ms-bg2);
+  color: var(--ms-text);
+}
+
+.ms-module-skin .loan-assistant-language-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.ms-module-skin .loan-assistant-language-option-active {
+  background: color-mix(in srgb, var(--ms-accent) 12%, var(--ms-surface)) !important;
+  border-color: color-mix(in srgb, var(--ms-accent) 36%, var(--ms-border)) !important;
+}
+
+.ms-module-skin .loan-assistant-quick-actions .inline-flex {
+  min-height: 42px;
+  justify-content: flex-start;
+}
+
+.ms-module-skin .automation-settings-grid > label,
+.ms-module-skin .automation-settings-grid > div {
+  padding: 14px 16px;
+  border: 1px solid var(--ms-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ms-surface) 92%, var(--ms-bg2));
+}
+
+.ms-module-skin .automation-select,
+.ms-module-skin .automation-runtime-chip,
+.ms-calls-panel-module select {
+  background: var(--ms-bg2) !important;
+  border-color: var(--ms-border2) !important;
+  color: var(--ms-text) !important;
+  border-radius: 12px !important;
+}
+
+.ms-module-skin .automation-runtime-chip {
+  color: var(--ms-accent-txt) !important;
+  background: color-mix(in srgb, var(--ms-accent) 12%, var(--ms-surface)) !important;
+}
+
+.ms-module-skin .automation-actions {
+  padding-top: 4px;
+}
+
+.ms-module-skin .automation-health-tile {
+  border-radius: 16px !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ms-surface) 96%, var(--ms-bg2)) 0%, color-mix(in srgb, var(--ms-surface) 92%, var(--ms-bg2)) 100%) !important;
+  border-color: var(--ms-border) !important;
+}
+
+.ms-calls-panel-module > .border {
+  padding: 22px !important;
+}
+
+.ms-calls-panel-module input,
+.ms-calls-panel-module select,
+.ms-calls-history-module input,
+.ms-calls-history-module select {
+  background: var(--ms-bg2) !important;
+}
+
+.ms-calls-history-module {
+  border-radius: 20px;
+}
+
+.ms-calls-history-module .ms-card-hd {
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--ms-border);
+}
+
+.ms-calls-history-module .calls-history-filters {
+  gap: 8px;
+}
+
+.ms-module-skin button:not(.ms-tab):not(.ms-chip) {
+  box-shadow: none !important;
+}
+
+.ms-module-skin [class*="bg-slate-"],
+.ms-module-skin [class*="bg-white"],
+.ms-module-skin [class*="bg-muted"] {
+  background-color: var(--ms-surface) !important;
+}
+
+.ms-module-skin [class*="border-slate-"],
+.ms-module-skin [class*="border-border"],
+.ms-module-skin [class*="border-muted"],
+.ms-module-skin [class*="border-blue-"],
+.ms-module-skin [class*="border-amber-"],
+.ms-module-skin [class*="border-red-"] {
+  border-color: var(--ms-border) !important;
+}
+
+.ms-module-skin .text-slate-900,
+.ms-module-skin .text-slate-800,
+.ms-module-skin .text-slate-700,
+.ms-module-skin .text-foreground {
+  color: var(--ms-text) !important;
+}
+
+.ms-module-skin .text-slate-600,
+.ms-module-skin .text-slate-500,
+.ms-module-skin .text-slate-400,
+.ms-module-skin .text-muted-foreground {
+  color: var(--ms-text2) !important;
+}
+
+.ms-module-skin .theme-editor-callout,
+.ms-module-skin .theme-editor-callout-warning,
+.ms-module-skin .loan-assistant-token-list,
+.ms-module-skin .loan-assistant-language-option,
+.ms-module-skin .loan-assistant-language-option-active,
+.ms-module-skin .automation-status-picker,
+.ms-module-skin .calls-manual-disposition,
+.ms-module-skin .calls-provider-notice,
+.ms-module-skin .calls-debug-panel,
+.ms-calls-panel-module .rounded-md.border {
+  background: color-mix(in srgb, var(--ms-surface) 90%, var(--ms-bg2)) !important;
+}
+
+.ms-module-skin .loan-assistant-language-option-active {
+  background: color-mix(in srgb, var(--ms-accent) 12%, var(--ms-surface)) !important;
+}
+
+.ms-module-skin .theme-editor-callout-warning {
+  background: color-mix(in srgb, var(--ms-amber) 12%, var(--ms-surface)) !important;
+}
+
+.ms-module-skin .loan-assistant-alert {
+  background: color-mix(in srgb, var(--ms-red) 12%, var(--ms-surface)) !important;
+}
+
+.ms-field-area {
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.7;
+}
+
+@media (max-width: 900px) {
+  .ms-module-skin .loan-assistant-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Pagination */
 .ms-pagination {
   display: flex; align-items: center; justify-content: center; gap: 8px;
