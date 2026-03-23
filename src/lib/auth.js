@@ -46,12 +46,19 @@ export const authOptions = {
           return null;
         }
 
+        if (user.isSuspended) {
+          throw new Error("SUSPENDED");
+        }
+
         return {
           id: user.id,
           name: user.name,
           email: user.email,
           role: user.role,
           tenantId: user.tenantId || null,
+          isPrimaryOwner: user.isPrimaryOwner ?? false,
+          isSuspended: user.isSuspended ?? false,
+          emailVerified: user.emailVerified ? user.emailVerified.toISOString() : null,
         };
       },
     }),
@@ -62,6 +69,9 @@ export const authOptions = {
         token.userId = user.id;
         token.role = user.role;
         token.tenantId = user.tenantId || null;
+        token.isPrimaryOwner = user.isPrimaryOwner ?? false;
+        token.isSuspended = user.isSuspended ?? false;
+        token.emailVerified = user.emailVerified || null;
       }
 
       return token;
@@ -71,6 +81,9 @@ export const authOptions = {
         session.user.id = token.userId;
         session.user.role = token.role;
         session.user.tenantId = token.tenantId || null;
+        session.user.isPrimaryOwner = token.isPrimaryOwner ?? false;
+        session.user.isSuspended = token.isSuspended ?? false;
+        session.user.emailVerified = token.emailVerified || null;
       }
 
       return session;

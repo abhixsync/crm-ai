@@ -1,6 +1,7 @@
 import { CallStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
+import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 import { runAIWithFailover } from "@/lib/ai/provider-router";
 import { initiateTelephonyCallWithFailover } from "@/lib/telephony/provider-router";
 import { logTelephony, redactedPhone } from "@/lib/telephony/logger";
@@ -53,6 +54,16 @@ export async function POST(request) {
 
   if (!customerId) {
     return Response.json({ error: "customerId is required" }, { status: 400 });
+  }
+
+  const { tenantId } = getTenantContext(auth.session);
+  try {
+    const guard = await getPlanGuard(tenantId);
+    guard.assertHasFeature("hasAiCalling");
+    guard.assertCanMakeAiCall();
+  } catch (err) {
+    if (isPlanLimitError(err)) return planLimitResponse(err);
+    throw err;
   }
 
   let customer;

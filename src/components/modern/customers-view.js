@@ -328,7 +328,7 @@ export function ModernCustomersView({
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
           >
-            <option value="">All statuses</option>
+            <option value="">All</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
           <button className="ms-btn ms-btn-pri" onClick={startCreate}>+ Add</button>

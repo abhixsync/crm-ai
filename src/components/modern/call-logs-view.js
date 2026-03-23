@@ -53,7 +53,7 @@ export function ModernCallLogsView({ callLogs }) {
   }, [callLogs, filter]);
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div className="ms-card">
         <div className="ms-card-hd">
           <span className="ms-card-title">Call logs</span>

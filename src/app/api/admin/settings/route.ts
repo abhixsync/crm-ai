@@ -32,6 +32,7 @@ export async function GET(request: Request) {
         loanAssistantHumanAdvisorName: true,
         loanAssistantCallbackPhone: true,
         loanAssistantNotificationEmail: true,
+        uiLanguage: true,
       },
     });
 
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
         humanAdvisorName: tenant?.loanAssistantHumanAdvisorName || null,
         callbackPhone: tenant?.loanAssistantCallbackPhone || null,
         notificationEmail: tenant?.loanAssistantNotificationEmail || null,
+        uiLanguage: tenant?.uiLanguage || "en",
       },
       // Legacy compat
       crmName: tenant?.crmName || null,
@@ -117,6 +119,9 @@ export async function PUT(request: Request) {
     }
     if (payload?.notificationEmail !== undefined) {
       updateData.loanAssistantNotificationEmail = String(payload.notificationEmail || "").trim() || null;
+    }
+    if (payload?.uiLanguage !== undefined) {
+      updateData.uiLanguage = String(payload.uiLanguage || "en").trim();
     }
 
     if (Object.keys(updateData).length === 0) {

@@ -58,7 +58,7 @@ export function ModernCampaignsView() {
   const completedPct = total > 0 ? Math.round(((queue.completed || 0) / total) * 100) : 0;
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Metric tiles */}
       <div className="ms-metrics">
         <div className="ms-m-tile">

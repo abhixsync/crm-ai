@@ -8,7 +8,6 @@ import { toast } from "sonner";
 const TABS = [
   { key: "profile", label: "My Profile" },
   { key: "account", label: "Organization" },
-  { key: "theme", label: "Theme" },
   { key: "loan", label: "Loan Assistant" },
   { key: "ui-settings", label: "UI Settings", superAdminOnly: true },
 ];
@@ -87,7 +86,7 @@ export function ModernSettingsView({ initialRole, initialLayout }) {
   };
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Tabs */}
       <div className="ms-card">
         <div className="ms-tabs">
@@ -200,22 +199,8 @@ export function ModernSettingsView({ initialRole, initialLayout }) {
         <div className="ms-empty">Loading settings…</div>
       )}
 
-      {activeTab === "theme" && (
-        <div className="ms-card" style={{ padding: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 10 }}>Theme Settings</div>
-          <p style={{ fontSize: 12, color: "var(--ms-text2)" }}>
-            Theme customization is available in the classic settings view. Use the UI Settings to switch layouts.
-          </p>
-        </div>
-      )}
-
       {activeTab === "loan" && (
-        <div className="ms-card" style={{ padding: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 10 }}>Loan Assistant</div>
-          <p style={{ fontSize: 12, color: "var(--ms-text2)" }}>
-            Loan assistant configuration is available in the classic settings view.
-          </p>
-        </div>
+        <LoanAssistantPanel session={session} />
       )}
 
       {activeTab === "ui-settings" && isSuperAdmin && (
@@ -250,6 +235,108 @@ function TenantField({ label, field, value, onSave, disabled }) {
             onClick={() => { onSave(field, val); setDirty(false); }}
             disabled={disabled}
           >
+            Save
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const LANG_OPTIONS = [
+  { value: "english", label: "English" },
+  { value: "hindi", label: "Hindi" },
+  { value: "hinglish", label: "Hinglish" },
+];
+
+function LoanAssistantPanel({ session }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [tenantId, setTenantId] = useState(null);
+
+  const loadSettings = useCallback(async () => {
+    setLoading(true);
+    try {
+      let tid = session?.user?.tenantId;
+      if (!tid) {
+        const tRes = await fetch("/api/tenant/super-admin-tenant");
+        const tData = await tRes.json();
+        if (tData.success && tData.data?.id) tid = tData.data.id;
+        else { setLoading(false); return; }
+      }
+      setTenantId(tid);
+      const res = await fetch("/api/tenant/loan-assistant-settings", { headers: { "X-Tenant-ID": tid } });
+      const json = await res.json();
+      if (json.success && json.data) setData(json.data);
+    } catch { toast.error("Failed to load loan settings"); }
+    finally { setLoading(false); }
+  }, [session]);
+
+  useEffect(() => { loadSettings(); }, [loadSettings]);
+
+  const saveField = async (field, value) => {
+    if (!tenantId) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/tenant/loan-assistant-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-Tenant-ID": tenantId },
+        body: JSON.stringify({ [field]: value }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setData(json.data);
+        toast.success("Setting saved");
+      } else toast.error(json.error || "Failed to save");
+    } catch { toast.error("Failed to save"); }
+    finally { setSaving(false); }
+  };
+
+  if (loading) return <div className="ms-empty">Loading loan assistant settings...</div>;
+  if (!data) return <div className="ms-empty">Unable to load loan assistant settings.</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="ms-card" style={{ padding: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>Loan Assistant Configuration</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <TenantField label="Company Name" field="loanAssistantCompanyName" value={data.loanAssistantCompanyName} onSave={saveField} disabled={saving} />
+          <TenantField label="AI Agent Name" field="aiAgentName" value={data.aiAgentName} onSave={saveField} disabled={saving} />
+          <TenantField label="Human Advisor Name" field="loanAssistantHumanAdvisorName" value={data.loanAssistantHumanAdvisorName} onSave={saveField} disabled={saving} />
+          <TenantField label="Callback Phone" field="loanAssistantCallbackPhone" value={data.loanAssistantCallbackPhone} onSave={saveField} disabled={saving} />
+          <TenantField label="Notification Email" field="loanAssistantNotificationEmail" value={data.loanAssistantNotificationEmail} onSave={saveField} disabled={saving} />
+        </div>
+      </div>
+
+      <div className="ms-card" style={{ padding: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>Language</div>
+        <LoanLanguageField value={data.loanAssistantLanguage} onSave={(v) => saveField("loanAssistantLanguage", v)} disabled={saving} />
+      </div>
+    </div>
+  );
+}
+
+function LoanLanguageField({ value, onSave, disabled }) {
+  const [val, setVal] = useState(value || "hinglish");
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => { setVal(value || "hinglish"); setDirty(false); }, [value]);
+
+  return (
+    <div className="ms-field">
+      <div className="ms-field-lbl">Conversation Language</div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <select
+          className="ms-field-inp"
+          value={val}
+          onChange={(e) => { setVal(e.target.value); setDirty(true); }}
+        >
+          {LANG_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        {dirty && (
+          <button className="ms-btn ms-btn-pri" style={{ flexShrink: 0, padding: "6px 12px" }}
+            onClick={() => { onSave(val); setDirty(false); }} disabled={disabled}>
             Save
           </button>
         )}

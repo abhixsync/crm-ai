@@ -8,8 +8,8 @@ import { ShellContextProvider } from "@/components/shells/shell-context";
 export function ShellWrapper({ uiLayout, brandName, brandSub, logoUrl, tenantName, initialRole, children }) {
   const pathname = usePathname();
 
-  // No shell on login page
-  if (pathname === "/login") {
+  // No shell on login / register / verify-email pages
+  if (pathname === "/login" || pathname === "/register" || pathname === "/verify-email") {
     return <ShellContextProvider layout="none">{children}</ShellContextProvider>;
   }
 

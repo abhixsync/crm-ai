@@ -4,6 +4,7 @@ import {
   listUsers,
 } from "@/lib/users/user-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 
 export async function GET() {
   const auth = await requireSession();
@@ -43,6 +44,11 @@ export async function POST(request) {
       return Response.json({ error: "SUPER_ADMIN role assignment is not allowed." }, { status: 400 });
     }
 
+    if (!tenant.isSuperAdmin) {
+      const guard = await getPlanGuard(tenant.tenantId);
+      guard.assertCanAddUser();
+    }
+
     const user = await createUser(payload, auth.session.user.id, tenant.tenantId);
     return Response.json({ user }, { status: 201 });
   } catch (error) {
@@ -51,6 +57,7 @@ export async function POST(request) {
       return databaseUnavailableResponse();
     }
 
+    if (isPlanLimitError(error)) return planLimitResponse(error);
     return Response.json({ error: error?.message || "Unable to create user." }, { status: 400 });
   }
 }

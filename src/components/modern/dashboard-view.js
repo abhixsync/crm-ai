@@ -160,7 +160,7 @@ export function ModernDashboardView({
   const campPct = campTotal > 0 ? Math.round((campCompleted / campTotal) * 100) : 0;
 
   return (
-    <div className="ms-pane" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* ── 4 Metric Tiles ── */}
       <div className="ms-metrics">
         <div className="ms-m-tile">

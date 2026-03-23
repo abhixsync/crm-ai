@@ -46,11 +46,11 @@ export const SYSTEM_THEME_DEFAULT = {
   // 🌙 Dark Mode
   darkMode: false,
 
-  // 🖼️ Assets (null - will fallback to system assets)
-  logoUrl: null,
-  faviconUrl: null,
-  loginBackgroundUrl: null,
-  applicationBackgroundUrl: null,
+  // 🖼️ Assets — point to bundled defaults so every tenant gets branding out-of-the-box
+  logoUrl: "/theme/defaults/logo.svg",
+  faviconUrl: "/theme/defaults/favicon.svg",
+  loginBackgroundUrl: "/theme/defaults/login-background.svg",
+  applicationBackgroundUrl: null, // null → CSS gradient fallback (cleaner for in-app use)
 
   // 🎨 Custom CSS
   customCss: null,

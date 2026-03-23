@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 
 export async function GET(request) {
   const auth = await requireSession();
@@ -103,6 +104,9 @@ export async function POST(request) {
   }
 
   try {
+    const guard = await getPlanGuard(tenantId);
+    guard.assertCanAddCustomer();
+
     const existing = await prisma.customer.findFirst({ where: { tenantId, phone: String(body.phone) } });
 
     if (existing && !existing.archivedAt) {
@@ -168,6 +172,7 @@ export async function POST(request) {
       return databaseUnavailableResponse();
     }
 
+    if (isPlanLimitError(error)) return planLimitResponse(error);
     return Response.json({ error: "Unable to create customer. Phone may already exist." }, { status: 400 });
   }
 }

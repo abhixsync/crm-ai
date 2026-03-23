@@ -112,7 +112,7 @@ export default async function RootLayout({ children }) {
             preventing a flash when the user's preference differs from the default. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('ms-ui-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-ui-theme',t);}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('ms-ui-theme')||'dark';document.documentElement.setAttribute('data-ui-theme',t);}catch(e){document.documentElement.setAttribute('data-ui-theme','dark');}})();`,
           }}
         />
       </head>

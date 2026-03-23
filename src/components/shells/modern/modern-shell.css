@@ -1,44 +1,141 @@
 /* ═══════════════════ UI2 MODERN SHELL ═══════════════════ */
-/* Ported from crm-ai.html - sidebar + topbar layout      */
+/* Design tokens from crm-ai-updated.html                 */
+
+/* ─── NAV LOADING INDICATORS ─── */
+.ms-nav-progress {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  height: 3px; background: var(--ms-accent);
+  animation: ms-progress 1.8s ease-in-out infinite;
+  transform-origin: left;
+}
+@keyframes ms-progress {
+  0%   { transform: scaleX(0); opacity: 1; }
+  50%  { transform: scaleX(.7); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+.ms-nav-btn.pending {
+  background: var(--ms-accent-dim); color: var(--ms-accent-txt);
+  opacity: .75;
+}
+.ms-nav-spinner {
+  margin-left: auto; width: 14px; height: 14px;
+  border: 2px solid var(--ms-accent-txt); border-top-color: transparent;
+  border-radius: 50%; animation: ms-spin .6s linear infinite; flex-shrink: 0;
+}
+@keyframes ms-spin {
+  to { transform: rotate(360deg); }
+}
+.ms-skeleton {
+  background: linear-gradient(90deg, var(--ms-bg3) 25%, var(--ms-bg4) 50%, var(--ms-bg3) 75%);
+  background-size: 200% 100%;
+  animation: ms-shimmer 1.5s infinite;
+}
+@keyframes ms-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 
 /* ═══════════════════ THEMES ═══════════════════ */
 [data-ui-theme="dark"] {
-  --ms-bg:        #0e0f11;
-  --ms-bg2:       #141518;
-  --ms-bg3:       #1a1c20;
-  --ms-bg4:       #222428;
-  --ms-surface:   #1e2025;
-  --ms-border:    rgba(255,255,255,0.07);
-  --ms-border2:   rgba(255,255,255,0.12);
-  --ms-text:      #f0f0ee;
-  --ms-text2:     #8a8a88;
-  --ms-text3:     #555553;
-  --ms-accent:    #22c993;
-  --ms-accent-dim:#0d3d2a;
-  --ms-accent-txt:#6ee7b7;
-  --ms-red:       #f25858;
-  --ms-amber:     #f5a623;
-  --ms-blue:      #4f9cf9;
-  --ms-purple:    #a78bfa;
+  /* Warm midnight — hint of violet, not cold blue-black */
+  --ms-bg:        #0B0A0F;
+  --ms-bg2:       #110F17;
+  --ms-bg3:       #1A1820;
+  --ms-bg4:       #22202A;
+  --ms-surface:   #161420;
+  /* Warm-tinted borders — not cold white-alpha */
+  --ms-border:    rgba(200,190,255,.06);
+  --ms-border2:   rgba(200,190,255,.12);
+  --ms-border3:   rgba(200,190,255,.22);
+  /* Warm whites */
+  --ms-text:      #ECEAE8;
+  --ms-text2:     #7E7B84;
+  --ms-text3:     #46434E;
+  /* Vivid teal accent */
+  --ms-accent:    #1DE9A8;
+  --ms-accent2:   #17C98E;
+  --ms-accent-dim:#0B2D21;
+  --ms-accent-txt:#4EDBA8;
+  --ms-red:       #F25757;
+  --ms-red-dim:   #2D1014;
+  --ms-amber:     #F5A623;
+  --ms-amber-dim: #2A1C08;
+  --ms-blue:      #4F9CF9;
+  --ms-blue-dim:  #0D2348;
+  --ms-purple:    #A78BFA;
+  --ms-purple-dim:#1E1040;
 }
+
+[data-ui-theme="dark"] .ms-sb {
+  background: linear-gradient(180deg, #100E18 0%, #0E0C16 100%);
+}
+[data-ui-theme="dark"] .ms-topbar {
+  background: linear-gradient(90deg, #110F17 0%, #100E1C 100%);
+}
+[data-ui-theme="dark"] .ms-brand-mark {
+  box-shadow: 0 0 16px rgba(29,233,168,.35);
+}
+[data-ui-theme="dark"] .ms-nav-btn.active {
+  background: rgba(29,233,168,.12);
+  color: #1DE9A8;
+}
+[data-ui-theme="dark"] .ms-nav-btn.active:hover {
+  background: rgba(29,233,168,.16);
+}
+[data-ui-theme="dark"] .ms-nav-btn:hover {
+  background: rgba(200,190,255,.06);
+  color: var(--ms-text);
+}
+
 [data-ui-theme="light"] {
-  --ms-bg:        #f4f4f0;
-  --ms-bg2:       #eeede9;
-  --ms-bg3:       #e8e7e2;
-  --ms-bg4:       #dddcd7;
-  --ms-surface:   #ffffff;
-  --ms-border:    rgba(0,0,0,0.07);
-  --ms-border2:   rgba(0,0,0,0.13);
-  --ms-text:      #111110;
-  --ms-text2:     #6b6b67;
-  --ms-text3:     #b0b0ac;
-  --ms-accent:    #0ea86b;
-  --ms-accent-dim:#dcf5ec;
-  --ms-accent-txt:#0a6b45;
-  --ms-red:       #d94040;
-  --ms-amber:     #c47f00;
-  --ms-blue:      #2563eb;
-  --ms-purple:    #7c3aed;
+  /* Warm cream */
+  --ms-bg:        #F2EFE9;
+  --ms-bg2:       #E9E5DE;
+  --ms-bg3:       #DDD9D1;
+  --ms-bg4:       #D0CCC3;
+  --ms-surface:   #FDFCF9;
+  /* Warm brown-tinted borders */
+  --ms-border:    rgba(55,45,30,.09);
+  --ms-border2:   rgba(55,45,30,.16);
+  --ms-border3:   rgba(55,45,30,.28);
+  /* Dark warm text */
+  --ms-text:      #1A1714;
+  --ms-text2:     #6B6560;
+  --ms-text3:     #B0A99F;
+  /* Richer emerald */
+  --ms-accent:    #059669;
+  --ms-accent2:   #047857;
+  --ms-accent-dim:#C6F0DF;
+  --ms-accent-txt:#065F46;
+  --ms-red:       #DC2626;
+  --ms-red-dim:   #FECACA;
+  --ms-amber:     #D97706;
+  --ms-amber-dim: #FDE68A;
+  --ms-blue:      #2563EB;
+  --ms-blue-dim:  #BFDBFE;
+  --ms-purple:    #7C3AED;
+  --ms-purple-dim:#DDD6FE;
+}
+
+[data-ui-theme="light"] .ms-sb {
+  background: #EAE6DF;
+  border-right: 1px solid rgba(55,45,30,.12);
+}
+[data-ui-theme="light"] .ms-topbar {
+  background: #EAE6DF;
+  border-bottom: 1px solid rgba(55,45,30,.12);
+}
+[data-ui-theme="light"] .ms-nav-btn.active {
+  background: #D4EEE3;
+  color: #065F46;
+}
+[data-ui-theme="light"] .ms-nav-btn:hover {
+  background: #DDD9D2;
+  color: var(--ms-text);
+}
+[data-ui-theme="light"] .ms-tbl th,
+[data-ui-theme="light"] .ms-cust-cols {
+  background: #EDE9E2;
 }
 
 /* ═══════════════════ LAYOUT SHELL ═══════════════════ */
@@ -148,6 +245,26 @@
   display: flex; flex-direction: column; gap: 20px;
 }
 
+/* ─── INPUTS ─── */
+.ms-input, .ms-select {
+  width: 100%; padding: 8px 12px; border-radius: 7px;
+  font-size: 13px; font-family: inherit;
+  background: var(--ms-bg3); color: var(--ms-text);
+  border: 1px solid var(--ms-border);
+  transition: border-color .15s, box-shadow .15s;
+  outline: none;
+}
+.ms-input:focus, .ms-select:focus {
+  border-color: var(--ms-accent);
+  box-shadow: 0 0 0 2px rgba(29,233,168,.15);
+}
+.ms-input::placeholder { color: var(--ms-text3); }
+.ms-select { cursor: pointer; appearance: none; }
+.ms-field-label {
+  display: block; font-size: 12px; font-weight: 500;
+  color: var(--ms-text2); margin-bottom: 6px;
+}
+
 /* ─── BUTTONS ─── */
 .ms-btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -173,6 +290,25 @@
 .ms-theme-toggle:hover { background: var(--ms-bg3); color: var(--ms-text); }
 .ms-theme-toggle svg { width: 14px; height: 14px; }
 
+/* ─── LANGUAGE DROPDOWN ─── */
+.ms-lang-dropdown {
+  position: absolute; top: 40px; right: 0; z-index: 100;
+  background: var(--ms-surface); border: 1px solid var(--ms-border);
+  border-radius: 10px; padding: 6px; min-width: 180;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ms-lang-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 6px; border: none;
+  background: transparent; color: var(--ms-text2);
+  font-size: 13px; cursor: pointer; font-family: inherit;
+  text-align: left; width: 100%;
+  transition: background .1s;
+}
+.ms-lang-option:hover { background: var(--ms-bg3); color: var(--ms-text); }
+.ms-lang-option.active { background: var(--ms-accent-dim); color: var(--ms-accent-txt); }
+
 /* ─── CARDS ─── */
 .ms-card {
   background: var(--ms-surface);
@@ -180,10 +316,7 @@
   border-radius: 12px;
   overflow: hidden;
   transition: background .25s;
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 0%;
-  min-height: 0;
+  flex-shrink: 0;
 }
 .ms-card-hd {
   padding: 14px 20px; border-bottom: 1px solid var(--ms-border);
@@ -474,7 +607,13 @@ select.ms-field-inp { cursor: pointer; }
   background: var(--ms-surface); border: 1px solid var(--ms-border);
   border-radius: 12px; padding: 32px 28px;
   transition: background .25s;
+  backdrop-filter: blur(12px);
 }
+.ms-login-logo {
+  width: 44px; height: 44px; margin: 0 auto 18px;
+  border-radius: 10px; overflow: hidden;
+}
+.ms-login-logo img { width: 100%; height: 100%; object-fit: cover; }
 .ms-login-title {
   font-size: 18px; font-weight: 600; color: var(--ms-text);
   letter-spacing: -.02em; margin-bottom: 4px;
@@ -499,3 +638,7 @@ select.ms-field-inp { cursor: pointer; }
 }
 .ms-login-btn:hover { opacity: .88; }
 .ms-login-btn:disabled { opacity: .5; cursor: wait; }
+/* When login has a background image, make the card slightly translucent */
+.ms-login[style*="background-image"] .ms-login-card {
+  background: color-mix(in srgb, var(--ms-surface) 88%, transparent);
+}

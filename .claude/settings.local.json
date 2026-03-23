@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma:*)",
+      "Bash(curl -s http://localhost:3000 -o /dev/null -w \"%{http_code}\")",
+      "Bash(for f:*)",
+      "Bash(do sed:*)",
+      "Bash(done)",
+      "Bash(grep -r \"i18n\\\\|i18next\\\\|translation\\\\|locale\\\\|language\" C:WorkLearncrm-ai --include=*.json --include=*.js --include=*.jsx --include=*.ts --include=*.tsx)",
+      "Bash(npx tsc:*)",
+      "Bash(ls -la /c/Work/Learn/crm-ai/tailwind.config.*)",
+      "Bash(ls -la /c/Work/Learn/crm-ai/.env*)",
+      "Bash(ls -la /c/Work/Learn/crm-ai/src/middleware*)",
+      "Bash(ls -la /c/Work/Learn/crm-ai/src/components/modern/*.js)"
+    ]
+  }
+}

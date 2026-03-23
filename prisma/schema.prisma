@@ -7,9 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//////////////////////////////////////////////////////
-// ENUMS (UNCHANGED)
-//////////////////////////////////////////////////////
+// ─── ENUMS ──────────────────────────────────────────────
 
 enum UserRole {
   SUPER_ADMIN
@@ -44,10 +42,24 @@ enum CallStatus {
   COMPLETED
 }
 
+// FIX: was stringly-typed String @default("AI")
+enum CallMode {
+  AI
+  HUMAN
+  RECORDED
+}
+
 enum TaskStatus {
   OPEN
   DONE
   CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }
 
 enum AiProviderType {
@@ -73,142 +85,304 @@ enum CampaignJobStatus {
   SKIPPED
 }
 
-//////////////////////////////////////////////////////
-// 🏢 TENANT — CORE SAAS MODEL
-//////////////////////////////////////////////////////
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum CampaignType {
+  OUTBOUND_CALL
+  SMS_BLAST
+  EMAIL_BLAST
+  MIXED
+}
+
+enum DealStage {
+  NEW
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum MessageChannel {
+  SMS
+  WHATSAPP
+  EMAIL
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum NotificationType {
+  STATUS_CHANGE
+  CAMPAIGN_UPDATE
+  TASK_OVERDUE
+  UPLOAD_COMPLETE
+  REVIEW_FLAGGED
+  DEAL_UPDATE
+  SYSTEM
+}
+
+enum ReviewResolution {
+  INTERESTED
+  NOT_INTERESTED
+  FOLLOW_UP
+  DISMISSED
+}
+
+// FIX: was stringly-typed "customer_request" | "import" | "ai_flag" | "manual"
+enum DncSource {
+  CUSTOMER_REQUEST
+  IMPORT
+  AI_FLAG
+  MANUAL
+}
+
+// FIX: was stringly-typed "lead" | "member"
+enum TeamMemberRole {
+  LEAD
+  MEMBER
+}
+
+// FIX: was stringly-typed "customer" | "deal"
+enum CustomFieldEntityType {
+  CUSTOMER
+  DEAL
+}
+
+// FIX: was stringly-typed "text" | "number" | "date" | "select" | "boolean"
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+  BOOLEAN
+}
+
+// FIX: was stringly-typed "user" | "ai" | "system"
+enum ActivityActorType {
+  USER
+  AI
+  SYSTEM
+}
+
+// FIX: was stringly-typed "call" | "note" | "status_change" | ...
+enum ActivityType {
+  CALL
+  NOTE
+  STATUS_CHANGE
+  TASK
+  EMAIL
+  SMS
+  DEAL_UPDATE
+  DOCUMENT_UPLOAD
+  TAG_ADDED
+  TAG_REMOVED
+}
+
+// ─── SUBSCRIPTION ENUMS ─────────────────────────────────
+
+enum SubscriptionPlan {
+  FREE
+  PLUS
+  PRO
+  MAX
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+  SUSPENDED
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum BillingProvider {
+  STRIPE
+  RAZORPAY
+}
+
+// FIX: was stringly-typed "paid" | "unpaid" | "void"
+enum InvoiceStatus {
+  PAID
+  UNPAID
+  VOID
+}
+
+// FIX: was stringly-typed "plan_downgrade" | "manual"
+enum SuspendedReason {
+  PLAN_DOWNGRADE
+  MANUAL
+  PAYMENT_FAILED
+  ACCOUNT_VIOLATION
+}
+
+// ─── TENANT ────────────────────────────────────────────
 
 model Tenant {
-  id            String   @id @default(cuid())
-  name          String
-  slug          String   @unique
-  crmName       String?  // Override for CRM display name
-  aiAgentName   String   @default("Priya") // Configurable AI agent name
-  loanAssistantCompanyName String? // Company name for loan assistant (fallback: tenant.name)
-  loanAssistantHumanAdvisorName String @default("John Doe") // Human advisor name announced in interested closing handoff
-  loanAssistantCallbackPhone String? // Tenant-specific callback phone for loan assistant closing message and WhatsApp notifications
-  loanAssistantNotificationEmail String? // Tenant email to receive interested customer details and important emails
-  loanAssistantLanguage String @default("hinglish") // Preferred AI language: "english", "hindi", "hinglish"
-  isActive      Boolean  @default(true)
-  metadata      Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                             String   @id @default(cuid())
+  name                           String
+  slug                           String   @unique
+  crmName                        String?
+  aiAgentName                    String   @default("Priya")
+  loanAssistantCompanyName       String?
+  loanAssistantHumanAdvisorName  String   @default("John Doe")
+  loanAssistantCallbackPhone     String?
+  loanAssistantNotificationEmail String?
+  uiLanguage                     String   @default("en")
+  loanAssistantLanguage          String   @default("hinglish")
+  isActive                       Boolean  @default(true)
+  metadata                       Json?
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
 
-  users       User[]
-  customers   Customer[]
-  callLogs    CallLog[]
-  themes      TenantTheme[]
-  roles       RoleDefinition[]
-  leadUploads LeadUpload[]
+  users                User[]
+  customers            Customer[]
+  callLogs             CallLog[]
+  themes               TenantTheme[]
+  roles                RoleDefinition[]
+  leadUploads          LeadUpload[]
+  notifications        InAppNotification[]
+  analyticsSnapshots   AnalyticsSnapshot[]
+  automationSettings   AutomationSetting[]
+  aiPrompts            AiSystemPrompt[]
+  aiProviderConfigs    AiProviderConfig[]
+  telephonyConfigs     TelephonyProviderConfig[]
+  campaigns            Campaign[]
+  teams                Team[]
+  tags                 Tag[]
+  dncRegistry          DncRegistry[]
+  callScheduleConfig   CallScheduleConfig?
+  webhookConfigs       WebhookConfig[]
+  webhookLogs          WebhookLog[]
+  customFieldDefs      CustomFieldDefinition[]
+  messageLogs          MessageLog[]
+  documents            Document[]
+  deals                Deal[]
+  conversationSessions ConversationSession[]
+  aiScoringHistory     AiScoringHistory[]
+  customerActivities   CustomerActivity[]
+  followUpTasks        FollowUpTask[]
+  subscription         TenantSubscription?
 }
 
-//////////////////////////////////////////////////////
-// 🎨 TENANT THEME (ENTERPRISE THEMING SYSTEM)
-//////////////////////////////////////////////////////
+// ─── TENANT THEME ───────────────────────────────────────
 
 model TenantTheme {
-  id                   String   @id @default(cuid())
-  tenantId             String?  // NULL for base theme
-  isBaseTheme          Boolean  @default(false)
-  themeName            String   @default("Default Theme")
-
-  // 🎨 Core Colors
-  primaryColor         String   @default("#2563eb")
-  secondaryColor       String   @default("#64748b")
-  accentColor          String   @default("#22c55e")
-  backgroundColor      String   @default("#f8fafc")
-  surfaceColor         String   @default("#ffffff")
-  sidebarColor         String   @default("#ffffff")
-  headerColor          String   @default("#ffffff")
-
-  // 📝 Text Colors
-  textPrimary          String   @default("#0f172a")
-  textSecondary        String   @default("#64748b")
-  borderColor          String   @default("#e2e8f0")
-
-  // ✅ Status Colors
-  successColor         String   @default("#22c55e")
-  warningColor         String   @default("#f59e0b")
-  errorColor           String   @default("#ef4444")
-  infoColor            String   @default("#3b82f6")
-
-  // 🔤 Typography
-  fontFamily           String   @default("Inter, system-ui, sans-serif")
-  fontScale            String   @default("medium") // small, medium, large
-
-  // 📐 Layout & Spacing
-  borderRadius         String   @default("8px")
-  buttonRadius         String   @default("6px")
-  cardRadius           String   @default("8px")
-  inputRadius          String   @default("6px")
-  shadowIntensity      String   @default("medium") // none, light, medium, heavy
-  layoutDensity        String   @default("comfortable") // compact, comfortable, spacious
-
-  // 🧭 Navigation
-  sidebarStyle         String   @default("default") // default, minimal, floating
-  tableStyle           String   @default("default") // default, striped, bordered
-
-  // 🌙 Dark Mode
-  darkMode             Boolean  @default(false)
-
-  // 🖼️ Assets
-  logoUrl              String?
-  faviconUrl           String?
-  loginBackgroundUrl   String?
+  id                       String   @id @default(cuid())
+  tenantId                 String?
+  // FIX: removed @@unique([tenantId, isBaseTheme]) — was preventing multiple custom themes per tenant.
+  // Only one base theme per tenant is enforced at the application layer.
+  isBaseTheme              Boolean  @default(false)
+  themeName                String   @default("Default Theme")
+  primaryColor             String   @default("#2563eb")
+  secondaryColor           String   @default("#64748b")
+  accentColor              String   @default("#22c55e")
+  backgroundColor          String   @default("#f8fafc")
+  surfaceColor             String   @default("#ffffff")
+  sidebarColor             String   @default("#ffffff")
+  headerColor              String   @default("#ffffff")
+  textPrimary              String   @default("#0f172a")
+  textSecondary            String   @default("#64748b")
+  borderColor              String   @default("#e2e8f0")
+  successColor             String   @default("#22c55e")
+  warningColor             String   @default("#f59e0b")
+  errorColor               String   @default("#ef4444")
+  infoColor                String   @default("#3b82f6")
+  fontFamily               String   @default("Geist, system-ui, sans-serif")
+  fontScale                String   @default("medium")
+  borderRadius             String   @default("8px")
+  buttonRadius             String   @default("6px")
+  cardRadius               String   @default("12px")
+  inputRadius              String   @default("6px")
+  shadowIntensity          String   @default("medium")
+  layoutDensity            String   @default("comfortable")
+  sidebarStyle             String   @default("default")
+  tableStyle               String   @default("default")
+  darkMode                 Boolean  @default(true)
+  logoUrl                  String?
+  faviconUrl               String?
+  loginBackgroundUrl       String?
   applicationBackgroundUrl String?
+  customCss                String?  @db.Text
+  isActive                 Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
-  // 🎨 Custom CSS
-  customCss            String?
-
-  // 🖥️ UI Layout
-  uiLayout             String   @default("modern") // "classic" | "modern"
-
-  // 🏷️ Metadata
-  isActive             Boolean  @default(true)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  // 🔗 Relations
   tenant Tenant? @relation(fields: [tenantId], references: [id])
 
-  // 🗝️ Constraints & Indexes
-  @@unique([tenantId, isBaseTheme]) // Only one theme per tenant, and only one base theme
-  @@index([tenantId])
-  @@index([isBaseTheme])
-  @@index([isActive])
+  // Covers: "get active theme for tenant", "get base theme for tenant"
+  @@index([tenantId, isBaseTheme, isActive])
 }
 
-//////////////////////////////////////////////////////
-// 👤 USER (UPDATED — MULTI TENANT)
-//////////////////////////////////////////////////////
+// ─── USER ───────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(cuid())
-  tenantId     String?  // NULL for SUPER_ADMIN
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         UserRole @default(SALES)
-  customRoleId String?
-  isActive     Boolean  @default(true)
-  metadata     Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String          @id @default(cuid())
+  tenantId         String?
+  name             String
+  email            String
+  passwordHash     String
+  role             UserRole        @default(SALES)
+  customRoleId     String?
+  isActive         Boolean         @default(true)
+  // Subscription: primary owner stays active on plan downgrade
+  isPrimaryOwner   Boolean         @default(false)
+  // Subscription: suspended when plan downgrades below user count
+  isSuspended      Boolean         @default(false)
+  suspendedAt      DateTime?
+  suspendedReason  SuspendedReason?
+  // Email verification
+  emailVerified    DateTime?
+  emailVerifyToken String?         @unique
+  metadata         Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  tenant       Tenant? @relation(fields: [tenantId], references: [id])
+  tenant             Tenant?                  @relation(fields: [tenantId], references: [id])
+  customRole         RoleDefinition?          @relation("RoleUsers", fields: [customRoleId], references: [id])
+  uploads            LeadUpload[]
+  assigned           Customer[]               @relation("CustomerAssignee")
+  followUps          FollowUpTask[]           @relation("TaskAssignee")
+  createdTasks       FollowUpTask[]           @relation("TaskCreator")
+  actorAuditLogs     UserManagementAuditLog[] @relation("UserAuditActor")
+  targetAuditLogs    UserManagementAuditLog[] @relation("UserAuditTarget")
+  notifications      InAppNotification[]
+  manualReviews      ManualReview[]           @relation("ReviewedBy")
+  campaignsCreated   Campaign[]
+  teamMemberships    TeamMember[]
+  ledTeams           Team[]                   @relation("TeamLead")
+  assignedDeals      Deal[]
+  dncAdded           DncRegistry[]
+  documents          Document[]
+  customerActivities CustomerActivity[]
+  aiScoringHistory   AiScoringHistory[]
+  webhookConfigs     WebhookConfig[]
 
-  uploads      LeadUpload[]
-  assigned     Customer[]     @relation("CustomerAssignee")
-  followUps    FollowUpTask[]
-  customRole   RoleDefinition? @relation("RoleUsers", fields: [customRoleId], references: [id])
-  authoredUserAuditLogs UserManagementAuditLog[] @relation("UserAuditActor")
-  targetUserAuditLogs   UserManagementAuditLog[] @relation("UserAuditTarget")
-
+  // email unique per tenant; NULL tenantId = platform admin (enforced at app layer)
+  @@unique([tenantId, email])
   @@index([tenantId])
+  @@index([tenantId, isSuspended])
 }
 
-//////////////////////////////////////////////////////
-// 🛡 ROLE DEFINITION (TENANT SCOPED)
-//////////////////////////////////////////////////////
+// ─── ROLE DEFINITION ────────────────────────────────────
 
 model RoleDefinition {
   id             String   @id @default(cuid())
@@ -232,19 +406,22 @@ model RoleDefinition {
   @@index([tenantId, active])
 }
 
-//////////////////////////////////////////////////////
-// 📥 LEAD UPLOAD (TENANT SAFE)
-//////////////////////////////////////////////////////
+// ─── LEAD UPLOAD ────────────────────────────────────────
 
+// Immutable: upload records are never updated after creation
 model LeadUpload {
-  id           String   @id @default(cuid())
-  tenantId     String
-  fileName     String
-  totalRows    Int
-  successRows  Int
-  failedRows   Int
-  uploadedAt   DateTime @default(now())
-  uploadedById String
+  id            String   @id @default(cuid())
+  tenantId      String
+  fileName      String
+  originalName  String?
+  totalRows     Int
+  successRows   Int
+  failedRows    Int
+  duplicateRows Int      @default(0)
+  columnMapping Json?
+  duplicateMode String   @default("skip")
+  uploadedAt    DateTime @default(now())
+  uploadedById  String
 
   tenant     Tenant @relation(fields: [tenantId], references: [id])
   uploadedBy User   @relation(fields: [uploadedById], references: [id])
@@ -252,129 +429,266 @@ model LeadUpload {
   @@index([tenantId, uploadedAt])
 }
 
-//////////////////////////////////////////////////////
-// 👥 CUSTOMER (CRITICAL MULTI-TENANT FIXES)
-//////////////////////////////////////////////////////
+// ─── CUSTOMER ───────────────────────────────────────────
 
 model Customer {
-  id              String         @id @default(cuid())
-  tenantId        String
-  firstName       String
-  lastName        String?
-  phone           String
-  email           String?
-  city            String?
-  state           String?
-  source          String?
-  loanType        String?
-  loanAmount      Float?
-  monthlyIncome   Float?
-  status          CustomerStatus @default(NEW)
-  retryCount      Int            @default(0)
-  maxRetries      Int            @default(3)
-  inActiveCall    Boolean        @default(false)
-  nextFollowUpAt  DateTime?
-  manualReview    Boolean        @default(false)
-  aiSummary       String?
-  aiIntent        String?
-  notes           String?
-  archivedAt      DateTime?
-  lastContactedAt DateTime?
-  assignedToId    String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                 String         @id @default(cuid())
+  tenantId           String
+  firstName          String
+  lastName           String?
+  phone              String
+  email              String?
+  city               String?
+  state              String?
+  source             String?
+  loanType           String?
+  loanAmount         Decimal?       @db.Decimal(15, 2)
+  monthlyIncome      Decimal?       @db.Decimal(15, 2)
+  employmentType     String?
+  creditScore        Int?
+  existingLoans      String?
+  status             CustomerStatus @default(NEW)
+  retryCount         Int            @default(0)
+  maxRetries         Int            @default(3)
+  inActiveCall       Boolean        @default(false)
+  nextFollowUpAt     DateTime?
+  manualReview       Boolean        @default(false)
+  manualReviewReason String?
+  aiConfidenceScore  Float?
+  aiSummary          String?        @db.Text
+  aiIntent           String?
+  notes              String?        @db.Text
+  archivedAt         DateTime?
+  lastContactedAt    DateTime?
+  assignedToId       String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   tenant     Tenant @relation(fields: [tenantId], references: [id])
   assignedTo User?  @relation("CustomerAssignee", fields: [assignedToId], references: [id])
 
-  calls        CallLog[]
-  campaignJobs CampaignJob[]
-  transitions  CustomerTransition[]
-  followUps    FollowUpTask[]
+  calls                CallLog[]
+  campaignJobs         CampaignJob[]
+  transitions          CustomerTransition[]
+  followUps            FollowUpTask[]
+  manualReviews        ManualReview[]
+  tags                 CustomerTag[]
+  deals                Deal[]
+  documents            Document[]
+  messages             MessageLog[]
+  activities           CustomerActivity[]
+  aiScoringHistory     AiScoringHistory[]
+  customFields         CustomerCustomField[]
+  conversationSessions ConversationSession[]
 
-  // 🚨 IMPORTANT: SaaS-safe uniqueness
   @@unique([tenantId, phone])
-
   @@index([tenantId, status, retryCount, inActiveCall])
   @@index([tenantId, nextFollowUpAt])
+  @@index([tenantId, manualReview])
+  // FIX: removed @@index([tenantId, aiConfidenceScore]) — low-value analytics index
+  @@index([tenantId, assignedToId, status])
+  @@index([tenantId, archivedAt])
 }
 
-//////////////////////////////////////////////////////
-// 📞 CALL LOG (TENANT SAFE)
-//////////////////////////////////////////////////////
+// ─── CALL LOG ───────────────────────────────────────────
 
 model CallLog {
-  id             String        @id @default(cuid())
-  tenantId       String
-  customerId     String
-  providerCallId String?       @unique
-  aiProviderUsed String?
+  id                    String                 @id @default(cuid())
+  tenantId              String
+  customerId            String
+  campaignJobId         String?
+  // FIX: scoped to tenant — provider IDs are not globally unique across tenants
+  providerCallId        String?
+  aiProviderUsed        String?
   telephonyProviderUsed String?
   telephonyProviderType TelephonyProviderType?
-  direction      CallDirection @default(OUTBOUND)
-  status         CallStatus    @default(QUEUED)
-  mode           String        @default("AI")
-  attemptNumber  Int           @default(1)
-  transcript     String?
-  summary        String?
-  intent         String?
-  intentClassification String?
-  nextAction     String?
-  durationSecs   Int?
-  recordingUrl   String?
-  metadata       Json?
-  errorReason    String?
-  startedAt      DateTime?
-  endedAt        DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  direction             CallDirection          @default(OUTBOUND)
+  status                CallStatus             @default(QUEUED)
+  // FIX: was String @default("AI") — now properly typed enum
+  mode                  CallMode               @default(AI)
+  attemptNumber         Int                    @default(1)
+  transcript            String?                @db.Text
+  summary               String?                @db.Text
+  intent                String?
+  intentClassification  String?
+  nextAction            String?
+  durationSecs          Int?
+  recordingUrl          String?
+  confidenceScore       Float?
+  metadata              Json?
+  errorReason           String?
+  startedAt             DateTime?
+  endedAt               DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id])
-  customer Customer @relation(fields: [customerId], references: [id])
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  campaignJob CampaignJob? @relation(fields: [campaignJobId], references: [id], onDelete: SetNull)
 
+  manualReviews        ManualReview[]
+  aiScoringHistory     AiScoringHistory[]
+  conversationSessions ConversationSession[]
+
+  // FIX: providerCallId now scoped to tenant
+  @@unique([tenantId, providerCallId])
   @@index([tenantId, customerId, createdAt])
+  @@index([tenantId, direction, status])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status, startedAt])
 }
 
-model UserManagementAuditLog {
-  id           String   @id @default(cuid())
-  action       String
-  actorUserId  String?
-  targetUserId String?
-  metadata     Json?
-  createdAt    DateTime @default(now())
-  actor        User?    @relation("UserAuditActor", fields: [actorUserId], references: [id])
-  targetUser   User?    @relation("UserAuditTarget", fields: [targetUserId], references: [id])
+// ─── FOLLOW-UP TASK ─────────────────────────────────────
 
-  @@index([createdAt])
-  @@index([action, createdAt])
-  @@index([targetUserId, createdAt])
+model FollowUpTask {
+  id           String       @id @default(cuid())
+  tenantId     String
+  customerId   String
+  assignedToId String
+  createdById  String?
+  dueDate      DateTime
+  status       TaskStatus   @default(OPEN)
+  priority     TaskPriority @default(NORMAL)
+  notes        String?      @db.Text
+  completedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedTo User     @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  createdBy  User?    @relation("TaskCreator", fields: [createdById], references: [id])
+
+  @@index([tenantId, assignedToId, status, dueDate])
+  @@index([customerId, status])
+  // FIX: added tenantId for proper multi-tenant overdue task queries
+  @@index([tenantId, dueDate, status])
 }
 
+// ─── CUSTOMER TRANSITION ────────────────────────────────
+
+// Immutable: status transitions are append-only historical records
 model CustomerTransition {
-  id            String         @id @default(cuid())
+  id            String          @id @default(cuid())
+  tenantId      String
   customerId    String
   fromStatus    CustomerStatus?
   toStatus      CustomerStatus
   reason        String?
   source        String
-  transitionKey String         @unique
+  transitionKey String
+  aiConfidence  Float?
   metadata      Json?
-  createdAt     DateTime       @default(now())
-  customer      Customer       @relation(fields: [customerId], references: [id])
+  createdAt     DateTime        @default(now())
 
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, transitionKey])
   @@index([customerId, createdAt])
+  @@index([tenantId, toStatus, createdAt])
 }
 
+// ─── MANUAL REVIEW ──────────────────────────────────────
+
+model ManualReview {
+  id              String            @id @default(cuid())
+  customerId      String
+  tenantId        String
+  callLogId       String?
+  reason          String
+  aiSummary       String?           @db.Text
+  confidenceScore Float
+  transcript      String?           @db.Text
+  resolution      ReviewResolution?
+  resolvedById    String?
+  resolvedAt      DateTime?
+  resolvedNotes   String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  callLog    CallLog? @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+  resolvedBy User?    @relation("ReviewedBy", fields: [resolvedById], references: [id])
+
+  @@index([tenantId, resolution, createdAt])
+  @@index([tenantId, confidenceScore])
+  // FIX: added tenantId for proper multi-tenant customer review queries
+  @@index([tenantId, customerId, createdAt])
+}
+
+// ─── IN-APP NOTIFICATION ────────────────────────────────
+
+model InAppNotification {
+  id        String           @id @default(cuid())
+  tenantId  String
+  userId    String?
+  type      NotificationType
+  title     String
+  body      String
+  link      String?
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, userId, isRead, createdAt])
+  @@index([tenantId, type, createdAt])
+}
+
+// ─── ANALYTICS SNAPSHOT ─────────────────────────────────
+
+model AnalyticsSnapshot {
+  id              String   @id @default(cuid())
+  tenantId        String
+  // FIX: @db.Date strips time component — prevents duplicate snapshots same day
+  date            DateTime @db.Date
+  totalCalls      Int      @default(0)
+  outboundCalls   Int      @default(0)
+  inboundCalls    Int      @default(0)
+  answeredCalls   Int      @default(0)
+  completedCalls  Int      @default(0)
+  failedCalls     Int      @default(0)
+  noAnswerCalls   Int      @default(0)
+  skippedJobs     Int      @default(0)
+  interestedCount Int      @default(0)
+  convertedCount  Int      @default(0)
+  avgDurationSecs Float    @default(0)
+  newLeads        Int      @default(0)
+  dealsWon        Int      @default(0)
+  dealsLost       Int      @default(0)
+  dealValueWon    Decimal  @default(0) @db.Decimal(15, 2)
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  // FIX: removed redundant @@index([tenantId, date]) — unique constraint already creates this index
+  @@unique([tenantId, date])
+}
+
+// ─── AUTOMATION SETTING ─────────────────────────────────
+
 model AutomationSetting {
-  key       String   @id
+  tenantId  String
+  key       String
   value     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, key])
 }
+
+// ─── AI PROVIDER CONFIG ─────────────────────────────────
 
 model AiProviderConfig {
   id        String         @id @default(cuid())
-  name      String         @unique
+  tenantId  String? // NULL = global default, set = tenant override
+  name      String
   type      AiProviderType
   endpoint  String?
   apiKey    String?
@@ -387,39 +701,41 @@ model AiProviderConfig {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  @@index([enabled, isActive, priority])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+  @@index([tenantId, enabled, isActive, priority])
 }
 
-//////////////////////////////////////////////////////
-// 🤖 AI SYSTEM PROMPT — SHARED PROMPT FOR ALL PROVIDERS
-//////////////////////////////////////////////////////
+// ─── AI SYSTEM PROMPT ───────────────────────────────────
 
 model AiSystemPrompt {
   id        String   @id @default(cuid())
-  key       String   @unique @default("default") // "default" is the active prompt
+  tenantId  String? // NULL = global fallback, set = tenant-specific
+  key       String   @default("default")
   label     String   @default("Default System Prompt")
-  prompt    String   @db.Text // The main system prompt text
+  prompt    String   @db.Text
+  version   Int      @default(1)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  tenant    Tenant?    @relation(fields: [tenantId], references: [id])
+  campaigns Campaign[]
+
+  // NOTE: PostgreSQL treats NULL as distinct in unique constraints, so multiple
+  // global prompts (tenantId=NULL) with the same key are theoretically possible.
+  // Enforce single global prompt per key at the application layer.
+  @@unique([tenantId, key])
+  @@index([tenantId, isActive])
 }
 
-model FollowUpTask {
-  id           String     @id @default(cuid())
-  customerId   String
-  assignedToId String
-  dueDate      DateTime
-  status       TaskStatus @default(OPEN)
-  notes        String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  customer     Customer   @relation(fields: [customerId], references: [id])
-  assignedTo   User       @relation(fields: [assignedToId], references: [id])
-}
+// ─── TELEPHONY PROVIDER CONFIG ──────────────────────────
 
 model TelephonyProviderConfig {
   id        String                @id @default(cuid())
-  name      String                @unique
+  tenantId  String? // NULL = global default, set = tenant override
+  name      String
   type      TelephonyProviderType
   endpoint  String?
   apiKey    String?
@@ -432,17 +748,57 @@ model TelephonyProviderConfig {
   createdAt DateTime              @default(now())
   updatedAt DateTime              @updatedAt
 
-  @@index([enabled, isActive, priority])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+  @@index([tenantId, enabled, isActive, priority])
 }
+
+// ─── CAMPAIGN ───────────────────────────────────────────
+
+model Campaign {
+  id             String         @id @default(cuid())
+  tenantId       String
+  name           String
+  description    String?
+  status         CampaignStatus @default(DRAFT)
+  type           CampaignType   @default(OUTBOUND_CALL)
+  aiPromptId     String?
+  scheduledAt    DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  targetCount    Int            @default(0)
+  processedCount Int            @default(0)
+  successCount   Int            @default(0)
+  failedCount    Int            @default(0)
+  createdById    String?
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  createdBy User?           @relation(fields: [createdById], references: [id])
+  aiPrompt  AiSystemPrompt? @relation(fields: [aiPromptId], references: [id])
+  jobs      CampaignJob[]
+
+  @@index([tenantId, status, scheduledAt])
+  @@index([tenantId, createdAt])
+}
+
+// ─── CAMPAIGN JOB ───────────────────────────────────────
 
 model CampaignJob {
   id           String            @id @default(cuid())
-  queueJobId   String            @unique
+  tenantId     String
+  campaignId   String?
+  // FIX: was @unique globally — scoped to tenant; provider queue IDs are not globally unique
+  queueJobId   String
   customerId   String?
   reason       String
   status       CampaignJobStatus @default(QUEUED)
   attemptsMade Int               @default(0)
-  enqueuedAt   DateTime          @default(now())
+  skipReason   String?
+  // FIX: removed enqueuedAt — was redundant with createdAt (both default now())
   startedAt    DateTime?
   completedAt  DateTime?
   failedAt     DateTime?
@@ -451,8 +807,554 @@ model CampaignJob {
   metadata     Json?
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
-  customer     Customer?         @relation(fields: [customerId], references: [id])
 
-  @@index([status, createdAt])
+  customer Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  campaign Campaign?  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  callLogs CallLog[]
+
+  @@unique([tenantId, queueJobId])
+  @@index([tenantId, status, createdAt])
   @@index([customerId, createdAt])
+  @@index([campaignId, status])
+}
+
+// ─── DEAL / OPPORTUNITY ─────────────────────────────────
+
+model Deal {
+  id                String    @id @default(cuid())
+  tenantId          String
+  customerId        String
+  title             String
+  value             Decimal?  @db.Decimal(15, 2)
+  stage             DealStage @default(NEW)
+  probability       Int?      // 0–100
+  loanType          String?
+  loanAmount        Decimal?  @db.Decimal(15, 2)
+  closedAt          DateTime?
+  expectedCloseDate DateTime?
+  assignedToId      String?
+  notes             String?   @db.Text
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedTo User?      @relation(fields: [assignedToId], references: [id])
+  documents  Document[]
+
+  @@index([tenantId, stage, createdAt])
+  @@index([tenantId, assignedToId, stage])
+  @@index([customerId])
+}
+
+// ─── CONVERSATION SESSION (AI Memory) ───────────────────
+
+model ConversationSession {
+  id         String    @id @default(cuid())
+  tenantId   String
+  customerId String
+  sessionKey String
+  summary    String?   @db.Text
+  context    Json?     // rolling context window for AI
+  turnCount  Int       @default(0)
+  // FIX: was String — now proper FK to CallLog with SetNull on delete
+  lastCallId String?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  lastCall CallLog? @relation(fields: [lastCallId], references: [id], onDelete: SetNull)
+
+  // FIX: sessionKey scoped to tenant (was globally unique — not safe for multi-tenant)
+  @@unique([tenantId, sessionKey])
+  // Active session lookup: WHERE customerId=X AND expiresAt > NOW() at app layer.
+  @@index([tenantId, customerId, expiresAt])
+  @@index([tenantId, updatedAt])
+}
+
+// ─── DNC REGISTRY ───────────────────────────────────────
+
+model DncRegistry {
+  id        String     @id @default(cuid())
+  tenantId  String
+  phone     String
+  reason    String?
+  // FIX: was stringly-typed String — now enum
+  source    DncSource?
+  addedById String?
+  expiresAt DateTime?
+  createdAt DateTime   @default(now())
+  // FIX: added updatedAt — entries can be updated (reason, expiry)
+  updatedAt DateTime   @updatedAt
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id])
+  addedBy User?  @relation(fields: [addedById], references: [id])
+
+  @@unique([tenantId, phone])
+  // FIX: removed redundant @@index([tenantId]) — @@unique([tenantId, phone]) already covers it
+}
+
+// ─── TEAM ───────────────────────────────────────────────
+
+model Team {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  leadId    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id])
+  lead    User?        @relation("TeamLead", fields: [leadId], references: [id])
+  members TeamMember[]
+
+  @@unique([tenantId, name])
+  // FIX: removed redundant @@index([tenantId]) — @@unique([tenantId, name]) already covers it
+}
+
+model TeamMember {
+  teamId   String
+  userId   String
+  // FIX: was stringly-typed String — now enum
+  role     TeamMemberRole?
+  joinedAt DateTime        @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+}
+
+// ─── TAGS ───────────────────────────────────────────────
+
+model Tag {
+  id        String        @id @default(cuid())
+  tenantId  String
+  name      String
+  color     String?
+  createdAt DateTime      @default(now())
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  customers CustomerTag[]
+
+  @@unique([tenantId, name])
+  // FIX: removed redundant @@index([tenantId]) — @@unique([tenantId, name]) already covers it
+}
+
+model CustomerTag {
+  customerId String
+  tagId      String
+  assignedAt DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, tagId])
+}
+
+// ─── CUSTOM FIELD DEFINITIONS ───────────────────────────
+
+model CustomFieldDefinition {
+  id         String                @id @default(cuid())
+  tenantId   String
+  // FIX: was stringly-typed String — now enum
+  entityType CustomFieldEntityType
+  key        String
+  label      String
+  // FIX: was stringly-typed String — now enum
+  fieldType  CustomFieldType
+  options    Json?                 // for SELECT fields
+  required   Boolean               @default(false)
+  sortOrder  Int                   @default(0)
+  isActive   Boolean               @default(true)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+
+  tenant Tenant                @relation(fields: [tenantId], references: [id])
+  values CustomerCustomField[]
+
+  @@unique([tenantId, entityType, key])
+  @@index([tenantId, entityType])
+}
+
+model CustomerCustomField {
+  id         String   @id @default(cuid())
+  customerId String
+  fieldId    String
+  value      String?  @db.Text
+  // FIX: added @default(now()) — was error-prone without default on insert
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  customer Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  field    CustomFieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, fieldId])
+  @@index([fieldId])
+}
+
+// ─── AI SCORING HISTORY ─────────────────────────────────
+
+// Immutable: scoring records are append-only
+model AiScoringHistory {
+  id            String   @id @default(cuid())
+  tenantId      String
+  customerId    String
+  score         Float
+  previousScore Float?
+  model         String?
+  reason        String?  @db.Text
+  callLogId     String?
+  scoredById    String?  // null = AI-scored, set = manual override
+  createdAt     DateTime @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  callLog  CallLog? @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+  scoredBy User?    @relation(fields: [scoredById], references: [id])
+
+  @@index([customerId, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+// ─── CUSTOMER ACTIVITY LOG ──────────────────────────────
+
+// Immutable: activity entries are append-only
+model CustomerActivity {
+  id          String            @id @default(cuid())
+  tenantId    String
+  customerId  String
+  actorId     String?
+  // FIX: was stringly-typed String — now enum
+  actorType   ActivityActorType
+  // FIX: was stringly-typed String — now enum
+  type        ActivityType
+  summary     String
+  detail      Json?
+  referenceId String?           // callLogId, taskId, dealId, etc.
+  createdAt   DateTime          @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  actor    User?    @relation(fields: [actorId], references: [id])
+
+  @@index([tenantId, customerId, createdAt])
+  @@index([tenantId, type, createdAt])
+}
+
+// ─── MESSAGE LOG (SMS / WhatsApp / Email) ────────────────
+
+model MessageLog {
+  id          String         @id @default(cuid())
+  tenantId    String
+  customerId  String
+  channel     MessageChannel
+  direction   CallDirection
+  status      MessageStatus  @default(QUEUED)
+  content     String         @db.Text
+  subject     String?        // email subject
+  fromAddress String?
+  toAddress   String
+  externalId  String?        // provider message ID
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  readAt      DateTime?
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  // FIX: added updatedAt — status transitions (QUEUED→SENT→DELIVERED→READ) need timestamp
+  updatedAt   DateTime       @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, customerId, createdAt])
+  @@index([tenantId, channel, status])
+  @@index([tenantId, status, sentAt])
+}
+
+// ─── DOCUMENT / ATTACHMENT ──────────────────────────────
+
+// NOTE: At least one of customerId or dealId must be set — enforced at app layer.
+model Document {
+  id            String   @id @default(cuid())
+  tenantId      String
+  customerId    String?
+  dealId        String?
+  name          String
+  fileUrl       String
+  fileType      String?
+  // FIX: was Int — overflows for files > 2GB; BigInt supports up to 9 exabytes
+  fileSizeBytes BigInt?
+  uploadedById  String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  deal       Deal?     @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  uploadedBy User?     @relation(fields: [uploadedById], references: [id])
+
+  @@index([tenantId, customerId])
+  @@index([tenantId, dealId])
+}
+
+// ─── CALL SCHEDULE CONFIG ───────────────────────────────
+
+model CallScheduleConfig {
+  id                 String   @id @default(cuid())
+  tenantId           String   @unique
+  timezone           String   @default("Asia/Kolkata")
+  callWindowStart    String   @default("09:00") // HH:MM 24h
+  callWindowEnd      String   @default("18:00")
+  allowedDays        Int[]    // JS convention: 0=Sun 1=Mon ... 6=Sat
+  maxCallsPerDay     Int      @default(200)
+  maxRetries         Int      @default(3)
+  retryIntervalHours Int      @default(24)
+  minCallGapMins     Int      @default(30)
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+// ─── WEBHOOK CONFIG ─────────────────────────────────────
+
+model WebhookConfig {
+  id          String   @id @default(cuid())
+  tenantId    String
+  createdById String?
+  name        String
+  url         String
+  events      String[] // e.g. ["call.completed", "customer.converted", "deal.won"]
+  secret      String?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  createdBy User?        @relation(fields: [createdById], references: [id])
+  logs      WebhookLog[]
+
+  @@index([tenantId, enabled])
+}
+
+// Immutable: webhook delivery log — append-only
+model WebhookLog {
+  id           String   @id @default(cuid())
+  // FIX: added tenantId — avoids JOIN through WebhookConfig for per-tenant queries
+  tenantId     String
+  webhookId    String
+  event        String
+  payload      Json
+  statusCode   Int?
+  response     String?  @db.Text
+  success      Boolean
+  attemptCount Int      @default(1)
+  createdAt    DateTime @default(now())
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id])
+  webhook WebhookConfig @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt])
+  // FIX: added index for retry-logic queries (failed deliveries per webhook)
+  @@index([webhookId, success, createdAt])
+  // FIX: added tenantId prefix — was cross-tenant without it
+  @@index([tenantId, event, createdAt])
+  @@index([tenantId, success, createdAt])
+}
+
+// ─── USER MANAGEMENT AUDIT LOG ──────────────────────────
+
+// Immutable: audit records are append-only
+model UserManagementAuditLog {
+  id           String   @id @default(cuid())
+  action       String
+  actorUserId  String?
+  targetUserId String?
+  tenantId     String?
+  ipAddress    String?
+  userAgent    String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  actor      User? @relation("UserAuditActor", fields: [actorUserId], references: [id])
+  targetUser User? @relation("UserAuditTarget", fields: [targetUserId], references: [id])
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+// ─── SUBSCRIPTION: PLAN DEFINITION ──────────────────────
+
+// DB-driven plan config — editable by superadmin without code changes
+model PlanDefinition {
+  id          String           @id @default(cuid())
+  plan        SubscriptionPlan @unique
+  name        String
+  description String?
+
+  // Pricing — USD for Stripe, INR for Razorpay
+  monthlyPriceUsd   Decimal @default(0) @db.Decimal(10, 2)
+  annualPriceUsd    Decimal @default(0) @db.Decimal(10, 2)
+  monthlyPriceInr   Decimal @default(0) @db.Decimal(10, 2)
+  annualPriceInr    Decimal @default(0) @db.Decimal(10, 2)
+  annualDiscountPct Int     @default(0) // percentage, e.g. 20 = 20% off
+
+  // Hard limits (-1 = unlimited)
+  maxUsers               Int @default(1)
+  maxCustomers           Int @default(100)
+  maxAiCallsPerMonth     Int @default(0)
+  maxLeadUploadsPerMonth Int @default(1)
+  maxWebhooks            Int @default(0)
+  maxCustomFields        Int @default(0)
+  maxTeams               Int @default(0)
+  maxStorageMb           Int @default(0)
+
+  // Feature flags
+  hasAiCalling          Boolean @default(false)
+  hasAdvancedAnalytics  Boolean @default(false)
+  hasManualReview       Boolean @default(false)
+  hasDncRegistry        Boolean @default(false)
+  hasTeams              Boolean @default(false)
+  hasMultiChannel       Boolean @default(false)
+  hasDealPipeline       Boolean @default(false)
+  hasIntentTraining     Boolean @default(false)
+  hasCustomAiPrompts    Boolean @default(false)
+  hasCustomProviders    Boolean @default(false)
+  hasWhiteLabel         Boolean @default(false)
+  hasApiAccess          Boolean @default(false)
+  hasAiCallDemo         Boolean @default(false)
+  hasDocuments          Boolean @default(false)
+  hasConversationMemory Boolean @default(false)
+  hasWebhooks           Boolean @default(false)
+  hasCustomFields       Boolean @default(false)
+  hasCampaigns          Boolean @default(false)
+
+  // Trial config (0 = no trial for this plan)
+  trialDays Int @default(0)
+
+  // Display / marketing
+  isPublic  Boolean @default(true)
+  sortOrder Int     @default(0)
+  badge     String? // "Popular", "Best Value", etc.
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions TenantSubscription[]
+}
+
+// ─── SUBSCRIPTION: TENANT SUBSCRIPTION ──────────────────
+
+model TenantSubscription {
+  id               String             @id @default(cuid())
+  tenantId         String             @unique
+  plan             SubscriptionPlan   @default(FREE)
+  status           SubscriptionStatus @default(TRIALING)
+  billingCycle     BillingCycle       @default(MONTHLY)
+  billingProvider  BillingProvider?
+  planDefinitionId String?
+
+  // Trial period
+  trialStartAt DateTime?
+  trialEndsAt  DateTime?
+
+  // Active billing period
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+
+  // Stripe (USD)
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+
+  // Razorpay (INR)
+  razorpayCustomerId     String?
+  razorpaySubscriptionId String?
+
+  // Cancellation
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  // Grace period — data readable, new writes blocked; hard lock after this date
+  gracePeriodEndsAt DateTime?
+
+  // Snapshot of plan limits/features at time of subscription (survives plan edits)
+  planSnapshot Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  planDef  PlanDefinition? @relation(fields: [planDefinitionId], references: [id])
+  invoices SubscriptionInvoice[]
+  usage    UsageRecord[]
+
+  @@index([status, trialEndsAt])
+  @@index([status, currentPeriodEnd])
+  @@index([status, gracePeriodEndsAt])
+}
+
+// ─── SUBSCRIPTION: INVOICE ──────────────────────────────
+
+// Immutable: invoices are append-only financial records
+model SubscriptionInvoice {
+  id                String          @id @default(cuid())
+  subscriptionId    String
+  tenantId          String
+  // USD amount for Stripe, INR amount for Razorpay — only one will be set
+  amountUsd         Decimal?        @db.Decimal(10, 2)
+  amountInr         Decimal?        @db.Decimal(10, 2)
+  currency          String          @default("USD")
+  // FIX: was stringly-typed String — now enum
+  status            InvoiceStatus
+  billingProvider   BillingProvider
+  externalInvoiceId String?
+  paidAt            DateTime?
+  dueDate           DateTime?
+  invoiceUrl        String?
+  metadata          Json?
+  createdAt         DateTime        @default(now())
+
+  subscription TenantSubscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([subscriptionId, createdAt])
+  @@index([tenantId, status, dueDate])
+}
+
+// ─── SUBSCRIPTION: USAGE RECORD ─────────────────────────
+
+model UsageRecord {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  tenantId       String
+  month          String   // "YYYY-MM" format e.g. "2026-03"
+  aiCallsUsed    Int      @default(0)
+  leadsUploaded  Int      @default(0)
+  storageUsedMb  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  subscription TenantSubscription @relation(fields: [subscriptionId], references: [id])
+
+  @@unique([subscriptionId, month])
+  @@index([tenantId, month])
+}
+
+// ─── SUBSCRIPTION: GLOBAL CONFIG ────────────────────────
+
+// Global subscription settings managed by superadmin — no code deploy needed
+// Keys: "trial_days" (default: 30), "grace_period_days" (default: 7),
+//       "stripe_enabled" (default: true), "razorpay_enabled" (default: true)
+model SubscriptionConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
 }
