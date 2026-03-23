@@ -14,7 +14,7 @@ export async function GET(request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
   const tenantId = tenant.tenantId;
 
   if (!tenantId) {
@@ -91,7 +91,7 @@ export async function POST(request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
   const tenantId = tenant.tenantId;
   if (!tenantId) {
     return Response.json({ error: "Tenant context required." }, { status: 400 });

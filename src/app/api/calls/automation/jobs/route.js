@@ -11,7 +11,7 @@ export async function GET(request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
 
   const { searchParams } = new URL(request.url);
   const status = String(searchParams.get("status") || "").toUpperCase();

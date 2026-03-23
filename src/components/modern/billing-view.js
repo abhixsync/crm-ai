@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useTenantSwitcher } from "@/components/providers/tenant-switcher-provider";
 
 const PLAN_COLOR = {
   FREE: { bg: "rgba(110,110,110,.14)", fg: "#9ca3af", border: "rgba(110,110,110,.3)" },
@@ -76,7 +77,8 @@ function FeatureCheck({ enabled, label }) {
 }
 
 export function ModernBillingView({ user }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const { selectedTenantId, isSuperAdmin } = useTenantSwitcher();
   const [summary, setSummary] = useState(null);
   const [subscription, setSubscription] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -93,7 +95,11 @@ export function ModernBillingView({ user }) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/subscription/summary");
+      const headers = {};
+      if (isSuperAdmin && selectedTenantId) {
+        headers["X-Tenant-ID"] = selectedTenantId;
+      }
+      const res = await fetch("/api/subscription/summary", { headers });
       if (res.ok) {
         const data = await res.json();
         setSummary(data.summary);
@@ -103,17 +109,25 @@ export function ModernBillingView({ user }) {
       }
     } catch { /* silent */ }
     setLoading(false);
-  }, []);
+  }, [isSuperAdmin, selectedTenantId]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Wait for session to load before fetching
+  useEffect(() => {
+    if (status === "loading") return;
+    fetchData();
+  }, [status, fetchData]);
 
   async function startUpgrade(planKey) {
     setError("");
     setUpgrading(planKey);
     try {
+      const hdrs = { "Content-Type": "application/json" };
+      if (isSuperAdmin && selectedTenantId) {
+        hdrs["X-Tenant-ID"] = selectedTenantId;
+      }
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: hdrs,
         body: JSON.stringify({ plan: planKey, billingCycle, provider }),
       });
       const data = await res.json();

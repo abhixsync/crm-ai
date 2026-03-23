@@ -20,7 +20,7 @@ export async function POST(request) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const customer = await prisma.customer.findFirst({
       where: {
         id: customerId,

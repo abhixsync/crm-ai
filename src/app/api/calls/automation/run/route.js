@@ -2,7 +2,7 @@ import { hasRole, requireSession, getTenantContext } from "@/lib/server/auth-gua
 import { runAutomationBatch } from "@/lib/journey/automation-runner";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
-export async function POST() {
+export async function POST(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
@@ -10,7 +10,7 @@ export async function POST() {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
 
   try {
     const result = await runAutomationBatch(tenant.isSuperAdmin ? undefined : tenant.tenantId);

@@ -17,7 +17,7 @@ export async function POST(request) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const tenantId = tenant.tenantId;
 
     if (!tenantId) {

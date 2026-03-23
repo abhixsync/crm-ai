@@ -309,6 +309,35 @@
 .ms-lang-option:hover { background: var(--ms-bg3); color: var(--ms-text); }
 .ms-lang-option.active { background: var(--ms-accent-dim); color: var(--ms-accent-txt); }
 
+/* ─── TENANT SWITCHER ─── */
+.ms-tenant-trigger {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 7px; border: 1px solid var(--ms-border2);
+  background: var(--ms-bg3); color: var(--ms-text2);
+  font-size: 12px; font-weight: 500; font-family: inherit;
+  cursor: pointer; white-space: nowrap; outline: none;
+  transition: border-color .15s, color .15s;
+}
+.ms-tenant-trigger:hover { border-color: var(--ms-accent); color: var(--ms-text); }
+.ms-tenant-trigger-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.ms-tenant-dropdown {
+  position: absolute; top: 40px; right: 0; z-index: 100;
+  background: var(--ms-surface); border: 1px solid var(--ms-border);
+  border-radius: 10px; padding: 6px; min-width: 220px; max-height: 320px;
+  overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ms-tenant-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 6px; border: none;
+  background: transparent; color: var(--ms-text2);
+  font-size: 13px; cursor: pointer; font-family: inherit;
+  text-align: left; width: 100%; outline: none;
+  transition: background .1s;
+}
+.ms-tenant-option:hover { background: var(--ms-bg3); color: var(--ms-text); }
+.ms-tenant-option.active { background: var(--ms-accent-dim); color: var(--ms-accent-txt); }
+
 /* ─── CARDS ─── */
 .ms-card {
   background: var(--ms-surface);

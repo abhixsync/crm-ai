@@ -5,7 +5,7 @@ import {
 } from "@/lib/users/user-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
-export async function GET() {
+export async function GET(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
@@ -14,7 +14,7 @@ export async function GET() {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const roles = await listRoleDefinitions(tenant.tenantId);
     return Response.json({ roles });
   } catch (error) {
@@ -36,7 +36,7 @@ export async function POST(request) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const payload = await request.json();
     const role = await createRoleDefinition(payload, auth.session.user.id, tenant.tenantId);
     return Response.json({ role }, { status: 201 });

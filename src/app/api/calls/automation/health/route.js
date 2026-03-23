@@ -28,7 +28,7 @@ function getCountsByStatus(rows) {
   };
 }
 
-export async function GET() {
+export async function GET(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
@@ -36,7 +36,7 @@ export async function GET() {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
 
   try {
     const intervalMinutes = getIntervalMinutes();

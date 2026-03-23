@@ -56,7 +56,7 @@ export async function POST(request) {
     return Response.json({ error: "customerId is required" }, { status: 400 });
   }
 
-  const { tenantId } = getTenantContext(auth.session);
+  const { tenantId } = getTenantContext(auth.session, request);
   try {
     const guard = await getPlanGuard(tenantId);
     guard.assertHasFeature("hasAiCalling");
@@ -68,7 +68,7 @@ export async function POST(request) {
 
   let customer;
   let callLog;
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
 
   try {
     customer = await prisma.customer.findFirst({

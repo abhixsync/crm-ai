@@ -7,11 +7,11 @@ import { prisma } from "@/lib/prisma";
  * GET /api/subscription/summary
  * Returns the current tenant's plan info + live usage for the billing UI and upgrade banners.
  */
-export async function GET() {
+export async function GET(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  const { tenantId } = getTenantContext(auth.session);
+  const { tenantId } = getTenantContext(auth.session, request);
 
   const guard = await getPlanGuard(tenantId);
 

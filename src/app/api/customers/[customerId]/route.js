@@ -21,7 +21,7 @@ export async function PATCH(request, { params }) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const tenantId = tenant.tenantId;
     if (!tenantId) {
       return Response.json({ error: "Tenant context required." }, { status: 400 });
@@ -116,7 +116,7 @@ export async function PATCH(request, { params }) {
   }
 }
 
-export async function DELETE(_request, { params }) {
+export async function DELETE(request, { params }) {
   const auth = await requireSession();
 
   if (auth.error) return auth.error;
@@ -133,7 +133,7 @@ export async function DELETE(_request, { params }) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const tenantId = tenant.tenantId;
     if (!tenantId) {
       return Response.json({ error: "Tenant context required." }, { status: 400 });

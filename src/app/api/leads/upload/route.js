@@ -76,7 +76,7 @@ export async function POST(request) {
   }
 
   const formData = await request.formData();
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
   const tenantId = tenant.tenantId;
   const canRequestEnqueue = hasRole(auth.session, ["ADMIN"]);
 

@@ -14,7 +14,7 @@ export async function POST(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
-  const { tenantId } = getTenantContext(auth.session);
+  const { tenantId } = getTenantContext(auth.session, request);
   if (!tenantId) return Response.json({ error: "Tenant context required." }, { status: 400 });
 
   const body = await request.json();

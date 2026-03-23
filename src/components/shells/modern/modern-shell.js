@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import "./modern-shell.css";
 import { LANGUAGES, LANG_STORAGE_KEY, t, getLangConfig } from "@/lib/i18n/languages";
+import { useTenantSwitcher } from "@/components/providers/tenant-switcher-provider";
 
 const THEME_STORAGE_KEY = "ms-ui-theme";
 
@@ -331,7 +332,9 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
   const [uiTheme, setUiTheme] = useState("dark");
   const [uiLang, setUiLang] = useState("en");
   const [langOpen, setLangOpen] = useState(false);
+  const [tenantOpen, setTenantOpen] = useState(false);
   const [pendingHref, setPendingHref] = useState(null);
+  const { selectedTenantId, selectedTenantName, tenants, switchTenant, isSuperAdmin: isSATenant } = useTenantSwitcher();
 
   // Clear pending state when navigation completes
   useEffect(() => {
@@ -455,7 +458,7 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
           <div className="ms-user-av">{userInitials}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="ms-user-name">{userName}</div>
-            <div className="ms-user-role">{role} · {tenantName || "Tenant"}</div>
+            <div className="ms-user-role">{role}{(isSATenant ? (selectedTenantName ? ` · ${selectedTenantName}` : "") : (tenantName ? ` · ${tenantName}` : ""))}</div>
           </div>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
@@ -485,6 +488,40 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
             {icons.menu}
           </button>
           <span className="ms-pg-title">{t(`nav.${activeKey}`, uiLang) !== `nav.${activeKey}` ? t(`nav.${activeKey}`, uiLang) : pageTitle}</span>
+
+          {/* Tenant switcher (SUPER_ADMIN only) */}
+          {isSATenant && tenants.length > 0 && (
+            <div style={{ position: "relative" }}>
+              <button
+                className="ms-tenant-trigger"
+                onClick={() => setTenantOpen((v) => !v)}
+                title="Switch tenant"
+              >
+                <span className="ms-tenant-trigger-name">{selectedTenantName || "Select Tenant"}</span>
+                <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ width: 12, height: 12 }}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              {tenantOpen && (
+                <>
+                  <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setTenantOpen(false)} />
+                  <div className="ms-tenant-dropdown">
+                    {tenants.map((tn) => (
+                      <button
+                        key={tn.id}
+                        className={`ms-tenant-option${selectedTenantId === tn.id ? " active" : ""}`}
+                        onClick={() => { switchTenant(tn.id); setTenantOpen(false); }}
+                      >
+                        <span>{tn.name}</span>
+                        <span style={{ fontSize: 10, color: "var(--ms-text3)" }}>{tn.slug}</span>
+                        {selectedTenantId === tn.id && <span style={{ marginLeft: "auto", color: "var(--ms-accent)" }}>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Language switcher */}
           <div style={{ position: "relative" }}>

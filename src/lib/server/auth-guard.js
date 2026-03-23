@@ -19,10 +19,18 @@ export function hasRole(session, roles) {
   return roles.includes(role);
 }
 
-export function getTenantContext(session) {
+export function getTenantContext(session, request = null) {
   const role = session?.user?.role;
-  const tenantId = session?.user?.tenantId || null;
+  let tenantId = session?.user?.tenantId || null;
   const isSuperAdmin = role === "SUPER_ADMIN";
+
+  // For super admin with no session tenant, read X-Tenant-ID header
+  if (isSuperAdmin && !tenantId && request) {
+    const headerTenantId = request.headers?.get?.("X-Tenant-ID") || request.headers?.get?.("x-tenant-id");
+    if (headerTenantId) {
+      tenantId = headerTenantId;
+    }
+  }
 
   if (!isSuperAdmin && !tenantId) {
     throw new Error("Tenant context missing for non-super admin user.");

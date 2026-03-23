@@ -3,6 +3,7 @@ import { cache } from "react";
 import { getServerSession } from "next-auth";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { TenantSwitcherProvider } from "@/components/providers/tenant-switcher-provider";
 import { ShellWrapper } from "@/components/shells/shell-wrapper";
 import { ThemeProvider } from "@/core/theme/ThemeProvider";
 import { ThemeAssets } from "@/components/theme/theme-assets";
@@ -123,16 +124,18 @@ export default async function RootLayout({ children }) {
         <AuthSessionProvider>
           <ThemeProvider preloadedTheme={preloadedTheme} preloadedTenantId={tenantId}>
             <ThemeAssets />
-            <ShellWrapper
-              uiLayout={uiLayout}
-              brandName={brandName}
-              brandSub="AI Sales Platform"
-              logoUrl={logoUrl}
-              tenantName={tenantName}
-              initialRole={session?.user?.role || null}
-            >
-              {children}
-            </ShellWrapper>
+            <TenantSwitcherProvider>
+              <ShellWrapper
+                uiLayout={uiLayout}
+                brandName={brandName}
+                brandSub="AI Sales Platform"
+                logoUrl={logoUrl}
+                tenantName={tenantName}
+                initialRole={session?.user?.role || null}
+              >
+                {children}
+              </ShellWrapper>
+            </TenantSwitcherProvider>
           </ThemeProvider>
           <Toaster position="top-right" richColors closeButton />
         </AuthSessionProvider>

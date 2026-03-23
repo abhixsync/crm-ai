@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { useTenantSwitcher } from "@/components/providers/tenant-switcher-provider";
 
 const LANG_OPTIONS = [
   { value: "english", label: "English" },
@@ -12,6 +13,7 @@ const LANG_OPTIONS = [
 
 export function ModernLoanAssistantSettingsView({ user }) {
   const { data: session, status } = useSession();
+  const { selectedTenantId, isSuperAdmin } = useTenantSwitcher();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,14 +24,10 @@ export function ModernLoanAssistantSettingsView({ user }) {
     setLoading(true);
     setError("");
     try {
-      // Use session tenantId, or fallback from server prop, or fetch super-admin tenant
+      // Use session tenantId, or for super admin use the switcher selection
       let tid = session?.user?.tenantId || user?.tenantId || null;
-      if (!tid) {
-        const tRes = await fetch("/api/tenant/super-admin-tenant");
-        const tData = await tRes.json();
-        if (tData.success && tData.data?.id) tid = tData.data.id;
-        else { setError("No tenant found. Please create a tenant first."); setLoading(false); return; }
-      }
+      if (!tid && isSuperAdmin) tid = selectedTenantId;
+      if (!tid) { setError("Please select a tenant from the topbar switcher."); setLoading(false); return; }
       setTenantId(tid);
       const res = await fetch("/api/tenant/loan-assistant-settings", { headers: { "X-Tenant-ID": tid } });
       const json = await res.json();
@@ -37,7 +35,7 @@ export function ModernLoanAssistantSettingsView({ user }) {
       else setError(json.error || "Failed to load settings");
     } catch (e) { setError(e.message || "Failed to load loan settings"); }
     finally { setLoading(false); }
-  }, [session, user]);
+  }, [session, user, isSuperAdmin, selectedTenantId]);
 
   // Wait for session to finish loading before fetching
   useEffect(() => {

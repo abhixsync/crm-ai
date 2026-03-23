@@ -30,7 +30,7 @@ export async function POST(request) {
     return Response.json({ error: "A valid phone number is required" }, { status: 400 });
   }
 
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
   const tenantId = tenant.tenantId;
 
   if (!tenantId) {

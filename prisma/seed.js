@@ -156,22 +156,32 @@ async function seedPlanDefinitions() {
   console.log("✓ PlanDefinitions seeded (FREE / PLUS / PRO / MAX)");
 }
 
-// ─── SUPER ADMIN TENANT + USER ───────────────────────────
+// ─── SUPER ADMIN USER (no tenant) ────────────────────────
 
 async function seedSuperAdmin() {
-  const tenant = await upsertTenant({ name: "Super Admin", slug: "super-admin" });
-
   const passwordHash = await bcrypt.hash("123456", 10);
-  await upsertUser({
-    tenantId: tenant.id,
-    email: "lucifer.shukla@crm.local",
-    name: "lucifer.shukla",
-    passwordHash,
-    role: UserRole.SUPER_ADMIN,
-    isPrimaryOwner: true,
-  });
 
-  console.log("✓ Super admin seeded  (lucifer.shukla@crm.local / 123456)");
+  // Check if user already exists (may have old tenantId from previous seed)
+  const existing = await prisma.user.findFirst({ where: { email: "lucifer.shukla@crm.local" } });
+
+  if (!existing) {
+    await prisma.user.create({
+      data: {
+        tenantId: null,
+        email: "lucifer.shukla@crm.local",
+        name: "lucifer.shukla",
+        passwordHash,
+        role: UserRole.SUPER_ADMIN,
+        isPrimaryOwner: true,
+        emailVerified: new Date(),
+      },
+    });
+  } else if (existing.tenantId) {
+    // Detach from any tenant — super admin should be platform-level
+    await prisma.user.update({ where: { id: existing.id }, data: { tenantId: null } });
+  }
+
+  console.log("✓ Super admin seeded  (lucifer.shukla@crm.local / 123456) — no tenant");
 }
 
 // ─── DEMO TENANT + ADMIN + PRO SUBSCRIPTION ─────────────

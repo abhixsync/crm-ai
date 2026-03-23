@@ -6,7 +6,7 @@ import {
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 
-export async function GET() {
+export async function GET(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
@@ -15,7 +15,7 @@ export async function GET() {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const users = await listUsers(tenant.isSuperAdmin ? undefined : tenant.tenantId);
     return Response.json({ users });
   } catch (error) {
@@ -37,7 +37,7 @@ export async function POST(request) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const payload = await request.json();
 
     if (!tenant.isSuperAdmin && String(payload?.roleKey || "").trim().toUpperCase() === "SUPER_ADMIN") {

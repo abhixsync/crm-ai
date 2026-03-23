@@ -17,7 +17,7 @@ export async function GET(request) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const tenantId = tenant.tenantId;
     if (!tenantId) {
       return Response.json({ error: "Tenant context required." }, { status: 400 });
