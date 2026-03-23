@@ -477,7 +477,7 @@ export function ModernRolesPermissionsView({ user }) {
 
       {/* ── User modal ── */}
       <Overlay open={showUser} onClose={() => setShowUser(false)} title={editUserId ? "Edit User" : "Add User"}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="ms-grid-form-2" style={{ gap: 12 }}>
           <Field label="Name">
             <input className="ms-field-inp" value={uf.name} onChange={(e) => setUf((p) => ({ ...p, name: e.target.value }))} />
           </Field>
@@ -503,7 +503,7 @@ export function ModernRolesPermissionsView({ user }) {
           </Field>
         </div>
 
-        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="ms-grid-form-2" style={{ marginTop: 14, gap: 12 }}>
           <Field label="Permission Overrides (CSV)">
             <input className="ms-field-inp" value={uf.permissions} placeholder="customers:read, customers:write"
               onChange={(e) => setUf((p) => ({ ...p, permissions: e.target.value }))} />
@@ -533,7 +533,7 @@ export function ModernRolesPermissionsView({ user }) {
 
       {/* ── Role modal ── */}
       <Overlay open={showRole} onClose={() => setShowRole(false)} title={editRoleId ? "Edit Role" : "Add Role"}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <div className="ms-grid-form-3" style={{ gap: 12 }}>
           <Field label="Role Key">
             <input className="ms-field-inp" value={rf.key} placeholder="TEAM_LEAD"
               onChange={(e) => setRf((p) => ({ ...p, key: e.target.value }))} />
@@ -557,7 +557,7 @@ export function ModernRolesPermissionsView({ user }) {
           </Field>
         </div>
 
-        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="ms-grid-form-2" style={{ marginTop: 14, gap: 12 }}>
           <Field label="Permissions (CSV)">
             <input className="ms-field-inp" value={rf.permissions} onChange={(e) => setRf((p) => ({ ...p, permissions: e.target.value }))} />
           </Field>

@@ -103,7 +103,7 @@ export function ModernMessagesView({ user, initialMessages = [] }) {
       <div className="ms-card">
         <div className="ms-card-hd">
           <span className="ms-card-title">Message Log</span>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <div className="ms-chips">
               {CHANNEL_CHIPS.map(({ label, value }) => (
                 <button
@@ -120,7 +120,7 @@ export function ModernMessagesView({ user, initialMessages = [] }) {
               placeholder="Search…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: 180, fontSize: 13 }}
+              style={{ width: "min(180px, 100%)", fontSize: 13 }}
             />
           </div>
         </div>
@@ -128,7 +128,7 @@ export function ModernMessagesView({ user, initialMessages = [] }) {
         {filtered.length === 0 ? (
           <div className="ms-empty">No messages match this filter.</div>
         ) : (
-          <table className="ms-tbl">
+          <div className="ms-tbl-wrap"><table className="ms-tbl">
             <thead>
               <tr>
                 <th>Customer</th>
@@ -182,7 +182,7 @@ export function ModernMessagesView({ user, initialMessages = [] }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

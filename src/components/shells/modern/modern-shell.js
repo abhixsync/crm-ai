@@ -233,7 +233,6 @@ function buildNavItems(role) {
       // ─── AI Engine ───
       { key: "health",     href: "/admin/automation-health", label: "Automation Health", icon: icons.health, section: "AI Engine" },
       { key: "demo",       href: "/admin/ai-call-demo",  label: "AI Call Demo",    icon: icons.demo,       section: "AI Engine" },
-      { key: "aiconfig",   href: "/admin/ai-system-prompt", label: "AI Assistance", icon: icons.aiconfig,  section: "AI Engine" },
       { key: "intents",    href: "/admin/intent-training", label: "Intent Training", icon: icons.intents,  section: "AI Engine" },
       { key: "dnc",        href: "/admin/dnc",           label: "DNC Registry",    icon: icons.dnc,        section: "AI Engine" },
       { key: "loanAssistant", href: "/admin/loan-assistant-settings", label: "Loan Assistant", icon: icons.loanAssistant, section: "AI Engine" },
@@ -251,6 +250,7 @@ function buildNavItems(role) {
 
   if (isSuperAdmin) {
     items.push(
+      { key: "aiconfig",   href: "/admin/ai-system-prompt", label: "AI Assistance", icon: icons.aiconfig,  section: "Superadmin" },
       { key: "globaltheme",       href: "/admin/global-appearance",    label: "Global Theme",        icon: icons.globalTheme,       section: "Superadmin" },
       { key: "roles",             href: "/admin/user-management",      label: "Roles & Permissions", icon: icons.roles,             section: "Superadmin" },
       { key: "subscriptionAdmin", href: "/admin/subscription-config",  label: "Subscription Config", icon: icons.subscriptionAdmin, section: "Superadmin" },

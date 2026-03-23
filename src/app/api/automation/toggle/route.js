@@ -1,4 +1,4 @@
-import { hasRole, requireSession } from "@/lib/server/auth-guard";
+import { hasRole, requireSession, getTenantContext } from "@/lib/server/auth-guard";
 import {
   getAutomationSettings,
   isCampaignWorkerEnabled,
@@ -6,7 +6,7 @@ import {
 } from "@/lib/journey/automation-settings";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
-export async function GET() {
+export async function GET(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
@@ -14,8 +14,10 @@ export async function GET() {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const { tenantId } = getTenantContext(auth.session, request);
+
   try {
-    const settings = await getAutomationSettings();
+    const settings = await getAutomationSettings(tenantId);
     return Response.json({
       settings,
       capabilities: {
@@ -40,6 +42,7 @@ export async function PATCH(request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const { tenantId } = getTenantContext(auth.session, request);
   const body = await request.json();
   const workerEnabled = isCampaignWorkerEnabled();
   const update = {};
@@ -67,7 +70,7 @@ export async function PATCH(request) {
   if (body.eligibleStatuses !== undefined) update.eligibleStatuses = body.eligibleStatuses;
 
   try {
-    const settings = await upsertAutomationSettings(update);
+    const settings = await upsertAutomationSettings(tenantId, update);
 
     return Response.json({
       settings,

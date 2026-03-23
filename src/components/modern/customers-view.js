@@ -324,7 +324,7 @@ export function ModernCustomersView({
           />
           <select
             className="ms-srch"
-            style={{ width: 140 }}
+            style={{ width: "min(140px, 100%)" }}
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
           >
@@ -428,7 +428,7 @@ export function ModernCustomersView({
       </div>
 
       {/* Pagination */}
-      <div style={{ padding: "12px 16px", borderRadius: 10, background: "var(--ms-surface)", border: "1px solid var(--ms-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ padding: "12px 16px", borderRadius: 10, background: "var(--ms-surface)", border: "1px solid var(--ms-border)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <span style={{ fontSize: 11, color: "var(--ms-text3)" }}>
           Page {pagination.page} of {pagination.totalPages} ({pagination.total} records)
         </span>
@@ -442,7 +442,7 @@ export function ModernCustomersView({
       {confirm && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.55)" }}
           onClick={e => { if (e.target === e.currentTarget) setConfirm(null); }}>
-          <div style={{ width: 360, padding: 20, borderRadius: 12, background: "var(--ms-surface)", border: "1px solid var(--ms-border)", boxShadow: "0 8px 30px rgba(0,0,0,.35)" }}>
+          <div style={{ width: "100%", maxWidth: 360, margin: "0 16px", padding: 20, borderRadius: 12, background: "var(--ms-surface)", border: "1px solid var(--ms-border)", boxShadow: "0 8px 30px rgba(0,0,0,.35)" }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ms-text)", marginBottom: 8 }}>{confirm.title}</div>
             <div style={{ fontSize: 12, color: "var(--ms-text2)", marginBottom: 18, lineHeight: 1.5 }}>{confirm.message}</div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -457,7 +457,7 @@ export function ModernCustomersView({
       {showModal && (
         <div style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.55)" }}
           onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); setEditId(""); setForm(EMPTY_FORM); } }}>
-          <div style={{ width: "100%", maxWidth: 720, maxHeight: "90vh", overflowY: "auto", borderRadius: 12, background: "var(--ms-surface)", border: "1px solid var(--ms-border)", padding: 24 }}>
+          <div style={{ width: "100%", maxWidth: 720, maxHeight: "90vh", overflowY: "auto", borderRadius: 12, background: "var(--ms-surface)", border: "1px solid var(--ms-border)", padding: 24, margin: "0 12px" }}>
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ms-text)" }}>
@@ -497,7 +497,7 @@ export function ModernCustomersView({
               </div>
             ) : (
               <div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div className="ms-grid-form-3" style={{ gap: 10 }}>
                   {[
                     ["firstName", "First Name"], ["lastName", "Last Name"], ["phone", "Phone"],
                     ["email", "Email"], ["city", "City"], ["state", "State"],

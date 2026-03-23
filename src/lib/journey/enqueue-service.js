@@ -7,7 +7,7 @@ import { CampaignJobStatus, CustomerStatus } from "@prisma/client";
 
 export async function enqueueCustomerIfEligible(customerId, reason = "new_customer", tenantId) {
   const [settings, customer] = await Promise.all([
-    getAutomationSettings(),
+    getAutomationSettings(tenantId),
     prisma.customer.findFirst({
       where: {
         id: customerId,

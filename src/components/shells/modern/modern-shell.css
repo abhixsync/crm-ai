@@ -137,6 +137,25 @@
 [data-ui-theme="light"] .ms-cust-cols {
   background: #EDE9E2;
 }
+[data-ui-theme="light"] .ms-shell input,
+[data-ui-theme="light"] .ms-shell select,
+[data-ui-theme="light"] .ms-shell textarea,
+[data-ui-theme="light"] .ms-field-inp,
+[data-ui-theme="light"] .ms-input,
+[data-ui-theme="light"] .ms-select,
+[data-ui-theme="light"] .ms-srch,
+[data-ui-theme="light"] .ms-login-input {
+  background: #FFFFFF;
+  border-color: rgba(55,45,30,.22);
+}
+[data-ui-theme="light"] .ms-shell input:focus,
+[data-ui-theme="light"] .ms-shell select:focus,
+[data-ui-theme="light"] .ms-shell textarea:focus,
+[data-ui-theme="light"] .ms-field-inp:focus,
+[data-ui-theme="light"] .ms-input:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 2px rgba(5,150,105,.15);
+}
 
 /* ═══════════════════ LAYOUT SHELL ═══════════════════ */
 .ms-shell {
@@ -148,6 +167,44 @@
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
   transition: background .25s, color .25s;
+}
+
+/* Override global/classic/Tailwind resets inside modern shell */
+.ms-shell *, .ms-shell *::before, .ms-shell *::after {
+  border-color: var(--ms-border);
+}
+.ms-shell input,
+.ms-shell select,
+.ms-shell textarea {
+  border-radius: 7px;
+  border: 1px solid var(--ms-border2);
+  background: var(--ms-bg3);
+  color: var(--ms-text);
+  font-family: inherit;
+  font-size: 13px;
+  box-shadow: none;
+  outline: none;
+}
+.ms-shell input:focus,
+.ms-shell select:focus,
+.ms-shell textarea:focus {
+  border-color: var(--ms-accent);
+  box-shadow: 0 0 0 2px rgba(29,233,168,.15);
+  outline: none;
+}
+.ms-shell button {
+  border-radius: 7px;
+  box-shadow: none;
+  font-family: inherit;
+}
+.ms-shell button:focus {
+  box-shadow: none;
+  outline: none;
+}
+.ms-shell input::placeholder,
+.ms-shell textarea::placeholder {
+  color: var(--ms-text3);
+  opacity: 1;
 }
 
 /* ─── SIDEBAR ─── */
@@ -392,27 +449,7 @@
 .ms-mobile-menu-btn:hover { background: var(--ms-bg3); color: var(--ms-text); }
 .ms-mobile-menu-btn svg { width: 16px; height: 16px; }
 
-/* ─── RESPONSIVE ─── */
-@media (max-width: 768px) {
-  .ms-sb {
-    position: fixed;
-    left: -220px;
-    top: 0; bottom: 0;
-    transition: left .25s ease, background .25s;
-  }
-  .ms-sb.open {
-    left: 0;
-  }
-  .ms-mobile-menu-btn {
-    display: flex;
-  }
-  .ms-topbar {
-    padding: 0 16px;
-  }
-  .ms-pane {
-    padding: 16px;
-  }
-}
+/* (responsive rules moved to end of file — must come after all component definitions) */
 
 /* ─── SCROLLBAR ─── */
 .ms-shell ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -424,7 +461,6 @@
 
 /* Metric tiles */
 .ms-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
-@media (max-width: 768px) { .ms-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 .ms-m-tile {
   background: var(--ms-surface); border: 1px solid var(--ms-border);
   border-radius: 12px; padding: 20px 22px;
@@ -438,7 +474,6 @@
 
 /* Dashboard grid */
 .ms-dash-body { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 20px; align-items: start; }
-@media (max-width: 1024px) { .ms-dash-body { grid-template-columns: 1fr; } }
 .ms-dash-left  { display: flex; flex-direction: column; gap: 20px; }
 .ms-dash-right { display: flex; flex-direction: column; gap: 16px; }
 
@@ -604,7 +639,6 @@
 
 /* Settings form */
 .ms-settings-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 20px; }
-@media (max-width: 768px) { .ms-settings-grid { grid-template-columns: 1fr; } }
 .ms-field { margin-bottom: 13px; }
 .ms-field-lbl { font-size: 11px; color: var(--ms-text2); font-weight: 500; margin-bottom: 4px; }
 .ms-field-inp {
@@ -695,4 +729,193 @@ select.ms-field-inp { cursor: pointer; }
 /* When login has a background image, make the card slightly translucent */
 .ms-login[style*="background-image"] .ms-login-card {
   background: color-mix(in srgb, var(--ms-surface) 88%, transparent);
+}
+
+/* ═══════════════════ RESPONSIVE — MUST BE LAST ═══════════════════ */
+/* These come after ALL component definitions so they win in the cascade */
+
+/* ─── Grid utilities ─── */
+.ms-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.ms-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.ms-grid-side { display: grid; grid-template-columns: 1fr 280px; gap: 20px; }
+.ms-grid-form-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ms-grid-form-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+/* ─── Tablet ─── */
+@media (max-width: 1024px) {
+  .ms-sb { width: 200px; }
+  .ms-m-tile-val { font-size: 24px; }
+  .ms-dash-body { grid-template-columns: 1fr; }
+}
+
+/* ─── Mobile ─── */
+@media (max-width: 768px) {
+  /* Sidebar → off-screen drawer */
+  .ms-sb {
+    position: fixed;
+    left: -260px; width: 260px;
+    top: 0; bottom: 0;
+    transition: left .25s ease, background .25s;
+  }
+  .ms-sb.open { left: 0; }
+  .ms-mobile-menu-btn { display: flex; }
+
+  /* Topbar */
+  .ms-topbar { padding: 0 10px; gap: 5px; height: 48px; }
+  .ms-pg-title { font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ms-tenant-trigger { padding: 3px 8px; font-size: 11px; }
+  .ms-tenant-trigger-name { max-width: 80px; }
+  .ms-theme-toggle { width: 30px; height: 30px; }
+
+  /* Content pane */
+  .ms-pane { padding: 12px; gap: 12px; }
+
+  /* Cards */
+  .ms-card { border-radius: 10px; }
+  .ms-card-hd { padding: 12px 14px; flex-wrap: wrap; gap: 8px; }
+  .ms-card-pad { padding: 16px !important; }
+
+  /* Grid utilities → single column */
+  .ms-grid-2, .ms-grid-3, .ms-grid-side,
+  .ms-grid-form-2, .ms-grid-form-3 {
+    grid-template-columns: 1fr; gap: 12px;
+  }
+
+  /* Metrics → 2 cols, compact */
+  .ms-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+  .ms-m-tile { padding: 14px 16px; border-radius: 10px; }
+  .ms-m-tile-val { font-size: 22px; }
+  .ms-m-tile-lbl { font-size: 10px; margin-bottom: 6px; }
+
+  /* Dashboard grid → single column */
+  .ms-dash-body { grid-template-columns: 1fr; gap: 12px; }
+  .ms-dash-right { gap: 12px; }
+
+  /* Tables → horizontal scroll + compact cells */
+  .ms-tbl-wrap { -webkit-overflow-scrolling: touch; }
+  .ms-tbl { min-width: 480px; }
+  .ms-tbl th { padding: 8px 10px; font-size: 9px; }
+  .ms-tbl td { padding: 9px 10px; font-size: 11px; }
+
+  /* Customer toolbar → wrap */
+  .ms-cust-toolbar { flex-wrap: wrap; padding: 8px 12px; gap: 6px; }
+  .ms-srch { width: 100%; min-width: 0; }
+
+  /* Customer grid → hide avatar col, keep name + status + time */
+  .ms-cust-cols, .ms-cust-row {
+    grid-template-columns: minmax(0,1fr) auto auto;
+    padding-left: 12px; padding-right: 12px; gap: 8px;
+  }
+  /* hide avatar column (1st child) */
+  .ms-cust-cols span:first-child,
+  .ms-cust-row > :first-child { display: none; }
+
+  /* Pipeline */
+  .ms-pipe-row { padding: 8px 14px; gap: 10px; grid-template-columns: 80px 1fr 36px; }
+
+  /* AI agent card */
+  .ms-ai-n-val { font-size: 16px; }
+  .ms-ai-n { padding: 10px 12px; }
+
+  /* Timeline */
+  .ms-tl { padding: 12px 14px; gap: 14px; }
+
+  /* Buttons — larger touch targets */
+  .ms-btn { padding: 8px 12px; font-size: 12px; min-height: 34px; }
+  .ms-btn-pri { padding: 8px 14px; }
+  .ms-btn-xs { padding: 6px 10px; font-size: 11px; min-height: 30px; }
+
+  /* Settings grid → single column */
+  .ms-settings-grid { grid-template-columns: 1fr; gap: 14px; }
+
+  /* Tabs → scrollable */
+  .ms-tabs { padding: 0 12px; -webkit-overflow-scrolling: touch; overflow-x: auto; scrollbar-width: none; }
+  .ms-tab { padding: 10px 10px; font-size: 11px; flex-shrink: 0; }
+
+  /* Pill tabs → scroll */
+  .ms-pill-tabs { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .ms-pill-tab { flex-shrink: 0; padding: 5px 12px; font-size: 11px; }
+  .ms-pill-tab-sm { padding: 3px 10px; font-size: 10px; }
+
+  /* Chips → scroll */
+  .ms-chips { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .ms-chip { flex-shrink: 0; }
+
+  /* Pagination */
+  .ms-pagination { padding: 12px; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .ms-pagination button { padding: 6px 12px; font-size: 11px; min-height: 30px; }
+
+  /* Follow-ups */
+  .ms-fu-list { padding: 8px 10px; }
+  .ms-fu-row { padding: 8px 10px; gap: 8px; }
+
+  /* Feed */
+  .ms-feed { padding: 10px 12px; }
+  .ms-feed-row { gap: 7px; }
+
+  /* Sidebar footer */
+  .ms-sb-foot { padding: 12px 14px; }
+  .ms-user-role { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+
+  /* Dropdowns → constrain to viewport */
+  .ms-lang-dropdown { right: 0; min-width: 160px; max-width: calc(100vw - 24px); }
+  .ms-tenant-dropdown { right: 0; min-width: 180px; max-width: calc(100vw - 24px); max-height: 260px; }
+
+  /* Campaign grid */
+  .ms-camp-grid { flex-wrap: wrap; }
+  .ms-c-num { min-width: 0; flex: 1 1 33%; border-bottom: 1px solid var(--ms-border); padding: 8px 4px; }
+  .ms-c-num-v { font-size: 14px; }
+  .ms-c-num-l { font-size: 9px; }
+
+  /* Fields — prevent iOS zoom */
+  .ms-field-inp { font-size: 14px; padding: 10px 12px; }
+  .ms-input, .ms-select { font-size: 14px; padding: 10px 12px; }
+
+  /* Empty states */
+  .ms-empty { padding: 28px 16px; }
+
+  /* Login page */
+  .ms-login { padding: 16px; }
+  .ms-login-card { padding: 24px 20px; }
+  .ms-login-input { font-size: 16px; }
+
+  /* Billing upgrade header */
+  .ms-billing-upgrade-hd { flex-direction: column; align-items: flex-start !important; gap: 10px; }
+}
+
+/* ─── Small phone ─── */
+@media (max-width: 420px) {
+  .ms-pane { padding: 8px; gap: 10px; }
+  .ms-topbar { padding: 0 8px; gap: 4px; }
+  .ms-pg-title { font-size: 12px; }
+  .ms-tenant-trigger-name { max-width: 50px; }
+  .ms-tenant-trigger { padding: 2px 6px; font-size: 10px; }
+  .ms-theme-toggle { width: 28px; height: 28px; }
+
+  /* Customer grid → hide header, keep 2-col from 768px breakpoint */
+  .ms-cust-cols { display: none; }
+
+  /* Pipeline */
+  .ms-pipe-row { grid-template-columns: 60px 1fr 30px; padding: 8px 10px; gap: 8px; }
+
+  /* Metrics */
+  .ms-metrics { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .ms-m-tile { padding: 12px; }
+  .ms-m-tile-val { font-size: 18px; }
+
+  /* Grid utilities */
+  .ms-grid-2, .ms-grid-3 { gap: 8px; }
+
+  /* Dropdowns full-width */
+  .ms-lang-dropdown, .ms-tenant-dropdown {
+    position: fixed; left: 8px; right: 8px; top: 52px;
+    min-width: 0; max-width: none; border-radius: 10px;
+  }
+
+  /* Cards */
+  .ms-card { border-radius: 8px; }
+  .ms-card-hd { padding: 10px 12px; }
+
+  /* Login */
+  .ms-login-card { padding: 20px 16px; }
 }

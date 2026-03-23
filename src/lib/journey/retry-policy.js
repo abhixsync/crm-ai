@@ -47,7 +47,7 @@ export async function scheduleRetryForFailure({ customerId, tenantId, failureCod
     return { scheduled: false, reason: "non_retryable" };
   }
 
-  const settings = await getAutomationSettings();
+  const settings = await getAutomationSettings(tenantId || customer.tenantId);
   const nextRetryCount = customer.retryCount + 1;
 
   if (nextRetryCount >= settings.maxRetries) {

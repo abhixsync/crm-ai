@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useTenantSwitcher } from "@/components/providers/tenant-switcher-provider";
+import { toast } from "sonner";
 
 const PLAN_COLOR = {
   FREE: { bg: "rgba(110,110,110,.14)", fg: "#9ca3af", border: "rgba(110,110,110,.3)" },
@@ -150,7 +151,7 @@ export function ModernBillingView({ user }) {
       description:     `${billingCycle} subscription`,
       handler: function () {
         fetchData();
-        alert("Payment successful! Your plan will be updated shortly.");
+        toast.success("Payment successful! Your plan will be updated shortly.");
       },
       prefill: {
         email: session?.user?.email || "",
@@ -176,7 +177,7 @@ export function ModernBillingView({ user }) {
       ) : (
         <>
           {/* Current Plan + Usage row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          <div className="ms-grid-2">
             <div className="ms-card" style={{ padding: "20px 24px" }}>
               <div style={{ fontSize: 12, color: "var(--ms-text3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 14 }}>
                 Current Plan
@@ -224,7 +225,7 @@ export function ModernBillingView({ user }) {
               <div style={{ fontSize: 12, color: "var(--ms-text3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 16 }}>
                 Plan Features
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0 24px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "0 24px" }}>
                 {[
                   ["hasAiCalling", "AI Calling"],
                   ["hasAdvancedAnalytics", "Advanced Analytics"],
@@ -252,7 +253,7 @@ export function ModernBillingView({ user }) {
 
           {/* Upgrade Options */}
           <div className="ms-card" style={{ padding: "20px 24px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+            <div className="ms-billing-upgrade-hd" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
               <div style={{ fontSize: 12, color: "var(--ms-text3)", textTransform: "uppercase", letterSpacing: ".06em" }}>
                 Upgrade Plan
               </div>
@@ -277,7 +278,7 @@ export function ModernBillingView({ user }) {
               </div>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+            <div className="ms-grid-3">
               {plans.filter(p => p.plan !== "FREE").map((plan) => {
                 const c = PLAN_COLOR[plan.plan] || PLAN_COLOR.FREE;
                 const isCurrent = summary?.plan === plan.plan;
@@ -334,7 +335,7 @@ export function ModernBillingView({ user }) {
               <div className="ms-card-hd">
                 <span className="ms-card-title">Billing History</span>
               </div>
-              <table className="ms-tbl" style={{ width: "100%" }}>
+              <div className="ms-tbl-wrap"><table className="ms-tbl" style={{ width: "100%" }}>
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -371,7 +372,7 @@ export function ModernBillingView({ user }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           )}
         </>

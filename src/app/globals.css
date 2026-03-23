@@ -183,6 +183,8 @@ textarea::placeholder {
   opacity: 0.92;
 }
 
+/* Modern shell overrides are in modern-shell.css */
+
 /* TanStack DataTable harmony */
 .themed-table {
   border-color: var(--border);

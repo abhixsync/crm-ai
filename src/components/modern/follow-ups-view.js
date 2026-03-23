@@ -93,7 +93,7 @@ export function ModernFollowUpsView({ user, initialTasks = [] }) {
         {filtered.length === 0 ? (
           <div className="ms-empty">No tasks match this filter.</div>
         ) : (
-          <table className="ms-tbl">
+          <div className="ms-tbl-wrap"><table className="ms-tbl">
             <thead>
               <tr>
                 <th>Customer</th>
@@ -160,7 +160,7 @@ export function ModernFollowUpsView({ user, initialTasks = [] }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

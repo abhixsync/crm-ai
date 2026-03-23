@@ -21,7 +21,7 @@ function MetricCard({ label, value, sub, color = "var(--ms-accent)" }) {
   return (
     <div
       className="ms-card"
-      style={{ flex: 1, minWidth: 160, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 6 }}
+      style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 6 }}
     >
       <div style={{ fontSize: 12, color: "var(--ms-text3)", textTransform: "uppercase", letterSpacing: ".06em" }}>
         {label}
@@ -47,7 +47,7 @@ export function ModernAnalyticsView({ user, metrics, statusBreakdown = [], recen
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Metric cards */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+      <div className="ms-metrics">
         <MetricCard label="Total Customers" value={metrics.totalCustomers} sub="Active (not archived)" />
         <MetricCard label="Total Calls" value={metrics.totalCalls} sub="All time" color="#4f9cf9" />
         <MetricCard
@@ -70,7 +70,7 @@ export function ModernAnalyticsView({ user, metrics, statusBreakdown = [], recen
             const color = STATUS_COLORS[item.status] || "#6b7280";
             return (
               <div key={item.status} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 110, fontSize: 12, color: "var(--ms-text2)", flexShrink: 0 }}>
+                <div style={{ width: "clamp(60px, 25%, 110px)", fontSize: 12, color: "var(--ms-text2)", flexShrink: 0 }}>
                   {item.status.replace(/_/g, " ")}
                 </div>
                 <div

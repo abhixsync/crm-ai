@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 
 const SOURCE_COLORS = {
   MANUAL: "#4f9cf9",
@@ -49,10 +50,12 @@ export function ModernDncView({ user, initialEntries = [] }) {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to add entry");
+        toast.error(data.error || "Failed to add entry");
       } else {
         setEntries((prev) => [data.entry, ...prev]);
         setShowForm(false);
         setForm({ phone: "", reason: "", source: "MANUAL" });
+        toast.success("DNC entry added");
       }
     } finally {
       setSaving(false);
@@ -61,7 +64,12 @@ export function ModernDncView({ user, initialEntries = [] }) {
 
   async function removeEntry(id) {
     const res = await fetch(`/api/admin/dnc/${id}`, { method: "DELETE" });
-    if (res.ok) setEntries((prev) => prev.filter((e) => e.id !== id));
+    if (res.ok) {
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+      toast.success("Entry removed");
+    } else {
+      toast.error("Failed to remove entry");
+    }
   }
 
   const activeCount = entries.filter((e) => !isExpired(e.expiresAt)).length;
@@ -150,13 +158,13 @@ export function ModernDncView({ user, initialEntries = [] }) {
             placeholder="Search phone or reason…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ width: 220, fontSize: 13 }}
+            style={{ width: "min(220px, 100%)", fontSize: 13 }}
           />
         </div>
         {filtered.length === 0 ? (
           <div className="ms-empty">No DNC entries found.</div>
         ) : (
-          <table className="ms-tbl">
+          <div className="ms-tbl-wrap"><table className="ms-tbl">
             <thead>
               <tr>
                 <th>Phone</th>
@@ -205,7 +213,7 @@ export function ModernDncView({ user, initialEntries = [] }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

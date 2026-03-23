@@ -84,7 +84,7 @@ export function ModernAuditLogsView({ user, initialLogs = [] }) {
         {filtered.length === 0 ? (
           <div className="ms-empty">No audit logs match your search.</div>
         ) : (
-          <table className="ms-tbl">
+          <div className="ms-tbl-wrap"><table className="ms-tbl">
             <thead>
               <tr>
                 <th>Action</th>
@@ -125,7 +125,7 @@ export function ModernAuditLogsView({ user, initialLogs = [] }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
         <div style={{ padding: "10px 20px", fontSize: 12, color: "var(--ms-text3)", borderTop: "1px solid var(--ms-border)" }}>
           Showing {filtered.length} of {initialLogs.length} entries (last 200)

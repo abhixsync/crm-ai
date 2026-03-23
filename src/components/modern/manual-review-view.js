@@ -93,7 +93,7 @@ export function ModernManualReviewView({ user, initialReviews = [] }) {
         {filtered.length === 0 ? (
           <div className="ms-empty">No items match this filter.</div>
         ) : (
-          <table className="ms-tbl">
+          <div className="ms-tbl-wrap"><table className="ms-tbl">
             <thead>
               <tr>
                 <th>Customer</th>
@@ -163,7 +163,7 @@ export function ModernManualReviewView({ user, initialReviews = [] }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

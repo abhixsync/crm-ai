@@ -60,7 +60,7 @@ const worker = new Worker(
       metadata: workerRuntimeMetadata(),
     });
 
-    const settings = await getAutomationSettings();
+    const settings = await getAutomationSettings(tenantId);
     if (!settings.enabled) {
       const result = { skipped: true, reason: "automation_disabled" };
       await updateCampaignJob(job, {
@@ -167,23 +167,23 @@ const worker = new Worker(
 );
 
 async function writeWorkerHeartbeat() {
-  await prisma.automationSetting.upsert({
-    where: { key: WORKER_HEARTBEAT_KEY },
-    create: {
-      key: WORKER_HEARTBEAT_KEY,
-      value: {
-        lastHeartbeatAt: new Date().toISOString(),
-        pid: process.pid,
-        host: os.hostname(),
-      },
-    },
-    update: {
-      value: {
-        lastHeartbeatAt: new Date().toISOString(),
-        pid: process.pid,
-        host: os.hostname(),
-      },
-    },
+  const existing = await prisma.automationSetting.findFirst({ where: { key: WORKER_HEARTBEAT_KEY } });
+  const heartbeatValue = {
+    lastHeartbeatAt: new Date().toISOString(),
+    pid: process.pid,
+    host: os.hostname(),
+  };
+  if (existing) {
+    await prisma.automationSetting.update({
+      where: { tenantId_key: { tenantId: existing.tenantId, key: WORKER_HEARTBEAT_KEY } },
+      data: { value: heartbeatValue },
+    });
+    return;
+  }
+  const tenant = await prisma.tenant.findFirst({ select: { id: true } });
+  if (!tenant) return;
+  await prisma.automationSetting.create({
+    data: { tenantId: tenant.id, key: WORKER_HEARTBEAT_KEY, value: heartbeatValue },
   });
 }
 

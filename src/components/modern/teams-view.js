@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 const ROLE_COLORS = {
   SUPER_ADMIN: "#f25858",
@@ -32,6 +33,9 @@ export function ModernTeamsView({ user, initialTeams = [], availableUsers = [] }
         setTeams((prev) => [data.team, ...prev]);
         setShowForm(false);
         setForm({ name: "", leadId: "" });
+        toast.success("Team created");
+      } else {
+        toast.error(data.error || "Failed to create team");
       }
     } finally {
       setSaving(false);
@@ -54,6 +58,9 @@ export function ModernTeamsView({ user, initialTeams = [], availableUsers = [] }
       );
       setAddMemberId("");
       setAddMemberTeamId(null);
+      toast.success("Member added");
+    } else {
+      toast.error("Failed to add member");
     }
   }
 
@@ -67,12 +74,20 @@ export function ModernTeamsView({ user, initialTeams = [], availableUsers = [] }
             : t
         )
       );
+      toast.success("Member removed");
+    } else {
+      toast.error("Failed to remove member");
     }
   }
 
   async function deleteTeam(id) {
     const res = await fetch(`/api/admin/teams/${id}`, { method: "DELETE" });
-    if (res.ok) setTeams((prev) => prev.filter((t) => t.id !== id));
+    if (res.ok) {
+      setTeams((prev) => prev.filter((t) => t.id !== id));
+      toast.success("Team deleted");
+    } else {
+      toast.error("Failed to delete team");
+    }
   }
 
   return (
@@ -209,12 +224,12 @@ export function ModernTeamsView({ user, initialTeams = [], availableUsers = [] }
 
                   {/* Add member */}
                   {addMemberTeamId === team.id ? (
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <select
                         className="ms-input"
                         value={addMemberId}
                         onChange={(e) => setAddMemberId(e.target.value)}
-                        style={{ flex: 1, fontSize: 13 }}
+                        style={{ flex: "1 1 150px", fontSize: 13 }}
                       >
                         <option value="">— Select user —</option>
                         {availableUsers

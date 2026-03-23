@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 const WEBHOOK_EVENTS = [
   "call.completed",
@@ -50,10 +51,12 @@ export function ModernWebhooksView({ user, initialWebhooks = [] }) {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to create");
+        toast.error(data.error || "Failed to create webhook");
       } else {
         setWebhooks((prev) => [data.webhook, ...prev]);
         setShowForm(false);
         setForm({ name: "", url: "", events: [], secret: "" });
+        toast.success("Webhook created");
       }
     } finally {
       setSaving(false);
@@ -68,12 +71,20 @@ export function ModernWebhooksView({ user, initialWebhooks = [] }) {
     });
     if (res.ok) {
       setWebhooks((prev) => prev.map((w) => (w.id === id ? { ...w, enabled: !enabled } : w)));
+      toast.success(`Webhook ${enabled ? "disabled" : "enabled"}`);
+    } else {
+      toast.error("Failed to update webhook");
     }
   }
 
   async function deleteWebhook(id) {
     const res = await fetch(`/api/admin/webhooks/${id}`, { method: "DELETE" });
-    if (res.ok) setWebhooks((prev) => prev.filter((w) => w.id !== id));
+    if (res.ok) {
+      setWebhooks((prev) => prev.filter((w) => w.id !== id));
+      toast.success("Webhook deleted");
+    } else {
+      toast.error("Failed to delete webhook");
+    }
   }
 
   return (
@@ -93,7 +104,7 @@ export function ModernWebhooksView({ user, initialWebhooks = [] }) {
       {showForm && (
         <div className="ms-card" style={{ padding: "20px 24px" }}>
           <div className="ms-card-title" style={{ marginBottom: 20 }}>New Webhook</div>
-          <form onSubmit={createWebhook} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <form onSubmit={createWebhook} className="ms-grid-form-2" style={{ gap: 16 }}>
             <div>
               <label className="ms-field-label">Name</label>
               <input

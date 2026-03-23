@@ -173,7 +173,7 @@ export function ModernDealsView({ user, initialDeals = [] }) {
         {filtered.length === 0 ? (
           <div className="ms-empty">No deals match this filter.</div>
         ) : (
-          <table className="ms-tbl">
+          <div className="ms-tbl-wrap"><table className="ms-tbl">
             <thead>
               <tr>
                 <th>Title</th>
@@ -223,7 +223,7 @@ export function ModernDealsView({ user, initialDeals = [] }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

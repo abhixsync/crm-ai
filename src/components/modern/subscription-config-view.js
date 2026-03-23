@@ -83,7 +83,7 @@ export function ModernSubscriptionConfigView({ user }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
+      <div className="ms-grid-2" style={{ alignItems: "start" }}>
         {/* Settings card */}
         <div className="ms-card" style={{ padding: "20px 24px" }}>
           <div style={{ fontSize: 12, color: "var(--ms-text3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 20 }}>

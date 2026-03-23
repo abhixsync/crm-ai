@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { toast } from "sonner";
 
 const STATUS_COLORS = {
   COMPLETED: "#22c993",
@@ -47,8 +48,10 @@ export function ModernLeadUploadsView({ user }) {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Upload failed");
+        toast.error(data.error || "Upload failed");
       } else {
         setUploads((prev) => [data.upload, ...prev].filter(Boolean));
+        toast.success("Leads uploaded successfully");
       }
     } catch {
       setError("Network error. Please try again.");
@@ -135,7 +138,7 @@ export function ModernLeadUploadsView({ user }) {
         {uploads.length === 0 ? (
           <div className="ms-empty">No uploads yet.</div>
         ) : (
-          <table className="ms-tbl">
+          <div className="ms-tbl-wrap"><table className="ms-tbl">
             <thead>
               <tr>
                 <th>File</th>
@@ -169,7 +172,7 @@ export function ModernLeadUploadsView({ user }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

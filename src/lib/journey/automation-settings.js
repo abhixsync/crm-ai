@@ -62,18 +62,22 @@ function normalizeSettings(value = {}) {
   };
 }
 
-export async function getAutomationSettings() {
-  const record = await prisma.automationSetting.findUnique({ where: { key: SETTING_KEY } });
+export async function getAutomationSettings(tenantId) {
+  if (!tenantId) return normalizeSettings({});
+  const record = await prisma.automationSetting.findUnique({
+    where: { tenantId_key: { tenantId, key: SETTING_KEY } },
+  });
   return normalizeSettings(record?.value || {});
 }
 
-export async function upsertAutomationSettings(partialSettings) {
-  const current = await getAutomationSettings();
+export async function upsertAutomationSettings(tenantId, partialSettings) {
+  if (!tenantId) throw new Error("tenantId is required for automation settings");
+  const current = await getAutomationSettings(tenantId);
   const next = normalizeSettings({ ...current, ...partialSettings });
 
   const saved = await prisma.automationSetting.upsert({
-    where: { key: SETTING_KEY },
-    create: { key: SETTING_KEY, value: next },
+    where: { tenantId_key: { tenantId, key: SETTING_KEY } },
+    create: { tenantId, key: SETTING_KEY, value: next },
     update: { value: next },
   });
 

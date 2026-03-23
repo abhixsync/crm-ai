@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 const INTENT_TYPES = [
   { value: "INTERESTED", label: "Interested", color: "#22c993" },
@@ -38,9 +39,11 @@ export function ModernIntentTrainingView({ user }) {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to save");
+        toast.error(data.error || "Failed to save phrase");
       } else {
         setIntents((prev) => [data.intent, ...prev]);
         setPhrase("");
+        toast.success("Phrase added");
       }
     } catch {
       setError("Network error.");
@@ -51,13 +54,18 @@ export function ModernIntentTrainingView({ user }) {
 
   async function deletePhrase(id) {
     const res = await fetch(`/api/admin/intent-training/${id}`, { method: "DELETE" });
-    if (res.ok) setIntents((prev) => prev.filter((i) => i.id !== id));
+    if (res.ok) {
+      setIntents((prev) => prev.filter((i) => i.id !== id));
+      toast.success("Phrase removed");
+    } else {
+      toast.error("Failed to remove phrase");
+    }
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Add form */}
-      <div className="ms-card" style={{ maxWidth: 560 }}>
+      <div className="ms-card" style={{ maxWidth: "min(560px, 100%)" }}>
         <div className="ms-card-hd">
           <span className="ms-card-title">Intent Training Phrases</span>
         </div>
@@ -118,7 +126,7 @@ export function ModernIntentTrainingView({ user }) {
         {intents.length === 0 ? (
           <div className="ms-empty">No training phrases yet. Add examples above.</div>
         ) : (
-          <table className="ms-tbl">
+          <div className="ms-tbl-wrap"><table className="ms-tbl">
             <thead>
               <tr>
                 <th>Phrase</th>
@@ -154,7 +162,7 @@ export function ModernIntentTrainingView({ user }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

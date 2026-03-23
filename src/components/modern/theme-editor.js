@@ -425,7 +425,7 @@ export function ThemeEditor({ mode = "tenant" }) {
       </div>
 
       {/* two-column: colors + preview */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, alignItems: "start" }}>
+      <div className="ms-grid-side" style={{ alignItems: "start" }}>
         {/* colors */}
         <div className="ms-card" style={{ padding: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>Colors</div>

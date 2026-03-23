@@ -11,7 +11,8 @@
       "Bash(ls -la /c/Work/Learn/crm-ai/tailwind.config.*)",
       "Bash(ls -la /c/Work/Learn/crm-ai/.env*)",
       "Bash(ls -la /c/Work/Learn/crm-ai/src/middleware*)",
-      "Bash(ls -la /c/Work/Learn/crm-ai/src/components/modern/*.js)"
+      "Bash(ls -la /c/Work/Learn/crm-ai/src/components/modern/*.js)",
+      "Bash(node -e \":*)"
     ]
   }
 }

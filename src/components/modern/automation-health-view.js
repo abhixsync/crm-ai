@@ -156,7 +156,7 @@ export function ModernAutomationHealthView({ user }) {
           className="ms-btn"
           onClick={checkHealth}
           disabled={checking}
-          style={{ minWidth: 110 }}
+          style={{ minWidth: "min(110px, 100%)" }}
         >
           {checking ? "Checking…" : "Refresh"}
         </button>
@@ -166,7 +166,7 @@ export function ModernAutomationHealthView({ user }) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
           gap: 14,
         }}
       >

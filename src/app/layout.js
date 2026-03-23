@@ -63,6 +63,13 @@ const getBootstrapData = cache(async () => {
   };
 });
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export async function generateMetadata() {
   const { preloadedTheme, crmTitle } = await getBootstrapData();
   const rawFavicon = String(preloadedTheme?.faviconUrl || "").trim();

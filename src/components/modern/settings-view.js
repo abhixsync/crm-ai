@@ -195,9 +195,10 @@ function TenantField({ label, field, value, onSave, disabled }) {
   return (
     <div className="ms-field">
       <div className="ms-field-lbl">{label}</div>
-      <div style={{ display: "flex", gap: 6 }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         <input
           className="ms-field-inp"
+          style={{ flex: "1 1 180px" }}
           value={val}
           onChange={(e) => { setVal(e.target.value); setDirty(true); }}
         />

@@ -79,14 +79,20 @@ export async function POST(request) {
         customerPhone: undefined, // phone not on User model
       });
 
-      // Persist Razorpay customer ID for future use
-      if (customerId) {
-        await prisma.tenantSubscription.upsert({
-          where:  { tenantId },
-          update: { razorpayCustomerId: customerId },
-          create: { tenantId, plan: "FREE", razorpayCustomerId: customerId },
-        });
-      }
+      // Persist Razorpay IDs so the webhook can look up the tenant
+      await prisma.tenantSubscription.upsert({
+        where:  { tenantId },
+        update: {
+          ...(customerId ? { razorpayCustomerId: customerId } : {}),
+          razorpaySubscriptionId: rzpSub.id,
+        },
+        create: {
+          tenantId,
+          plan: "FREE",
+          ...(customerId ? { razorpayCustomerId: customerId } : {}),
+          razorpaySubscriptionId: rzpSub.id,
+        },
+      });
 
       return Response.json({
         subscriptionId: rzpSub.id,
