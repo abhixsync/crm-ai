@@ -278,6 +278,19 @@
 .ms-btn:hover { background: var(--ms-bg3); color: var(--ms-text); }
 .ms-btn-pri  { background: var(--ms-accent); color: var(--ms-bg); border-color: var(--ms-accent); }
 .ms-btn-pri:hover { opacity: .88; }
+.ms-btn-danger {
+  color: var(--ms-red, #f25858); border-color: transparent; background: rgba(242,88,88,.08);
+}
+.ms-btn-danger:hover { background: var(--ms-red, #f25858); color: #fff; }
+.ms-btn-danger-ghost {
+  color: var(--ms-red, #f25858); border-color: transparent; background: transparent;
+}
+.ms-btn-danger-ghost:hover { background: rgba(242,88,88,.12); color: #fff; }
+.ms-btn-logout {
+  background: none; border: none; cursor: pointer; padding: 4px;
+  color: var(--ms-text3); display: flex; align-items: center; transition: color .12s;
+}
+.ms-btn-logout:hover { color: var(--ms-red, #f25858); }
 .ms-btn svg  { width: 12px; height: 12px; }
 
 /* theme toggle */

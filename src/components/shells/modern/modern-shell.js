@@ -463,10 +463,7 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             title="Logout"
-            style={{
-              background: "none", border: "none", cursor: "pointer", padding: 4,
-              color: "var(--ms-text3)", display: "flex", alignItems: "center",
-            }}
+            className="ms-btn-logout"
           >
             <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ width: 16, height: 16 }}>
               <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />

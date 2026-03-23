@@ -333,7 +333,7 @@ export function ModernCustomersView({
           </select>
           <button className="ms-btn ms-btn-pri" onClick={startCreate}>+ Add</button>
           {canDeleteAllCustomers && (
-            <button className="ms-btn" style={{ color: "var(--ms-red)" }} onClick={confirmDeleteAll} disabled={deletingAll}>
+            <button className="ms-btn ms-btn-danger-ghost" onClick={confirmDeleteAll} disabled={deletingAll}>
               {deletingAll ? "Deleting…" : "Delete All"}
             </button>
           )}
@@ -343,7 +343,7 @@ export function ModernCustomersView({
         {selected.length > 0 && (
           <div style={{ padding: "8px 20px", borderBottom: "1px solid var(--ms-border)", display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 12, color: "var(--ms-text2)" }}>{selected.length} selected</span>
-            <button className="ms-btn" style={{ color: "var(--ms-red)", fontSize: 11 }} onClick={confirmBatchDelete} disabled={batchRunning}>
+            <button className="ms-btn ms-btn-danger-ghost" style={{ fontSize: 11 }} onClick={confirmBatchDelete} disabled={batchRunning}>
               {batchRunning ? "Deleting…" : "Delete Selected"}
             </button>
           </div>
@@ -413,7 +413,7 @@ export function ModernCustomersView({
                           {busyCallId === c.id ? "…" : "Call"}
                         </button>
                         <button className="ms-btn" style={{ fontSize: 11 }} onClick={() => startEdit(c)}>Edit</button>
-                        <button className="ms-btn" style={{ fontSize: 11, color: "var(--ms-red)" }} onClick={() => confirmDelete(c)} disabled={deletingId === c.id}>
+                        <button className="ms-btn ms-btn-danger-ghost" style={{ fontSize: 11 }} onClick={() => confirmDelete(c)} disabled={deletingId === c.id}>
                           {deletingId === c.id ? "…" : "Del"}
                         </button>
                       </div>

@@ -165,8 +165,7 @@ export function ModernTeamsView({ user, initialTeams = [], availableUsers = [] }
                     ▾
                   </span>
                   <button
-                    className="ms-btn ms-btn-xs"
-                    style={{ background: "rgba(242,88,88,.08)", color: "#f25858" }}
+                    className="ms-btn ms-btn-xs ms-btn-danger"
                     onClick={(e) => { e.stopPropagation(); deleteTeam(team.id); }}
                   >
                     Delete
@@ -195,8 +194,7 @@ export function ModernTeamsView({ user, initialTeams = [], availableUsers = [] }
                             </span>
                           </div>
                           <button
-                            className="ms-btn ms-btn-xs"
-                            style={{ background: "rgba(242,88,88,.08)", color: "#f25858" }}
+                            className="ms-btn ms-btn-xs ms-btn-danger"
                             onClick={() => removeMember(team.id, m.userId)}
                           >
                             Remove

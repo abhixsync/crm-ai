@@ -161,7 +161,7 @@ function AssetCard({ label, url, onUpload, onClear, uploading }) {
             {uploading ? "..." : "Upload"}
           </button>
           {url && (
-            <button className="ms-btn" style={{ padding: "2px 8px", fontSize: 10, color: "var(--ms-red, #f25858)" }}
+            <button className="ms-btn ms-btn-danger-ghost" style={{ padding: "2px 8px", fontSize: 10 }}
               onClick={onClear} disabled={uploading}>
               Clear
             </button>
@@ -534,7 +534,7 @@ export function ThemeEditor({ mode = "tenant" }) {
       }}>
         <div>
           {!isGlobal && status?.hasCustomTheme && (
-            <button className="ms-btn" onClick={resetToGlobal} style={{ color: "var(--ms-red, #f25858)", fontSize: 12 }}>
+            <button className="ms-btn ms-btn-danger-ghost" onClick={resetToGlobal} style={{ fontSize: 12 }}>
               Reset to Global
             </button>
           )}

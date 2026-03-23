@@ -195,8 +195,7 @@ export function ModernDncView({ user, initialEntries = [] }) {
                     <td style={{ fontSize: 12, color: "var(--ms-text3)" }}>{formatDate(e.createdAt)}</td>
                     <td>
                       <button
-                        className="ms-btn ms-btn-xs"
-                        style={{ background: "rgba(242,88,88,.08)", color: "#f25858" }}
+                        className="ms-btn ms-btn-xs ms-btn-danger"
                         onClick={() => removeEntry(e.id)}
                       >
                         Remove

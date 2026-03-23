@@ -351,8 +351,8 @@ export function ModernRolesPermissionsView({ user }) {
                         <td>
                           <div style={{ display: "flex", gap: 4 }}>
                             <button className="ms-btn" onClick={() => openEditUser(u)} style={{ padding: "3px 8px", fontSize: 10 }}>Edit</button>
-                            <button className="ms-btn" onClick={() => deleteUser(u.id)} disabled={saving}
-                              style={{ padding: "3px 8px", fontSize: 10, color: "var(--ms-red, #f25858)" }}>
+                            <button className="ms-btn ms-btn-danger-ghost" onClick={() => deleteUser(u.id)} disabled={saving}
+                              style={{ padding: "3px 8px", fontSize: 10 }}>
                               Delete
                             </button>
                           </div>
@@ -371,7 +371,7 @@ export function ModernRolesPermissionsView({ user }) {
               <span style={{ fontSize: 12, color: "var(--ms-text2)" }}>{selectedIds.length} selected</span>
               <button className="ms-btn" onClick={() => batchAction("ACTIVATE")} disabled={saving} style={{ fontSize: 11 }}>Activate</button>
               <button className="ms-btn" onClick={() => batchAction("DEACTIVATE")} disabled={saving} style={{ fontSize: 11 }}>Deactivate</button>
-              <button className="ms-btn" onClick={() => batchAction("DELETE")} disabled={saving} style={{ fontSize: 11, color: "var(--ms-red)" }}>Delete</button>
+              <button className="ms-btn ms-btn-danger-ghost" onClick={() => batchAction("DELETE")} disabled={saving} style={{ fontSize: 11 }}>Delete</button>
             </div>
           )}
         </>
@@ -420,8 +420,8 @@ export function ModernRolesPermissionsView({ user }) {
                         <div style={{ display: "flex", gap: 4 }}>
                           <button className="ms-btn" onClick={() => openEditRole(r)} disabled={r.isSystem}
                             style={{ padding: "3px 8px", fontSize: 10, opacity: r.isSystem ? 0.4 : 1 }}>Edit</button>
-                          <button className="ms-btn" onClick={() => deleteRole(r.id)} disabled={savingRole || r.isSystem}
-                            style={{ padding: "3px 8px", fontSize: 10, color: "var(--ms-red, #f25858)", opacity: r.isSystem ? 0.4 : 1 }}>
+                          <button className="ms-btn ms-btn-danger-ghost" onClick={() => deleteRole(r.id)} disabled={savingRole || r.isSystem}
+                            style={{ padding: "3px 8px", fontSize: 10, opacity: r.isSystem ? 0.4 : 1 }}>
                             Delete
                           </button>
                         </div>

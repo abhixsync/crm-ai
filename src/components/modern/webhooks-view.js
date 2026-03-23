@@ -237,8 +237,7 @@ export function ModernWebhooksView({ user, initialWebhooks = [] }) {
                     {wh.enabled ? "Disable" : "Enable"}
                   </button>
                   <button
-                    className="ms-btn ms-btn-xs"
-                    style={{ background: "rgba(242,88,88,.08)", color: "#f25858" }}
+                    className="ms-btn ms-btn-xs ms-btn-danger"
                     onClick={(e) => { e.stopPropagation(); deleteWebhook(wh.id); }}
                   >
                     Delete
