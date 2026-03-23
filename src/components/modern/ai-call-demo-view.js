@@ -101,7 +101,7 @@ export function ModernAiCallDemoView({ user }) {
           )}
           <button
             type="submit"
-            className="ms-btn ms-btn-primary"
+            className="ms-btn ms-btn-pri"
             disabled={calling || !phone.trim()}
           >
             {calling ? "Connecting…" : "Start Demo Call"}

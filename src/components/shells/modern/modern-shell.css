@@ -514,9 +514,21 @@
 
 /* Tabs & chips */
 .ms-tabs { display: flex; padding: 0 20px; border-bottom: 1px solid var(--ms-border); overflow-x: auto; scrollbar-width: none; }
-.ms-tab { font-size: 12px; font-weight: 500; padding: 11px 11px; cursor: pointer; color: var(--ms-text2); border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color .12s; font-family: inherit; }
+.ms-tab { font-size: 12px; font-weight: 500; padding: 11px 11px; cursor: pointer; color: var(--ms-text2); border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color .12s; font-family: inherit; outline: none; }
 .ms-tab:hover { color: var(--ms-text); }
 .ms-tab.active { color: var(--ms-accent); border-bottom-color: var(--ms-accent); }
+/* Pill tabs (filled-background variant) */
+.ms-pill-tabs { display: flex; gap: 4px; }
+.ms-pill-tab {
+  padding: 7px 16px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 500; font-family: inherit;
+  background: var(--ms-bg3); color: var(--ms-text2);
+  transition: all .15s; outline: none;
+}
+.ms-pill-tab:hover { color: var(--ms-text); }
+.ms-pill-tab.active { background: var(--ms-accent); color: var(--ms-bg); font-weight: 600; }
+.ms-pill-tab-sm { padding: 4px 12px; border-radius: 5px; font-size: 11px; }
+
 .ms-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .ms-chip { font-size: 11px; font-weight: 500; padding: 4px 11px; border-radius: 10px; cursor: pointer; border: 1px solid var(--ms-border2); color: var(--ms-text2); background: transparent; font-family: inherit; transition: all .12s; }
 .ms-chip:hover { background: var(--ms-bg3); color: var(--ms-text); }

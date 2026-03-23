@@ -84,7 +84,11 @@ export function ModernBillingView({ user }) {
   const [upgrading, setUpgrading] = useState(null);
   const [error, setError] = useState("");
   const [billingCycle, setBillingCycle] = useState("MONTHLY");
-  const [provider, setProvider] = useState("razorpay");
+  const [currency, setCurrency] = useState("INR");
+
+  // Provider is derived from currency — not user-selectable
+  const provider = currency === "USD" ? "stripe" : "razorpay";
+  const currencySymbol = currency === "USD" ? "$" : "₹";
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -95,6 +99,7 @@ export function ModernBillingView({ user }) {
         setSummary(data.summary);
         setSubscription(data.subscription);
         setPlans(data.plans || []);
+        if (data.currency) setCurrency(data.currency);
       }
     } catch { /* silent */ }
     setLoading(false);
@@ -238,27 +243,17 @@ export function ModernBillingView({ user }) {
                 Upgrade Plan
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <div style={{ display: "flex", background: "var(--ms-bg3)", borderRadius: 6, padding: 2 }}>
+                <div className="ms-pill-tabs">
                   {["MONTHLY", "ANNUAL"].map((c) => (
                     <button key={c} onClick={() => setBillingCycle(c)}
-                      style={{
-                        padding: "4px 12px", borderRadius: 4, border: "none", fontSize: 12,
-                        cursor: "pointer", fontWeight: billingCycle === c ? 600 : 400,
-                        background: billingCycle === c ? "var(--ms-accent)" : "transparent",
-                        color: billingCycle === c ? "var(--ms-bg)" : "var(--ms-text2)",
-                      }}>
+                      className={`ms-pill-tab ms-pill-tab-sm${billingCycle === c ? " active" : ""}`}>
                       {c === "ANNUAL" ? "Annual (save 20%)" : "Monthly"}
                     </button>
                   ))}
                 </div>
-                <select value={provider} onChange={(e) => setProvider(e.target.value)}
-                  style={{
-                    background: "var(--ms-bg3)", border: "1px solid var(--ms-border)",
-                    color: "var(--ms-text)", borderRadius: 6, padding: "4px 8px", fontSize: 12, cursor: "pointer",
-                  }}>
-                  <option value="stripe">Stripe (USD)</option>
-                  <option value="razorpay">Razorpay (INR)</option>
-                </select>
+                <span style={{ fontSize: 11, color: "var(--ms-text3)", padding: "4px 8px", background: "var(--ms-bg3)", borderRadius: 5 }}>
+                  {currency} via {provider === "stripe" ? "Stripe" : "Razorpay"}
+                </span>
               </div>
             </div>
 
@@ -272,10 +267,9 @@ export function ModernBillingView({ user }) {
               {plans.filter(p => p.plan !== "FREE").map((plan) => {
                 const c = PLAN_COLOR[plan.plan] || PLAN_COLOR.FREE;
                 const isCurrent = summary?.plan === plan.plan;
-                const price = provider === "razorpay"
+                const price = currency === "INR"
                   ? (billingCycle === "ANNUAL" ? plan.annualPriceInr : plan.monthlyPriceInr)
                   : (billingCycle === "ANNUAL" ? plan.annualPriceUsd : plan.monthlyPriceUsd);
-                const currency = provider === "razorpay" ? "₹" : "$";
                 const isUpgrading = upgrading === plan.plan;
 
                 return (
@@ -294,7 +288,7 @@ export function ModernBillingView({ user }) {
                     </div>
 
                     <div style={{ fontSize: 22, fontWeight: 700, color: "var(--ms-text)", margin: "12px 0 4px" }}>
-                      {currency}{price ?? "—"}<span style={{ fontSize: 13, fontWeight: 400, color: "var(--ms-text2)" }}>/{billingCycle === "ANNUAL" ? "yr" : "mo"}</span>
+                      {currencySymbol}{price ?? "—"}<span style={{ fontSize: 13, fontWeight: 400, color: "var(--ms-text2)" }}>/{billingCycle === "ANNUAL" ? "yr" : "mo"}</span>
                     </div>
 
                     <div style={{ fontSize: 12, color: "var(--ms-text3)", marginBottom: 16 }}>
@@ -302,14 +296,14 @@ export function ModernBillingView({ user }) {
                     </div>
 
                     <button
+                      className={isCurrent ? "ms-btn" : "ms-btn ms-btn-pri"}
                       onClick={() => !isCurrent && startUpgrade(plan.plan)}
                       disabled={isCurrent || !!isUpgrading}
                       style={{
-                        width: "100%", padding: "8px 0", borderRadius: 8, cursor: isCurrent ? "default" : "pointer",
-                        fontSize: 13, fontWeight: 600,
-                        background: isCurrent ? "transparent" : c.fg,
-                        color: isCurrent ? c.fg : "#0B0A0F",
-                        border: isCurrent ? `1px solid ${c.border}` : "none",
+                        width: "100%", justifyContent: "center",
+                        ...(isCurrent
+                          ? { color: c.fg, borderColor: c.border, cursor: "default" }
+                          : { background: c.fg, color: "#0B0A0F", borderColor: c.fg }),
                         opacity: isUpgrading ? .7 : 1,
                       }}>
                       {isUpgrading ? "Processing…" : isCurrent ? "Current Plan" : `Upgrade to ${plan.plan}`}

@@ -101,7 +101,7 @@ export function ModernIntentTrainingView({ user }) {
           )}
           <button
             type="submit"
-            className="ms-btn ms-btn-primary"
+            className="ms-btn ms-btn-pri"
             disabled={saving || !phrase.trim()}
           >
             {saving ? "Saving…" : "Add phrase"}

@@ -83,7 +83,7 @@ export function ModernTeamsView({ user, initialTeams = [], availableUsers = [] }
         style={{ padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}
       >
         <div style={{ fontWeight: 700, fontSize: 16 }}>Teams ({teams.length})</div>
-        <button className="ms-btn ms-btn-primary" onClick={() => setShowForm(true)}>
+        <button className="ms-btn ms-btn-pri" onClick={() => setShowForm(true)}>
           + New Team
         </button>
       </div>
@@ -115,7 +115,7 @@ export function ModernTeamsView({ user, initialTeams = [], availableUsers = [] }
               ))}
             </select>
             <div style={{ display: "flex", gap: 10 }}>
-              <button type="submit" className="ms-btn ms-btn-primary" disabled={saving}>
+              <button type="submit" className="ms-btn ms-btn-pri" disabled={saving}>
                 {saving ? "Saving…" : "Create team"}
               </button>
               <button type="button" className="ms-btn" onClick={() => setShowForm(false)}>
@@ -227,7 +227,7 @@ export function ModernTeamsView({ user, initialTeams = [], availableUsers = [] }
                             </option>
                           ))}
                       </select>
-                      <button className="ms-btn ms-btn-primary" onClick={() => addMember(team.id)}>
+                      <button className="ms-btn ms-btn-pri" onClick={() => addMember(team.id)}>
                         Add
                       </button>
                       <button className="ms-btn" onClick={() => { setAddMemberTeamId(null); setAddMemberId(""); }}>

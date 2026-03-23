@@ -44,6 +44,7 @@ function fmt(n) { return n === -1 || n == null ? "∞" : n.toLocaleString(); }
 export function ModernPlanManagementView({ user }) {
   const [plans, setPlans] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
+  const [currency, setCurrency] = useState("INR");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("subscriptions");
   const [actionModal, setActionModal] = useState(null);
@@ -51,6 +52,8 @@ export function ModernPlanManagementView({ user }) {
   const [actioning, setActioning] = useState(false);
   const [actionError, setActionError] = useState("");
   const [actionOk, setActionOk] = useState(false);
+
+  const currencySymbol = currency === "USD" ? "$" : "₹";
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -66,8 +69,12 @@ export function ModernPlanManagementView({ user }) {
       if (subsRes.ok) {
         const d = await subsRes.json();
         setSubscriptions(d.subscriptions || []);
+        // Read currency from global config
+        const configArr = d.config || [];
+        const currencyConfig = configArr.find(c => c.key === "currency");
+        if (currencyConfig) setCurrency(String(currencyConfig.value));
       }
-    } catch { /* silent */ }
+    } catch (err) { console.error("[plan-management] fetch error:", err); }
     setLoading(false);
   }, []);
 
@@ -99,14 +106,10 @@ export function ModernPlanManagementView({ user }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Tab switcher */}
-      <div style={{ display: "flex", gap: 4 }}>
+      <div className="ms-pill-tabs">
         {[["subscriptions", "Active Subscriptions"], ["plans", "Plan Definitions"]].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)}
-            style={{
-              padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500,
-              background: activeTab === key ? "var(--ms-accent)" : "var(--ms-bg3)",
-              color: activeTab === key ? "var(--ms-bg)" : "var(--ms-text2)",
-            }}>
+            className={`ms-pill-tab${activeTab === key ? " active" : ""}`}>
             {label}
           </button>
         ))}
@@ -130,7 +133,7 @@ export function ModernPlanManagementView({ user }) {
             </thead>
             <tbody>
               {subscriptions.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ms-text3)", padding: "32px 0" }}>No subscriptions found</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ms-text3)", padding: "32px 0" }}>No subscriptions found. Tenants will appear here after registration.</td></tr>
               ) : subscriptions.map((sub) => (
                 <tr key={sub.id}>
                   <td>
@@ -147,12 +150,8 @@ export function ModernPlanManagementView({ user }) {
                     {sub.trialEndsAt ? new Date(sub.trialEndsAt).toLocaleDateString() : "—"}
                   </td>
                   <td>
-                    <button
-                      onClick={() => { setActionModal({ tenantId: sub.tenantId, tenantName: sub.tenant?.name }); setActionError(""); setActionOk(false); }}
-                      style={{
-                        padding: "4px 12px", borderRadius: 6, border: "1px solid var(--ms-border2)",
-                        background: "transparent", color: "var(--ms-text2)", fontSize: 12, cursor: "pointer",
-                      }}>
+                    <button className="ms-btn" style={{ fontSize: 12 }}
+                      onClick={() => { setActionModal({ tenantId: sub.tenantId, tenantName: sub.tenant?.name }); setActionError(""); setActionOk(false); }}>
                       Manage
                     </button>
                   </td>
@@ -205,22 +204,14 @@ export function ModernPlanManagementView({ user }) {
                   </tr>
 
                   {/* Pricing section */}
-                  <tr><td colSpan={orderedPlans.length + 1} style={sectionStyle}>Pricing</td></tr>
+                  <tr><td colSpan={orderedPlans.length + 1} style={sectionStyle}>Pricing ({currency})</td></tr>
                   <tr>
-                    <td style={labelStyle}>Monthly (USD)</td>
-                    {orderedPlans.map((p) => <td key={p.plan} style={cellStyle}>${p.monthlyPriceUsd}</td>)}
+                    <td style={labelStyle}>Monthly</td>
+                    {orderedPlans.map((p) => <td key={p.plan} style={cellStyle}>{currencySymbol}{currency === "INR" ? p.monthlyPriceInr : p.monthlyPriceUsd}</td>)}
                   </tr>
                   <tr>
-                    <td style={labelStyle}>Annual (USD)</td>
-                    {orderedPlans.map((p) => <td key={p.plan} style={cellStyle}>${p.annualPriceUsd}</td>)}
-                  </tr>
-                  <tr>
-                    <td style={labelStyle}>Monthly (INR)</td>
-                    {orderedPlans.map((p) => <td key={p.plan} style={cellStyle}>₹{p.monthlyPriceInr}</td>)}
-                  </tr>
-                  <tr>
-                    <td style={labelStyle}>Annual (INR)</td>
-                    {orderedPlans.map((p) => <td key={p.plan} style={cellStyle}>₹{p.annualPriceInr}</td>)}
+                    <td style={labelStyle}>Annual</td>
+                    {orderedPlans.map((p) => <td key={p.plan} style={cellStyle}>{currencySymbol}{currency === "INR" ? p.annualPriceInr : p.annualPriceUsd}</td>)}
                   </tr>
                   <tr>
                     <td style={labelStyle}>Trial</td>
@@ -280,10 +271,9 @@ export function ModernPlanManagementView({ user }) {
               {actionModal.tenantName}
             </div>
 
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, color: "var(--ms-text2)" }}>Action</label>
-              <select value={form.action} onChange={(e) => setForm((f) => ({ ...f, action: e.target.value }))}
-                style={{ display: "block", width: "100%", marginTop: 4, padding: "8px 10px", background: "var(--ms-bg3)", border: "1px solid var(--ms-border)", borderRadius: 8, color: "var(--ms-text)", fontSize: 13 }}>
+            <div className="ms-field" style={{ marginBottom: 14 }}>
+              <div className="ms-field-lbl">Action</div>
+              <select className="ms-field-inp" value={form.action} onChange={(e) => setForm((f) => ({ ...f, action: e.target.value }))}>
                 <option value="override_plan">Override Plan</option>
                 <option value="extend_trial">Extend Trial</option>
                 <option value="downgrade">Downgrade to FREE</option>
@@ -291,21 +281,19 @@ export function ModernPlanManagementView({ user }) {
             </div>
 
             {form.action === "override_plan" && (
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, color: "var(--ms-text2)" }}>Plan</label>
-                <select value={form.plan} onChange={(e) => setForm((f) => ({ ...f, plan: e.target.value }))}
-                  style={{ display: "block", width: "100%", marginTop: 4, padding: "8px 10px", background: "var(--ms-bg3)", border: "1px solid var(--ms-border)", borderRadius: 8, color: "var(--ms-text)", fontSize: 13 }}>
+              <div className="ms-field" style={{ marginBottom: 14 }}>
+                <div className="ms-field-lbl">Plan</div>
+                <select className="ms-field-inp" value={form.plan} onChange={(e) => setForm((f) => ({ ...f, plan: e.target.value }))}>
                   {PLAN_KEYS.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
             )}
 
             {form.action === "extend_trial" && (
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, color: "var(--ms-text2)" }}>Additional Days</label>
-                <input type="number" value={form.days} min={1} max={365}
-                  onChange={(e) => setForm((f) => ({ ...f, days: e.target.value }))}
-                  style={{ display: "block", width: "100%", marginTop: 4, padding: "8px 10px", background: "var(--ms-bg3)", border: "1px solid var(--ms-border)", borderRadius: 8, color: "var(--ms-text)", fontSize: 13 }} />
+              <div className="ms-field" style={{ marginBottom: 14 }}>
+                <div className="ms-field-lbl">Additional Days</div>
+                <input className="ms-field-inp" type="number" value={form.days} min={1} max={365}
+                  onChange={(e) => setForm((f) => ({ ...f, days: e.target.value }))} />
               </div>
             )}
 
@@ -327,12 +315,11 @@ export function ModernPlanManagementView({ user }) {
             )}
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={() => setActionModal(null)}
-                style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--ms-border)", background: "transparent", color: "var(--ms-text2)", fontSize: 13, cursor: "pointer" }}>
+              <button className="ms-btn" onClick={() => setActionModal(null)} style={{ fontSize: 13 }}>
                 Cancel
               </button>
               <button onClick={runAction} disabled={actioning}
-                className="ms-btn ms-btn-primary" style={{ minWidth: 100 }}>
+                className="ms-btn ms-btn-pri" style={{ minWidth: 100 }}>
                 {actioning ? "Running…" : "Apply"}
               </button>
             </div>

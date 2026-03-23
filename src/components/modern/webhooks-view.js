@@ -84,7 +84,7 @@ export function ModernWebhooksView({ user, initialWebhooks = [] }) {
         style={{ padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}
       >
         <div style={{ fontWeight: 700, fontSize: 16 }}>Webhooks ({webhooks.length})</div>
-        <button className="ms-btn ms-btn-primary" onClick={() => setShowForm(true)}>
+        <button className="ms-btn ms-btn-pri" onClick={() => setShowForm(true)}>
           + New Webhook
         </button>
       </div>
@@ -161,7 +161,7 @@ export function ModernWebhooksView({ user, initialWebhooks = [] }) {
               </div>
             )}
             <div style={{ gridColumn: "1 / -1", display: "flex", gap: 10, marginTop: 4 }}>
-              <button type="submit" className="ms-btn ms-btn-primary" disabled={saving}>
+              <button type="submit" className="ms-btn ms-btn-pri" disabled={saving}>
                 {saving ? "Saving…" : "Create Webhook"}
               </button>
               <button type="button" className="ms-btn" onClick={() => setShowForm(false)}>

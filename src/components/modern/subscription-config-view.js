@@ -19,6 +19,11 @@ function Toggle({ value, onChange }) {
   );
 }
 
+const CURRENCY_OPTIONS = [
+  { value: "INR", label: "INR (₹)", provider: "Razorpay" },
+  { value: "USD", label: "USD ($)", provider: "Stripe" },
+];
+
 const CONFIG_FIELDS = [
   { key: "trial_days",         label: "Trial Duration (days)",     type: "number", hint: "Default free-trial length for new signups" },
   { key: "grace_period_days",  label: "Grace Period (days)",        type: "number", hint: "Days before hard-lock after expiry or cancellation" },
@@ -44,7 +49,8 @@ export function ModernSubscriptionConfigView({ user }) {
           grace_period_days: "7",
           stripe_enabled: "false",
           razorpay_enabled: "false",
-          ...Object.fromEntries((data.config || []).map((c) => [c.key, c.value])),
+          currency: "INR",
+          ...Object.fromEntries((data.config || []).map((c) => [c.key, String(c.value)])),
         });
       }
     } catch { /* silent */ }
@@ -88,6 +94,25 @@ export function ModernSubscriptionConfigView({ user }) {
             <div style={{ color: "var(--ms-text2)", padding: 20 }}>Loading…</div>
           ) : (
             <>
+              {/* Currency selector */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0", borderBottom: "1px solid var(--ms-border)" }}>
+                <div>
+                  <div style={{ fontSize: 14, color: "var(--ms-text)", fontWeight: 500 }}>Platform Currency</div>
+                  <div style={{ fontSize: 12, color: "var(--ms-text3)", marginTop: 2 }}>
+                    {config.currency === "INR" ? "Razorpay (INR)" : "Stripe (USD)"} — controls billing provider and pricing display across the platform
+                  </div>
+                </div>
+                <div className="ms-pill-tabs">
+                  {CURRENCY_OPTIONS.map((opt) => (
+                    <button key={opt.value}
+                      className={`ms-pill-tab ms-pill-tab-sm${config.currency === opt.value ? " active" : ""}`}
+                      onClick={() => handleChange("currency", opt.value)}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {CONFIG_FIELDS.map(({ key, label, type, hint }) => (
                 <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0", borderBottom: "1px solid var(--ms-border)" }}>
                   <div>
@@ -98,15 +123,12 @@ export function ModernSubscriptionConfigView({ user }) {
                     <Toggle value={config[key]} onChange={(v) => handleChange(key, v)} />
                   ) : (
                     <input
+                      className="ms-field-inp"
                       type="number"
                       value={config[key] || ""}
                       onChange={(e) => handleChange(key, e.target.value)}
                       min={0}
-                      style={{
-                        width: 80, padding: "6px 10px", background: "var(--ms-bg3)",
-                        border: "1px solid var(--ms-border)", borderRadius: 6,
-                        color: "var(--ms-text)", fontSize: 14, textAlign: "right",
-                      }}
+                      style={{ width: 80, textAlign: "right" }}
                     />
                   )}
                 </div>
@@ -122,7 +144,7 @@ export function ModernSubscriptionConfigView({ user }) {
                 <button
                   onClick={save}
                   disabled={saving}
-                  className="ms-btn ms-btn-primary"
+                  className="ms-btn ms-btn-pri"
                   style={{ minWidth: 120 }}>
                   {saving ? "Saving…" : "Save Changes"}
                 </button>

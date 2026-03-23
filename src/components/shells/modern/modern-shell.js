@@ -99,6 +99,14 @@ const icons = {
       <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
     </svg>
   ),
+  loanAssistant: (
+    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M12 2a4 4 0 00-4 4v4h8V6a4 4 0 00-4-4z" />
+      <rect x="4" y="10" width="16" height="8" rx="2" />
+      <circle cx="9" cy="14" r="1" fill="currentColor" /><circle cx="15" cy="14" r="1" fill="currentColor" />
+      <path d="M8 18v2m8-2v2" />
+    </svg>
+  ),
   roles: (
     <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
@@ -227,6 +235,7 @@ function buildNavItems(role) {
       { key: "aiconfig",   href: "/admin/ai-system-prompt", label: "AI Assistance", icon: icons.aiconfig,  section: "AI Engine" },
       { key: "intents",    href: "/admin/intent-training", label: "Intent Training", icon: icons.intents,  section: "AI Engine" },
       { key: "dnc",        href: "/admin/dnc",           label: "DNC Registry",    icon: icons.dnc,        section: "AI Engine" },
+      { key: "loanAssistant", href: "/admin/loan-assistant-settings", label: "Loan Assistant", icon: icons.loanAssistant, section: "AI Engine" },
 
       // ─── Config ───
       { key: "teams",      href: "/admin/teams",         label: "Teams",           icon: icons.teams,      section: "Config" },
@@ -268,6 +277,7 @@ function getActiveKey(pathname) {
   if (pathname.startsWith("/admin/ai-system-prompt") || pathname.startsWith("/admin/ai-providers") || pathname.startsWith("/admin/telephony-providers")) return "aiconfig";
   if (pathname.startsWith("/admin/intent-training")) return "intents";
   if (pathname.startsWith("/admin/dnc"))             return "dnc";
+  if (pathname.startsWith("/admin/loan-assistant-settings")) return "loanAssistant";
   if (pathname.startsWith("/admin/teams"))           return "teams";
   if (pathname.startsWith("/admin/webhooks"))        return "webhooks";
   if (pathname.startsWith("/admin/billing"))         return "billing";
@@ -298,6 +308,7 @@ function getPageTitle(activeKey) {
     aiconfig:     "AI Assistance",
     intents:      "Intent Training",
     dnc:          "DNC Registry",
+    loanAssistant: "Loan Assistant",
     roles:        "Roles & Permissions",
     teams:        "Teams",
     tenantSettings: "Tenant Settings",

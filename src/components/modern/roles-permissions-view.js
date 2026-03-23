@@ -282,24 +282,17 @@ export function ModernRolesPermissionsView({ user }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
       {/* Tabs */}
-      <div className="ms-card" style={{ padding: 4 }}>
-        <div style={{ display: "flex", gap: 4 }}>
-          {[
-            { key: "users", label: "Users" },
-            { key: "roles", label: "Roles" },
-            { key: "audit", label: "Audit Trail" },
-          ].map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)} style={{
-              flex: 1, padding: "10px 16px", borderRadius: 8, border: "none",
-              fontSize: 12, fontWeight: 600, cursor: "pointer",
-              background: tab === t.key ? "var(--ms-accent-dim)" : "transparent",
-              color: tab === t.key ? "var(--ms-accent-txt)" : "var(--ms-text3)",
-              transition: "all .15s",
-            }}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+      <div className="ms-pill-tabs">
+        {[
+          { key: "users", label: "Users" },
+          { key: "roles", label: "Roles" },
+          { key: "audit", label: "Audit Trail" },
+        ].map((t) => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={`ms-pill-tab${tab === t.key ? " active" : ""}`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* ── Users tab ── */}

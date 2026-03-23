@@ -91,7 +91,7 @@ export function ModernDealsView({ user, initialDeals = [] }) {
             {filtered.length} deals · {formatCurrency(totalValue)} total
           </div>
         </div>
-        <button className="ms-btn ms-btn-primary" onClick={() => setShowForm(true)}>
+        <button className="ms-btn ms-btn-pri" onClick={() => setShowForm(true)}>
           + New Deal
         </button>
       </div>
@@ -143,7 +143,7 @@ export function ModernDealsView({ user, initialDeals = [] }) {
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             />
             <div style={{ display: "flex", gap: 10 }}>
-              <button type="submit" className="ms-btn ms-btn-primary" disabled={saving}>
+              <button type="submit" className="ms-btn ms-btn-pri" disabled={saving}>
                 {saving ? "Saving…" : "Create deal"}
               </button>
               <button type="button" className="ms-btn" onClick={() => setShowForm(false)}>

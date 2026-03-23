@@ -39,6 +39,7 @@ async function seedSubscriptionConfig() {
     { key: "grace_period_days", value: 7 },
     { key: "stripe_enabled",    value: false },
     { key: "razorpay_enabled",  value: false },
+    { key: "currency",          value: "INR" },
   ];
 
   for (const { key, value } of configs) {

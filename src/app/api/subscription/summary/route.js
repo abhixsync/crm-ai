@@ -1,5 +1,6 @@
 import { requireSession, getTenantContext } from "@/lib/server/auth-guard";
 import { getPlanGuard } from "@/lib/subscription/plan-guard";
+import { getPlatformCurrency } from "@/lib/subscription/subscription-service";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -25,14 +26,18 @@ export async function GET() {
       })
     : null;
 
-  const allPlans = await prisma.planDefinition.findMany({
-    where: { isPublic: true, isActive: true },
-    orderBy: { sortOrder: "asc" },
-  });
+  const [allPlans, currency] = await Promise.all([
+    prisma.planDefinition.findMany({
+      where: { isPublic: true, isActive: true },
+      orderBy: { sortOrder: "asc" },
+    }),
+    getPlatformCurrency(),
+  ]);
 
   return Response.json({
     summary: guard.toClientSummary(),
     subscription,
     plans: allPlans,
+    currency,
   });
 }

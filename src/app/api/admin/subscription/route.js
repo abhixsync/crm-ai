@@ -97,7 +97,7 @@ export async function PUT(request) {
 
   const body = await request.json();
 
-  const ALLOWED_KEYS = ["trial_days", "grace_period_days", "stripe_enabled", "razorpay_enabled"];
+  const ALLOWED_KEYS = ["trial_days", "grace_period_days", "stripe_enabled", "razorpay_enabled", "currency"];
 
   const updates = Object.entries(body)
     .filter(([k]) => ALLOWED_KEYS.includes(k))

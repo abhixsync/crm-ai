@@ -1,5 +1,5 @@
 import { requireSession, getTenantContext } from "@/lib/server/auth-guard";
-import { getSubscriptionConfig } from "@/lib/subscription/subscription-service";
+import { getSubscriptionConfig, getPlatformCurrency } from "@/lib/subscription/subscription-service";
 import { createCheckoutSession, getStripePriceId } from "@/lib/billing/stripe";
 import { createSubscription, getRazorpayPlanId } from "@/lib/billing/razorpay";
 import { prisma } from "@/lib/prisma";
@@ -20,21 +20,24 @@ export async function POST(request) {
   const body = await request.json();
   const plan         = String(body.plan         || "").toUpperCase();
   const billingCycle = String(body.billingCycle || "MONTHLY").toUpperCase();
-  const provider     = String(body.provider     || "stripe").toLowerCase();
+
+  // Derive provider from platform currency setting
+  const currency = await getPlatformCurrency();
+  const provider = currency === "USD" ? "stripe" : "razorpay";
 
   if (!["PLUS", "PRO", "MAX"].includes(plan)) {
     return Response.json({ error: "Invalid plan." }, { status: 400 });
   }
 
-  // Check if the requested provider is enabled
+  // Check if the derived provider is enabled
   const stripeEnabled    = await getSubscriptionConfig("stripe_enabled",    false);
   const razorpayEnabled  = await getSubscriptionConfig("razorpay_enabled",  false);
 
   if (provider === "stripe" && !stripeEnabled) {
-    return Response.json({ error: "Stripe payments are not enabled." }, { status: 400 });
+    return Response.json({ error: "Stripe payments are not enabled. Enable it in Subscription Config." }, { status: 400 });
   }
   if (provider === "razorpay" && !razorpayEnabled) {
-    return Response.json({ error: "Razorpay payments are not enabled." }, { status: 400 });
+    return Response.json({ error: "Razorpay payments are not enabled. Enable it in Subscription Config." }, { status: 400 });
   }
 
   // Fetch current subscription for existing billing IDs

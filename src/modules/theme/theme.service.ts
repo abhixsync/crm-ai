@@ -374,11 +374,12 @@ export async function updateTenantTheme(
       data: updateData
     });
   } else {
-    // Create new record
+    // Create new record — use relation connect for non-null tenantId
+    const { tenantId: _tid, ...createFields } = updateData;
     await prisma.tenantTheme.create({
       data: {
-        tenantId,
-        ...updateData,
+        ...createFields,
+        ...(tenantId ? { tenant: { connect: { id: tenantId } } } : {}),
       },
     });
   }

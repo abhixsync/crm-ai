@@ -79,7 +79,7 @@ export function ModernDncView({ user, initialEntries = [] }) {
             {activeCount} active entries · {entries.length} total
           </div>
         </div>
-        <button className="ms-btn ms-btn-primary" onClick={() => setShowForm(true)}>
+        <button className="ms-btn ms-btn-pri" onClick={() => setShowForm(true)}>
           + Add Number
         </button>
       </div>
@@ -130,7 +130,7 @@ export function ModernDncView({ user, initialEntries = [] }) {
               </div>
             )}
             <div style={{ display: "flex", gap: 10 }}>
-              <button type="submit" className="ms-btn ms-btn-primary" disabled={saving}>
+              <button type="submit" className="ms-btn ms-btn-pri" disabled={saving}>
                 {saving ? "Saving…" : "Add to DNC"}
               </button>
               <button type="button" className="ms-btn" onClick={() => setShowForm(false)}>

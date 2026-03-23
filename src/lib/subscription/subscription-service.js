@@ -20,6 +20,11 @@ export async function getSubscriptionConfig(key, defaultValue) {
   return row != null ? row.value : defaultValue;
 }
 
+/** Get the platform currency (USD or INR). */
+export async function getPlatformCurrency() {
+  return String(await getSubscriptionConfig("currency", "INR"));
+}
+
 async function getTrialDays() {
   return Number(await getSubscriptionConfig("trial_days", 30));
 }

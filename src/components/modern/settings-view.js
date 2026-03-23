@@ -1,29 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
-const TABS = [
-  { key: "profile", label: "My Profile" },
-  { key: "account", label: "Organization" },
-  { key: "loan", label: "Loan Assistant" },
-  { key: "ui-settings", label: "UI Settings", superAdminOnly: true },
-];
+const ROLE_STYLE = {
+  SUPER_ADMIN: { bg: "rgba(242,88,88,.15)", color: "var(--ms-red, #f25858)" },
+  ADMIN: { bg: "rgba(245,166,35,.15)", color: "var(--ms-amber, #f5a623)" },
+  SALES: { bg: "rgba(79,156,249,.15)", color: "var(--ms-blue, #4f9cf9)" },
+};
 
 export function ModernSettingsView({ initialRole, initialLayout }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const activeTab = searchParams.get("type") || "profile";
-  const isSuperAdmin = (session?.user?.role || initialRole) === "SUPER_ADMIN";
-
   const [tenant, setTenant] = useState(null);
   const [users, setUsers] = useState([]);
   const [automation, setAutomation] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [currentLayout, setCurrentLayout] = useState(initialLayout || "modern");
 
   const fetchData = useCallback(async () => {
     try {
@@ -32,7 +24,6 @@ export function ModernSettingsView({ initialRole, initialLayout }) {
         fetch("/api/admin/user-management/users"),
         fetch("/api/automation/toggle"),
       ]);
-
       if (settingsRes.ok) {
         const data = await settingsRes.json();
         setTenant(data.settings || data);
@@ -50,13 +41,7 @@ export function ModernSettingsView({ initialRole, initialLayout }) {
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  function switchTab(type) {
-    router.push(`/admin/settings?type=${type}`);
-  }
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const saveTenant = useCallback(async (field, value) => {
     setSaving(true);
@@ -79,133 +64,121 @@ export function ModernSettingsView({ initialRole, initialLayout }) {
     }
   }, []);
 
-  const ROLE_STYLE = {
-    SUPER_ADMIN: { bg: "rgba(242,88,88,.15)", color: "var(--ms-red, #f25858)" },
-    ADMIN: { bg: "rgba(245,166,35,.15)", color: "var(--ms-amber, #f5a623)" },
-    SALES: { bg: "rgba(79,156,249,.15)", color: "var(--ms-blue, #4f9cf9)" },
-  };
+  const user = session?.user;
+  const rs = ROLE_STYLE[user?.role] || { bg: "var(--ms-bg3)", color: "var(--ms-text3)" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* Tabs */}
-      <div className="ms-card">
-        <div className="ms-tabs">
-          {TABS.filter((tab) => !tab.superAdminOnly || isSuperAdmin).map((tab) => (
-            <button
-              key={tab.key}
-              className={`ms-tab${activeTab === tab.key ? " active" : ""}`}
-              onClick={() => switchTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tab content */}
-      {activeTab === "profile" && (
-        <div className="ms-card" style={{ padding: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>My Profile</div>
-          <div className="ms-field">
-            <div className="ms-field-lbl">Name</div>
-            <input className="ms-field-inp" readOnly value={session?.user?.name || ""} />
-          </div>
-          <div className="ms-field">
-            <div className="ms-field-lbl">Email</div>
-            <input className="ms-field-inp" readOnly value={session?.user?.email || ""} />
-          </div>
-          <div className="ms-field">
-            <div className="ms-field-lbl">Role</div>
-            <input className="ms-field-inp" readOnly value={session?.user?.role || ""} />
-          </div>
-        </div>
-      )}
-
-      {activeTab === "account" && tenant && (
-        <div className="ms-settings-grid">
+      {/* Profile + Organization — side by side */}
+      <div className="ms-settings-grid">
+        {/* Left: Profile card */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div className="ms-card" style={{ padding: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>Tenant settings</div>
-            <TenantField label="Tenant name" field="name" value={tenant.name} onSave={saveTenant} disabled={saving} />
-            <TenantField label="CRM display name" field="crmName" value={tenant.crmName} onSave={saveTenant} disabled={saving} />
-            <TenantField label="AI agent name" field="aiAgentName" value={tenant.aiAgentName} onSave={saveTenant} disabled={saving} />
-            <TenantField label="Human advisor name" field="humanAdvisorName" value={tenant.humanAdvisorName} onSave={saveTenant} disabled={saving} />
-            <TenantField label="Callback phone" field="callbackPhone" value={tenant.callbackPhone} onSave={saveTenant} disabled={saving} />
-            <TenantField label="Notification email" field="notificationEmail" value={tenant.notificationEmail} onSave={saveTenant} disabled={saving} />
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>My Profile</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 12, background: "var(--ms-accent)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18, fontWeight: 700, color: "var(--ms-bg)", flexShrink: 0,
+              }}>
+                {(user?.name || "?")[0].toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ms-text)" }}>{user?.name || "—"}</div>
+                <div style={{ fontSize: 12, color: "var(--ms-text3)" }}>{user?.email || "—"}</div>
+              </div>
+              <span className="ms-bdg" style={{ background: rs.bg, color: rs.color, marginLeft: "auto" }}>
+                {user?.role || "—"}
+              </span>
+            </div>
+            <div className="ms-field">
+              <div className="ms-field-lbl">Name</div>
+              <input className="ms-field-inp" readOnly value={user?.name || ""} />
+            </div>
+            <div className="ms-field">
+              <div className="ms-field-lbl">Email</div>
+              <input className="ms-field-inp" readOnly value={user?.email || ""} />
+            </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Users */}
-            <div className="ms-card">
-              <div className="ms-card-hd">
-                <span className="ms-card-title">Users</span>
+          {/* Users list */}
+          <div className="ms-card">
+            <div className="ms-card-hd">
+              <span className="ms-card-title">Team Members</span>
+              <span style={{ fontSize: 11, color: "var(--ms-text3)" }}>{users.length} users</span>
+            </div>
+            <div className="ms-tbl-wrap">
+              <table className="ms-tbl">
+                <thead>
+                  <tr><th>Name</th><th>Email</th><th>Role</th></tr>
+                </thead>
+                <tbody>
+                  {users.length === 0 && (
+                    <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--ms-text3)" }}>No users found.</td></tr>
+                  )}
+                  {users.map((u) => {
+                    const urs = ROLE_STYLE[u.role] || { bg: "var(--ms-bg3)", color: "var(--ms-text3)" };
+                    return (
+                      <tr key={u.id}>
+                        <td style={{ fontWeight: 500 }}>{u.name}</td>
+                        <td className="ms-mono">{u.email}</td>
+                        <td><span className="ms-bdg" style={{ background: urs.bg, color: urs.color }}>{u.role}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Organization settings + Automation */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {tenant ? (
+            <div className="ms-card" style={{ padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>Organization</div>
+              <TenantField label="Tenant name" field="name" value={tenant.name} onSave={saveTenant} disabled={saving} />
+              <TenantField label="CRM display name" field="crmName" value={tenant.crmName} onSave={saveTenant} disabled={saving} />
+              <TenantField label="AI agent name" field="aiAgentName" value={tenant.aiAgentName} onSave={saveTenant} disabled={saving} />
+              <TenantField label="Human advisor name" field="humanAdvisorName" value={tenant.humanAdvisorName} onSave={saveTenant} disabled={saving} />
+              <TenantField label="Callback phone" field="callbackPhone" value={tenant.callbackPhone} onSave={saveTenant} disabled={saving} />
+              <TenantField label="Notification email" field="notificationEmail" value={tenant.notificationEmail} onSave={saveTenant} disabled={saving} />
+            </div>
+          ) : (
+            <div className="ms-card" style={{ padding: 20 }}>
+              <div className="ms-empty">Loading organization settings…</div>
+            </div>
+          )}
+
+          {automation && (
+            <div className="ms-card" style={{ padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 14 }}>Automation</div>
+              <div className="ms-auto-row">
+                <span className="ms-auto-lbl">Automation</span>
+                <span className={`ms-auto-val${automation.enabled ? " on" : ""}`}>
+                  {automation.enabled ? "Enabled" : "Disabled"}
+                </span>
               </div>
-              <div className="ms-tbl-wrap">
-                <table className="ms-tbl">
-                  <thead>
-                    <tr><th>Name</th><th>Email</th><th>Role</th></tr>
-                  </thead>
-                  <tbody>
-                    {users.length === 0 && (
-                      <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--ms-text3)" }}>No users found.</td></tr>
-                    )}
-                    {users.map((u) => {
-                      const rs = ROLE_STYLE[u.role] || { bg: "var(--ms-bg3)", color: "var(--ms-text3)" };
-                      return (
-                        <tr key={u.id}>
-                          <td style={{ fontWeight: 500 }}>{u.name}</td>
-                          <td className="ms-mono">{u.email}</td>
-                          <td><span className="ms-bdg" style={{ background: rs.bg, color: rs.color }}>{u.role}</span></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="ms-auto-row">
+                <span className="ms-auto-lbl">Execution mode</span>
+                <span className="ms-auto-val">{automation.executionMode || "—"}</span>
+              </div>
+              <div className="ms-auto-row">
+                <span className="ms-auto-lbl">Max retries</span>
+                <span className="ms-auto-val">{automation.maxRetries ?? "—"}</span>
+              </div>
+              <div className="ms-auto-row">
+                <span className="ms-auto-lbl">Batch size</span>
+                <span className="ms-auto-val">{automation.batchSize ?? "—"}</span>
+              </div>
+              <div className="ms-auto-row">
+                <span className="ms-auto-lbl">Daily cap</span>
+                <span className="ms-auto-val">{automation.dailyCap ?? "—"}</span>
               </div>
             </div>
-
-            {/* Automation */}
-            {automation && (
-              <div className="ms-card" style={{ padding: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 14 }}>Automation</div>
-                <div className="ms-auto-row">
-                  <span className="ms-auto-lbl">Automation</span>
-                  <span className={`ms-auto-val${automation.enabled ? " on" : ""}`}>
-                    {automation.enabled ? "Enabled" : "Disabled"}
-                  </span>
-                </div>
-                <div className="ms-auto-row">
-                  <span className="ms-auto-lbl">Execution mode</span>
-                  <span className="ms-auto-val">{automation.executionMode || "—"}</span>
-                </div>
-                <div className="ms-auto-row">
-                  <span className="ms-auto-lbl">Max retries</span>
-                  <span className="ms-auto-val">{automation.maxRetries ?? "—"}</span>
-                </div>
-                <div className="ms-auto-row">
-                  <span className="ms-auto-lbl">Batch size</span>
-                  <span className="ms-auto-val">{automation.batchSize ?? "—"}</span>
-                </div>
-                <div className="ms-auto-row">
-                  <span className="ms-auto-lbl">Daily cap</span>
-                  <span className="ms-auto-val">{automation.dailyCap ?? "—"}</span>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-      )}
-
-      {activeTab === "account" && !tenant && (
-        <div className="ms-empty">Loading settings…</div>
-      )}
-
-      {activeTab === "loan" && (
-        <LoanAssistantPanel session={session} />
-      )}
-
-      {activeTab === "ui-settings" && isSuperAdmin && (
-        <UiSettingsPanel currentLayout={currentLayout} onLayoutChange={setCurrentLayout} />
-      )}
+      </div>
     </div>
   );
 }
@@ -238,177 +211,6 @@ function TenantField({ label, field, value, onSave, disabled }) {
             Save
           </button>
         )}
-      </div>
-    </div>
-  );
-}
-
-const LANG_OPTIONS = [
-  { value: "english", label: "English" },
-  { value: "hindi", label: "Hindi" },
-  { value: "hinglish", label: "Hinglish" },
-];
-
-function LoanAssistantPanel({ session }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [tenantId, setTenantId] = useState(null);
-
-  const loadSettings = useCallback(async () => {
-    setLoading(true);
-    try {
-      let tid = session?.user?.tenantId;
-      if (!tid) {
-        const tRes = await fetch("/api/tenant/super-admin-tenant");
-        const tData = await tRes.json();
-        if (tData.success && tData.data?.id) tid = tData.data.id;
-        else { setLoading(false); return; }
-      }
-      setTenantId(tid);
-      const res = await fetch("/api/tenant/loan-assistant-settings", { headers: { "X-Tenant-ID": tid } });
-      const json = await res.json();
-      if (json.success && json.data) setData(json.data);
-    } catch { toast.error("Failed to load loan settings"); }
-    finally { setLoading(false); }
-  }, [session]);
-
-  useEffect(() => { loadSettings(); }, [loadSettings]);
-
-  const saveField = async (field, value) => {
-    if (!tenantId) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/tenant/loan-assistant-settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Tenant-ID": tenantId },
-        body: JSON.stringify({ [field]: value }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setData(json.data);
-        toast.success("Setting saved");
-      } else toast.error(json.error || "Failed to save");
-    } catch { toast.error("Failed to save"); }
-    finally { setSaving(false); }
-  };
-
-  if (loading) return <div className="ms-empty">Loading loan assistant settings...</div>;
-  if (!data) return <div className="ms-empty">Unable to load loan assistant settings.</div>;
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div className="ms-card" style={{ padding: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>Loan Assistant Configuration</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <TenantField label="Company Name" field="loanAssistantCompanyName" value={data.loanAssistantCompanyName} onSave={saveField} disabled={saving} />
-          <TenantField label="AI Agent Name" field="aiAgentName" value={data.aiAgentName} onSave={saveField} disabled={saving} />
-          <TenantField label="Human Advisor Name" field="loanAssistantHumanAdvisorName" value={data.loanAssistantHumanAdvisorName} onSave={saveField} disabled={saving} />
-          <TenantField label="Callback Phone" field="loanAssistantCallbackPhone" value={data.loanAssistantCallbackPhone} onSave={saveField} disabled={saving} />
-          <TenantField label="Notification Email" field="loanAssistantNotificationEmail" value={data.loanAssistantNotificationEmail} onSave={saveField} disabled={saving} />
-        </div>
-      </div>
-
-      <div className="ms-card" style={{ padding: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>Language</div>
-        <LoanLanguageField value={data.loanAssistantLanguage} onSave={(v) => saveField("loanAssistantLanguage", v)} disabled={saving} />
-      </div>
-    </div>
-  );
-}
-
-function LoanLanguageField({ value, onSave, disabled }) {
-  const [val, setVal] = useState(value || "hinglish");
-  const [dirty, setDirty] = useState(false);
-
-  useEffect(() => { setVal(value || "hinglish"); setDirty(false); }, [value]);
-
-  return (
-    <div className="ms-field">
-      <div className="ms-field-lbl">Conversation Language</div>
-      <div style={{ display: "flex", gap: 6 }}>
-        <select
-          className="ms-field-inp"
-          value={val}
-          onChange={(e) => { setVal(e.target.value); setDirty(true); }}
-        >
-          {LANG_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        {dirty && (
-          <button className="ms-btn ms-btn-pri" style={{ flexShrink: 0, padding: "6px 12px" }}
-            onClick={() => { onSave(val); setDirty(false); }} disabled={disabled}>
-            Save
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function UiSettingsPanel({ currentLayout, onLayoutChange }) {
-  const [saving, setSaving] = useState(false);
-
-  const switchLayout = useCallback(async (layout) => {
-    if (layout === currentLayout) return;
-    // Instantly reflect the selection in the UI
-    onLayoutChange(layout);
-    setSaving(true);
-    const toastId = toast.loading(`Applying ${layout} layout…`);
-    try {
-      const res = await fetch("/api/admin/theme", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uiLayout: layout, isBaseTheme: true }),
-      });
-      if (res.ok) {
-        toast.success(`${layout === "modern" ? "Modern" : "Classic"} layout applied!`, { id: toastId });
-        setTimeout(() => window.location.reload(), 600);
-      } else {
-        onLayoutChange(currentLayout);
-        toast.error("Failed to update UI layout", { id: toastId });
-        setSaving(false);
-      }
-    } catch {
-      onLayoutChange(currentLayout);
-      toast.error("Failed to update UI layout", { id: toastId });
-      setSaving(false);
-    }
-  }, [onLayoutChange, currentLayout]);
-
-  const layouts = [
-    { key: "modern", label: "Modern", desc: "Sidebar + topbar shell with dark/light theme toggle" },
-    { key: "classic", label: "Classic", desc: "Original hamburger menu layout with shadcn components" },
-  ];
-
-  return (
-    <div className="ms-card" style={{ padding: 20 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>UI Layout</div>
-      <p style={{ fontSize: 12, color: "var(--ms-text2)", marginBottom: 16 }}>
-        Choose the UI layout. The page will reload automatically to apply changes.
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {layouts.map(({ key, label, desc }) => (
-          <div
-            key={key}
-            onClick={() => !saving && switchLayout(key)}
-            style={{
-              padding: "14px 16px",
-              borderRadius: 8,
-              border: `1px solid ${currentLayout === key ? "var(--ms-accent)" : "var(--ms-border2)"}`,
-              background: currentLayout === key ? "var(--ms-accent-dim)" : "transparent",
-              cursor: saving ? "wait" : "pointer",
-              transition: "all .15s",
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600, color: currentLayout === key ? "var(--ms-accent-txt)" : "var(--ms-text)" }}>
-              {label}
-              {currentLayout === key && (
-                <span className="ms-bdg" style={{ marginLeft: 8, background: "var(--ms-accent-dim)", color: "var(--ms-accent-txt)" }}>Active</span>
-              )}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--ms-text3)", marginTop: 4 }}>{desc}</div>
-          </div>
-        ))}
       </div>
     </div>
   );
