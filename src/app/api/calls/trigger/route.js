@@ -141,6 +141,14 @@ export async function POST(request) {
     const vonageEventUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/vonage/voice/events` : undefined;
     const vonageFallbackUrl = `${baseUrl}/api/vonage/voice/fallback`;
 
+    // Plivo webhook URLs
+    const plivoAnswerUrl = `${baseUrl}/api/plivo/voice/answer?customerId=${customer.id}&callLogId=${callLog.id}`;
+    const plivoCallbackUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/plivo/voice/callback?customerId=${customer.id}&callLogId=${callLog.id}&turn=1` : undefined;
+
+    // Exotel webhook URLs
+    const exotelAnswerUrl = `${baseUrl}/api/exotel/voice/answer?customerId=${customer.id}&callLogId=${callLog.id}`;
+    const exotelStatusUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/exotel/voice/events` : undefined;
+
     if (callFlowDebug.blockingReason) {
       logTelephony("warn", "api.calls.trigger.callbacks_disabled", {
         callLogId: callLog.id,
@@ -160,6 +168,10 @@ export async function POST(request) {
       vonageAnswerUrl,
       vonageEventUrl,
       vonageFallbackUrl,
+      plivoAnswerUrl,
+      plivoCallbackUrl,
+      exotelAnswerUrl,
+      exotelStatusUrl,
     });
 
     const call = telephonyOutput.result;
