@@ -5,6 +5,7 @@ import { createClaudeEngine } from "@/lib/ai/adapters/claude-adapter";
 import { createGroqEngine } from "@/lib/ai/adapters/groq-adapter";
 import { createHttpEngine } from "@/lib/ai/adapters/http-adapter";
 import { createDialogflowEngine } from "@/lib/ai/adapters/dialogflow-adapter";
+import { createGeminiEngine } from "@/lib/ai/adapters/gemini-adapter";
 import { AIEngineRegistry } from "@/lib/ai/engine-registry";
 import { createEngineInput } from "@/lib/ai/engine-contract";
 
@@ -15,6 +16,7 @@ registry.register(AiProviderType.GROQ, createGroqEngine());
 registry.register(AiProviderType.DIALOGFLOW, createDialogflowEngine());
 registry.register(AiProviderType.RASA, createHttpEngine("rasa-engine"));
 registry.register(AiProviderType.GENERIC_HTTP, createHttpEngine("generic-http-engine"));
+registry.register(AiProviderType.GEMINI, createGeminiEngine());
 
 function normalizeProvider(config) {
   return {
@@ -57,7 +59,25 @@ async function resolveProviders() {
     return providers;
   }
 
-  // Fallback chain: Groq (free) → Claude (free tier) → OpenAI
+  // Fallback chain: Gemini (fast/cheap) → Groq (free) → Claude (free tier) → OpenAI
+  if (process.env.GOOGLE_AI_API_KEY) {
+    return [
+      {
+        id: "implicit-gemini",
+        name: "Implicit Gemini",
+        type: AiProviderType.GEMINI,
+        endpoint: null,
+        apiKey: process.env.GOOGLE_AI_API_KEY,
+        model: "gemini-2.0-flash",
+        priority: 1,
+        enabled: true,
+        isActive: true,
+        timeoutMs: 12000,
+        metadata: null,
+      },
+    ];
+  }
+
   if (process.env.GROQ_API_KEY) {
     return [
       {
@@ -132,7 +152,9 @@ async function callProvider(provider, task, payload) {
               ? "Claude AI adapter"
               : provider.type === AiProviderType.GROQ
                 ? "Groq AI adapter"
-                : "OpenAI adapter",
+                : provider.type === AiProviderType.GEMINI
+                  ? "Gemini AI adapter"
+                  : "OpenAI adapter",
   };
 
   const output = await engine.run({

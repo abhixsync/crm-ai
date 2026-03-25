@@ -655,3 +655,31 @@ export function determineNextStage(currentStage, intent, extractedData) {
       return CONVERSATION_STAGES.OPENING;
   }
 }
+
+/**
+ * Merge LLM-based and regex-based intent classification.
+ * LLM intent is primary; regex overrides only for safety-critical cases.
+ */
+export function mergeIntentSources(llmIntent, regexResult) {
+  const llm = String(llmIntent || "").trim().toLowerCase();
+  const regex = regexResult || {};
+  const regexIntent = String(regex.intent || "").trim().toLowerCase();
+
+  // Safety override: regex DO_NOT_CALL always wins (explicit keywords are reliable)
+  if (regexIntent === "do_not_call" && regex.confidence >= 0.9) {
+    return { intent: "do_not_call", confidence: 1.0, source: "regex_safety_override" };
+  }
+
+  // If LLM provided a valid intent, use it
+  if (llm && llm !== "unknown" && llm !== "neutral") {
+    return { intent: llm, confidence: 0.85, source: "llm" };
+  }
+
+  // If LLM said neutral but regex found something specific, prefer regex
+  if (regexIntent && regexIntent !== "neutral" && regexIntent !== "unknown") {
+    return { intent: regexIntent, confidence: regex.confidence || 0.7, source: "regex_fallback" };
+  }
+
+  // Both agree on neutral
+  return { intent: llm || regexIntent || "neutral", confidence: 0.5, source: "default" };
+}

@@ -28,6 +28,7 @@
     "@anthropic-ai/sdk": "^0.78.0",
     "@deepgram/sdk": "^4.11.3",
     "@elevenlabs/elevenlabs-js": "^2.36.0",
+    "@google/generative-ai": "^0.24.1",
     "@langchain/langgraph": "^0.2.74",
     "@prisma/client": "6.16.2",
     "@tanstack/react-table": "^8.21.3",

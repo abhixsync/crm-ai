@@ -233,6 +233,7 @@ function buildNavItems(role) {
       // ─── AI Engine ───
       { key: "health",     href: "/admin/automation-health", label: "Automation Health", icon: icons.health, section: "AI Engine" },
       { key: "demo",       href: "/admin/ai-call-demo",  label: "AI Call Demo",    icon: icons.demo,       section: "AI Engine" },
+      { key: "simulator", href: "/admin/ai-simulator",   label: "AI Simulator",   icon: icons.demo,       section: "AI Engine" },
       { key: "intents",    href: "/admin/intent-training", label: "Intent Training", icon: icons.intents,  section: "AI Engine" },
       { key: "dnc",        href: "/admin/dnc",           label: "DNC Registry",    icon: icons.dnc,        section: "AI Engine" },
       { key: "loanAssistant", href: "/admin/loan-assistant-settings", label: "Loan Assistant", icon: icons.loanAssistant, section: "AI Engine" },
@@ -275,6 +276,7 @@ function getActiveKey(pathname) {
   if (pathname.startsWith("/admin/audit-logs"))      return "audit";
   if (pathname.startsWith("/admin/deals"))           return "deals";
   if (pathname.startsWith("/admin/ai-call-demo"))    return "demo";
+  if (pathname.startsWith("/admin/ai-simulator"))    return "simulator";
   if (pathname.startsWith("/admin/ai-system-prompt") || pathname.startsWith("/admin/ai-providers") || pathname.startsWith("/admin/telephony-providers")) return "aiconfig";
   if (pathname.startsWith("/admin/intent-training")) return "intents";
   if (pathname.startsWith("/admin/dnc"))             return "dnc";
@@ -306,6 +308,7 @@ function getPageTitle(activeKey) {
     messages:     "Messages",
     health:       "Automation Health",
     demo:         "AI Call Demo",
+    simulator:    "AI Simulator",
     aiconfig:     "AI Assistance",
     intents:      "Intent Training",
     dnc:          "DNC Registry",

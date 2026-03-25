@@ -149,10 +149,10 @@ export async function generateTwiMLResponse(aiMessage) {
     }
   }
 
-  // Fallback to Polly (AWS - built into Twilio)
+  // Fallback to Google Hindi Wavenet voice (built into Twilio)
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say language="hi-IN" voice="Polly.Aditi">${safeMessage}</Say>
+  <Say language="hi-IN" voice="Google.hi-IN-Wavenet-A">${safeMessage}</Say>
 </Response>`;
 }
 

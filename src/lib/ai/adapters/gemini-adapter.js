@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AI_TASKS, createEngineAdapter, buildCallSummaryPrompt } from "@/lib/ai/engine-contract";
 import {
   detectLanguageStyleFromText,
@@ -22,9 +22,9 @@ function fallbackScript(customer) {
 }
 
 function getClient(apiKey) {
-  const key = String(apiKey || process.env.ANTHROPIC_API_KEY || "").trim();
+  const key = String(apiKey || process.env.GOOGLE_AI_API_KEY || "").trim();
   if (!key) return null;
-  return new Anthropic({ apiKey: key });
+  return new GoogleGenerativeAI(key);
 }
 
 function resolveLanguageSignal(input) {
@@ -114,36 +114,53 @@ function inferShouldEnd(replyText) {
   );
 }
 
-async function invokeClaudeAI({ task, input, config }) {
-  const client = getClient(config?.apiKey);
-  const model = config?.model || "claude-3-5-sonnet-20241022"; // Latest Claude model (free tier available)
+function stripMarkdownCodeFence(text) {
+  return text.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+}
+
+function parseJsonSafe(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const stripped = stripMarkdownCodeFence(text);
+    try {
+      return JSON.parse(stripped);
+    } catch {
+      // Try extracting a JSON object from the text
+      const match = stripped.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          return JSON.parse(match[0]);
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+  }
+}
+
+async function invokeGeminiAI({ task, input, config }) {
+  const genAI = getClient(config?.apiKey);
+  const modelName = config?.model || "gemini-2.0-flash";
 
   if (task === AI_TASKS.CALL_SCRIPT) {
     const customer = input.customer;
 
-    if (!client) {
+    if (!genAI) {
       return { script: fallbackScript(customer) };
     }
 
-    const prompt = `You are a loan CRM voice assistant. Produce a concise call script (max 120 words) for this customer profile in conversational English. Include qualification questions and next-step ask. Customer: ${JSON.stringify(
-      customer
-    )}`;
+    const prompt = `You are a loan CRM voice assistant. Produce a concise call script (max 120 words) for this customer profile in conversational English. Include qualification questions and next-step ask. Customer: ${JSON.stringify(customer)}`;
 
     try {
-      const message = await client.messages.create({
-        model,
-        max_tokens: 300,
-        messages: [{ role: "user", content: prompt }],
-      });
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const text = result.response?.text?.() || "";
 
-      const script =
-        message.content[0]?.type === "text"
-          ? message.content[0].text
-          : fallbackScript(customer);
-
-      return { script };
+      return { script: text || fallbackScript(customer) };
     } catch (error) {
-      console.error("Claude API error:", error.message);
+      console.error("[gemini-adapter] CALL_SCRIPT error:", error.message);
       return { script: fallbackScript(customer) };
     }
   }
@@ -151,7 +168,7 @@ async function invokeClaudeAI({ task, input, config }) {
   if (task === AI_TASKS.CALL_SUMMARY) {
     const transcript = input.transcript || "";
 
-    if (!client) {
+    if (!genAI) {
       return {
         summary: "Call transcript captured. Manual review required.",
         intent: "UNKNOWN",
@@ -167,26 +184,25 @@ async function invokeClaudeAI({ task, input, config }) {
     });
 
     try {
-      const message = await client.messages.create({
-        model,
-        max_tokens: 400,
-        messages: [{ role: "user", content: prompt }],
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: { responseMimeType: "application/json" },
       });
+      const result = await model.generateContent(prompt);
+      const text = result.response?.text?.() || "{}";
 
-      const text =
-        message.content[0]?.type === "text" ? message.content[0].text : "{}";
-
-      try {
-        return JSON.parse(text);
-      } catch {
-        return {
-          summary: text || "Transcript processed.",
-          intent: "UNKNOWN",
-          nextAction: "Review manually.",
-        };
+      const parsed = parseJsonSafe(text);
+      if (parsed && parsed.summary) {
+        return parsed;
       }
+
+      return {
+        summary: text || "Transcript processed.",
+        intent: "UNKNOWN",
+        nextAction: "Review manually.",
+      };
     } catch (error) {
-      console.error("Claude API error:", error.message);
+      console.error("[gemini-adapter] CALL_SUMMARY error:", error.message);
       return {
         summary: "Transcript processed.",
         intent: "UNKNOWN",
@@ -201,11 +217,11 @@ async function invokeClaudeAI({ task, input, config }) {
     const languageInstruction =
       context.languageInstruction || getLanguageMirroringInstruction(languageSignal);
 
-    console.log('[claude-adapter] CALL_TURN — languageSignal:', JSON.stringify(languageSignal));
-    console.log('[claude-adapter] CALL_TURN — latestCustomerMessage:', input.latestCustomerMessage);
+    console.log("[gemini-adapter] CALL_TURN — languageSignal:", JSON.stringify(languageSignal));
+    console.log("[gemini-adapter] CALL_TURN — latestCustomerMessage:", input.latestCustomerMessage);
 
-    if (!client) {
-      console.warn('[claude-adapter] No API client — returning fallback');
+    if (!genAI) {
+      console.warn("[gemini-adapter] No API client — returning fallback");
       return fallbackTurnByLanguage(turn, languageSignal);
     }
 
@@ -223,55 +239,59 @@ async function invokeClaudeAI({ task, input, config }) {
     }\nLatest customer utterance: ${input.latestCustomerMessage || "(not provided)"}
 \nRespond naturally to continue the conversation. If customer declines or asks not to call, end the call. Return JSON with keys reply and shouldEnd.`;
 
-    console.log('[claude-adapter] CALL_TURN — system prompt length:', systemPrompt.length);
-    console.log('[claude-adapter] CALL_TURN — user prompt:', userPrompt.substring(0, 300));
-    console.log('[claude-adapter] CALL_TURN — model:', model);
+    console.log("[gemini-adapter] CALL_TURN — system prompt length:", systemPrompt.length);
+    console.log("[gemini-adapter] CALL_TURN — model:", modelName);
 
     try {
-      const message = await client.messages.create({
-        model,
-        max_tokens: 200,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+          responseMimeType: "application/json",
+          maxOutputTokens: 250,
+          temperature: 0.3,
+        },
       });
 
-      const responseText =
-        message.content[0]?.type === "text" ? message.content[0].text : "";
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      });
 
-      console.log('[claude-adapter] CALL_TURN — raw LLM response:', responseText);
+      const responseText = result.response?.text?.() || "";
 
-      // Parse response - look for JSON or extract natural response
-      let reply = responseText;
-      let shouldEnd = false;
+      console.log("[gemini-adapter] CALL_TURN — raw LLM response:", responseText);
 
-      let intent = null;
-      let confidence = null;
-      let extractedData = null;
+      const parsed = parseJsonSafe(responseText);
+      if (parsed) {
+        const reply = parsed.reply || parsed.response || parsed.message || parsed.text;
+        const shouldEnd =
+          typeof parsed.shouldEnd === "boolean"
+            ? parsed.shouldEnd
+            : typeof parsed.should_end === "boolean"
+              ? parsed.should_end
+              : inferShouldEnd(reply || "");
 
-      try {
-        const parsed = JSON.parse(responseText);
-        reply = parsed.reply || fallbackTurnByLanguage(turn, languageSignal).reply;
-        shouldEnd = typeof parsed.shouldEnd === "boolean" ? parsed.shouldEnd : inferShouldEnd(parsed.reply);
-        intent = parsed.intent || null;
-        confidence = typeof parsed.confidence === "number" ? parsed.confidence : null;
-        extractedData = parsed.extractedData || null;
-        console.log('[claude-adapter] CALL_TURN — parsed JSON: reply=%s, shouldEnd=%s, intent=%s', reply, shouldEnd, intent);
-      } catch {
-        // Response is natural text, not JSON
-        // Check for decline patterns
-        shouldEnd = inferShouldEnd(responseText);
-        console.log('[claude-adapter] CALL_TURN — non-JSON response, inferred shouldEnd:', shouldEnd);
+        console.log("[gemini-adapter] CALL_TURN — parsed: reply=%s, shouldEnd=%s", reply, shouldEnd);
+
+        return {
+          reply: String(reply || fallbackTurnByLanguage(turn, languageSignal).reply).trim(),
+          shouldEnd,
+          intent: parsed.intent || null,
+          confidence: typeof parsed.confidence === "number" ? parsed.confidence : null,
+          extractedData: parsed.extractedData || null,
+        };
       }
 
+      // Non-JSON response
+      const shouldEnd = inferShouldEnd(responseText);
+      console.log("[gemini-adapter] CALL_TURN — non-JSON response, inferred shouldEnd:", shouldEnd);
+
       return {
-        reply: String(reply || fallbackTurnByLanguage(turn, languageSignal).reply).trim(),
+        reply: String(responseText || fallbackTurnByLanguage(turn, languageSignal).reply).trim(),
         shouldEnd,
-        intent,
-        confidence,
-        extractedData,
       };
     } catch (error) {
-      console.error("Claude API error:", error.message);
+      console.error("[gemini-adapter] CALL_TURN error:", error.message);
       return {
         ...fallbackTurnByLanguage(turn, languageSignal),
       };
@@ -281,14 +301,14 @@ async function invokeClaudeAI({ task, input, config }) {
   throw new Error(`Unsupported task: ${task}`);
 }
 
-export function createClaudeEngine() {
+export function createGeminiEngine() {
   return createEngineAdapter({
-    name: "Claude AI Engine",
+    id: "gemini-engine",
     supportedTasks: new Set([
       AI_TASKS.CALL_SCRIPT,
       AI_TASKS.CALL_SUMMARY,
       AI_TASKS.CALL_TURN,
     ]),
-    invoke: invokeClaudeAI,
+    invoke: invokeGeminiAI,
   });
 }

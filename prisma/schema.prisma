@@ -69,6 +69,7 @@ enum AiProviderType {
   DIALOGFLOW
   RASA
   GENERIC_HTTP
+  GEMINI
 }
 
 enum TelephonyProviderType {
@@ -280,7 +281,8 @@ model Tenant {
   aiScoringHistory     AiScoringHistory[]
   customerActivities   CustomerActivity[]
   followUpTasks        FollowUpTask[]
-  subscription         TenantSubscription?
+  subscription             TenantSubscription?
+  intentTrainingPhrases    IntentTrainingPhrase[]
 }
 
 // ─── TENANT THEME ───────────────────────────────────────
@@ -1357,4 +1359,23 @@ model SubscriptionConfig {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ─── INTENT TRAINING ──────────────────────────────────────
+
+model IntentTrainingPhrase {
+  id         String   @id @default(cuid())
+  tenantId   String
+  phrase     String
+  intentType String
+  language   String   @default("hinglish")
+  source     String   @default("manual")
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, intentType])
+  @@index([tenantId, isActive])
 }

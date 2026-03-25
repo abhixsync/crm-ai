@@ -12,7 +12,9 @@
       "Bash(ls -la /c/Work/Learn/crm-ai/.env*)",
       "Bash(ls -la /c/Work/Learn/crm-ai/src/middleware*)",
       "Bash(ls -la /c/Work/Learn/crm-ai/src/components/modern/*.js)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(find /c/Work/Learn/crm-ai/src/app/api/admin -type f -name *.js)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

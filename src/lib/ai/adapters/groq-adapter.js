@@ -449,13 +449,19 @@ async function invokeGroqAI({ task, input, config }) {
       // Parse response - look for JSON or extract natural response
       let reply = responseText;
       let shouldEnd = false;
+      let intent = null;
+      let confidence = null;
+      let extractedData = null;
       const parsedTurn = parseJsonLenient(responseText);
 
       if (parsedTurn && typeof parsedTurn === "object") {
         const parsedReply = resolveReplyFromParsedTurn(parsedTurn);
         reply = parsedReply || fallbackTurnByLanguage(turn, languageSignal).reply;
         shouldEnd = resolveShouldEndFromParsedTurn(parsedTurn, reply);
-        console.log('[groq-adapter] CALL_TURN — parsed JSON: reply=%s, shouldEnd=%s', reply, shouldEnd);
+        intent = parsedTurn.intent || null;
+        confidence = typeof parsedTurn.confidence === "number" ? parsedTurn.confidence : null;
+        extractedData = parsedTurn.extractedData || null;
+        console.log('[groq-adapter] CALL_TURN — parsed JSON: reply=%s, shouldEnd=%s, intent=%s', reply, shouldEnd, intent);
       } else {
         // Response is natural text, not JSON
         // Check for decline patterns
@@ -467,6 +473,9 @@ async function invokeGroqAI({ task, input, config }) {
       return {
         reply: String(reply || fallbackTurnByLanguage(turn, languageSignal).reply).trim(),
         shouldEnd,
+        intent,
+        confidence,
+        extractedData,
       };
     } catch (error) {
       console.error("Groq CALL_TURN error:", {

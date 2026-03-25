@@ -337,6 +337,7 @@ export async function buildUnifiedCallTurnPrompt({
   conversationStage,
   tenantId,
   extractedData,
+  previousCallSummary,
 }) {
   const resolvedTenantId = await resolveTenantIdForPrompt({ tenantId, customer });
   console.log(
@@ -368,6 +369,36 @@ export async function buildUnifiedCallTurnPrompt({
     parts.push(`PREVIOUS CONVERSATION HISTORY (last ${MAX_HISTORY_TURNS} calls):`);
     parts.push("Use this history to stay consistent — do not repeat questions already answered, reference prior interactions naturally, and maintain continuity.");
     parts.push(chatHistory);
+  }
+
+  // Cross-call memory — previous call context
+  if (previousCallSummary) {
+    parts.push("");
+    parts.push("PREVIOUS CALL CONTEXT (from last interaction with this customer):");
+    parts.push(previousCallSummary);
+    parts.push("Use this context to avoid repeating questions that were already answered. Reference prior interactions naturally.");
+  }
+
+  // Intent training examples — tenant-specific few-shot examples
+  try {
+    const trainingTenantId = resolvedTenantId;
+    if (trainingTenantId) {
+      const trainingPhrases = await prisma.intentTrainingPhrase.findMany({
+        where: { tenantId: trainingTenantId, isActive: true },
+        take: 30,
+        orderBy: { createdAt: "desc" },
+      });
+      if (trainingPhrases.length > 0) {
+        parts.push("");
+        parts.push("INTENT CLASSIFICATION EXAMPLES (from training data):");
+        for (const p of trainingPhrases) {
+          parts.push(`  "${p.phrase}" → ${p.intentType}`);
+        }
+        parts.push("Use these examples to guide your intent classification in the response.");
+      }
+    }
+  } catch {
+    // Training phrases are optional — don't fail the prompt build
   }
 
   // Dynamic turn context
@@ -425,9 +456,23 @@ export async function buildUnifiedCallTurnPrompt({
     parts.push("You MUST respond in the same language the customer is using. If the customer speaks Hindi or Hinglish, you MUST reply in Hindi/Hinglish — never switch to English on your own. Only switch language if the customer explicitly switches.");
   }
 
-  // Output format
+  // Output format — enhanced with intent classification and data extraction
   parts.push("");
-  parts.push('Return ONLY valid JSON: {"reply":"<short natural spoken response under 35 words>","shouldEnd":<true|false>}');
+  parts.push("OUTPUT FORMAT — Return ONLY valid JSON with these keys:");
+  parts.push(JSON.stringify({
+    reply: "<short natural spoken response, under 35 words>",
+    shouldEnd: "<true|false>",
+    intent: "<interested|not_interested|call_back_later|do_not_call|confused|converted|neutral>",
+    confidence: "<0.0 to 1.0>",
+    extractedData: {
+      loanType: "<personal|home|business|auto|balance_transfer or null>",
+      amount: "<number or null>",
+      timeline: "<immediate|within_week|within_month|within_quarter or null>",
+      employmentType: "<salaried|business|self_employed or null>",
+      monthlyIncome: "<number or null>",
+    },
+  }));
+  parts.push("IMPORTANT: Only include extractedData fields that the customer explicitly mentioned in their latest message. Use null for fields not mentioned.");
 
   const finalPrompt = parts.join("\n");
   console.log('[system-prompt] Final unified prompt length:', finalPrompt.length);

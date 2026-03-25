@@ -193,6 +193,9 @@ Latest customer utterance: ${input.latestCustomerMessage || "(not provided)"}`;
       return {
         reply: parsed.reply || getFallbackTurnResponse(turn, languageSignal).reply,
         shouldEnd: typeof parsed.shouldEnd === "boolean" ? parsed.shouldEnd : inferShouldEndFromReply(parsed.reply),
+        intent: parsed.intent || null,
+        confidence: typeof parsed.confidence === "number" ? parsed.confidence : null,
+        extractedData: parsed.extractedData || null,
       };
     } catch {
       return {
