@@ -24,6 +24,11 @@ export default async function CallsPage() {
 
   const tenant = getTenantContext(session);
 
+  // SUPER_ADMIN must pick a tenant context — don't return unscoped data
+  if (!tenant.tenantId) {
+    return <ModernCallLogsView callLogs={[]} />;
+  }
+
   const callLogs = await prisma.callLog.findMany({
     where: {
       tenantId: tenant.tenantId,

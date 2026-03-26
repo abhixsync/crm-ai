@@ -35,6 +35,30 @@
   100% { background-position: -200% 0; }
 }
 
+/* ─── Z-INDEX LAYERS ─── */
+:root {
+  --ms-z-modal-backdrop: 900;
+  --ms-z-modal:          901;
+  --ms-z-toast:          1000;
+  --ms-z-nav:            40;
+}
+
+/* ─── MODAL OVERLAY ─── */
+.ms-modal-overlay {
+  position: fixed; inset: 0; z-index: var(--ms-z-modal-backdrop);
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.55); padding: 12px;
+}
+.ms-modal-box {
+  position: relative; z-index: var(--ms-z-modal);
+  width: 100%; max-width: 720px;
+  max-height: min(90vh, calc(100dvh - 48px));
+  overflow-y: auto; border-radius: 12px;
+  background: var(--ms-surface); border: 1px solid var(--ms-border);
+  padding: 24px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.35);
+}
+
 /* ═══════════════════ THEMES ═══════════════════ */
 [data-ui-theme="dark"] {
   /* Warm midnight — hint of violet, not cold blue-black */
@@ -64,6 +88,12 @@
   --ms-blue-dim:  #0D2348;
   --ms-purple:    #A78BFA;
   --ms-purple-dim:#1E1040;
+  --ms-green:     #22C993;
+  --ms-green-dim: rgba(34,201,147,.15);
+  --ms-pink:      #F472B6;
+  --ms-pink-dim:  rgba(244,114,182,.15);
+  --ms-muted:     #9CA3AF;
+  --ms-muted-dim: rgba(138,138,136,.14);
 }
 
 [data-ui-theme="dark"] .ms-sb {
@@ -115,6 +145,12 @@
   --ms-blue-dim:  #BFDBFE;
   --ms-purple:    #7C3AED;
   --ms-purple-dim:#DDD6FE;
+  --ms-green:     #059669;
+  --ms-green-dim: rgba(5,150,105,.12);
+  --ms-pink:      #DB2777;
+  --ms-pink-dim:  rgba(219,39,119,.12);
+  --ms-muted:     #6B7280;
+  --ms-muted-dim: rgba(107,114,128,.12);
 }
 
 [data-ui-theme="light"] .ms-sb {
@@ -349,6 +385,13 @@
 }
 .ms-btn-logout:hover { color: var(--ms-red, #f25858); }
 .ms-btn svg  { width: 12px; height: 12px; }
+.ms-btn-xs   { padding: 4px 9px; font-size: 11px; min-height: 26px; }
+.ms-btn:focus-visible,
+.ms-btn-pri:focus-visible,
+.ms-btn-danger:focus-visible {
+  outline: 2px solid var(--ms-accent);
+  outline-offset: 2px;
+}
 
 /* theme toggle */
 .ms-theme-toggle {
@@ -429,6 +472,11 @@
   display: inline-block; padding: 3px 8px; border-radius: 6px;
   font-size: 10px; font-weight: 600; white-space: nowrap; letter-spacing: .02em;
 }
+.ms-bdg-success { background: rgba(29,233,168,.12); color: var(--ms-accent-txt); }
+.ms-bdg-danger  { background: rgba(242,88,88,.12);  color: var(--ms-red); }
+.ms-bdg-warning { background: rgba(245,166,35,.15); color: var(--ms-amber); }
+.ms-bdg-info    { background: rgba(79,156,249,.15); color: var(--ms-blue); }
+.ms-bdg-muted   { background: rgba(138,138,136,.14); color: var(--ms-text3); }
 
 /* ─── MOBILE DRAWER ─── */
 .ms-drawer-backdrop {
@@ -648,6 +696,7 @@
   outline: none; transition: border-color .15s;
 }
 .ms-field-inp:focus { border-color: var(--ms-accent); }
+.ms-field-inp:read-only { opacity: .55; cursor: default; }
 select.ms-field-inp { cursor: pointer; }
 .ms-auto-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--ms-border); font-size: 12.5px; }
 .ms-auto-row:last-child { border-bottom: none; }
@@ -823,7 +872,7 @@ select.ms-field-inp { cursor: pointer; }
   /* Buttons — larger touch targets */
   .ms-btn { padding: 8px 12px; font-size: 12px; min-height: 34px; }
   .ms-btn-pri { padding: 8px 14px; }
-  .ms-btn-xs { padding: 6px 10px; font-size: 11px; min-height: 30px; }
+  .ms-btn-xs { padding: 8px 12px; font-size: 11px; min-height: 36px; }
 
   /* Settings grid → single column */
   .ms-settings-grid { grid-template-columns: 1fr; gap: 14px; }

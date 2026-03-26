@@ -192,93 +192,6 @@ function SectionTitle({ children }) {
   );
 }
 
-/* ── Live Preview ───────────────────────────────────────── */
-
-function ThemePreview({ theme }) {
-  const c = {
-    bg: theme.backgroundColor || "#f8fafc",
-    sf: theme.surfaceColor || "#ffffff",
-    sb: theme.sidebarColor || "#ffffff",
-    hd: theme.headerColor || "#ffffff",
-    pr: theme.primaryColor || "#2563eb",
-    sc: theme.secondaryColor || "#64748b",
-    ac: theme.accentColor || "#22c55e",
-    t1: theme.textPrimary || "#0f172a",
-    t2: theme.textSecondary || "#64748b",
-    bd: theme.borderColor || "#e2e8f0",
-    ok: theme.successColor || "#22c55e",
-    wn: theme.warningColor || "#f59e0b",
-    er: theme.errorColor || "#ef4444",
-    in: theme.infoColor || "#3b82f6",
-    cr: theme.cardRadius || "12px",
-    br: theme.buttonRadius || "6px",
-  };
-  const bar = (w, bg, op = 1) => ({ width: w, height: 5, borderRadius: 3, background: bg, opacity: op });
-
-  return (
-    <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${c.bd}`, background: c.bg }}>
-      <div style={{ display: "flex", height: 170 }}>
-        {/* sidebar */}
-        <div style={{ width: 44, background: c.sb, borderRight: `1px solid ${c.bd}`, padding: "8px 5px", display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={bar("100%", c.pr)} />
-          <div style={bar("80%", c.t2, 0.3)} />
-          <div style={bar("85%", c.t2, 0.3)} />
-          <div style={bar("70%", c.t2, 0.3)} />
-        </div>
-        {/* main */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          {/* header */}
-          <div style={{
-            height: 26, background: c.hd, borderBottom: `1px solid ${c.bd}`,
-            display: "flex", alignItems: "center", padding: "0 10px",
-          }}>
-            <div style={bar(44, c.t1, 0.5)} />
-            <div style={{ marginLeft: "auto", width: 14, height: 14, borderRadius: "50%", background: c.ac, opacity: 0.6 }} />
-          </div>
-          {/* body */}
-          <div style={{ flex: 1, padding: 8, display: "flex", gap: 8 }}>
-            {/* card 1 */}
-            <div style={{
-              flex: 1, background: c.sf, borderRadius: c.cr,
-              border: `1px solid ${c.bd}`, padding: 8,
-              display: "flex", flexDirection: "column",
-            }}>
-              <div style={bar("65%", c.t1, 0.6)} />
-              <div style={{ ...bar("85%", c.t2, 0.3), marginTop: 5 }} />
-              <div style={{ ...bar("55%", c.t2, 0.3), marginTop: 3 }} />
-              <div style={{ marginTop: "auto", display: "flex", gap: 4 }}>
-                <span style={{ padding: "2px 8px", borderRadius: c.br, background: c.pr, fontSize: 8, color: "#fff", fontWeight: 600 }}>Save</span>
-                <span style={{ padding: "2px 8px", borderRadius: c.br, border: `1px solid ${c.bd}`, fontSize: 8, color: c.t2, fontWeight: 500 }}>Cancel</span>
-              </div>
-            </div>
-            {/* card 2 */}
-            <div style={{
-              flex: 1, background: c.sf, borderRadius: c.cr,
-              border: `1px solid ${c.bd}`, padding: 8,
-              display: "flex", flexDirection: "column",
-            }}>
-              <div style={{ display: "flex", gap: 3, marginBottom: 6 }}>
-                {[c.ok, c.wn, c.er, c.in].map((clr, i) => (
-                  <div key={i} style={{ width: 12, height: 12, borderRadius: "50%", background: clr }} />
-                ))}
-              </div>
-              <div style={bar("50%", c.t2, 0.3)} />
-              <div style={{ ...bar("75%", c.t2, 0.3), marginTop: 3 }} />
-              <span style={{
-                marginTop: "auto", padding: "2px 8px", borderRadius: c.br,
-                background: c.ac, textAlign: "center", fontSize: 8,
-                color: c.t1, fontWeight: 600, display: "block",
-              }}>
-                Accent
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ── Main ───────────────────────────────────────────────── */
 
 export function ThemeEditor({ mode = "tenant" }) {
@@ -424,27 +337,21 @@ export function ThemeEditor({ mode = "tenant" }) {
         )}
       </div>
 
-      {/* two-column: colors + preview */}
-      <div className="ms-grid-side" style={{ alignItems: "start" }}>
-        {/* colors */}
-        <div className="ms-card" style={{ padding: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>Colors</div>
-          {colorSections.map((section, i) => (
-            <div key={section.title} style={{ marginBottom: i < colorSections.length - 1 ? 20 : 0 }}>
-              <SectionTitle>{section.title}</SectionTitle>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                {section.fields.map((f) => (
-                  <ColorCard key={f.key} label={f.label} value={theme[f.key]} onChange={(v) => updateField(f.key, v)} />
-                ))}
-              </div>
+      {/* Colors */}
+      <div className="ms-card" style={{ padding: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>Colors</div>
+        {colorSections.map((section, i) => (
+          <div key={section.title} style={{ marginBottom: i < colorSections.length - 1 ? 20 : 0 }}>
+            <SectionTitle>{section.title}</SectionTitle>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {section.fields.map((f) => (
+                <ColorCard key={f.key} label={f.label} value={theme[f.key]} onChange={(v) => updateField(f.key, v)} />
+              ))}
             </div>
-          ))}
-        </div>
-
-        {/* preview */}
-        <div className="ms-card" style={{ padding: 16, position: "sticky", top: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ms-text)", marginBottom: 10 }}>Live Preview</div>
-          <ThemePreview theme={theme} />
+          </div>
+        ))}
+        <div style={{ marginTop: 14, padding: "10px 14px", background: "var(--ms-bg2)", borderRadius: 8, fontSize: 12, color: "var(--ms-text3)" }}>
+          Save and reload the page to see your theme applied to the live interface.
         </div>
       </div>
 

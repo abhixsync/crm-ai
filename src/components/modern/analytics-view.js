@@ -3,14 +3,14 @@
 import { useMemo } from "react";
 
 const STATUS_COLORS = {
-  NEW: "#4f9cf9",
-  CALL_PENDING: "#f25858",
-  CALLING: "#22c993",
-  INTERESTED: "#22c993",
-  FOLLOW_UP: "#f5a623",
-  NOT_INTERESTED: "#f25858",
-  CONVERTED: "#a78bfa",
-  DO_NOT_CALL: "#6b7280",
+  NEW: "var(--ms-blue, #4f9cf9)",
+  CALL_PENDING: "var(--ms-red, #f25858)",
+  CALLING: "var(--ms-green, #22c993)",
+  INTERESTED: "var(--ms-green, #22c993)",
+  FOLLOW_UP: "var(--ms-amber, #f5a623)",
+  NOT_INTERESTED: "var(--ms-red, #f25858)",
+  CONVERTED: "var(--ms-purple, #a78bfa)",
+  DO_NOT_CALL: "var(--ms-muted, #6b7280)",
 };
 
 function formatDate(date) {
@@ -26,7 +26,7 @@ function MetricCard({ label, value, sub, color = "var(--ms-accent)" }) {
       <div style={{ fontSize: 12, color: "var(--ms-text3)", textTransform: "uppercase", letterSpacing: ".06em" }}>
         {label}
       </div>
-      <div style={{ fontSize: 32, fontWeight: 700, color, lineHeight: 1.1 }}>{value.toLocaleString()}</div>
+      <div style={{ fontSize: 32, fontWeight: 700, color, lineHeight: 1.1 }}>{(value ?? 0).toLocaleString()}</div>
       {sub && <div style={{ fontSize: 12, color: "var(--ms-text3)" }}>{sub}</div>}
     </div>
   );
@@ -49,12 +49,12 @@ export function ModernAnalyticsView({ user, metrics, statusBreakdown = [], recen
       {/* Metric cards */}
       <div className="ms-metrics">
         <MetricCard label="Total Customers" value={metrics.totalCustomers} sub="Active (not archived)" />
-        <MetricCard label="Total Calls" value={metrics.totalCalls} sub="All time" color="#4f9cf9" />
+        <MetricCard label="Total Calls" value={metrics.totalCalls} sub="All time" color="var(--ms-blue, #4f9cf9)" />
         <MetricCard
           label="Conversions"
           value={metrics.conversions}
           sub={`${conversionRate}% rate`}
-          color="#a78bfa"
+          color="var(--ms-purple, #a78bfa)"
         />
       </div>
 

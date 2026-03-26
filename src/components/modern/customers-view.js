@@ -19,11 +19,11 @@ const STATUS_BG = {
   CALL_FAILED: "rgba(242,88,88,.12)", RETRY_SCHEDULED: "rgba(245,166,35,.15)",
 };
 const STATUS_FG = {
-  NEW: "#93c5fd", CALL_PENDING: "#fca5a5",
-  CALLING: "#6ee7b7", INTERESTED: "#6ee7b7",
-  FOLLOW_UP: "#fbbf24", NOT_INTERESTED: "#fca5a5",
-  CONVERTED: "#c4b5fd", DO_NOT_CALL: "#9ca3af",
-  CALL_FAILED: "#fca5a5", RETRY_SCHEDULED: "#fbbf24",
+  NEW: "var(--ms-blue, #93c5fd)", CALL_PENDING: "var(--ms-red, #fca5a5)",
+  CALLING: "var(--ms-green, #6ee7b7)", INTERESTED: "var(--ms-green, #6ee7b7)",
+  FOLLOW_UP: "var(--ms-amber, #fbbf24)", NOT_INTERESTED: "var(--ms-red, #fca5a5)",
+  CONVERTED: "var(--ms-purple, #c4b5fd)", DO_NOT_CALL: "var(--ms-muted, #9ca3af)",
+  CALL_FAILED: "var(--ms-red, #fca5a5)", RETRY_SCHEDULED: "var(--ms-amber, #fbbf24)",
 };
 
 const AVATAR_COLORS = [
@@ -120,7 +120,9 @@ export function ModernCustomersView({
     try {
       const r = await fetch("/api/dashboard/metrics");
       if (r.ok) { const d = await r.json(); setMetrics(d.metrics); }
-    } catch {}
+    } catch (err) {
+      console.warn("[customers] Failed to fetch metrics:", err?.message);
+    }
   }, []);
 
   const fetchCustomers = useCallback(async (page = pageRef.current, opts = { showLoading: true }) => {
@@ -333,7 +335,8 @@ export function ModernCustomersView({
           </select>
           <button className="ms-btn ms-btn-pri" onClick={startCreate}>+ Add</button>
           {canDeleteAllCustomers && (
-            <button className="ms-btn ms-btn-danger-ghost" onClick={confirmDeleteAll} disabled={deletingAll}>
+            <button className="ms-btn ms-btn-danger" onClick={confirmDeleteAll} disabled={deletingAll} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
               {deletingAll ? "Deleting…" : "Delete All"}
             </button>
           )}
@@ -408,13 +411,36 @@ export function ModernCustomersView({
                     </td>
                     <td><span className="ms-cust-time">{timeAgo(lastCall)}</span></td>
                     <td>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button className="ms-btn" style={{ fontSize: 11 }} onClick={() => triggerCall(c)} disabled={busyCallId === c.id}>
-                          {busyCallId === c.id ? "…" : "Call"}
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button
+                          className="ms-btn ms-btn-xs"
+                          onClick={() => triggerCall(c)}
+                          disabled={busyCallId === c.id}
+                          title="Trigger AI call"
+                          aria-label="Trigger AI call"
+                        >
+                          {busyCallId === c.id ? "…" : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                          )}
                         </button>
-                        <button className="ms-btn" style={{ fontSize: 11 }} onClick={() => startEdit(c)}>Edit</button>
-                        <button className="ms-btn ms-btn-danger-ghost" style={{ fontSize: 11 }} onClick={() => confirmDelete(c)} disabled={deletingId === c.id}>
-                          {deletingId === c.id ? "…" : "Del"}
+                        <button
+                          className="ms-btn ms-btn-xs"
+                          onClick={() => startEdit(c)}
+                          title="Edit customer"
+                          aria-label="Edit customer"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                        <button
+                          className="ms-btn ms-btn-xs ms-btn-danger"
+                          onClick={() => confirmDelete(c)}
+                          disabled={deletingId === c.id}
+                          title="Delete customer"
+                          aria-label="Delete customer"
+                        >
+                          {deletingId === c.id ? "…" : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                          )}
                         </button>
                       </div>
                     </td>
@@ -440,14 +466,14 @@ export function ModernCustomersView({
 
       {/* ── Confirmation Dialog (centered) ── */}
       {confirm && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.55)" }}
+        <div className="ms-modal-overlay"
           onClick={e => { if (e.target === e.currentTarget) setConfirm(null); }}>
-          <div style={{ width: "100%", maxWidth: 360, margin: "0 16px", padding: 20, borderRadius: 12, background: "var(--ms-surface)", border: "1px solid var(--ms-border)", boxShadow: "0 8px 30px rgba(0,0,0,.35)" }}>
+          <div className="ms-modal-box" style={{ maxWidth: 360, padding: 20 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ms-text)", marginBottom: 8 }}>{confirm.title}</div>
             <div style={{ fontSize: 12, color: "var(--ms-text2)", marginBottom: 18, lineHeight: 1.5 }}>{confirm.message}</div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button className="ms-btn" onClick={() => setConfirm(null)}>Cancel</button>
-              <button className="ms-btn" style={{ background: "var(--ms-red)", color: "#fff" }} onClick={confirm.onConfirm}>{confirm.label}</button>
+              <button className="ms-btn ms-btn-danger" onClick={confirm.onConfirm}>{confirm.label}</button>
             </div>
           </div>
         </div>
@@ -455,9 +481,9 @@ export function ModernCustomersView({
 
       {/* ── Add / Edit Modal ── */}
       {showModal && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.55)" }}
+        <div className="ms-modal-overlay"
           onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); setEditId(""); setForm(EMPTY_FORM); } }}>
-          <div style={{ width: "100%", maxWidth: 720, maxHeight: "90vh", overflowY: "auto", borderRadius: 12, background: "var(--ms-surface)", border: "1px solid var(--ms-border)", padding: 24, margin: "0 12px" }}>
+          <div className="ms-modal-box">
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ms-text)" }}>

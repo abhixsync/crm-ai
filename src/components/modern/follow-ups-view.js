@@ -1,18 +1,19 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 
 const PRIORITY_COLORS = {
-  HIGH: "#f25858",
-  MEDIUM: "#f5a623",
-  LOW: "#4f9cf9",
+  HIGH: "var(--ms-red, #f25858)",
+  MEDIUM: "var(--ms-amber, #f5a623)",
+  LOW: "var(--ms-blue, #4f9cf9)",
 };
 
 const STATUS_COLORS = {
-  PENDING: "#f5a623",
-  IN_PROGRESS: "#4f9cf9",
-  COMPLETED: "#22c993",
-  CANCELLED: "#6b7280",
+  PENDING: "var(--ms-amber, #f5a623)",
+  IN_PROGRESS: "var(--ms-blue, #4f9cf9)",
+  COMPLETED: "var(--ms-green, #22c993)",
+  CANCELLED: "var(--ms-muted, #6b7280)",
 };
 
 function formatDate(date) {
@@ -44,6 +45,7 @@ const FILTER_CHIPS = [
 export function ModernFollowUpsView({ user, initialTasks = [] }) {
   const [filter, setFilter] = useState("PENDING");
   const [tasks, setTasks] = useState(initialTasks);
+  const [completing, setCompleting] = useState(null);
 
   const filtered = useMemo(() => {
     if (!filter) return tasks;
@@ -55,13 +57,25 @@ export function ModernFollowUpsView({ user, initialTasks = [] }) {
   ).length;
 
   async function markComplete(id) {
-    const res = await fetch(`/api/admin/follow-ups/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "COMPLETED" }),
-    });
-    if (res.ok) {
-      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: "COMPLETED" } : t)));
+    if (completing === id) return;
+    setCompleting(id);
+    try {
+      const res = await fetch(`/api/admin/follow-ups/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "COMPLETED" }),
+      });
+      if (res.ok) {
+        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: "COMPLETED" } : t)));
+        toast.success("Task marked complete");
+      } else {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d.error || "Failed to update task");
+      }
+    } catch {
+      toast.error("Failed to update task");
+    } finally {
+      setCompleting(null);
     }
   }
 
@@ -72,7 +86,7 @@ export function ModernFollowUpsView({ user, initialTasks = [] }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span className="ms-card-title">Follow-up Tasks</span>
             {overdueCount > 0 && (
-              <span className="ms-bdg" style={{ background: "rgba(242,88,88,.12)", color: "#f25858" }}>
+              <span className="ms-bdg ms-bdg-danger">
                 {overdueCount} overdue
               </span>
             )}
@@ -131,7 +145,7 @@ export function ModernFollowUpsView({ user, initialTasks = [] }) {
                     <td
                       style={{
                         fontSize: 13,
-                        color: overdue ? "#f25858" : "var(--ms-text2)",
+                        color: overdue ? "var(--ms-red, #f25858)" : "var(--ms-text2)",
                         fontWeight: overdue ? 600 : 400,
                       }}
                     >
@@ -148,11 +162,12 @@ export function ModernFollowUpsView({ user, initialTasks = [] }) {
                     <td>
                       {t.status === "PENDING" && (
                         <button
-                          className="ms-btn ms-btn-xs"
-                          style={{ background: "rgba(34,201,147,.15)", color: "#22c993" }}
+                          className="ms-btn ms-btn-xs ms-btn-pri"
                           onClick={() => markComplete(t.id)}
+                          disabled={completing === t.id}
+                          aria-label="Mark task complete"
                         >
-                          Done
+                          {completing === t.id ? "…" : "Done"}
                         </button>
                       )}
                     </td>

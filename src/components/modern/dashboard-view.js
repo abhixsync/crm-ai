@@ -4,14 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 
 const PIPELINE_CONFIG = [
-  { status: "NEW", label: "New", color: "#4f9cf9" },
-  { status: "CALL_PENDING", label: "Call pending", color: "#f472b6" },
-  { status: "CALLING", label: "Calling", color: "#22c993" },
-  { status: "INTERESTED", label: "Interested", color: "#22c993" },
-  { status: "FOLLOW_UP", label: "Follow-up", color: "#f5a623" },
-  { status: "CONVERTED", label: "Converted", color: "#a78bfa" },
-  { status: "NOT_INTERESTED", label: "Not interested", color: "#f25858" },
-  { status: "DO_NOT_CALL", label: "Do not call", color: "#6b7280" },
+  { status: "NEW", label: "New", color: "var(--ms-blue, #4f9cf9)" },
+  { status: "CALL_PENDING", label: "Call pending", color: "var(--ms-pink, #f472b6)" },
+  { status: "CALLING", label: "Calling", color: "var(--ms-green, #22c993)" },
+  { status: "INTERESTED", label: "Interested", color: "var(--ms-green, #22c993)" },
+  { status: "FOLLOW_UP", label: "Follow-up", color: "var(--ms-amber, #f5a623)" },
+  { status: "CONVERTED", label: "Converted", color: "var(--ms-purple, #a78bfa)" },
+  { status: "NOT_INTERESTED", label: "Not interested", color: "var(--ms-red, #f25858)" },
+  { status: "DO_NOT_CALL", label: "Do not call", color: "var(--ms-muted, #6b7280)" },
 ];
 
 const STATUS_BADGE_STYLE = {
@@ -28,16 +28,16 @@ const STATUS_BADGE_STYLE = {
 };
 
 const STATUS_BADGE_COLOR = {
-  NEW: "#93c5fd",
-  CALL_PENDING: "#fca5a5",
-  CALLING: "#6ee7b7",
-  INTERESTED: "#6ee7b7",
-  FOLLOW_UP: "#fbbf24",
-  NOT_INTERESTED: "#fca5a5",
-  CONVERTED: "#c4b5fd",
-  DO_NOT_CALL: "#9ca3af",
-  CALL_FAILED: "#fca5a5",
-  RETRY_SCHEDULED: "#fbbf24",
+  NEW: "var(--ms-blue, #93c5fd)",
+  CALL_PENDING: "var(--ms-red, #fca5a5)",
+  CALLING: "var(--ms-green, #6ee7b7)",
+  INTERESTED: "var(--ms-green, #6ee7b7)",
+  FOLLOW_UP: "var(--ms-amber, #fbbf24)",
+  NOT_INTERESTED: "var(--ms-red, #fca5a5)",
+  CONVERTED: "var(--ms-purple, #c4b5fd)",
+  DO_NOT_CALL: "var(--ms-muted, #9ca3af)",
+  CALL_FAILED: "var(--ms-red, #fca5a5)",
+  RETRY_SCHEDULED: "var(--ms-amber, #fbbf24)",
 };
 
 const AVATAR_COLORS = [
@@ -120,23 +120,23 @@ export function ModernDashboardView({
         const data = await followUpRes.json();
         setFollowUps(data.customers || []);
       }
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.warn("[dashboard] Failed to fetch dashboard data:", err?.message);
     }
   }, []);
 
   const fetchCampaignHealth = useCallback(async () => {
-    if (!isSuperAdmin) return;
+    if (!isAdmin) return;
     try {
       const res = await fetch("/api/calls/automation/health");
       if (res.ok) {
         const data = await res.json();
         setCampaignHealth(data);
       }
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.warn("[dashboard] Failed to fetch campaign health:", err?.message);
     }
-  }, [isSuperAdmin]);
+  }, [isAdmin]);
 
   useEffect(() => {
     fetchDashboardData();

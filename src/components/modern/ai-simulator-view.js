@@ -20,21 +20,21 @@ const LANGUAGES = [
 ];
 
 const STAGE_COLORS = {
-  opening: "#6b7280",
-  discovery: "#3b82f6",
-  pitch: "#f59e0b",
-  qualification: "#8b5cf6",
-  closing: "#22c55e",
+  opening: "var(--ms-muted, #6b7280)",
+  discovery: "var(--ms-blue, #3b82f6)",
+  pitch: "var(--ms-amber, #f59e0b)",
+  qualification: "var(--ms-purple, #8b5cf6)",
+  closing: "var(--ms-green, #22c55e)",
 };
 
 const INTENT_COLORS = {
-  interested: "#22c993",
-  not_interested: "#f25858",
-  call_back_later: "#f5a623",
-  do_not_call: "#6b7280",
-  confused: "#f59e0b",
-  converted: "#10b981",
-  neutral: "#94a3b8",
+  interested: "var(--ms-green, #22c993)",
+  not_interested: "var(--ms-red, #f25858)",
+  call_back_later: "var(--ms-amber, #f5a623)",
+  do_not_call: "var(--ms-muted, #6b7280)",
+  confused: "var(--ms-amber, #f59e0b)",
+  converted: "var(--ms-accent, #10b981)",
+  neutral: "var(--ms-muted, #94a3b8)",
 };
 
 const FEMALE_HINT = /female|woman|girl|zira|heera|aditi|priya|neerja|swara|lekha|ananya/i;
@@ -103,7 +103,7 @@ function ChatBubble({ role, text }) {
 }
 
 function MicIndicator({ isListening, isSpeaking }) {
-  const color = isSpeaking ? "#8b5cf6" : isListening ? "#f25858" : "var(--ms-text3)";
+  const color = isSpeaking ? "var(--ms-purple, #8b5cf6)" : isListening ? "var(--ms-red, #f25858)" : "var(--ms-text3)";
   const label = isSpeaking ? "AI Speaking..." : isListening ? "Listening..." : "Idle";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color }}>
@@ -428,7 +428,7 @@ export function ModernAiSimulatorView({ user }) {
               <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, color: "var(--ms-text3)" }}>
                 <div style={{ fontSize: 40 }}>&#128172;</div>
                 <div style={{ fontSize: 14 }}>Configure customer profile, then start a conversation</div>
-                <button className="ms-btn-primary" onClick={startConversation} disabled={loading} style={{ padding: "10px 24px" }}>
+                <button className="ms-btn ms-btn-pri" onClick={startConversation} disabled={loading} style={{ padding: "10px 24px" }}>
                   {loading ? "Starting..." : "Start Conversation"}
                 </button>
               </div>
@@ -447,7 +447,7 @@ export function ModernAiSimulatorView({ user }) {
               {/* Voice controls row */}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button
-                  className={voiceMode ? "ms-btn-primary" : "ms-btn"}
+                  className={voiceMode ? "ms-btn ms-btn-pri" : "ms-btn"}
                   onClick={toggleVoiceMode}
                   style={{ fontSize: 12, padding: "4px 10px" }}
                   title={voiceMode ? "Disable voice mode" : "Enable voice mode"}
@@ -465,12 +465,12 @@ export function ModernAiSimulatorView({ user }) {
                       {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                     </select>
                     {!isListening && !isSpeaking && !loading && (
-                      <button className="ms-btn" onClick={startListening} style={{ fontSize: 12, padding: "4px 10px" }}>
+                      <button className="ms-btn ms-btn-xs" onClick={startListening} aria-label="Start microphone">
                         Start Mic
                       </button>
                     )}
                     {isListening && (
-                      <button className="ms-btn" onClick={stopListening} style={{ fontSize: 12, padding: "4px 10px", color: "#f25858" }}>
+                      <button className="ms-btn ms-btn-xs ms-btn-danger" onClick={stopListening} aria-label="Stop microphone">
                         Stop Mic
                       </button>
                     )}
@@ -488,7 +488,7 @@ export function ModernAiSimulatorView({ user }) {
                   disabled={loading || metadata?.shouldEnd}
                   style={{ flex: 1 }}
                 />
-                <button className="ms-btn-primary" type="submit" disabled={loading || !input.trim() || metadata?.shouldEnd}>
+                <button className="ms-btn ms-btn-pri" type="submit" disabled={loading || !input.trim() || metadata?.shouldEnd}>
                   Send
                 </button>
               </form>
@@ -497,7 +497,7 @@ export function ModernAiSimulatorView({ user }) {
         </div>
 
         {error && (
-          <div style={{ padding: "10px 16px", background: "#fef2f2", color: "#b91c1c", borderRadius: 8, fontSize: 13 }}>
+          <div style={{ padding: "10px 16px", background: "var(--ms-red-dim)", color: "var(--ms-red)", borderRadius: 8, fontSize: 13 }}>
             {error}
           </div>
         )}
@@ -520,7 +520,7 @@ export function ModernAiSimulatorView({ user }) {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
               <span style={{ color: "var(--ms-text2)" }}>Should End</span>
-              <span style={{ fontWeight: 600, color: metadata?.shouldEnd ? "#f25858" : "var(--ms-text)" }}>{metadata?.shouldEnd ? "Yes" : "No"}</span>
+              <span style={{ fontWeight: 600, color: metadata?.shouldEnd ? "var(--ms-red, #f25858)" : "var(--ms-text)" }}>{metadata?.shouldEnd ? "Yes" : "No"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
               <span style={{ color: "var(--ms-text2)" }}>Voice</span>

@@ -29,7 +29,22 @@ export default async function CustomersPage() {
     redirect("/dashboard?view=customers");
   }
 
-  const tenantFilter = tenantId ? { tenantId } : {};
+  // SUPER_ADMIN must pick a tenant context — don't return unscoped data
+  if (!tenantId) {
+    const totalPages = 1;
+    return (
+      <ModernCustomersView
+        user={session.user}
+        canDeleteAllCustomers={false}
+        initialTenantName="CRM"
+        initialMetrics={{ totalCustomers: 0, interestedCustomers: 0, followUps: 0, totalCalls: 0 }}
+        initialCustomers={[]}
+        initialPagination={{ page: 1, pageSize: PAGE_SIZE, total: 0, totalPages }}
+      />
+    );
+  }
+
+  const tenantFilter = { tenantId };
   const canDeleteAllCustomers = canUserDeleteAllCustomers(session.user.role);
 
   let totalCustomers = 0;
@@ -68,7 +83,12 @@ export default async function CustomersPage() {
     interestedCustomers = interested;
     followUps = followUpCount;
     totalCalls = calls;
-    customers = customerRows;
+    // Prisma Decimal fields can't be passed to Client Components — convert to plain numbers
+    customers = customerRows.map(c => ({
+      ...c,
+      loanAmount: c.loanAmount != null ? Number(c.loanAmount) : null,
+      monthlyIncome: c.monthlyIncome != null ? Number(c.monthlyIncome) : null,
+    }));
     initialTenantName = tenant?.crmName || tenant?.name || "CRM";
   } catch (error) {
     console.warn("[customers] Failed to load initial data.", error);

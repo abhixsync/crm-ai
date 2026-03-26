@@ -20,9 +20,10 @@ const EMPTY_FORM = {
   model: "",
   priority: 100,
   timeoutMs: 12000,
-  enabled: true,
-  isActive: false,
+  status: "STANDBY",
 };
+
+const STATUS_ORDER = { ACTIVE: 0, STANDBY: 1, DISABLED: 2 };
 
 export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
   const [providers, setProviders] = useState(initialProviders || []);
@@ -41,7 +42,8 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
   const orderedProviders = useMemo(
     () =>
       [...providers].sort((left, right) => {
-        if (left.isActive !== right.isActive) return left.isActive ? -1 : 1;
+        const statusDiff = (STATUS_ORDER[left.status] ?? 1) - (STATUS_ORDER[right.status] ?? 1);
+        if (statusDiff !== 0) return statusDiff;
         if (left.priority !== right.priority) return left.priority - right.priority;
         return left.name.localeCompare(right.name);
       }),
@@ -93,7 +95,7 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
         apiKey: provider.apiKey,
         model: provider.model,
         priority: Number(provider.priority),
-        enabled: provider.enabled,
+        status: provider.status,
         timeoutMs: Number(provider.timeoutMs),
       }),
     });
@@ -117,7 +119,7 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
     const response = await fetch(`/api/admin/ai-providers/${providerId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: true }),
+      body: JSON.stringify({ status: "ACTIVE" }),
     });
 
     const data = await response.json();
@@ -133,13 +135,14 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
     await fetchProviders();
   }
 
-  async function toggleProviderEnabled(provider) {
+  async function toggleProviderDisabled(provider) {
     setSavingId(provider.id);
+    const newStatus = provider.status === "DISABLED" ? "STANDBY" : "DISABLED";
 
     const response = await fetch(`/api/admin/ai-providers/${provider.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: !Boolean(provider.enabled) }),
+      body: JSON.stringify({ status: newStatus }),
     });
 
     const data = await response.json();
@@ -150,7 +153,7 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
       return;
     }
 
-    toast.success(`${data.provider.name} ${data.provider.enabled ? "enabled" : "disabled"}.`);
+    toast.success(`${data.provider.name} set to ${data.provider.status}.`);
     setSavingId("");
     await fetchProviders();
   }
@@ -199,8 +202,7 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
           ...createForm,
           priority: Number(createForm.priority),
           timeoutMs: Number(createForm.timeoutMs),
-          enabled: Boolean(createForm.enabled),
-          isActive: Boolean(createForm.isActive),
+          status: createForm.status || "STANDBY",
         }),
       });
 
@@ -241,8 +243,7 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
       model: provider.model || "",
       priority: Number(provider.priority ?? 100),
       timeoutMs: Number(provider.timeoutMs ?? 12000),
-      enabled: Boolean(provider.enabled),
-      isActive: Boolean(provider.isActive),
+      status: provider.status || "STANDBY",
     });
     setShowCreateForm(true);
   }
@@ -313,7 +314,7 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
         cell: ({ row }) => (
           <div>
             {row.original.provider?.name}
-            {row.original.provider?.isActive ? (
+            {row.original.provider?.status === "ACTIVE" ? (
               <p className="text-xs font-semibold text-primary">Active</p>
             ) : null}
           </div>
@@ -363,7 +364,7 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
         cell: ({ row }) => (
           <div>
             <p className="text-sm text-foreground">{row.original.name}</p>
-            {row.original.isActive ? <p className="mt-1 text-xs font-semibold text-primary">Active</p> : null}
+            {row.original.status === "ACTIVE" ? <p className="mt-1 text-xs font-semibold text-primary">Active</p> : null}
           </div>
         ),
       },
@@ -383,7 +384,7 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
       {
         id: "status",
         header: "Status",
-        cell: ({ row }) => <DataTableStatusBadge value={row.original.isActive ? "ACTIVE" : "INACTIVE"} />,
+        cell: ({ row }) => <DataTableStatusBadge value={row.original.status || "STANDBY"} />,
       },
       {
         id: "actions",
@@ -591,28 +592,15 @@ export function AiProvidersAdminClient({ initialProviders, embedded = false }) {
                 value={createForm.timeoutMs}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, timeoutMs: event.target.value }))}
               />
-              <div className="flex items-center gap-2 rounded-md border border-border px-3">
-                <input
-                  id="create-enabled"
-                  type="checkbox"
-                  checked={createForm.enabled}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, enabled: event.target.checked }))}
-                />
-                <label htmlFor="create-enabled" className="text-sm text-muted-foreground">
-                  Enabled
-                </label>
-              </div>
-              <div className="flex items-center gap-2 rounded-md border border-border px-3">
-                <input
-                  id="create-active"
-                  type="checkbox"
-                  checked={createForm.isActive}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, isActive: event.target.checked }))}
-                />
-                <label htmlFor="create-active" className="text-sm text-muted-foreground">
-                  Active
-                </label>
-              </div>
+              <Select
+                value={createForm.status}
+                onChange={(value) => setCreateForm((prev) => ({ ...prev, status: value }))}
+                options={[
+                  { label: "ACTIVE — primary provider", value: "ACTIVE" },
+                  { label: "STANDBY — fallback only", value: "STANDBY" },
+                  { label: "DISABLED — excluded", value: "DISABLED" },
+                ]}
+              />
             </div>
 
             <div className="mt-3 flex gap-2">
