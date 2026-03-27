@@ -1,3 +1,4 @@
+import { AiProviderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
@@ -38,27 +39,29 @@ export async function PATCH(request, { params }) {
   if (body.apiKey !== undefined) updateData.apiKey = parseOptionalString(body.apiKey);
   if (body.model !== undefined) updateData.model = parseOptionalString(body.model);
   if (body.priority !== undefined) updateData.priority = Number(body.priority);
-  if (body.enabled !== undefined) updateData.enabled = Boolean(body.enabled);
   if (body.timeoutMs !== undefined) updateData.timeoutMs = Number(body.timeoutMs);
   if (body.metadata !== undefined) updateData.metadata = body.metadata || null;
 
-  const makeActive = body.isActive === true;
+  if (body.status !== undefined) {
+    const rawStatus = String(body.status).toUpperCase();
+    updateData.status = AiProviderStatus[rawStatus] || AiProviderStatus.STANDBY;
+  }
+
+  const settingActive = updateData.status === AiProviderStatus.ACTIVE;
 
   try {
-    const finalUpdateData = {
-      ...updateData,
-      ...(body.isActive !== undefined ? { isActive: Boolean(body.isActive) } : {}),
-    };
-
     let updated;
 
-    if (makeActive) {
+    if (settingActive) {
       try {
         const [, updatedProvider] = await prisma.$transaction([
-          prisma.aiProviderConfig.updateMany({ data: { isActive: false } }),
+          prisma.aiProviderConfig.updateMany({
+            where: { status: AiProviderStatus.ACTIVE, id: { not: providerId } },
+            data: { status: AiProviderStatus.STANDBY },
+          }),
           prisma.aiProviderConfig.update({
             where: { id: providerId },
-            data: finalUpdateData,
+            data: updateData,
           }),
         ]);
 
@@ -66,10 +69,14 @@ export async function PATCH(request, { params }) {
       } catch (error) {
         // Fallback for pooled DB contention (e.g., Neon) where transaction start can timeout.
         if (error?.code === "P2028") {
-          await prisma.aiProviderConfig.updateMany({ data: { isActive: false } });
+          console.warn("[api/admin/ai-providers] P2028 transaction timeout — falling back to sequential updates. Brief inconsistency possible.");
+          await prisma.aiProviderConfig.updateMany({
+            where: { status: AiProviderStatus.ACTIVE, id: { not: providerId } },
+            data: { status: AiProviderStatus.STANDBY },
+          });
           updated = await prisma.aiProviderConfig.update({
             where: { id: providerId },
-            data: finalUpdateData,
+            data: updateData,
           });
         } else {
           throw error;
@@ -78,7 +85,7 @@ export async function PATCH(request, { params }) {
     } else {
       updated = await prisma.aiProviderConfig.update({
         where: { id: providerId },
-        data: finalUpdateData,
+        data: updateData,
       });
     }
 
@@ -108,11 +115,6 @@ export async function DELETE(_request, { params }) {
   }
 
   try {
-    const total = await prisma.aiProviderConfig.count();
-    if (total <= 1) {
-      return Response.json({ error: "At least one AI provider config must remain." }, { status: 400 });
-    }
-
     const target = await prisma.aiProviderConfig.findUnique({ where: { id: providerId } });
 
     if (!target) {
@@ -120,18 +122,24 @@ export async function DELETE(_request, { params }) {
     }
 
     await prisma.$transaction(async (tx) => {
+      // Count inside the transaction to prevent race with concurrent deletes
+      const remaining = await tx.aiProviderConfig.count();
+      if (remaining <= 1) {
+        throw Object.assign(new Error("At least one AI provider config must remain."), { code: "LAST_PROVIDER" });
+      }
+
       await tx.aiProviderConfig.delete({ where: { id: providerId } });
 
-      if (target.isActive) {
+      if (target.status === AiProviderStatus.ACTIVE) {
         const nextProvider = await tx.aiProviderConfig.findFirst({
-          where: { enabled: true },
+          where: { status: AiProviderStatus.STANDBY },
           orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
         });
 
         if (nextProvider) {
           await tx.aiProviderConfig.update({
             where: { id: nextProvider.id },
-            data: { isActive: true },
+            data: { status: AiProviderStatus.ACTIVE },
           });
         }
       }
@@ -139,6 +147,10 @@ export async function DELETE(_request, { params }) {
 
     return Response.json({ ok: true });
   } catch (error) {
+    if (error?.code === "LAST_PROVIDER") {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
+
     if (isDatabaseUnavailable(error)) {
       console.warn("[api/admin/ai-providers/[providerId]] Database unavailable during delete.");
       return databaseUnavailableResponse();

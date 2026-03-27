@@ -63,8 +63,14 @@ export async function GET(request) {
       take: safePageSize,
     });
 
+    const serializedCustomers = customers.map(c => ({
+      ...c,
+      loanAmount: c.loanAmount != null ? Number(c.loanAmount) : null,
+      monthlyIncome: c.monthlyIncome != null ? Number(c.monthlyIncome) : null,
+    }));
+
     return Response.json({
-      customers,
+      customers: serializedCustomers,
       pagination: {
         page: currentPage,
         pageSize: safePageSize,
@@ -136,7 +142,8 @@ export async function POST(request) {
 
       try {
         await enqueueCustomerIfEligible(customer.id, "customer_reactivated");
-      } catch {
+      } catch (err) {
+        console.warn("[api/customers] Failed to enqueue reactivated customer:", err?.message);
       }
 
       return Response.json({ customer });
@@ -162,7 +169,8 @@ export async function POST(request) {
 
     try {
       await enqueueCustomerIfEligible(customer.id, "customer_created");
-    } catch {
+    } catch (err) {
+      console.warn("[api/customers] Failed to enqueue new customer:", err?.message);
     }
 
     return Response.json({ customer });

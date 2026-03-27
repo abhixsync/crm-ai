@@ -14,7 +14,7 @@ async function checkDatabase() {
 async function checkAiEngine() {
   const start = Date.now();
   try {
-    const config = await prisma.aiProviderConfig.findFirst({ where: { enabled: true, isActive: true } });
+    const config = await prisma.aiProviderConfig.findFirst({ where: { status: "ACTIVE" } });
     return {
       status: config ? "healthy" : "degraded",
       latency: Date.now() - start,

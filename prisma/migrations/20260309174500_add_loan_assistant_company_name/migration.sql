@@ -1,2 +1,2 @@
--- Add loanAssistantCompanyName field to Tenant
-ALTER TABLE "Tenant" ADD COLUMN "loanAssistantCompanyName" TEXT;
+-- loanAssistantCompanyName column already included in 0_init baseline migration.
+-- This migration is a no-op kept for migration history continuity.

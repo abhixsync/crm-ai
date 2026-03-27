@@ -36,8 +36,8 @@ export function ModernSettingsView({ initialRole, initialLayout }) {
         const data = await autoRes.json();
         setAutomation(data);
       }
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.warn("[settings] Failed to fetch settings data:", err?.message);
     }
   }, []);
 

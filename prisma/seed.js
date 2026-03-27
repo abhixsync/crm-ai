@@ -3,6 +3,7 @@ const {
   PrismaClient,
   UserRole,
   AiProviderType,
+  AiProviderStatus,
   TelephonyProviderType,
   SubscriptionPlan,
   SubscriptionStatus,
@@ -254,42 +255,105 @@ async function seedAiProviders() {
     {
       name: "OpenAI", type: AiProviderType.OPENAI,
       model: "gpt-4.1-mini", apiKey: process.env.OPENAI_API_KEY || null,
-      priority: 1, enabled: true, isActive: true,
+      priority: 1, status: AiProviderStatus.ACTIVE,
     },
     {
       name: "Claude AI", type: AiProviderType.CLAUDE,
       model: "claude-sonnet-4-6", apiKey: process.env.ANTHROPIC_API_KEY || null,
-      priority: 2, enabled: true, isActive: false,
+      priority: 2, status: AiProviderStatus.STANDBY,
     },
     {
       name: "Groq AI", type: AiProviderType.GROQ,
       model: "llama-3.1-8b-instant", apiKey: process.env.GROQ_API_KEY || null,
-      priority: 3, enabled: true, isActive: false,
+      priority: 3, status: AiProviderStatus.STANDBY,
+    },
+    {
+      name: "Gemini AI", type: AiProviderType.GEMINI,
+      model: "gemini-2.0-flash", apiKey: process.env.GOOGLE_AI_API_KEY || null,
+      priority: 4, status: AiProviderStatus.STANDBY,
     },
     {
       name: "Dialogflow AI", type: AiProviderType.DIALOGFLOW,
       endpoint: "https://dialogflow.googleapis.com/v2",
-      model: "dialogflow-es", priority: 4, enabled: true, isActive: false,
+      model: "dialogflow-es", priority: 5, status: AiProviderStatus.STANDBY,
+    },
+    {
+      name: "Generic HTTP", type: AiProviderType.GENERIC_HTTP,
+      endpoint: null, model: null,
+      priority: 6, status: AiProviderStatus.DISABLED,
     },
   ];
 
   for (const p of providers) {
     const existing = await prisma.aiProviderConfig.findFirst({ where: { tenantId: null, name: p.name } });
-    if (!existing) await prisma.aiProviderConfig.create({ data: p });
+    if (existing) {
+      await prisma.aiProviderConfig.update({
+        where: { id: existing.id },
+        data: { type: p.type, model: p.model ?? null, endpoint: p.endpoint ?? null, priority: p.priority },
+      });
+    } else {
+      await prisma.aiProviderConfig.create({ data: { ...p, tenantId: null } });
+    }
   }
-  console.log("✓ AI providers seeded (OpenAI / Claude / Groq / Dialogflow)");
+  console.log("✓ AI providers seeded (OpenAI / Claude / Groq / Gemini / Dialogflow / Generic HTTP)");
 }
 
 // ─── TELEPHONY PROVIDERS ─────────────────────────────────
 
 async function seedTelephonyProviders() {
-  const existing = await prisma.telephonyProviderConfig.findFirst({ where: { tenantId: null, name: "Twilio" } });
-  if (!existing) {
-    await prisma.telephonyProviderConfig.create({
-      data: { name: "Twilio", type: TelephonyProviderType.TWILIO, priority: 1, enabled: true, isActive: true },
-    });
+  const providers = [
+    {
+      name: "Twilio", type: TelephonyProviderType.TWILIO,
+      priority: 1, enabled: true, isActive: true,
+      metadata: {
+        accountSid: process.env.TWILIO_ACCOUNT_SID || null,
+        authToken:  process.env.TWILIO_AUTH_TOKEN  || null,
+        fromNumber: process.env.TWILIO_FROM_NUMBER || null,
+        callerId:   process.env.TWILIO_CALLER_ID   || null,
+      },
+    },
+    {
+      name: "Vonage", type: TelephonyProviderType.VONAGE,
+      priority: 2, enabled: true, isActive: false,
+      metadata: {
+        applicationId: process.env.VONAGE_APPLICATION_ID || null,
+        privateKey:    process.env.VONAGE_PRIVATE_KEY    || null,
+        fromNumber:    process.env.VONAGE_FROM_NUMBER    || null,
+      },
+    },
+    {
+      name: "Plivo", type: TelephonyProviderType.PLIVO,
+      priority: 3, enabled: true, isActive: false,
+      metadata: {
+        authId:    process.env.PLIVO_AUTH_ID    || null,
+        authToken: process.env.PLIVO_AUTH_TOKEN || null,
+        fromNumber: process.env.PLIVO_FROM_NUMBER || null,
+      },
+    },
+    {
+      name: "Exotel", type: TelephonyProviderType.EXOTEL,
+      priority: 4, enabled: true, isActive: false,
+      metadata: {
+        accountSid: null,
+        apiKey:     null,
+        apiToken:   null,
+        fromNumber: null,
+      },
+    },
+  ];
+
+  for (const p of providers) {
+    const existing = await prisma.telephonyProviderConfig.findFirst({ where: { tenantId: null, name: p.name } });
+    if (existing) {
+      await prisma.telephonyProviderConfig.update({
+        where: { id: existing.id },
+        data: { type: p.type, priority: p.priority, metadata: p.metadata },
+      });
+    } else {
+      await prisma.telephonyProviderConfig.create({ data: { ...p, tenantId: null } });
+    }
   }
-  console.log("✓ Telephony providers seeded (Twilio)");
+  console.log("✓ Telephony providers seeded (Twilio / Vonage / Plivo / Exotel)");
 }
 
 // ─── MAIN ────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { AiProviderType } from "@prisma/client";
+import { AiProviderType, AiProviderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createOpenAIEngine } from "@/lib/ai/adapters/openai-adapter";
 import { createClaudeEngine } from "@/lib/ai/adapters/claude-adapter";
@@ -27,30 +27,26 @@ function normalizeProvider(config) {
     apiKey: config.apiKey,
     model: config.model,
     priority: config.priority,
-    enabled: config.enabled,
-    isActive: config.isActive,
+    status: config.status,
     timeoutMs: config.timeoutMs,
     metadata: config.metadata || null,
   };
 }
 
+const STATUS_ORDER = { [AiProviderStatus.ACTIVE]: 0, [AiProviderStatus.STANDBY]: 1, [AiProviderStatus.DISABLED]: 2 };
+
 function sortProviders(providers) {
   return [...providers].sort((left, right) => {
-    if (left.isActive !== right.isActive) {
-      return left.isActive ? -1 : 1;
-    }
-
-    if (left.priority !== right.priority) {
-      return left.priority - right.priority;
-    }
-
+    const statusDiff = (STATUS_ORDER[left.status] ?? 1) - (STATUS_ORDER[right.status] ?? 1);
+    if (statusDiff !== 0) return statusDiff;
+    if (left.priority !== right.priority) return left.priority - right.priority;
     return left.name.localeCompare(right.name);
   });
 }
 
 async function resolveProviders() {
   const configs = await prisma.aiProviderConfig.findMany({
-    where: { enabled: true },
+    where: { status: { in: [AiProviderStatus.ACTIVE, AiProviderStatus.STANDBY] } },
   });
 
   const providers = sortProviders(configs.map(normalizeProvider));
@@ -70,8 +66,7 @@ async function resolveProviders() {
         apiKey: process.env.GOOGLE_AI_API_KEY,
         model: "gemini-2.0-flash",
         priority: 1,
-        enabled: true,
-        isActive: true,
+        status: AiProviderStatus.ACTIVE,
         timeoutMs: 12000,
         metadata: null,
       },
@@ -88,8 +83,7 @@ async function resolveProviders() {
         apiKey: process.env.GROQ_API_KEY,
         model: "llama-3.1-8b-instant",
         priority: 1,
-        enabled: true,
-        isActive: true,
+        status: AiProviderStatus.ACTIVE,
         timeoutMs: 12000,
         metadata: null,
       },
@@ -106,8 +100,7 @@ async function resolveProviders() {
         apiKey: process.env.ANTHROPIC_API_KEY,
         model: "claude-3-5-sonnet-20241022",
         priority: 1,
-        enabled: true,
-        isActive: true,
+        status: AiProviderStatus.ACTIVE,
         timeoutMs: 12000,
         metadata: null,
       },
@@ -123,8 +116,7 @@ async function resolveProviders() {
       apiKey: process.env.OPENAI_API_KEY || "",
       model: "gpt-4.1-mini",
       priority: 1,
-      enabled: true,
-      isActive: true,
+      status: AiProviderStatus.ACTIVE,
       timeoutMs: 12000,
       metadata: null,
     },
@@ -169,15 +161,15 @@ async function callProvider(provider, task, payload) {
 export async function runAIWithFailover({ task, payload, activeOnly = false }) {
   console.log(`\n[provider-router] runAIWithFailover called — task: ${task}, activeOnly: ${activeOnly}`);
   const providers = await resolveProviders();
-  console.log(`[provider-router] Resolved ${providers.length} provider(s):`, providers.map(p => `${p.name}(${p.type}, active=${p.isActive})`).join(', '));
+  console.log(`[provider-router] Resolved ${providers.length} provider(s):`, providers.map(p => `${p.name}(${p.type}, status=${p.status})`).join(', '));
   const candidates = activeOnly
     ? (() => {
-        const active = providers.find((provider) => provider.isActive);
+        const active = providers.find((provider) => provider.status === AiProviderStatus.ACTIVE);
         if (!active) {
           return providers;
         }
 
-        // Active provider goes first, then fallback to remaining enabled providers.
+        // Active provider goes first, then fallback to remaining standby providers.
         return [active, ...providers.filter((provider) => provider.id !== active.id)];
       })()
     : providers;

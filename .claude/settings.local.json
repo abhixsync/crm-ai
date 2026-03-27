@@ -1,20 +1,23 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx prisma:*)",
-      "Bash(curl -s http://localhost:3000 -o /dev/null -w \"%{http_code}\")",
-      "Bash(for f:*)",
-      "Bash(do sed:*)",
-      "Bash(done)",
-      "Bash(grep -r \"i18n\\\\|i18next\\\\|translation\\\\|locale\\\\|language\" C:WorkLearncrm-ai --include=*.json --include=*.js --include=*.jsx --include=*.ts --include=*.tsx)",
-      "Bash(npx tsc:*)",
-      "Bash(ls -la /c/Work/Learn/crm-ai/tailwind.config.*)",
-      "Bash(ls -la /c/Work/Learn/crm-ai/.env*)",
-      "Bash(ls -la /c/Work/Learn/crm-ai/src/middleware*)",
-      "Bash(ls -la /c/Work/Learn/crm-ai/src/components/modern/*.js)",
-      "Bash(node -e \":*)",
-      "Bash(find /c/Work/Learn/crm-ai/src/app/api/admin -type f -name *.js)",
-      "Bash(xargs grep:*)"
+      "Edit",
+      "MultiEdit",
+      "Read",
+      "Bash(npm run *)",
+      "Bash(git *)",
+      "Bash(mkdir *)",
+      "Bash(ls *)",
+      "Bash(POOLER=\"postgresql://neondb_owner:npg_wDKkOn9gW0ar@ep-late-sky-aii39kq5-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require\" cd \"C:/Work/Learn/crm-ai\")",
+      "Bash(DATABASE_URL=\"$POOLER\" DIRECT_URL=\"$POOLER\" npx prisma migrate resolve --applied 20260227223305_add_application_background_url)",
+      "Bash(DATABASE_URL=\"$POOLER\" DIRECT_URL=\"$POOLER\" npx prisma migrate resolve --applied 20260326000000_sync_schema_drift)",
+      "Bash(DATABASE_URL=\"$POOLER\" DIRECT_URL=\"$POOLER\" npx prisma migrate resolve --applied 0_init)",
+      "Bash(DATABASE_URL=\"$POOLER\" DIRECT_URL=\"$POOLER\" npx prisma migrate resolve --applied 20260309091626_add_ai_agent_name_to_tenant)",
+      "Bash(DATABASE_URL=\"$POOLER\" DIRECT_URL=\"$POOLER\" npx prisma migrate status)",
+      "Bash(grep -v \"^warn\\\\|^$\\\\|pris.ly\\\\|prisma migrate\")"
+    ],
+    "deny": [
+      "Bash(rm -rf *)"
     ]
   }
 }
