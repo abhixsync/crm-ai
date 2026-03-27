@@ -57,6 +57,7 @@ export const INTENT_TYPES = {
   CALL_BACK_LATER: 'call_back_later',
   CONVERTED: 'converted',
   DO_NOT_CALL: 'do_not_call',
+  CONFUSED: 'confused',
   NEUTRAL: 'neutral',
 };
 
@@ -91,4 +92,5 @@ export const LOAN_TYPES = {
   AUTO: 'auto_loan',
   EDUCATION: 'education_loan',
   WORKING_CAPITAL: 'working_capital',
+  BALANCE_TRANSFER: 'balance_transfer',
 };

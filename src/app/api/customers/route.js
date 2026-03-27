@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 
 export async function GET(request) {
   const auth = await requireSession();
@@ -13,7 +14,7 @@ export async function GET(request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
   const tenantId = tenant.tenantId;
 
   if (!tenantId) {
@@ -62,8 +63,14 @@ export async function GET(request) {
       take: safePageSize,
     });
 
+    const serializedCustomers = customers.map(c => ({
+      ...c,
+      loanAmount: c.loanAmount != null ? Number(c.loanAmount) : null,
+      monthlyIncome: c.monthlyIncome != null ? Number(c.monthlyIncome) : null,
+    }));
+
     return Response.json({
-      customers,
+      customers: serializedCustomers,
       pagination: {
         page: currentPage,
         pageSize: safePageSize,
@@ -90,7 +97,7 @@ export async function POST(request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
   const tenantId = tenant.tenantId;
   if (!tenantId) {
     return Response.json({ error: "Tenant context required." }, { status: 400 });
@@ -103,6 +110,9 @@ export async function POST(request) {
   }
 
   try {
+    const guard = await getPlanGuard(tenantId);
+    guard.assertCanAddCustomer();
+
     const existing = await prisma.customer.findFirst({ where: { tenantId, phone: String(body.phone) } });
 
     if (existing && !existing.archivedAt) {
@@ -132,7 +142,8 @@ export async function POST(request) {
 
       try {
         await enqueueCustomerIfEligible(customer.id, "customer_reactivated");
-      } catch {
+      } catch (err) {
+        console.warn("[api/customers] Failed to enqueue reactivated customer:", err?.message);
       }
 
       return Response.json({ customer });
@@ -158,7 +169,8 @@ export async function POST(request) {
 
     try {
       await enqueueCustomerIfEligible(customer.id, "customer_created");
-    } catch {
+    } catch (err) {
+      console.warn("[api/customers] Failed to enqueue new customer:", err?.message);
     }
 
     return Response.json({ customer });
@@ -168,6 +180,7 @@ export async function POST(request) {
       return databaseUnavailableResponse();
     }
 
+    if (isPlanLimitError(error)) return planLimitResponse(error);
     return Response.json({ error: "Unable to create customer. Phone may already exist." }, { status: 400 });
   }
 }

@@ -60,6 +60,52 @@ function toFiniteNumberOrNull(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseIndianAmountWithUnit(rawAmount, rawUnit = '') {
+  const numericAmount = Number.parseFloat(String(rawAmount || '').replace(/,/g, '').trim());
+  if (!Number.isFinite(numericAmount)) {
+    return null;
+  }
+
+  const unit = String(rawUnit || '').trim().toLowerCase();
+  if (unit.includes('crore') || unit === 'cr') {
+    return Math.round(numericAmount * 10000000);
+  }
+  if (unit.includes('lakh') || unit.includes('lac')) {
+    return Math.round(numericAmount * 100000);
+  }
+  if (unit.includes('thousand') || unit === 'k') {
+    return Math.round(numericAmount * 1000);
+  }
+
+  return Math.round(numericAmount);
+}
+
+function extractMonthlyIncomeFromMessage(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) {
+    return null;
+  }
+
+  const patterns = [
+    /(?:monthly income|income|salary|tankhwa(?:h)?|vetan|mahin(?:e|a)\s*(?:ki)?\s*(?:income|salary)?)\s*(?:is|around|about|approx(?:imately)?|=|:|ka)?\s*(?:rs\.?|rupees|₹)?\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*(crore|cr|lakh|lac|lacs|lakhs|thousand|k)?/i,
+    /(?:rs\.?|rupees|₹)?\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*(crore|cr|lakh|lac|lacs|lakhs|thousand|k)?\s*(?:monthly income|income|salary|tankhwa(?:h)?|vetan|mahin(?:e|a)\s*(?:ki)?\s*(?:income|salary)?)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) {
+      continue;
+    }
+
+    const parsedAmount = parseIndianAmountWithUnit(match[1], match[2]);
+    if (Number.isFinite(parsedAmount) && parsedAmount >= 1000) {
+      return parsedAmount;
+    }
+  }
+
+  return null;
+}
+
 function formatPhoneForSpeech(phoneNumber) {
   const raw = String(phoneNumber || '').trim();
   if (!raw) return '';
@@ -94,6 +140,43 @@ function hasInquirySignal(message) {
     text.includes('interest rate') ||
     text.includes('eligibility') ||
     text.includes('process')
+  );
+}
+
+function hasConfusionSignal(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) return false;
+
+  return (
+    text.includes('samajh nahi') ||
+    text.includes('samajh nhi') ||
+    text.includes('smjha nhi') ||
+    text.includes('smjh nhi') ||
+    text.includes('smjha nahi') ||
+    text.includes('smjh nahi') ||
+    text.includes('samjha nahi') ||
+    text.includes('samjha nhi') ||
+    text.includes('kya bol rahi') ||
+    text.includes('kya bol raha') ||
+    text.includes('kya baat kar rahi') ||
+    text.includes('kya baat kr rhi') ||
+    text.includes('kis trah ki baat') ||
+    text.includes('kis tarah ki baat') ||
+    text.includes('kya matlab') ||
+    text.includes('matlab kya') ||
+    text.includes('i dont understand') ||
+    text.includes("i don't understand") ||
+    text.includes('what do you mean') ||
+    text.includes('what are you saying') ||
+    text.includes('confused') ||
+    text.includes('not clear') ||
+    text.includes('clear nahi') ||
+    text.includes('clear nhi') ||
+    text.includes('kuch samajh nahi') ||
+    text.includes('kuch smjh nhi') ||
+    text.includes('pata nahi kya') ||
+    text.includes('ye kya hai') ||
+    text.includes('ye kya h')
   );
 }
 
@@ -159,6 +242,37 @@ function hasRepetitionComplaint(message) {
     text.includes('bata diya') ||
     text.includes('bar bar') ||
     text.includes('baar baar')
+  );
+}
+
+function hasFrustrationSignal(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) return false;
+
+  return (
+    // "why aren't you answering my question?"
+    text.includes('question ka answer') ||
+    text.includes('answer kyu nhi') ||
+    text.includes('answer kyu nahi') ||
+    text.includes('answer nahi') ||
+    text.includes('answer nhi') ||
+    text.includes('jawab kyu nhi') ||
+    text.includes('jawab nahi') ||
+    text.includes('jawab nhi') ||
+    text.includes('meri baat nahi sun') ||
+    text.includes('meri baat nhi sun') ||
+    text.includes('sun nahi rahi') ||
+    text.includes('sun nhi rahi') ||
+    text.includes('sunta nahi') ||
+    text.includes('sunti nahi') ||
+    text.includes('you are not answering') ||
+    text.includes("you're not answering") ||
+    text.includes('not answering my') ||
+    text.includes('answer my question') ||
+    text.includes('ignoring my question') ||
+    text.includes('mere sawaal') ||
+    text.includes('mera sawaal') ||
+    text.includes('meri baat ignore')
   );
 }
 
@@ -284,11 +398,20 @@ function isLowInformationOnlyMessage(message) {
   return tokens.every((token) => LOW_INFORMATION_RESPONSE_TOKENS.has(token));
 }
 
+// Pure acknowledgment messages — customer is confirming/agreeing, not confused.
+// These should never trigger a "please repeat yourself" response.
+function hasSimpleAcknowledgement(message) {
+  const text = normalizeMessageForRepeatCheck(message);
+  if (!text) return false;
+  return /^(okay|ok|thik|thik h|thik hai|theek|theek h|theek hai|sahi|sahi h|sahi hai|bilkul|bilkul sahi|right|sure|samjh gaya|smjh gaya|samajh gaya|samajh liya|samjh li|samajh li|got it|noted|understood|haan thik|acha thik|acha theek|theek hai ji)$/.test(text.trim());
+}
+
 function shouldAskCustomerToRepeat({
   customerMessage,
   detectedIntent,
   extracted,
   employmentType,
+  monthlyIncome,
   languagePreferenceCommand,
 }) {
   const text = normalizeMessageForRepeatCheck(customerMessage);
@@ -307,13 +430,16 @@ function shouldAskCustomerToRepeat({
     hasProceedSignal(customerMessage) ||
     hasAvailabilityConfirmation(customerMessage) ||
     hasExplicitNegativeSignal(customerMessage) ||
+    hasConfusionSignal(customerMessage) ||
+    hasFrustrationSignal(customerMessage) ||
     detectCallbackPreference(customerMessage) ||
-    hasGreetingOrCourtesySignal(customerMessage)
+    hasGreetingOrCourtesySignal(customerMessage) ||
+    hasSimpleAcknowledgement(customerMessage)
   ) {
     return false;
   }
 
-  if (extracted?.loanType || extracted?.amount || extracted?.timeline || employmentType) {
+  if (extracted?.loanType || extracted?.amount || extracted?.timeline || employmentType || monthlyIncome) {
     return false;
   }
 
@@ -326,7 +452,7 @@ function shouldAskCustomerToRepeat({
     return true;
   }
 
-  const hasQuestionWord = /\b(what|why|how|when|where|which|kya|kaise|kab|kitna|kyun|kaun)\b/.test(text);
+  const hasQuestionWord = /\b(what|why|how|when|where|which|kya|kaise|kab|kitna|kyun|kaun|kon|kahan|kise|kisko|kaisa|kitne)\b/.test(text);
   const substantiveTokenCount = tokens.filter(
     (token) => /[a-z\u0900-\u097f]/i.test(token) && token.length >= 4
   ).length;
@@ -335,7 +461,7 @@ function shouldAskCustomerToRepeat({
     return true;
   }
 
-  if (tokens.length <= 4 && substantiveTokenCount === 0 && !/\d/.test(text)) {
+  if (tokens.length <= 4 && substantiveTokenCount === 0 && !/\d/.test(text) && !hasQuestionWord) {
     return true;
   }
 
@@ -383,7 +509,11 @@ function detectPromptSlot(message) {
     return 'loanType';
   }
 
-  if (/(loan amount|how much|kitna|amount|lakh|lac|crore|rupees|rs)/.test(normalized)) {
+  if (/(monthly income|income range|income|salary|tankhwa|vetan|mahin(?:e|a))/i.test(normalized)) {
+    return 'monthlyIncome';
+  }
+
+  if (/(loan amount|required amount|target amount|loan kitna|kitni amount|amount|lakh|lac|crore|rupees|rs)/.test(normalized)) {
     return 'amount';
   }
 
@@ -425,32 +555,63 @@ function humanizeCallReply(reply, languageSignal, stage) {
   return `Ji, ${compact}`;
 }
 
+const TENANT_LANGUAGE_RULES = {
+  english: `LANGUAGE BEHAVIOR (MANDATORY)
+  - You MUST respond in English only.
+  - Use clear, simple, professional English suitable for a phone conversation.
+  - Do NOT use Hindi, Hinglish, or any other language even if the customer switches.
+  - Keep vocabulary simple — avoid complex jargon.
+  - Voice persona and identity stay the same.`,
+
+  hindi: `LANGUAGE BEHAVIOR (MANDATORY)
+  - You MUST respond in Hindi (using Roman script, not Devanagari).
+  - Use natural spoken Hindi like "Aapko kis prakar ka loan chahiye?" instead of formal or literary Hindi.
+  - You may use common English loan/banking terms (EMI, loan, personal loan, home loan) but frame sentences in Hindi.
+  - Do NOT switch to English even if the customer speaks in English — continue in Hindi.
+  - Keep the tone respectful — use "aap", "ji", "kripya" naturally.
+  - Voice persona and identity stay the same.`,
+
+  hinglish: `LANGUAGE BEHAVIOR (MANDATORY)
+  - Respond in Hinglish — a natural Hindi-heavy mix with English words.
+  - Use Hindi sentence structure with English loan/banking terms sprinkled in naturally.
+  - Example style: "Aapko kis type ka loan chahiye? Personal, home ya business?"
+  - Mirror the customer's language mix — if they use more Hindi, lean more Hindi; if more English, add more English.
+  - NEVER switch to pure English or pure Hindi — always keep the Hinglish mix.
+  - Keep the tone conversational and friendly — use "ji", "aap" naturally.
+  - Voice persona and identity stay the same.`,
+};
+
+function getTenantLanguageRulesBlock(language) {
+  const key = String(language || 'hinglish').trim().toLowerCase();
+  return TENANT_LANGUAGE_RULES[key] || TENANT_LANGUAGE_RULES.hinglish;
+}
+
 export class LLMConversationManager {
   constructor(
     customerProfile,
     companyName = 'FinServe Loans',
     aiAgentName = 'Priya Sharma',
     callbackPhone = null,
-    humanAdvisorName = 'John Doe'
+    humanAdvisorName = 'John Doe',
+    tenantLanguage = 'hinglish'
   ) {
     this.customerProfile = customerProfile;
     this.companyName = companyName;
     this.aiAgentName = aiAgentName;
     this.callbackPhone = callbackPhone;
     this.humanAdvisorName = String(humanAdvisorName || 'John Doe').trim() || 'John Doe';
+    this.tenantLanguage = String(tenantLanguage || 'hinglish').trim().toLowerCase();
     this.conversationHistory = [];
     this.currentStage = CONVERSATION_STAGES.OPENING;
-    const seededLoanType = String(
-      customerProfile?.loan_interest_type || customerProfile?.loanType || ''
-    ).trim() || null;
-    const seededTimeline = String(
-      customerProfile?.loan_timeline || customerProfile?.timeline || ''
-    ).trim() || null;
+    // Never pre-seed loanType, amount, or timeline from profile — always ask the customer.
+    const seededLoanType = null;
+    const seededTimeline = null;
     const seededEmploymentType = String(
       customerProfile?.employment_type || customerProfile?.employmentType || ''
     ).trim() || null;
-    const seededAmount = toFiniteNumberOrNull(
-      customerProfile?.loan_amount || customerProfile?.loanAmount || null
+    const seededAmount = null;
+    const seededMonthlyIncome = toFiniteNumberOrNull(
+      customerProfile?.monthly_income || customerProfile?.monthlyIncome || null
     );
 
     this.extractedData = {
@@ -458,6 +619,7 @@ export class LLMConversationManager {
       amount: seededAmount,
       timeline: seededTimeline,
       employmentType: seededEmploymentType,
+      monthlyIncome: seededMonthlyIncome,
     };
     this.callMeta = {
       startTime: new Date(),
@@ -469,9 +631,13 @@ export class LLMConversationManager {
       aiProviderUsed: null,
       summaryText: null,
       nextAction: null,
+      customerId: customerProfile?.id || null,
+      tenantId: customerProfile?.tenantId || null,
       providerSessionId: this.buildProviderSessionId(),
       languageSignal: normalizeLanguageSignal({
-        style: LANGUAGE_STYLES.HINGLISH,
+        style: this.tenantLanguage === 'english' ? LANGUAGE_STYLES.ENGLISH
+          : this.tenantLanguage === 'hindi' ? LANGUAGE_STYLES.HINDI
+          : LANGUAGE_STYLES.HINGLISH,
         script: 'roman',
         confidence: 0.5,
       }),
@@ -482,6 +648,23 @@ export class LLMConversationManager {
     const customerId = String(this.customerProfile?.id || this.customerProfile?.phone || 'anon').replace(/[^a-zA-Z0-9_-]/g, '');
     const timestamp = Date.now();
     return `loan-${customerId}-${timestamp}`;
+  }
+
+  getKnownMonthlyIncome() {
+    const candidates = [
+      this.extractedData?.monthlyIncome,
+      this.customerProfile?.monthly_income,
+      this.customerProfile?.monthlyIncome,
+    ];
+
+    for (const candidate of candidates) {
+      const parsed = toFiniteNumberOrNull(candidate);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+
+    return null;
   }
 
   getProviderMetadata() {
@@ -524,36 +707,48 @@ export class LLMConversationManager {
     const signal = this.getLanguageSignal();
 
     if (signal.style === LANGUAGE_STYLES.HINDI) {
-      if (signal.script === 'roman' && variants.hindiRoman) return variants.hindiRoman;
       return variants.hindi || variants.hinglish || variants.english || variants.defaultText || '';
     }
 
     if (signal.style === LANGUAGE_STYLES.HINGLISH) {
-      return variants.hinglish || variants.hindiRoman || variants.hindi || variants.english || variants.defaultText || '';
+      return variants.hinglish || variants.hindi || variants.english || variants.defaultText || '';
     }
 
     if (signal.style === LANGUAGE_STYLES.ENGLISH) {
-      return variants.english || variants.hinglish || variants.hindiRoman || variants.hindi || variants.defaultText || '';
+      return variants.english || variants.hinglish || variants.hindi || variants.defaultText || '';
     }
 
-    return variants.defaultText || variants.hinglish || variants.hindiRoman || variants.hindi || variants.english || '';
+    return variants.defaultText || variants.hinglish || variants.hindi || variants.english || '';
   }
 
   getIdentityCorrectionLine() {
     return this.getLanguageText({
       english: `No, I am ${this.aiAgentName} from ${this.companyName}. You are ${this.customerProfile?.name || 'the customer'}.`,
-      hinglish: `Nahi ji, main ${this.aiAgentName} bol rahi hoon ${this.companyName} se. Aap ${this.customerProfile?.name || 'customer'} hain.`,
-      hindiRoman: `Nahi ji, main ${this.aiAgentName} hoon ${this.companyName} se. Aap ${this.customerProfile?.name || 'grahak'} hain.`,
+      hinglish: `Nahi ji, main ${this.aiAgentName} hoon ${this.companyName} se. Aap ${this.customerProfile?.name || 'grahak'} hain.`,
       hindi: `Nahi ji, main ${this.aiAgentName} hoon ${this.companyName} se. Aap ${this.customerProfile?.name || 'grahak'} hain.`,
       defaultText: `I am ${this.aiAgentName} from ${this.companyName}.`,
     });
   }
 
+  /**
+   * Returns customer first name with "ji" suffix for Hindi/Hinglish,
+   * or just the name for English — used as a prefix in every reply.
+   */
+  getCustomerNamePrefix() {
+    const fullName = String(this.customerProfile?.name || '').trim();
+    const [firstName] = fullName.split(/\s+/);
+    if (!firstName) return '';
+    const signal = this.getLanguageSignal();
+    if (signal.style === LANGUAGE_STYLES.ENGLISH) {
+      return firstName;
+    }
+    return `${firstName} ji`;
+  }
+
   getFallbackClarificationMessage() {
     return this.getLanguageText({
       english: 'Sorry, I did not understand what you said. Could you please repeat that?',
-      hinglish: 'Sorry ji, main aapki baat samajh nahi paayi. Kya aap dobara bata sakte hain?',
-      hindiRoman: 'Maaf kijiye, main aapki baat samajh nahi paayi. Kya aap dobara bata sakte hain?',
+      hinglish: 'Maaf kijiye, main aapki baat samajh nahi paayi. Kya aap dobara bata sakte hain?',
       hindi: 'माफ़ कीजिए, मैं आपकी बात समझ नहीं पाई। क्या आप दोबारा बता सकते हैं?',
       defaultText: 'Sorry, I did not understand what you said. Could you please repeat that?',
     });
@@ -582,12 +777,13 @@ export class LLMConversationManager {
     const [firstName = 'Customer'] = fullName.split(/\s+/);
 
     return {
-      id: this.customerProfile?.id || null,
+      id: this.customerProfile?.id || this.callMeta?.customerId || null,
+      tenantId: this.callMeta?.tenantId || this.customerProfile?.tenantId || null,
       firstName,
       city: this.customerProfile?.city || null,
       loanType: this.customerProfile?.loan_interest_type || this.extractedData.loanType || null,
       loanAmount: this.extractedData.amount || null,
-      monthlyIncome: this.customerProfile?.monthly_income || null,
+      monthlyIncome: this.getKnownMonthlyIncome(),
       employmentType: this.customerProfile?.employment_type || this.extractedData.employmentType || null,
       creditScore: this.customerProfile?.credit_score || null,
       existingLoans: this.customerProfile?.existing_loans || null,
@@ -613,52 +809,62 @@ export class LLMConversationManager {
   }
 
   buildProgressiveFollowUpMessage() {
+    const namePrefix = this.getCustomerNamePrefix();
+    const nameComma = namePrefix ? `${namePrefix}, ` : '';
+
+    // For balance transfer / interest-rate reduction, skip amount & timeline collection.
+    // The customer wants to reduce interest on their existing loan — hand off to advisor.
+    if (this.extractedData.loanType === 'balance_transfer') {
+      const advisor = this.humanAdvisorName || 'hamara advisor';
+      return this.getLanguageText({
+        hindi: `${nameComma}hamari company aapko best se best offer degi. ${advisor} aapko kuch hi der mein call karenge aur aapko best offer dene ki zimmedari hamari hai.`,
+        hinglish: `${nameComma}hamari company aapko best offer degi. ${advisor} aapko jald hi call karenge — aapka balance transfer possible hai.`,
+        english: `${nameComma}our company will get you the best possible offer. ${advisor} will call you shortly to arrange the balance transfer.`,
+        defaultText: `${nameComma}our advisor will call you shortly with the best offer for your balance transfer.`,
+      });
+    }
+
     if (!this.extractedData.loanType) {
       return this.getLanguageText({
-        english: 'To guide you correctly, is this for personal, home, business, or auto loan?',
-        hinglish: 'Aapko sahi guide karne ke liye bata dijiye, personal, home, business ya auto loan chahiye?',
-        hindiRoman: 'Aapko sahi guide karne ke liye bataye, personal, home, business ya auto loan chahiye?',
-        hindi: 'Aapko sahi guide karne ke liye bataye, personal, home, business ya auto loan chahiye?',
-        defaultText: 'To guide you correctly, is this for personal, home, business, or auto loan?',
+        english: `${nameComma}to guide you correctly, is this for personal, home, business, auto, or balance transfer loan?`,
+        hinglish: `${nameComma}aapko sahi guide karne ke liye bataye, personal, home, business, auto, ya balance transfer loan chahiye?`,
+        hindi: `${nameComma}aapko sahi guide karne ke liye bataye, personal, home, business, auto, ya balance transfer loan chahiye?`,
+        defaultText: `${nameComma}to guide you correctly, is this for personal, home, business, auto, or balance transfer loan?`,
       });
     }
 
     if (!this.extractedData.amount) {
       return this.getLanguageText({
-        english: 'Noted. What approximate amount are you planning for, like 5 lakh, 10 lakh, or 20 lakh?',
-        hinglish: 'Noted ji. Approx amount kitna plan kar rahe hain, jaise 5 lakh, 10 lakh, ya 20 lakh?',
-        hindiRoman: 'Noted ji. Approx amount kitna plan kar rahe hain, jaise 5 lakh, 10 lakh, ya 20 lakh?',
-        hindi: 'Noted ji. Approx amount kitna plan kar rahe hain, jaise 5 lakh, 10 lakh, ya 20 lakh?',
-        defaultText: 'Noted. What approximate amount are you planning for?',
+        english: `${nameComma}what approximate amount are you planning for, like 5 lakh, 10 lakh, or 20 lakh?`,
+        hinglish: `${nameComma}approx amount kitna plan kar rahe hain, jaise 5 lakh, 10 lakh, ya 20 lakh?`,
+        hindi: `${nameComma}approx amount kitna plan kar rahe hain, jaise 5 lakh, 10 lakh, ya 20 lakh?`,
+        defaultText: `${nameComma}what approximate amount are you planning for?`,
       });
     }
 
     if (!this.extractedData.timeline) {
       return this.getLanguageText({
-        english: 'By when do you need this loan, this week, this month, or later?',
-        hinglish: 'Aapko yeh loan kab tak chahiye, is week, is month, ya thoda later?',
-        hindiRoman: 'Aapko yeh loan kab tak chahiye, is week, is month, ya thoda baad?',
-        hindi: 'Aapko yeh loan kab tak chahiye, is week, is month, ya thoda baad?',
-        defaultText: 'By when do you need this loan?',
+        english: `${nameComma}by when do you need this loan, this week, this month, or later?`,
+        hinglish: `${nameComma}aapko yeh loan kab tak chahiye, is week, is month, ya thoda baad?`,
+        hindi: `${nameComma}aapko yeh loan kab tak chahiye, is week, is month, ya thoda baad?`,
+        defaultText: `${nameComma}by when do you need this loan?`,
       });
     }
 
     if (!this.extractedData.employmentType) {
       return this.getLanguageText({
-        english: 'One quick check: are you salaried or self-employed/business?',
-        hinglish: 'Ek quick check, aap salaried hain ya self-employed/business?',
-        hindiRoman: 'Ek quick check, aap salaried hain ya self-employed/business?',
-        hindi: 'Ek quick check, aap salaried hain ya self-employed/business?',
-        defaultText: 'One quick check: are you salaried or self-employed/business?',
+        english: `${nameComma}one quick check: are you salaried or self-employed/business?`,
+        hinglish: `${nameComma}ek quick check, aap salaried hain ya self-employed/business?`,
+        hindi: `${nameComma}ek quick check, aap salaried hain ya self-employed/business?`,
+        defaultText: `${nameComma}one quick check: are you salaried or self-employed/business?`,
       });
     }
 
     return this.getLanguageText({
-      english: 'Should I proceed with a quick eligibility check now?',
-      hinglish: 'Kya main ab ek quick eligibility check proceed karun?',
-      hindiRoman: 'Kya main ab ek quick eligibility check proceed karun?',
-      hindi: 'Kya main ab ek quick eligibility check proceed karun?',
-      defaultText: 'Should I proceed with a quick eligibility check now?',
+      english: `${nameComma}should I proceed with a quick eligibility check now?`,
+      hinglish: `${nameComma}kya main ab ek quick eligibility check proceed karun?`,
+      hindi: `${nameComma}kya main ab ek quick eligibility check proceed karun?`,
+      defaultText: `${nameComma}should I proceed with a quick eligibility check now?`,
     });
   }
 
@@ -676,67 +882,103 @@ export class LLMConversationManager {
       .trim();
   }
 
-  buildAdaptiveRepetitionReply() {
+  /**
+   * Confusion-repair reply: re-introduce, clarify, and re-ask the previous question simply.
+   */
+  buildConfusionRepairReply() {
+    const namePrefix = this.getCustomerNamePrefix();
+    const nameComma = namePrefix ? `${namePrefix}, ` : '';
+    const nextQuestion = this.buildProgressiveFollowUpMessage();
+
     return this.joinReplyParts(
       this.getLanguageText({
-        english: 'Understood. I have already noted the details you shared, so I will not repeat them.',
-        hinglish: 'Ji, samjha. Aapne jo details share ki hain maine note kar li hain, main unhe repeat nahi karungi.',
-        hindiRoman: 'Ji, samjha. Aapne jo details batayi hain maine note kar li hain, main unhe dobara repeat nahi karungi.',
-        hindi: 'Ji, samjha. Aapne jo details batayi hain maine note kar li hain, main unhe dobara repeat nahi karungi.',
-        defaultText: 'Understood. I have already noted the details you shared, so I will not repeat them.',
+        english: `${nameComma}sorry if that was unclear. I am ${this.aiAgentName} calling from ${this.companyName} about a loan enquiry. Let me ask simply.`,
+        hinglish: `${nameComma}maafi chahungi agar meri baat clear nahi thi. Main ${this.aiAgentName} hoon ${this.companyName} se, loan enquiry ke liye call kar rahi hoon. Main simple tarike se puchti hoon.`,
+        hindi: `${nameComma}maafi chahungi agar meri baat clear nahi thi. Main ${this.aiAgentName} hoon ${this.companyName} se, loan enquiry ke liye call kar rahi hoon. Main simple tarike se puchti hoon.`,
+        defaultText: `${nameComma}sorry if that was unclear. I am ${this.aiAgentName} from ${this.companyName}. Let me ask simply.`,
+      }),
+      nextQuestion
+    );
+  }
+
+  buildFrustrationAcknowledgementReply() {
+    const namePrefix = this.getCustomerNamePrefix();
+    const nameComma = namePrefix ? `${namePrefix}, ` : '';
+    const advisorName = this.humanAdvisorName || 'our advisor';
+    const nextQuestion = this.buildProgressiveFollowUpMessage();
+
+    return this.joinReplyParts(
+      this.getLanguageText({
+        english: `${nameComma}I completely understand your concern. Specific rate and offer details will be shared by ${advisorName} who can check the best option for your profile. ${nextQuestion}`,
+        hinglish: `${nameComma}main samajhti hoon aapki baat. Rate aur offer ki exact details ${advisorName} aapko personally batayenge jo aapke profile ke hisaab se best option check karenge. ${nextQuestion}`,
+        hindi: `${nameComma}main samajhti hoon aapki baat. Rate aur offer ki exact jaankari ${advisorName} aapko personally batayenge jo aapke profile ke hisaab se best option dekhenge. ${nextQuestion}`,
+        defaultText: `${nameComma}I understand. ${advisorName} will share the exact offer and rate details. ${nextQuestion}`,
+      })
+    );
+  }
+
+  buildAdaptiveRepetitionReply() {
+    const namePrefix = this.getCustomerNamePrefix();
+    const nameComma = namePrefix ? `${namePrefix}, ` : '';
+    return this.joinReplyParts(
+      this.getLanguageText({
+        english: `${nameComma}I have already noted what you shared, I will not repeat it.`,
+        hinglish: `${nameComma}aapne jo details batayi hain maine note kar li hain, main unhe dobara repeat nahi karungi.`,
+        hindi: `${nameComma}aapne jo details batayi hain maine note kar li hain, main unhe dobara repeat nahi karungi.`,
+        defaultText: `${nameComma}I have already noted what you shared, I will not repeat it.`,
       }),
       this.buildProgressiveFollowUpMessage()
     );
   }
 
   buildAdaptiveEligibilityReply() {
-    // When customer says "do the maximum" / "jyada se jyada kara do", treat amount
-    // as captured so progressiveFollowUp moves to the next missing field (timeline/employment).
+    const namePrefix = this.getCustomerNamePrefix();
+    const nameComma = namePrefix ? `${namePrefix}, ` : '';
     if (!this.extractedData.amount) {
       this.extractedData.amount = 'MAXIMUM';
     }
 
     return this.joinReplyParts(
       this.getLanguageText({
-        english: 'Noted, we will process for the maximum amount based on your profile.',
-        hinglish: 'Noted ji, aapki profile ke according maximum amount ke liye process karenge.',
-        hindiRoman: 'Noted ji, aapki profile ke according maximum amount ke liye process karenge.',
-        hindi: 'Noted ji, aapki profile ke according maximum amount ke liye process karenge.',
-        defaultText: 'Noted, we will process for the maximum amount based on your profile.',
+        english: `${nameComma}sure, we will process for the maximum amount based on your profile.`,
+        hinglish: `${nameComma}bilkul, aapki profile ke according maximum amount ke liye process karenge.`,
+        hindi: `${nameComma}bilkul, aapki profile ke according maximum amount ke liye process karenge.`,
+        defaultText: `${nameComma}sure, we will process for the maximum amount based on your profile.`,
       }),
       this.buildProgressiveFollowUpMessage()
     );
   }
 
   buildAdaptiveProceedReply() {
+    const namePrefix = this.getCustomerNamePrefix();
+    const nameComma = namePrefix ? `${namePrefix}, ` : '';
     return this.joinReplyParts(
       this.getLanguageText({
-        english: 'Sure. I can continue from here.',
-        hinglish: 'Theek hai ji, main yahin se continue karti hoon.',
-        hindiRoman: 'Theek hai ji, main yahin se continue karti hoon.',
-        hindi: 'Theek hai ji, main yahin se continue karti hoon.',
-        defaultText: 'Sure. I can continue from here.',
+        english: `${nameComma}sure, I can continue from here.`,
+        hinglish: `${nameComma}theek hai, main yahin se continue karti hoon.`,
+        hindi: `${nameComma}theek hai, main yahin se continue karti hoon.`,
+        defaultText: `${nameComma}sure, I can continue from here.`,
       }),
       this.buildProgressiveFollowUpMessage()
     );
   }
 
   buildAdaptiveExplanationReply() {
+    const namePrefix = this.getCustomerNamePrefix();
+    const nameComma = namePrefix ? `${namePrefix}, ` : '';
     const loanTypeLabel = this.humanizeLoanTypeForReply();
     const explanationPrefix = loanTypeLabel
       ? this.getLanguageText({
-          english: `Sure. For ${loanTypeLabel}, the exact offer depends on profile, amount, and repayment capacity.`,
-          hinglish: `Sure ji. ${loanTypeLabel} ke liye exact offer profile, amount aur repayment capacity par depend karta hai.`,
-          hindiRoman: `Sure ji. ${loanTypeLabel} ke liye exact offer profile, amount aur repayment capacity par depend karta hai.`,
-          hindi: `Sure ji. ${loanTypeLabel} ke liye exact offer profile, amount aur repayment capacity par depend karta hai.`,
-          defaultText: `Sure. For ${loanTypeLabel}, the exact offer depends on profile, amount, and repayment capacity.`,
+          english: `${nameComma}for ${loanTypeLabel}, the exact offer depends on profile, amount, and repayment capacity.`,
+          hinglish: `${nameComma}${loanTypeLabel} ke liye exact offer profile, amount aur repayment capacity par depend karta hai.`,
+          hindi: `${nameComma}${loanTypeLabel} ke liye exact offer profile, amount aur repayment capacity par depend karta hai.`,
+          defaultText: `${nameComma}for ${loanTypeLabel}, the exact offer depends on profile, amount, and repayment capacity.`,
         })
       : this.getLanguageText({
-          english: 'Sure. I can explain the key loan details in one line.',
-          hinglish: 'Sure ji. Main key loan details ek line me explain kar deti hoon.',
-          hindiRoman: 'Sure ji. Main key loan details ek line me explain kar deti hoon.',
-          hindi: 'Sure ji. Main key loan details ek line me explain kar deti hoon.',
-          defaultText: 'Sure. I can explain the key loan details in one line.',
+          english: `${nameComma}I can explain the key loan details in one line.`,
+          hinglish: `${nameComma}main key loan details ek line me explain kar deti hoon.`,
+          hindi: `${nameComma}main key loan details ek line me explain kar deti hoon.`,
+          defaultText: `${nameComma}I can explain the key loan details in one line.`,
         });
 
     return this.joinReplyParts(explanationPrefix, this.buildProgressiveFollowUpMessage());
@@ -746,6 +988,16 @@ export class LLMConversationManager {
     const normalizedCustomerMessage = normalizeMessageForRepeatCheck(customerMessage);
     if (!normalizedCustomerMessage) {
       return null;
+    }
+
+    // Confusion / "I didn't understand" — repair before anything else
+    if (hasConfusionSignal(customerMessage)) {
+      return this.buildConfusionRepairReply();
+    }
+
+    // Customer frustrated that their question isn't being answered
+    if (hasFrustrationSignal(customerMessage)) {
+      return this.buildFrustrationAcknowledgementReply();
     }
 
     if (hasRepetitionComplaint(customerMessage)) {
@@ -766,8 +1018,11 @@ export class LLMConversationManager {
 
     const latestAiMessage = this.getRecentAiMessages(1)[0] || '';
     const candidatePromptSlot = detectPromptSlot(candidateMessage);
+    // Only suppress a repeated slot question when that slot is already captured.
+    // If the customer still hasn't answered, asking again is valid — don't override.
+    const slotAlreadyCaptured = candidatePromptSlot ? Boolean(this.extractedData[candidatePromptSlot]) : false;
     const repeatsPromptSlot = Boolean(
-      candidatePromptSlot && this.getRecentPromptSlots(2).includes(candidatePromptSlot)
+      slotAlreadyCaptured && this.getRecentPromptSlots(2).includes(candidatePromptSlot)
     );
     const candidateLooksRepeated = Boolean(
       candidateMessage && latestAiMessage && areMessagesNearDuplicate(latestAiMessage, candidateMessage)
@@ -775,7 +1030,7 @@ export class LLMConversationManager {
     const asksCapturedField = candidateMessage ? this.messageAsksForCapturedField(candidateMessage) : false;
     const wordCount = normalizedCustomerMessage.split(' ').filter(Boolean).length;
 
-    if (repeatsPromptSlot || candidateLooksRepeated || asksCapturedField || wordCount <= 4) {
+    if (repeatsPromptSlot || candidateLooksRepeated || asksCapturedField || wordCount <= 2) {
       return this.buildAdaptiveExplanationReply();
     }
 
@@ -796,8 +1051,11 @@ export class LLMConversationManager {
     );
 
     const asksAlreadyCapturedField = this.messageAsksForCapturedField(candidateMessage);
+    // Only treat it as a repeated slot if the slot is already captured — otherwise the
+    // customer hasn't answered yet and persistence is correct, not a bug.
+    const slotAlreadyCapturedAvoid = candidatePromptSlot ? Boolean(this.extractedData[candidatePromptSlot]) : false;
     const repeatsPromptSlot = Boolean(
-      candidatePromptSlot && recentPromptSlots.includes(candidatePromptSlot)
+      slotAlreadyCapturedAvoid && recentPromptSlots.includes(candidatePromptSlot)
     );
 
     if (!hasNearDuplicate && !asksAlreadyCapturedField && !repeatsPromptSlot) {
@@ -826,11 +1084,10 @@ export class LLMConversationManager {
     }
 
     const transitionMessage = this.getLanguageText({
-      english: 'Thanks, noted. Let me quickly suggest the best next step for you.',
-      hinglish: 'Thanks ji, noted. Main ab aapke liye best next step suggest karti hoon.',
-      hindiRoman: 'Dhanyavaad ji, noted. Main ab aapke liye best next step suggest karti hoon.',
-      hindi: 'Dhanyavaad ji, noted. Main ab aapke liye best next step suggest karti hoon.',
-      defaultText: 'Thanks, noted. Let me quickly suggest the best next step for you.',
+      english: 'Let me quickly suggest the best next step for you.',
+      hinglish: 'Main ab aapke liye best next step suggest karti hoon.',
+      hindi: 'Main ab aapke liye best next step suggest karti hoon.',
+      defaultText: 'Let me quickly suggest the best next step for you.',
     });
     if (!recentAiMessages.some((message) => areMessagesNearDuplicate(message, transitionMessage))) {
       console.log(`[LLMConversationManager] Replaced AI response (${reason}) with transition message.`);
@@ -859,18 +1116,20 @@ export class LLMConversationManager {
     if (!text) return false;
 
     const normalized = normalizeMessageForRepeatCheck(text);
-    const looksQuestion = text.includes('?') || /^(noted|to guide|one quick check|by when|what|which|how much)/i.test(text);
+    const looksQuestion = text.includes('?') || /(noted|to guide|one quick check|quick check|by when|what|which|how much|kitna|kab|kya|can you|could you|please|confirm|bataye|bataiye)/i.test(normalized);
     if (!looksQuestion) {
       return false;
     }
 
     const asksLoanType = /(loan type|personal loan|home loan|business loan|auto loan|which loan|kis type)/.test(normalized);
-    const asksAmount = /(loan amount|how much|kitna|amount|lakh|lac|crore)/.test(normalized);
+    const asksMonthlyIncome = /(monthly income|income range|income|salary|tankhwa|vetan|mahin(?:e|a))/i.test(normalized);
+    const asksAmount = /(loan amount|required amount|target amount|loan kitna|kitni amount|amount|lakh|lac|crore)/.test(normalized);
     const asksTimeline = /(by when|timeline|kab tak|when do you need|this week|this month|apply)/.test(normalized);
     const asksEmployment = /(employment|salaried|self employed|self-employed|business|job)/.test(normalized);
 
     return (
       (asksLoanType && Boolean(this.extractedData.loanType)) ||
+      (asksMonthlyIncome && Boolean(this.getKnownMonthlyIncome())) ||
       (asksAmount && Boolean(this.extractedData.amount)) ||
       (asksTimeline && Boolean(this.extractedData.timeline)) ||
       (asksEmployment && Boolean(this.extractedData.employmentType))
@@ -882,20 +1141,36 @@ export class LLMConversationManager {
    * This controls how the AI behaves during the entire conversation
    */
   getSystemPrompt() {
-    const languageSignal = this.getLanguageSignal();
-    const languageInstruction = getLanguageMirroringInstruction(languageSignal);
-    const languageLabel = getLanguageStyleLabel(languageSignal);
-
+    const customerName = String(this.customerProfile?.name || 'Customer').trim();
+    const [firstName = 'Customer'] = customerName.split(/\s+/);
     const customerInfo = `
 Customer Profile:
-- Name: ${this.customerProfile?.name || 'Unknown'}
+- Name: ${customerName}
 - City: ${this.customerProfile?.city || 'Not specified'}
-- Monthly Income: ₹${this.customerProfile?.monthly_income || 'Unknown'}
+- Monthly Income: ₹${this.getKnownMonthlyIncome() || 'Unknown'}
 - Employment: ${this.customerProfile?.employment_type || 'Not specified'}
 - Credit Score: ${this.customerProfile?.credit_score || 'Unknown'}
 - Existing Loans: ${this.customerProfile?.existing_loans || 'None'}
-- Loan Type Interest: ${this.customerProfile?.loan_interest_type || 'Not specified'}
 `;
+
+    const mandatorySlots = ['loanType', 'amount', 'timeline'];
+    const knownFields = [];
+    const missingFields = [];
+    for (const slot of mandatorySlots) {
+      const value = this.extractedData[slot];
+      if (value) {
+        knownFields.push(`${slot} = ${value}`);
+      } else {
+        missingFields.push(slot);
+      }
+    }
+
+    const knownMonthlyIncome = this.getKnownMonthlyIncome();
+    const incomeNote = knownMonthlyIncome
+      ? `- Monthly Income is ALREADY KNOWN (₹${knownMonthlyIncome.toLocaleString()}) — DO NOT ask for it. Use it silently for context only.`
+      : '';
+
+    const allMandatorySlotsCaptured = missingFields.length === 0;
 
     return `SYSTEM ROLE
   You are ${this.aiAgentName}, a professional female loan consultant from ${this.companyName}.
@@ -910,10 +1185,13 @@ Customer Profile:
   4. Encourage them to continue eligibility/application steps
   5. Never pressure aggressively; use soft selling
 
+  CUSTOMER NAME PERSONALIZATION
+  - Always address the customer as "${firstName} ji" (Hindi/Hinglish) or "${firstName}" (English) at the start of every reply.
+  - This makes them feel you are speaking directly to them.
+
   VOICE AND PERSONALITY
   - Warm, friendly, professional, confident, patient
   - Speak like a helpful bank relationship manager
-  - Always address customer respectfully: Sir, Ma'am, or their name
   - Never mention you are an AI or virtual assistant
 
   IDENTITY AND BOUNDARY
@@ -921,68 +1199,63 @@ Customer Profile:
   - If customer assigns a wrong identity, correct politely in this style: "${this.getIdentityCorrectionLine()}"
   - Never accept false identity claims
 
-  LANGUAGE BEHAVIOR (MANDATORY)
-  - Current detected customer language: ${languageLabel}
-  - ${languageInstruction}
-  - If customer speaks Hindi, respond in Hindi
-  - If customer speaks English, respond in English
-  - If customer mixes both, respond in Hinglish
-  - If customer asks to switch language, acknowledge briefly and switch naturally
-  - Voice persona and identity stay the same across all languages
+  ${getTenantLanguageRulesBlock(this.tenantLanguage)}
 
   HUMAN-LIKE CALL STYLE
   - Use phone-friendly short responses (1-3 short sentences)
   - Ask at most one question per turn
-  - Occasionally add natural fillers: "Ji sir...", "Haan bilkul...", "Ek second...", "Right sir..."
   - Use quick acknowledgements before answers
-  - Simulate brief natural thinking pauses with "..." when helpful
   - Never overtalk
+
+  BANNED PHRASES
+  - Never say "noted", "noted ji", "recorded", or "understood" as standalone acknowledgments.
+  - Never use robotic filler like "Sure ji", "Right sir", or "Got it" alone without adding value.
+  - Use natural spoken Hindi/Hinglish acknowledgments: "Ji, samjha.", "Koi baat nahi.", "Bas thodi jaankari chahiye.", "Theek hai."
+
+  CONFUSION RECOVERY
+  - When the customer says they did not understand or seems confused, do NOT advance.
+  - Briefly clarify who you are, apologize, and re-ask the same question in simpler language.
 
   INTERRUPTION HANDLING
   - If customer interrupts, stop immediately
   - Acknowledge politely: "Ji sir, boliye." or "Ji ma'am, boliye."
   - Continue naturally after customer finishes
-  - Never talk over the customer
 
   CONVERSATION FLOW (NATURAL)
   1. Greeting and permission to talk
   2. Purpose: loan enquiry follow-up
   3. Intent discovery: whether customer needs a loan now
-  4. Requirement discovery: loan type, amount, employment, income, city, timeline
-  5. Qualification signal: strong profile vs docs needed
-  6. Offer explanation: speed, support, and process clarity
-  7. Conversion push: suggest quick eligibility check
-  8. Data capture: name, city, employment type, income, loan amount/type
-  9. Polite closing with callback/help channel
+  4. Requirement discovery: loan type, amount, timeline (skip any that are already known)
+  5. Once ALL THREE mandatory fields are captured → say advisor will be in touch, then close
+  6. If customer declines/busy → polite closing
+
+  SLOT-GATED PROGRESSION (STRICT)
+  - You MUST collect these three fields before closing: loan type, required amount, and loan timeline.
+  - Known fields: ${knownFields.length ? knownFields.join(', ') : 'none yet'}
+  - Missing fields: ${missingFields.length ? missingFields.join(', ') : 'ALL CAPTURED — proceed to closing now'}
+  ${missingFields.length ? `- Your next reply MUST ask for: ${missingFields[0]}` : '- All mandatory fields collected. Wrap up the call warmly and mention advisor will call shortly.'}
+  ${incomeNote}
+  - NEVER mention "advisor will call" or do a handoff UNTIL all three mandatory fields are fully collected.
+  - Current stage: ${this.currentStage}${allMandatorySlotsCaptured ? ' — CLOSING stage: wrap up now.' : ''}
 
   OBJECTION HANDLING
-  - If rate concern: acknowledge and highlight practical benefit (faster approval, smoother process)
-  - If trust concern: reassure calmly (banking partners, process transparency)
-  - If not interested: acknowledge respectfully; optionally ask one soft future-consent question, then close politely
+  - If rate concern: acknowledge and highlight practical benefit
+  - If trust concern: reassure calmly
+  - If not interested: acknowledge respectfully, then close politely
   - If busy: ask preferred callback time
   - If do-not-call/harassment request: apologize, confirm no further calls, and end immediately
 
-  INDIAN CUSTOMER PSYCHOLOGY
-  - Build trust first, pitch second
-  - Use social proof lightly when useful
-  - Use curiosity questions instead of hard push
-  - Stay respectful and calm even when customer is skeptical
-
   ${customerInfo}
-
-  Current Conversation Stage: ${this.currentStage}
-  Extracted Data So Far: ${JSON.stringify(this.extractedData)}
 
   CRITICAL OUTPUT RULES
   - Keep each reply short and natural for voice call rhythm
   - Keep language mirroring strict and consistent
   - Be persuasive but never forceful
-  - If customer asks a direct question about amount, eligibility, process, or next step, answer that first in one short line before asking the next missing detail
-  - If the latest customer response is unclear or you do not understand it, politely say you did not understand and ask them to repeat once instead of moving to the next scripted question
-  - If customer says a short confirmation like "kar do", "please do", or "do that", continue from the current step instead of restarting the script
-  - Never ask for a field that already exists in Extracted Data So Far
-  - If customer says you already asked, acknowledge once and move to the next missing field
-  - End only when customer clearly declines, asks not to be called, requests callback, or conversation is fully completed.`;
+  - If customer asks a direct question, answer first before asking the next missing detail
+  - If the latest customer response is unclear, politely say you did not understand and ask them to repeat
+  - If customer says "kar do", "please do", or "do that", continue from the current step
+  - Never ask for a field that is already known (including monthly income if listed above as ALREADY KNOWN)
+  - End only when customer declines, asks not to be called, requests callback, or all mandatory fields are captured.`;
   }
 
   /**
@@ -992,8 +1265,7 @@ Customer Profile:
     const name = this.customerProfile?.name || 'Friend';
     return this.getLanguageText({
       english: `Hello ${name}, this is ${this.aiAgentName} from ${this.companyName}. Is this a good time for a quick 30-second loan discussion?`,
-      hinglish: `Namaste ${name} ji, main ${this.aiAgentName} bol rahi hoon ${this.companyName} se. Kya abhi 30 seconds baat karna convenient hai?`,
-      hindiRoman: `Namaste ${name} ji, main ${this.aiAgentName} ${this.companyName} se bol rahi hoon. Kya abhi 30 second baat karna theek rahega?`,
+      hinglish: `Namaste ${name} ji, main ${this.aiAgentName} ${this.companyName} se bol rahi hoon. Kya abhi 30 second baat karna theek rahega?`,
       hindi: `Namaste ${name} ji, main ${this.aiAgentName} ${this.companyName} se bol rahi hoon. Kya abhi 30 second baat karna theek rahega?`,
       defaultText: `Hello ${name}, this is ${this.aiAgentName} from ${this.companyName}. Is this a good time for a quick 30-second loan discussion?`,
     });
@@ -1009,33 +1281,41 @@ Customer Profile:
     const shouldUseHumanAdvisorHandoff = ['interested', 'converted'].includes(finalIntent);
     const callbackTime = String(this.callMeta.callbackTime || '').trim() || 'later';
     const localizedCallbackTime = this.getLocalizedCallbackTimeLabel(callbackTime);
+    const namePrefix = this.getCustomerNamePrefix();
+    const nameComma = namePrefix ? `${namePrefix}, ` : '';
 
     if (finalIntent === 'busy' || finalIntent === 'call_back_later') {
       return this.getLanguageText({
-        english: `Sorry for calling at a bad time. We will call you again ${localizedCallbackTime.english}. If needed, you can also reach us on ${spokenCallbackNumber}.`,
-        hinglish: `Sorry ji, lagta hai maine galat time par call kiya. Hum aapko ${localizedCallbackTime.hinglish} phir call karenge. Zarurat ho to aap hume ${spokenCallbackNumber} par bhi reach kar sakte hain.`,
-        hindiRoman: `Maafi chahungi ji, lagta hai maine galat samay par call kiya. Hum aapko ${localizedCallbackTime.hindiRoman} phir call karenge. Zarurat ho to aap hume ${spokenCallbackNumber} par bhi sampark kar sakte hain.`,
-        hindi: `माफ़ कीजिए जी, लगता है मैंने गलत समय पर कॉल किया। हम आपको ${localizedCallbackTime.hindi} फिर कॉल करेंगे। ज़रूरत हो तो आप हमें ${spokenCallbackNumber} पर भी संपर्क कर सकते हैं।`,
-        defaultText: `Sorry for calling at a bad time. We will call you again ${localizedCallbackTime.english}. If needed, you can also reach us on ${spokenCallbackNumber}.`,
+        english: `${nameComma}sorry for calling at a bad time. We will call you again ${localizedCallbackTime.english}. If needed, you can also reach us on ${spokenCallbackNumber}.`,
+        hinglish: `${nameComma}maafi chahungi, lagta hai maine galat samay par call kiya. Hum aapko ${localizedCallbackTime.hinglish} phir call karenge. Zarurat ho to aap hume ${spokenCallbackNumber} par bhi sampark kar sakte hain.`,
+        hindi: `${nameComma}maafi chahungi, lagta hai maine galat samay par call kiya. Hum aapko ${localizedCallbackTime.hindi} phir call karenge. Zarurat ho to aap hume ${spokenCallbackNumber} par bhi sampark kar sakte hain.`,
+        defaultText: `${nameComma}sorry for calling at a bad time. We will call you again ${localizedCallbackTime.english}. If needed, you can also reach us on ${spokenCallbackNumber}.`,
       });
     }
 
     if (shouldUseHumanAdvisorHandoff) {
+      // BT-specific closing: ask for preferred callback time + give callback number + proper goodbye
+      if (this.extractedData.loanType === 'balance_transfer') {
+        return this.getLanguageText({
+          hindi: `${nameComma}bahut achha. ${this.humanAdvisorName} aapko jald callback karenge aur best balance transfer offer ke saath aapki poori madad karenge. Aapke liye subah ya shaam mein kab call karna zyada suit karega? Agar zarurat ho to aap hume ${spokenCallbackNumber} par bhi khud call kar sakte hain. Dhanyavaad, namaste!`,
+          hinglish: `${nameComma}bahut badhiya. ${this.humanAdvisorName} jald aapko callback karenge — best balance transfer offer ke saath. Aapko subah ya shaam kab suit karega call ke liye? Aap hume ${spokenCallbackNumber} par bhi sampark kar sakte hain. Dhanyavaad!`,
+          english: `${nameComma}${this.humanAdvisorName} will call you back soon with the best balance transfer offer. Would morning or evening be more convenient for you? You can also reach us directly on ${spokenCallbackNumber}. Thank you!`,
+          defaultText: `${nameComma}our advisor will call you back with the best offer. Morning or evening — when would be more convenient? You can also reach us on ${spokenCallbackNumber}. Thank you!`,
+        });
+      }
       return this.getLanguageText({
-        english: `Great. I will now connect you with our best human advisor ${this.humanAdvisorName}. He will give you the best loan offer and call you shortly. You can also call us on ${spokenCallbackNumber}.`,
-        hinglish: `Great ji. Main ab aapko hamare best human advisor ${this.humanAdvisorName} se connect karwa rahi hoon. Wo aapko best loan offer denge aur jaldi call karenge. Aap hume ${spokenCallbackNumber} par bhi call kar sakte hain.`,
-        hindiRoman: `Bahut badhiya ji. Main ab aapko hamare best human advisor ${this.humanAdvisorName} se connect karwa rahi hoon. Wo aapko best loan offer denge aur jaldi call karenge. Aap hume ${spokenCallbackNumber} par bhi call kar sakte hain.`,
-        hindi: `Bahut badhiya ji. Main ab aapko hamare best human advisor ${this.humanAdvisorName} se connect karwa rahi hoon. Wo aapko best loan offer denge aur jaldi call karenge. Aap hume ${spokenCallbackNumber} par bhi call kar sakte hain.`,
-        defaultText: `Great. I will now connect you with our best human advisor ${this.humanAdvisorName}. He will give you the best loan offer and call you shortly. You can also call us on ${spokenCallbackNumber}.`,
+        english: `${nameComma}great. I will now connect you with our best human advisor ${this.humanAdvisorName}. He will give you the best loan offer and call you shortly. You can also call us on ${spokenCallbackNumber}.`,
+        hinglish: `${nameComma}bahut badhiya. Main ab aapko hamare best human advisor ${this.humanAdvisorName} se connect karwa rahi hoon. Wo aapko best loan offer denge aur jaldi call karenge. Aap hume ${spokenCallbackNumber} par bhi call kar sakte hain.`,
+        hindi: `${nameComma}bahut badhiya. Main ab aapko hamare best human advisor ${this.humanAdvisorName} se connect karwa rahi hoon. Wo aapko best loan offer denge aur jaldi call karenge. Aap hume ${spokenCallbackNumber} par bhi call kar sakte hain.`,
+        defaultText: `${nameComma}great. I will now connect you with our best human advisor ${this.humanAdvisorName}. He will give you the best loan offer and call you shortly. You can also call us on ${spokenCallbackNumber}.`,
       });
     }
 
     return this.getLanguageText({
-      english: `Thank you for your time. If you need any loan assistance in future, please call our team on ${spokenCallbackNumber}. We are always happy to help.`,
-      hinglish: `Dhanyavaad ji, aapke time ke liye. Future me loan assistance ke liye aap hume ${spokenCallbackNumber} par call kar sakte hain. Humari team help ke liye available hai.`,
-      hindiRoman: `Dhanyavaad ji, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${spokenCallbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
-      hindi: `Dhanyavaad ji, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${spokenCallbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
-      defaultText: `Thank you for your time. If you need any loan assistance in future, please call our team on ${spokenCallbackNumber}. We are always happy to help.`,
+      english: `${nameComma}thank you for your time. If you need any loan assistance in future, please call our team on ${spokenCallbackNumber}. We are always happy to help.`,
+      hinglish: `${nameComma}dhanyavaad, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${spokenCallbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
+      hindi: `${nameComma}dhanyavaad, aapke samay ke liye. Bhavishya me loan sahayata ke liye aap hume ${spokenCallbackNumber} par call kar sakte hain. Hamari team madad ke liye tayyar hai.`,
+      defaultText: `${nameComma}thank you for your time. If you need any loan assistance in future, please call our team on ${spokenCallbackNumber}. We are always happy to help.`,
     });
   }
 
@@ -1047,8 +1327,7 @@ Customer Profile:
       const timeValue = afterTimeMatch[1].trim();
       return {
         english: `after ${timeValue}`,
-        hinglish: `${timeValue} ke baad`,
-        hindiRoman: `${timeValue} baje ke baad`,
+        hinglish: `${timeValue} baje ke baad`,
         hindi: `${timeValue} बजे के बाद`,
       };
     }
@@ -1057,7 +1336,6 @@ Customer Profile:
       return {
         english: 'tomorrow morning',
         hinglish: 'kal subah',
-        hindiRoman: 'kal subah',
         hindi: 'कल सुबह',
       };
     }
@@ -1066,7 +1344,6 @@ Customer Profile:
       return {
         english: 'tomorrow evening',
         hinglish: 'kal shaam',
-        hindiRoman: 'kal shaam',
         hindi: 'कल शाम',
       };
     }
@@ -1075,7 +1352,6 @@ Customer Profile:
       return {
         english: 'in the morning',
         hinglish: 'subah',
-        hindiRoman: 'subah',
         hindi: 'सुबह',
       };
     }
@@ -1084,7 +1360,6 @@ Customer Profile:
       return {
         english: 'in the evening',
         hinglish: 'shaam mein',
-        hindiRoman: 'shaam mein',
         hindi: 'शाम में',
       };
     }
@@ -1092,7 +1367,6 @@ Customer Profile:
     return {
       english: 'later',
       hinglish: 'baad mein',
-      hindiRoman: 'baad mein',
       hindi: 'बाद में',
     };
   }
@@ -1102,6 +1376,10 @@ Customer Profile:
    * This provides ChatGPT/Claude-level intelligence
    */
   async generateAIResponse(customerMessage = null) {
+    console.log('\n[generateAIResponse] Called with customerMessage:', customerMessage ? customerMessage.substring(0, 80) + '...' : '(null)');
+    console.log('[generateAIResponse] currentStage:', this.currentStage);
+    console.log('[generateAIResponse] conversationHistory length:', this.conversationHistory.length);
+
     // If at closing stage, return closing greeting
     if (this.currentStage === CONVERSATION_STAGES.CLOSING) {
       console.log('📞 [Closing Stage] Generating closing greeting with callback number');
@@ -1111,18 +1389,22 @@ Customer Profile:
     try {
       if (!customerMessage && this.conversationHistory.length === 0) {
         // First message - return opening greeting
+        console.log('[generateAIResponse] No customerMessage + empty history → returning opening greeting');
         return this.getOpeningGreeting();
       }
 
       let languagePreferenceCommand = null;
       let activeLanguageSignal = this.getLanguageSignal();
+      console.log('[generateAIResponse] Initial language signal:', JSON.stringify(activeLanguageSignal));
       if (customerMessage) {
         languagePreferenceCommand = detectLanguagePreferenceCommand(customerMessage);
         if (languagePreferenceCommand) {
+          console.log('[generateAIResponse] Language preference command detected:', JSON.stringify(languagePreferenceCommand));
           this.callMeta.languageSignal = normalizeLanguageSignal(languagePreferenceCommand);
           activeLanguageSignal = this.getLanguageSignal();
         } else {
           activeLanguageSignal = this.updateLanguageSignal(customerMessage);
+          console.log('[generateAIResponse] Updated language signal:', JSON.stringify(activeLanguageSignal));
         }
       }
 
@@ -1146,39 +1428,56 @@ Customer Profile:
         return clarificationMessage;
       }
 
+      const callTurnPayload = {
+        customer: this.toProviderCustomerProfile(),
+        transcript: this.getTranscriptText(),
+        latestCustomerMessage: customerMessage || this.getLatestCustomerMessage(),
+        turn: this.conversationHistory.length,
+        metadata: this.getProviderMetadata(),
+        context: {
+          conversationStage: this.currentStage,
+          companyName: this.companyName,
+          aiAgentName: this.aiAgentName,
+          systemPrompt: this.getSystemPrompt(),
+          languageSignal: activeLanguageSignal,
+          languageInstruction: getLanguageMirroringInstruction(activeLanguageSignal),
+          languageStyleLabel: getLanguageStyleLabel(activeLanguageSignal),
+          extractedData: { ...this.extractedData },
+          recentPromptSlots: this.getRecentPromptSlots(3),
+          repetitionComplaint: hasRepetitionComplaint(customerMessage || ''),
+        },
+      };
+
+      console.log('[generateAIResponse] 📡 Calling runAIWithFailover(CALL_TURN)');
+      console.log('[generateAIResponse] → latestCustomerMessage:', callTurnPayload.latestCustomerMessage);
+      console.log('[generateAIResponse] → transcript (last 200 chars):', callTurnPayload.transcript.slice(-200));
+      console.log('[generateAIResponse] → turn:', callTurnPayload.turn);
+      console.log('[generateAIResponse] → conversationStage:', callTurnPayload.context.conversationStage);
+      console.log('[generateAIResponse] → languageSignal:', JSON.stringify(callTurnPayload.context.languageSignal));
+      console.log('[generateAIResponse] → languageInstruction:', callTurnPayload.context.languageInstruction?.substring(0, 100));
+      console.log('[generateAIResponse] → extractedData:', JSON.stringify(callTurnPayload.context.extractedData));
+
       const aiOutput = await runAIWithFailover({
         task: 'CALL_TURN',
-        payload: {
-          customer: this.toProviderCustomerProfile(),
-          transcript: this.getTranscriptText(),
-          latestCustomerMessage: customerMessage || this.getLatestCustomerMessage(),
-          turn: this.conversationHistory.length,
-          metadata: this.getProviderMetadata(),
-          context: {
-            conversationStage: this.currentStage,
-            companyName: this.companyName,
-            aiAgentName: this.aiAgentName,
-            systemPrompt: this.getSystemPrompt(),
-            languageSignal: activeLanguageSignal,
-            languageInstruction: getLanguageMirroringInstruction(activeLanguageSignal),
-            languageStyleLabel: getLanguageStyleLabel(activeLanguageSignal),
-            extractedData: { ...this.extractedData },
-            recentPromptSlots: this.getRecentPromptSlots(3),
-            repetitionComplaint: hasRepetitionComplaint(customerMessage || ''),
-          },
-        },
+        payload: callTurnPayload,
         activeOnly: true,
       });
 
       this.callMeta.aiProviderUsed = aiOutput?.provider?.name || aiOutput?.provider?.type || null;
-      console.log('[LLMConversationManager] CALL_TURN provider used:', this.callMeta.aiProviderUsed);
+      console.log('[generateAIResponse] ✅ CALL_TURN response received');
+      console.log('[generateAIResponse] → provider used:', this.callMeta.aiProviderUsed);
+      console.log('[generateAIResponse] → raw reply:', aiOutput?.result?.reply);
+      console.log('[generateAIResponse] → shouldEnd:', aiOutput?.result?.shouldEnd);
 
       let aiMessage = String(aiOutput?.result?.reply || '').trim() || this.getOpeningGreeting();
       aiMessage = humanizeCallReply(aiMessage, activeLanguageSignal, this.currentStage);
+      console.log('[generateAIResponse] → humanized reply:', aiMessage);
       const adaptiveReply = customerMessage
         ? this.buildAdaptiveReplyForCustomerMessage(customerMessage, aiMessage)
         : null;
+      if (adaptiveReply) console.log('[generateAIResponse] → adaptive reply override:', adaptiveReply);
       aiMessage = adaptiveReply || this.avoidRepeatedPrompt(aiMessage);
+      console.log('[generateAIResponse] → final reply (after dedup):', aiMessage);
       
       // Add to history
       this.conversationHistory.push({
@@ -1234,6 +1533,12 @@ Customer Profile:
       const detectedIntent = detectIntent(customerMessage, this.conversationHistory);
       const extracted = extractLoanDetails(customerMessage);
       const employmentType = detectEmploymentType(customerMessage);
+      const monthlyIncome = extractMonthlyIncomeFromMessage(customerMessage);
+
+      console.log('[processCustomerResponse] Rule-based intent:', JSON.stringify(detectedIntent));
+      console.log('[processCustomerResponse] Extracted loan details:', JSON.stringify(extracted));
+      console.log('[processCustomerResponse] Employment type:', employmentType);
+      console.log('[processCustomerResponse] Monthly income detected:', monthlyIncome);
 
       const previousIntent = String(this.callMeta.intent || '').toLowerCase();
       const hadPriorPositiveIntent = previousIntent === 'interested' || previousIntent === 'converted';
@@ -1243,9 +1548,10 @@ Customer Profile:
       if (extracted.amount) this.extractedData.amount = extracted.amount;
       if (extracted.timeline) this.extractedData.timeline = extracted.timeline;
       if (employmentType) this.extractedData.employmentType = employmentType;
+      if (monthlyIncome) this.extractedData.monthlyIncome = monthlyIncome;
 
       const hasStructuredLoanSignal = Boolean(
-        extracted.loanType || extracted.amount || extracted.timeline || employmentType
+        extracted.loanType || extracted.amount || extracted.timeline || employmentType || monthlyIncome
       );
       const repetitionComplaint = hasRepetitionComplaint(customerMessage);
       const clarificationRequired = shouldAskCustomerToRepeat({
@@ -1253,6 +1559,7 @@ Customer Profile:
         detectedIntent,
         extracted,
         employmentType,
+        monthlyIncome,
         languagePreferenceCommand,
       });
 
@@ -1263,6 +1570,27 @@ Customer Profile:
       const ruleBasedIntent = String(detectedIntent.intent || 'neutral').toLowerCase();
       let providerIntent = null;
 
+      // CONFUSED intent — separate path: no stage advancement, no provider override.
+      if (finalIntent === 'confused') {
+        console.log('[processCustomerResponse] 🤔 Confused intent detected — holding stage, skipping provider summary.');
+        const nextStage = this.currentStage; // stay in current stage
+        this.callMeta.intent = 'confused';
+        this.callMeta.confidence = finalConfidence;
+        this.callMeta.awaitingClarification = false;
+
+        return {
+          intent: 'confused',
+          confidence: finalConfidence,
+          extractedData: {
+            ...this.extractedData,
+            preferredCallbackTime: this.callMeta.callbackTime || null,
+          },
+          nextStage,
+          shouldEnd: false,
+          reasoning,
+        };
+      }
+
       if (languagePreferenceCommand && !isHardStopIntent) {
         finalIntent = 'neutral';
         finalConfidence = Math.max(finalConfidence, 0.9);
@@ -1272,6 +1600,7 @@ Customer Profile:
       try {
         // Skip summary intent override on explicit language-switch turns and low-information clarification turns.
         if ((!languagePreferenceCommand && !clarificationRequired) || isHardStopIntent) {
+          console.log('[processCustomerResponse] 📡 Calling runAIWithFailover(CALL_SUMMARY)');
           const summaryOutput = await runAIWithFailover({
             task: 'CALL_SUMMARY',
             payload: {
@@ -1301,16 +1630,11 @@ Customer Profile:
 
           providerIntent = normalizeProviderIntent(summaryOutput?.result?.intent);
           if (providerIntent && providerIntent !== 'neutral') {
-            // Never let provider escalate to do_not_call — requires explicit customer keywords in rule-based detection.
+            // do_not_call requires explicit customer keywords — never set by LLM alone.
             if (providerIntent === 'do_not_call' && ruleBasedIntent !== 'do_not_call') {
               console.log('[LLMConversationManager] Blocked provider do_not_call escalation — rule-based:', ruleBasedIntent);
-            // Don't let provider downgrade rule-based interested to a terminal intent.
-            } else if (
-              END_INTENTS.has(providerIntent) &&
-              ruleBasedIntent === 'interested'
-            ) {
-              console.log('[LLMConversationManager] Blocked provider terminal override — rule-based: interested');
             } else {
+              // LLM is the primary source of truth for all other intents.
               finalIntent = providerIntent;
               finalConfidence = Math.max(finalConfidence, 0.8);
               reasoning = `provider-intent:${summaryOutput.provider?.name || 'unknown'}`;
@@ -1327,87 +1651,25 @@ Customer Profile:
         reasoning = `${reasoning}:clarification_required`;
       }
 
-      const ruleBasedTerminalIntent = ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(ruleBasedIntent);
-      const currentTerminalIntent = ['do_not_call', 'not_interested', 'busy', 'call_back_later'].includes(finalIntent);
-      if (ruleBasedTerminalIntent && !currentTerminalIntent) {
-        finalIntent = ruleBasedIntent;
-        finalConfidence = Math.max(finalConfidence, normalizeConfidence(detectedIntent.confidence, 0.9));
-        reasoning = `${reasoning}:rule_terminal_priority`;
-      }
-
-      // Require loanType+amount before treating intent as converted.
-      const hasConversionSignals = Boolean(this.extractedData.loanType && this.extractedData.amount);
+      // Slot gate: require loanType + amount + timeline before treating intent as converted.
+      const hasConversionSignals = Boolean(this.extractedData.loanType && this.extractedData.amount && this.extractedData.timeline);
       if (finalIntent === 'converted' && !hasConversionSignals) {
         finalIntent = 'interested';
         finalConfidence = Math.max(finalConfidence, 0.78);
         reasoning = `${reasoning}:downgraded_pre_qualification`;
       }
 
-      // Prevent terminal override on inquiry-style utterances like "please tell me details".
-      const inquirySignal = hasInquirySignal(customerMessage);
-      const explicitNegativeSignal = hasExplicitNegativeSignal(customerMessage);
-      const lateTimingSignal = hasLateTimingSignal(customerMessage);
-      const callbackPreference = detectCallbackPreference(customerMessage);
-      const proceedSignal = hasProceedSignal(customerMessage);
-      const availabilityConfirmation = hasAvailabilityConfirmation(customerMessage);
-      const positiveProceedSignal =
-        !explicitNegativeSignal &&
-        !callbackPreference &&
-        (proceedSignal || availabilityConfirmation);
-      if (
-        providerIntent &&
-        ['not_interested', 'busy', 'call_back_later'].includes(finalIntent) &&
-        inquirySignal &&
-        !explicitNegativeSignal &&
-        ['neutral', 'interested'].includes(ruleBasedIntent)
-      ) {
-        finalIntent = 'interested';
-        finalConfidence = Math.max(finalConfidence, 0.76);
-        reasoning = `${reasoning}:inquiry_guard`;
-      }
-
-      if (
-        positiveProceedSignal &&
-        finalIntent !== 'do_not_call' &&
-        ['neutral', 'busy', 'call_back_later'].includes(finalIntent)
-      ) {
-        finalIntent = 'interested';
-        finalConfidence = Math.max(finalConfidence, 0.82);
-        this.callMeta.callbackTime = null;
-        reasoning = `${reasoning}:proceed_confirmation_guard`;
-      }
-
-      // Do not let provider-neutral classification block progression when user gave concrete loan details.
+      // Safety net: LLM said neutral but customer gave concrete loan data — promote to interested.
       if (!END_INTENTS.has(finalIntent) && finalIntent === 'neutral' && hasStructuredLoanSignal) {
         finalIntent = 'interested';
         finalConfidence = Math.max(finalConfidence, 0.74);
         reasoning = `${reasoning}:structured_signal_guard`;
       }
 
-      // If customer says the assistant is repeating, keep flow in interested path.
-      if (!END_INTENTS.has(finalIntent) && repetitionComplaint) {
-        finalIntent = 'interested';
-        finalConfidence = Math.max(finalConfidence, 0.72);
-        reasoning = `${reasoning}:repetition_complaint_guard`;
-      }
-
-      if (
-        !END_INTENTS.has(finalIntent) &&
-        finalIntent === 'neutral' &&
-        inquirySignal &&
-        !explicitNegativeSignal &&
-        (
-          hadPriorPositiveIntent ||
-          activeStage === CONVERSATION_STAGES.DISCOVERY ||
-          activeStage === CONVERSATION_STAGES.PITCH ||
-          activeStage === CONVERSATION_STAGES.QUALIFICATION
-        )
-      ) {
-        finalIntent = 'interested';
-        finalConfidence = Math.max(finalConfidence, 0.74);
-        reasoning = `${reasoning}:inquiry_interest_guard`;
-      }
-
+      // Late-timing guard: LLM has no time-of-day context — override to callback when relevant.
+      const explicitNegativeSignal = hasExplicitNegativeSignal(customerMessage);
+      const callbackPreference = detectCallbackPreference(customerMessage);
+      const lateTimingSignal = hasLateTimingSignal(customerMessage);
       if (lateTimingSignal && !explicitNegativeSignal) {
         finalIntent = 'call_back_later';
         finalConfidence = Math.max(finalConfidence, 0.9);
@@ -1415,30 +1677,9 @@ Customer Profile:
         reasoning = `${reasoning}:late_timing_callback_guard`;
       }
 
-      if (
-        ['busy', 'call_back_later'].includes(ruleBasedIntent) &&
-        !explicitNegativeSignal &&
-        finalIntent !== 'do_not_call'
-      ) {
-        finalIntent = ruleBasedIntent;
-        finalConfidence = Math.max(finalConfidence, normalizeConfidence(detectedIntent.confidence, 0.88));
-        this.callMeta.callbackTime = this.callMeta.callbackTime || callbackPreference?.callbackTime || inferCallbackTimeFromMessage(customerMessage);
-        reasoning = `${reasoning}:rule_callback_priority`;
-      }
-
-      // Keep previously interested leads from dropping to neutral on short acknowledgement turns
-      // once qualification signals are already captured, unless there is an explicit negative signal.
-      const hasQualifiedSignals = Boolean(this.extractedData.loanType && this.extractedData.amount);
-      if (
-        !END_INTENTS.has(finalIntent) &&
-        finalIntent === 'neutral' &&
-        hadPriorPositiveIntent &&
-        hasQualifiedSignals &&
-        !explicitNegativeSignal
-      ) {
-        finalIntent = 'interested';
-        finalConfidence = Math.max(finalConfidence, 0.75);
-        reasoning = `${reasoning}:prior_interest_persistence_guard`;
+      // Persist callback time when LLM independently chose a callback intent.
+      if (['busy', 'call_back_later'].includes(finalIntent) && !this.callMeta.callbackTime) {
+        this.callMeta.callbackTime = callbackPreference?.callbackTime || inferCallbackTimeFromMessage(customerMessage) || null;
       }
 
       // Determine next stage
@@ -1477,7 +1718,9 @@ Customer Profile:
   }
 
   /**
-   * Determine next conversation stage
+   * Determine next conversation stage.
+   * Slot-gated: only advances when required fields are actually captured.
+   * Required for closing: loanType + amount + timeline.
    */
   determineNextStage(intent, shouldEnd = false) {
     // If AI explicitly decides the call must end (e.g. strong do-not-call),
@@ -1486,16 +1729,33 @@ Customer Profile:
       return CONVERSATION_STAGES.CLOSING;
     }
 
-    // Converted should close only after key details are captured.
+    // If busy, also close (callback will be scheduled)
+    if (intent === 'busy' || intent === 'call_back_later') {
+      return CONVERSATION_STAGES.CLOSING;
+    }
+
+    // Confused should NOT advance the stage — stay where we are.
+    if (intent === 'confused') {
+      return this.currentStage;
+    }
+
+    const hasLoanType = Boolean(this.extractedData.loanType);
+    const hasAmount = Boolean(this.extractedData.amount);
+    const hasTimeline = Boolean(this.extractedData.timeline);
+    // For balance transfer, amount and timeline are never collected — only loanType is mandatory.
+    const isBt = this.extractedData.loanType === 'balance_transfer';
+    const hasMandatorySlots = isBt ? hasLoanType : (hasLoanType && hasAmount && hasTimeline);
+
+    // Converted should close only after all mandatory fields are captured.
     if (intent === 'converted') {
-      if (this.extractedData.loanType && this.extractedData.amount) {
+      if (hasMandatorySlots) {
         return CONVERSATION_STAGES.CLOSING;
       }
       intent = 'interested';
     }
 
-    // If busy, also close (callback will be scheduled)
-    if (intent === 'busy' || intent === 'call_back_later') {
+    // Interested + all mandatory slots collected → close (advisor handoff).
+    if (intent === 'interested' && hasMandatorySlots) {
       return CONVERSATION_STAGES.CLOSING;
     }
 
@@ -1508,22 +1768,23 @@ Customer Profile:
         return CONVERSATION_STAGES.OPENING;
 
       case CONVERSATION_STAGES.DISCOVERY:
-        if (this.extractedData.loanType && this.extractedData.amount) {
+        // Need at least 2 of the 3 mandatory slots to move to PITCH
+        if (hasMandatorySlots) {
           return CONVERSATION_STAGES.QUALIFICATION;
         }
-        if (this.extractedData.loanType || this.extractedData.amount || this.extractedData.timeline) {
+        if ((hasLoanType && hasAmount) || (hasLoanType && hasTimeline) || (hasAmount && hasTimeline)) {
           return CONVERSATION_STAGES.PITCH;
         }
         return CONVERSATION_STAGES.DISCOVERY;
 
       case CONVERSATION_STAGES.PITCH:
-        if (this.extractedData.loanType && this.extractedData.amount) {
+        if (hasMandatorySlots) {
           return CONVERSATION_STAGES.QUALIFICATION;
         }
         return CONVERSATION_STAGES.PITCH;
 
       case CONVERSATION_STAGES.QUALIFICATION:
-        if (this.extractedData.loanType && this.extractedData.amount) {
+        if (hasMandatorySlots) {
           return CONVERSATION_STAGES.CLOSING;
         }
         return CONVERSATION_STAGES.QUALIFICATION;

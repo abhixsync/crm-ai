@@ -42,8 +42,14 @@ export async function updateThemeController(
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const isBaseTheme = payload.isBaseTheme || false;
+  let isBaseTheme = payload.isBaseTheme || false;
   const tenantId = resolveTargetTenantId(session, payload.tenantId, isBaseTheme);
+
+  // SUPER_ADMIN users without a tenant (tenantId===null) must update the base theme,
+  // because the validation in updateTenantTheme rejects tenantId=null with isBaseTheme=false.
+  if (tenantId === null && !isBaseTheme) {
+    isBaseTheme = true;
+  }
 
   // Remove control fields from payload before saving
   const { tenantId: _, isBaseTheme: __, ...themePayload } = payload;

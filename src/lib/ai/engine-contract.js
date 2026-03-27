@@ -45,10 +45,19 @@ function normalizeByTask(task, rawResult) {
   }
 
   if (task === AI_TASKS.CALL_TURN) {
-    return {
+    const result = {
       reply: String(rawResult?.reply || "Please continue.").trim(),
       shouldEnd: Boolean(rawResult?.shouldEnd),
     };
+
+    // Pass through LLM-classified intent and extracted data (optional fields)
+    if (rawResult?.intent) result.intent = rawResult.intent;
+    if (typeof rawResult?.confidence === "number") result.confidence = rawResult.confidence;
+    if (rawResult?.extractedData && typeof rawResult.extractedData === "object") {
+      result.extractedData = rawResult.extractedData;
+    }
+
+    return result;
   }
 
   return rawResult;
@@ -83,13 +92,16 @@ export function normalizeEngineOutput({ task, input, rawResult }) {
 }
 
 export function createEngineAdapter({ id, supportedTasks, invoke }) {
+  const hasTask = supportedTasks instanceof Set
+    ? (t) => supportedTasks.has(t)
+    : (t) => supportedTasks.includes(t);
   return {
     id,
     supports(task) {
-      return supportedTasks.includes(task);
+      return hasTask(task);
     },
     async run({ task, input, config }) {
-      if (!supportedTasks.includes(task)) {
+      if (!hasTask(task)) {
         throw new Error(`${id} does not support task: ${task}`);
       }
 

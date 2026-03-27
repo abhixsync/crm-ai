@@ -3,6 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { AutomationSettingsAdminClient } from "@/components/admin/automation-settings-admin-client";
+import { ModernCampaignsView } from "@/components/modern/campaigns-view";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 export default async function AutomationAdminPage() {
   const session = await getServerSession(authOptions);
@@ -13,6 +15,19 @@ export default async function AutomationAdminPage() {
 
   if (!["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
     redirect("/dashboard");
+  }
+
+  // Resolve UI layout
+  let uiLayout = "modern";
+  try {
+    const theme = await resolveTenantTheme(session.user.tenantId);
+    uiLayout = theme.uiLayout || "modern";
+  } catch {
+    // fall back to modern
+  }
+
+  if (uiLayout === "modern") {
+    return <ModernCampaignsView />;
   }
 
   return (

@@ -4,7 +4,9 @@ import { CustomerStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardClient } from "@/components/crm/dashboard-client";
+import { ModernDashboardView } from "@/components/modern/dashboard-view";
 import { canUserDeleteAllCustomers } from "@/lib/customers/delete-all-permissions";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 const PAGE_SIZE = 10;
 
@@ -14,7 +16,8 @@ function isDatabaseUnavailable(error) {
   return code === "P1001" || message.includes("Can't reach database server");
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }) {
+  const params = await searchParams;
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -67,6 +70,32 @@ export default async function DashboardPage() {
   }
 
   const totalPages = Math.max(1, Math.ceil(totalCustomers / PAGE_SIZE));
+
+  // Resolve UI layout
+  let uiLayout = "modern";
+  try {
+    const theme = await resolveTenantTheme(tenantId);
+    uiLayout = theme.uiLayout || "modern";
+  } catch {
+    // fall back to modern
+  }
+
+  // Modern layout: redirect ?view=customers to the dedicated /customers page
+  if (uiLayout === "modern" && params?.view === "customers") {
+    redirect("/customers");
+  }
+
+  // Modern layout dashboard overview (no view param)
+  if (uiLayout === "modern" && !params?.view) {
+    return (
+      <ModernDashboardView
+        user={session.user}
+        initialTenantName={initialTenantName}
+        initialMetrics={{ totalCustomers, interestedCustomers, followUps, totalCalls }}
+        initialCustomers={customers}
+      />
+    );
+  }
 
   return (
     <DashboardClient

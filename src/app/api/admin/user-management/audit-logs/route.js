@@ -14,7 +14,7 @@ export async function GET(request) {
   const limit = Number(searchParams.get("limit") || 50);
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     if (!tenant.isSuperAdmin) {
       return Response.json({ logs: [] });
     }

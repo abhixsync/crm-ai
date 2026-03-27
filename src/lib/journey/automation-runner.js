@@ -70,7 +70,7 @@ async function runCustomerInCronMode(customer, reason) {
 }
 
 export async function runAutomationBatch(tenantId = undefined) {
-  const settings = await getAutomationSettings();
+  const settings = await getAutomationSettings(tenantId);
   const executionMode = resolveAutomationExecutionMode(settings);
 
   if (!settings.enabled) {

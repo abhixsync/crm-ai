@@ -11,7 +11,7 @@ export async function POST(request) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const payload = await request.json();
     const result = await applyUserBatchAction(payload, auth.session.user.id, tenant.isSuperAdmin ? undefined : tenant.tenantId);
     return Response.json(result);

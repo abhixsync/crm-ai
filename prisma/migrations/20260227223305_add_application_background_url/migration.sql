@@ -1,2 +1,2 @@
--- AlterTable
-ALTER TABLE "public"."TenantTheme" ADD COLUMN     "applicationBackgroundUrl" TEXT;
+-- applicationBackgroundUrl column already included in 0_init baseline migration.
+-- This migration is a no-op kept for migration history continuity.

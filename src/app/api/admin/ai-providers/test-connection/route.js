@@ -3,9 +3,12 @@ import { requireSession, hasRole } from "@/lib/server/auth-guard";
 import { runProviderConnectivityCheck } from "@/lib/ai/connection-check";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
+const STATUS_ORDER = { ACTIVE: 0, STANDBY: 1, DISABLED: 2 };
+
 function sortProviders(providers) {
   return [...providers].sort((left, right) => {
-    if (left.isActive !== right.isActive) return left.isActive ? -1 : 1;
+    const statusDiff = (STATUS_ORDER[left.status] ?? 1) - (STATUS_ORDER[right.status] ?? 1);
+    if (statusDiff !== 0) return statusDiff;
     if (left.priority !== right.priority) return left.priority - right.priority;
     return left.name.localeCompare(right.name);
   });
@@ -26,7 +29,7 @@ export async function POST(request) {
   if (testAll) {
     try {
       const providers = await prisma.aiProviderConfig.findMany({
-        orderBy: [{ isActive: "desc" }, { priority: "asc" }, { name: "asc" }],
+        orderBy: [{ priority: "asc" }, { name: "asc" }],
       });
 
       const orderedProviders = sortProviders(providers);

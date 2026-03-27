@@ -9,6 +9,35 @@ import { canonicalizeIntent } from "@/lib/journey/intent-normalization";
 import { evaluateCrmEventDecision } from "@/lib/crm/event-triggers";
 import { notifyAdvisorForCallLog } from "@/lib/notifications/advisor-notifier";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
+import { getOrCreateSession, updateSessionAfterCall, getSessionContext } from "@/lib/conversation/session-manager";
+
+// TTS voice config — Google Hindi Wavenet for natural Indian voice
+const TTS_VOICE = "Google.hi-IN-Wavenet-A";
+const TTS_LANGUAGE = "hi-IN";
+
+/**
+ * Dynamic turn limit — replaces the old `turn >= 3` hard cap.
+ * Allows natural conversations while still setting boundaries.
+ */
+function shouldEndCall(aiTurn, turn, extractedData) {
+  // AI explicitly says end — always respect
+  if (aiTurn.shouldEnd) return true;
+
+  // Absolute ceiling
+  if (turn >= 12) return true;
+
+  // All mandatory slots filled — can close after minimum turns
+  const allSlots = extractedData?.loanType && extractedData?.amount && extractedData?.timeline;
+  if (allSlots && turn >= 3) return true;
+
+  // Balance transfer only requires loanType
+  if (extractedData?.loanType === "balance_transfer" && turn >= 3) return true;
+
+  // No progress after several turns — end gracefully
+  if (turn >= 8 && !extractedData?.loanType && !extractedData?.amount) return true;
+
+  return false;
+}
 
 function xmlEscape(value) {
   return String(value || "")
@@ -210,7 +239,7 @@ export async function POST(request) {
     }
 
     if (!customer) {
-      return twimlResponse("<Say voice=\"Polly.Joanna\">Customer record not found. Please call again later.</Say><Hangup/>");
+      return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">Customer record not found. Please call again later.</Say><Hangup/>`);
     }
 
     if (callLogId && callSid) {
@@ -235,7 +264,7 @@ export async function POST(request) {
         // After max retries, end the call gracefully
         console.log(`[Webhook] Max retries reached, ending call`);
         await finishCall(callLogId, customer.id, tenantId);
-        return twimlResponse(`<Say voice="Polly.Joanna">I apologize, I couldn't hear your response clearly. Thank you for your time. Our loan advisor will contact you shortly.</Say><Hangup/>`);
+        return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">I apologize, I couldn't hear your response clearly. Thank you for your time. Our loan advisor will contact you shortly.</Say><Hangup/>`);
       }
 
       // Retry listening with a helpful prompt
@@ -249,7 +278,7 @@ export async function POST(request) {
       const nextAttempt = failedAttempts + 1;
       const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn}&failedAttempts=${nextAttempt}`;
 
-      const twiml = `<Gather input="speech" language="en-IN" speechTimeout="1500" numDigits="0" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="Polly.Joanna" rate="0.9">${xmlEscape(retryPrompt)}</Say></Gather><Hangup/>`;
+      const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="1500" numDigits="0" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(retryPrompt)}</Say></Gather><Hangup/>`;
       console.log(`[Webhook] Sending TwiML for retry: ${twiml.substring(0, 100)}...`);
       return twimlResponse(twiml);
     }
@@ -266,7 +295,7 @@ export async function POST(request) {
 
       const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=1`;
 
-      const twiml = `<Gather input="speech" language="en-IN" speechTimeout="1500" numDigits="0" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="Polly.Joanna" rate="0.9">${xmlEscape(opening)}</Say></Gather><Hangup/>`;
+      const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="1500" numDigits="0" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(opening)}</Say></Gather><Hangup/>`;
       console.log(`[Webhook] Sending initial TwiML with Gather`);
       return twimlResponse(twiml);
     }
@@ -275,10 +304,13 @@ export async function POST(request) {
     if (!speechResult) {
       console.log(`[Webhook] No speech result and not initial turn, ending call`);
       await finishCall(callLogId, customer.id, tenantId);
-      return twimlResponse(`<Say voice="Polly.Joanna">Thank you for your time. Our loan advisor will contact you shortly.</Say><Hangup/>`);
+      return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">Thank you for your time. Our loan advisor will contact you shortly.</Say><Hangup/>`);
     }
 
     const transcript = callLog?.transcript || "";
+
+    // Get cross-call memory session
+    const sessionCtx = tenantId ? await getSessionContext(tenantId, customer.id) : {};
 
     console.log(`[Webhook] Processing AI turn ${turn}, transcript length: ${transcript.length}`);
     const aiOutput = await runAIWithFailover({
@@ -287,11 +319,25 @@ export async function POST(request) {
         customer,
         transcript,
         turn,
+        latestCustomerMessage: speechResult,
+        context: {
+          conversationStage: sessionCtx.lastStage || undefined,
+          extractedData: sessionCtx.extractedData || undefined,
+          previousCallSummary: sessionCtx.previousCallSummary || undefined,
+        },
       },
     });
     const aiTurn = aiOutput.result;
 
-    console.log(`[Webhook] AI response: ${aiTurn.reply.substring(0, 50)}..., shouldEnd: ${aiTurn.shouldEnd}`);
+    // Merge extracted data from LLM response with session data
+    const mergedExtracted = { ...(sessionCtx.extractedData || {}) };
+    if (aiTurn.extractedData && typeof aiTurn.extractedData === "object") {
+      for (const [key, value] of Object.entries(aiTurn.extractedData)) {
+        if (value != null) mergedExtracted[key] = value;
+      }
+    }
+
+    console.log(`[Webhook] AI response: ${aiTurn.reply.substring(0, 50)}..., shouldEnd: ${aiTurn.shouldEnd}, intent: ${aiTurn.intent || "n/a"}`);
     await appendTranscript(callLogId, "Agent", aiTurn.reply);
 
     if (callLogId) {
@@ -306,27 +352,37 @@ export async function POST(request) {
       });
     }
 
-    // Determine if call should end
-    const shouldEnd = aiTurn.shouldEnd || turn >= 3;
+    // Dynamic turn limit — replaces old `turn >= 3`
+    const endCall = shouldEndCall(aiTurn, turn, mergedExtracted);
 
-    if (shouldEnd) {
+    if (endCall) {
       console.log(`[Webhook] Call should end. Finishing call.`);
       const closing = `${aiTurn.reply} Thank you for your time. Our loan advisor will contact you shortly.`;
       await finishCall(callLogId, customer.id, tenantId);
-      return twimlResponse(`<Say voice="Polly.Joanna">${xmlEscape(closing)}</Say><Hangup/>`);
+
+      // Update session with final state
+      if (sessionCtx.sessionId) {
+        await updateSessionAfterCall(sessionCtx.sessionId, {
+          callLogId,
+          turnCount: turn,
+          extractedData: mergedExtracted,
+        });
+      }
+
+      return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(closing)}</Say><Hangup/>`);
     }
 
     // Continue conversation: Play AI response and listen for customer reply
     const nextTurn = turn + 1;
     const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}&failedAttempts=0`;
 
-    const twiml = `<Gather input="speech" language="en-IN" speechTimeout="1500" numDigits="0" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="Polly.Joanna" rate="0.9">${xmlEscape(aiTurn.reply)}</Say></Gather><Hangup/>`;
+    const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="1500" numDigits="0" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(aiTurn.reply)}</Say></Gather><Hangup/>`;
     console.log(`[Webhook] Sending AI response with Gather for next turn`);
     return twimlResponse(twiml);
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
       console.warn("[api/calls/webhook] Database unavailable; returning fallback TwiML.");
-      return twimlResponse("<Say voice=\"Polly.Joanna\">System is temporarily unavailable. Please try again later.</Say><Hangup/>");
+      return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">System is temporarily unavailable. Please try again later.</Say><Hangup/>`);
     }
 
     throw error;

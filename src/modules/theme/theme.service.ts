@@ -6,7 +6,6 @@ import { isDatabaseUnavailable } from "@/lib/server/database-error";
 import { SYSTEM_THEME_DEFAULT, EditableTheme, ThemeTokens } from "@/core/theme/system-defaults";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
-const memoryCache = new Map<string, { value: ActiveTheme; expiresAt: number }>();
 
 let redisClient: Redis | null = null;
 let redisUnavailableUntil = 0;
@@ -48,6 +47,7 @@ const MUTABLE_SYSTEM_DEFAULT: ThemeTokens = {
   loginBackgroundUrl: SYSTEM_THEME_DEFAULT.loginBackgroundUrl,
   applicationBackgroundUrl: SYSTEM_THEME_DEFAULT.applicationBackgroundUrl,
   customCss: SYSTEM_THEME_DEFAULT.customCss,
+  uiLayout: SYSTEM_THEME_DEFAULT.uiLayout,
   isActive: SYSTEM_THEME_DEFAULT.isActive,
 };
 
@@ -115,7 +115,9 @@ export async function resolveTenantTheme(tenantId: string | null): Promise<Activ
 
   // 1️⃣ Try cache first
   const cached = await readCache(tenantId || "null");
-  if (cached) return cached;
+  if (cached) {
+    return cached;
+  }
 
   // 1.5️⃣ During transient database outages, return defaults without querying repeatedly.
   if (Date.now() < dbUnavailableUntil) {
@@ -134,13 +136,16 @@ export async function resolveTenantTheme(tenantId: string | null): Promise<Activ
       if (tenantTheme) {
         const { id, tenantId: _, createdAt, updatedAt, ...themeData } = tenantTheme;
 
-        // Only include fields that differ from system defaults (i.e., were explicitly customized)
+        // Include all stored tenant values so they override the base theme.
+        // Fields in BASE_THEME_ONLY are global settings controlled by SUPER_ADMIN
+        // via the base theme — tenant overrides must not shadow them, because every
+        // DB record stores the column default even when the tenant never set it.
+        const BASE_THEME_ONLY = new Set(["uiLayout"]);
         const customizedFields: Partial<ThemeTokens> = {};
         Object.keys(themeData).forEach(key => {
-          if (key in MUTABLE_SYSTEM_DEFAULT) {
-            const systemValue = (MUTABLE_SYSTEM_DEFAULT as any)[key];
+          if (key in MUTABLE_SYSTEM_DEFAULT && !BASE_THEME_ONLY.has(key)) {
             const tenantValue = (themeData as any)[key];
-            if (tenantValue !== systemValue) {
+            if (tenantValue !== undefined && tenantValue !== null) {
               (customizedFields as any)[key] = tenantValue;
             }
           }
@@ -190,6 +195,7 @@ export async function resolveTenantTheme(tenantId: string | null): Promise<Activ
       loginBackgroundUrl: baseTheme.loginBackgroundUrl,
       applicationBackgroundUrl: baseTheme.applicationBackgroundUrl,
       customCss: baseTheme.customCss,
+      uiLayout: baseTheme.uiLayout,
       isActive: baseTheme.isActive,
     } : {};
 
@@ -293,11 +299,6 @@ async function getRedisClient() {
 
 async function readCache(tenantId: string): Promise<ActiveTheme | null> {
   const key = getCacheKey(tenantId);
-  const local = memoryCache.get(key);
-
-  if (local && local.expiresAt > Date.now()) {
-    return local.value;
-  }
 
   const redis = await getRedisClient();
   if (!redis) return null;
@@ -305,9 +306,7 @@ async function readCache(tenantId: string): Promise<ActiveTheme | null> {
   try {
     const payload = await redis.get(key);
     if (!payload) return null;
-    const parsed = JSON.parse(payload) as ActiveTheme;
-    memoryCache.set(key, { value: parsed, expiresAt: Date.now() + CACHE_TTL_MS });
-    return parsed;
+    return JSON.parse(payload) as ActiveTheme;
   } catch {
     return null;
   }
@@ -315,7 +314,6 @@ async function readCache(tenantId: string): Promise<ActiveTheme | null> {
 
 async function writeCache(tenantId: string, value: ActiveTheme) {
   const key = getCacheKey(tenantId);
-  memoryCache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
 
   const redis = await getRedisClient();
   if (!redis) return;
@@ -327,7 +325,6 @@ async function writeCache(tenantId: string, value: ActiveTheme) {
 
 export async function invalidateThemeCache(tenantId: string | null) {
   const key = getCacheKey(tenantId);
-  memoryCache.delete(key);
 
   const redis = await getRedisClient();
   if (!redis) return;
@@ -377,23 +374,22 @@ export async function updateTenantTheme(
       data: updateData
     });
   } else {
-    // Create new record
+    // Create new record — use relation connect for non-null tenantId
+    const { tenantId: _tid, ...createFields } = updateData;
     await prisma.tenantTheme.create({
       data: {
-        tenantId,
-        ...updateData,
+        ...createFields,
+        ...(tenantId ? { tenant: { connect: { id: tenantId } } } : {}),
       },
     });
   }
 
   // Invalidate cache for affected tenants
   if (isBaseTheme) {
-    // Base theme change affects all tenants - clear all caches
-    memoryCache.clear();
+    // Base theme change affects all tenants - clear all Redis caches
     const redis = await getRedisClient();
     if (redis) {
       try {
-        // Clear all theme caches (this is a broad invalidation)
         const keys = await redis.keys("theme:*");
         if (keys.length > 0) {
           await redis.del(...keys);

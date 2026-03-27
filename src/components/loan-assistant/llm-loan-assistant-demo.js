@@ -45,12 +45,12 @@ export function LLMLoanAssistantDemo() {
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
   const [profile, setProfile] = useState({
     name: "John Doe",
-    city: "Meerut",
-    monthly_income: 500000,
-    employment_type: "salaried",
-    credit_score: 720,
-    existing_loans: "none",
-    loan_interest_type: "personal_loan",
+    city: "",
+    monthly_income: "",
+    employment_type: "",
+    credit_score: "",
+    existing_loans: "",
+    loan_interest_type: "",
   });
 
   const [sessionId, setSessionId] = useState(null);
@@ -87,6 +87,8 @@ export function LLMLoanAssistantDemo() {
   const lastVoiceTranscriptRef = useRef({ normalized: "", ts: 0 });
   const recognitionRestartTimeoutRef = useRef(null);
   const consecutiveSilentRecognitionRef = useRef(0);
+  const languageStyleRef = useRef("unknown");
+  const languageScriptRef = useRef("unknown");
 
   const updateVoiceWarning = (message) => {
     if (isSuperAdmin) {
@@ -531,6 +533,7 @@ export function LLMLoanAssistantDemo() {
 
     setSelectedCustomerContext({
       id: selected.id,
+      tenantId: selected.tenantId || null,
       name: fullName || null,
       phone: selected.phone || null,
       email: selected.email || null,
@@ -547,6 +550,8 @@ export function LLMLoanAssistantDemo() {
     setConversation([]);
     setLanguageStyle("unknown");
     setLanguageScript("unknown");
+    languageStyleRef.current = "unknown";
+    languageScriptRef.current = "unknown";
   };
 
   const handleResumeListening = () => {
@@ -630,7 +635,8 @@ export function LLMLoanAssistantDemo() {
 
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.lang = getSpeechLangFromStyle(languageStyle, languageScript);
+    recognition.lang = getSpeechLangFromStyle(languageStyleRef.current, languageScriptRef.current);
+    console.log(`[VOICE] 🌐 Recognition lang set to: ${recognition.lang} (style=${languageStyleRef.current}, script=${languageScriptRef.current})`);
 
     recognition.onstart = () => {
       console.log(`[VOICE] ✅ Recognition STARTED (instance: ${instanceId}) - now listening for speech`);
@@ -673,6 +679,9 @@ export function LLMLoanAssistantDemo() {
       if (localSignal.style && localSignal.style !== "unknown") {
         setLanguageStyle(localSignal.style);
         setLanguageScript(localSignal.script || "unknown");
+        languageStyleRef.current = localSignal.style;
+        languageScriptRef.current = localSignal.script || "unknown";
+        console.log(`[VOICE] 🌐 Language detected: style=${localSignal.style}, script=${localSignal.script}`);
       }
 
       if (!callActiveRef.current) {
@@ -1079,6 +1088,9 @@ export function LLMLoanAssistantDemo() {
 
     try {
       console.log("[CALL] 📡 Sending init request to /api/loan-assistant/voice-conversation");
+      const tenantIdForRequest = String(
+        session?.user?.tenantId || selectedCustomerContext?.tenantId || ""
+      ).trim();
       const requestBody = {
         action: "init",
         customer_profile: {
@@ -1087,6 +1099,7 @@ export function LLMLoanAssistantDemo() {
           ...(selectedCustomerContext?.phone ? { phone: selectedCustomerContext.phone } : {}),
           ...(selectedCustomerContext?.email ? { email: selectedCustomerContext.email } : {}),
         },
+        ...(tenantIdForRequest ? { tenant_id: tenantIdForRequest } : {}),
         is_voice_call: isVoiceMode,
       };
 
@@ -1195,6 +1208,9 @@ export function LLMLoanAssistantDemo() {
 
     try {
       console.log("[MSG] 📡 Sending to server");
+      const tenantIdForRequest = String(
+        session?.user?.tenantId || selectedCustomerContext?.tenantId || ""
+      ).trim();
       const response = await fetch("/api/loan-assistant/voice-conversation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1202,6 +1218,7 @@ export function LLMLoanAssistantDemo() {
           action: "next",
           session_id: effectiveSessionId,
           customer_message: userMsg,
+          ...(tenantIdForRequest ? { tenant_id: tenantIdForRequest } : {}),
           is_voice_call: effectiveIsVoiceMode,
         }),
       });

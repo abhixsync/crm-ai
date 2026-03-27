@@ -17,8 +17,7 @@ function sanitizeProvider(provider) {
     id: provider.id,
     name: provider.name,
     type: provider.type,
-    enabled: provider.enabled,
-    isActive: provider.isActive,
+    status: provider.status,
     priority: provider.priority,
   };
 }
@@ -73,12 +72,12 @@ async function testWithEngine(provider) {
 export async function runProviderConnectivityCheck(provider) {
   const start = Date.now();
 
-  if (!provider?.enabled) {
+  if (provider?.status === "DISABLED") {
     return {
       ok: false,
       provider: sanitizeProvider(provider),
       latencyMs: 0,
-      error: "Provider is disabled. Enable it before testing connectivity.",
+      error: "Provider is disabled. Change status to ACTIVE or STANDBY before testing.",
     };
   }
 

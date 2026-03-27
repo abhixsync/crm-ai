@@ -3,7 +3,8 @@ import { cache } from "react";
 import { getServerSession } from "next-auth";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
-import { GlobalHamburgerMenu } from "@/components/layout/global-hamburger-menu";
+import { TenantSwitcherProvider } from "@/components/providers/tenant-switcher-provider";
+import { ShellWrapper } from "@/components/shells/shell-wrapper";
 import { ThemeProvider } from "@/core/theme/ThemeProvider";
 import { ThemeAssets } from "@/components/theme/theme-assets";
 import { Toaster } from "sonner";
@@ -36,6 +37,7 @@ const getBootstrapData = cache(async () => {
   }
 
   let crmTitle = "Loan Enterprise CRM";
+  let tenantName = "";
   if (tenantId) {
     try {
       const tenant = await prisma.tenant.findUnique({
@@ -43,18 +45,30 @@ const getBootstrapData = cache(async () => {
         select: { crmName: true, name: true },
       });
       crmTitle = tenant?.crmName || tenant?.name || "CRM";
+      tenantName = tenant?.name || "";
     } catch {
       crmTitle = "CRM";
     }
   }
+
+  const uiLayout = preloadedTheme?.uiLayout || "modern";
 
   return {
     session,
     tenantId,
     preloadedTheme,
     crmTitle,
+    tenantName,
+    uiLayout,
   };
 });
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export async function generateMetadata() {
   const { preloadedTheme, crmTitle } = await getBootstrapData();
@@ -93,13 +107,22 @@ export async function generateMetadata() {
 }
 
 export default async function RootLayout({ children }) {
-  const { tenantId, preloadedTheme } = await getBootstrapData();
+  const { tenantId, preloadedTheme, crmTitle, tenantName, uiLayout, session } = await getBootstrapData();
 
   const cssVariables = getThemeCssVariables(preloadedTheme);
+  const brandName = crmTitle || "CRM AI";
+  const logoUrl = preloadedTheme?.logoUrl || null;
 
   return (
-    <html lang="en" data-theme-ready="true" style={cssVariables}>
+    <html lang="en" data-theme-ready="true" style={cssVariables} suppressHydrationWarning>
       <head>
+        {/* Inline script to apply the stored dark/light preference before first paint,
+            preventing a flash when the user's preference differs from the default. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('ms-ui-theme')||'dark';document.documentElement.setAttribute('data-ui-theme',t);}catch(e){document.documentElement.setAttribute('data-ui-theme','dark');}})();`,
+          }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
@@ -108,8 +131,18 @@ export default async function RootLayout({ children }) {
         <AuthSessionProvider>
           <ThemeProvider preloadedTheme={preloadedTheme} preloadedTenantId={tenantId}>
             <ThemeAssets />
-            <GlobalHamburgerMenu />
-            {children}
+            <TenantSwitcherProvider>
+              <ShellWrapper
+                uiLayout={uiLayout}
+                brandName={brandName}
+                brandSub="AI Sales Platform"
+                logoUrl={logoUrl}
+                tenantName={tenantName}
+                initialRole={session?.user?.role || null}
+              >
+                {children}
+              </ShellWrapper>
+            </TenantSwitcherProvider>
           </ThemeProvider>
           <Toaster position="top-right" richColors closeButton />
         </AuthSessionProvider>

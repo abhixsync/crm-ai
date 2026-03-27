@@ -11,7 +11,7 @@ export async function POST(request) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const payload = await request.json();
     const rows = Array.isArray(payload?.rows) ? payload.rows : [];
     const result = await bulkCreateUsers(rows, auth.session.user.id, tenant.tenantId);

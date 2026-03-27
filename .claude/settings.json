@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev)",
+      "Bash(npm run build)",
+      "Bash(npm run test*)",
+      "Bash(npm run lint*)",
+      "Bash(npx tsc*)",
+      "Bash(npx prisma*)",
+      "Bash(npm run db:*)",
+      "Bash(node prisma/seed.js)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git branch*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git stash*)",
+      "Bash(git show*)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(pwd)",
+      "Bash(which *)",
+      "Bash(npm list*)",
+      "Bash(npm info*)",
+      "Bash(npm install*)",
+      "Bash(npx next*)",
+      "Bash(curl -s http://localhost*)"
+    ],
+    "deny": []
+  },
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true
+  }
+}

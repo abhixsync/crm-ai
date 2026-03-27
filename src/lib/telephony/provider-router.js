@@ -5,12 +5,14 @@ import { TelephonyRegistry } from "@/lib/telephony/telephony-registry";
 import { createTwilioAdapter } from "@/lib/telephony/adapters/twilio-adapter";
 import { createVonageAdapter } from "@/lib/telephony/adapters/vonage-adapter";
 import { createPlivoAdapter } from "@/lib/telephony/adapters/plivo-adapter";
+import { createExotelAdapter } from "@/lib/telephony/adapters/exotel-adapter";
 import { logTelephony, redactedPhone } from "@/lib/telephony/logger";
 
 const registry = new TelephonyRegistry();
 registry.register(TelephonyProviderType.TWILIO, createTwilioAdapter());
 registry.register(TelephonyProviderType.VONAGE, createVonageAdapter());
 registry.register(TelephonyProviderType.PLIVO, createPlivoAdapter());
+registry.register(TelephonyProviderType.EXOTEL, createExotelAdapter());
 
 function sortProviders(providers) {
   return [...providers].sort((left, right) => {

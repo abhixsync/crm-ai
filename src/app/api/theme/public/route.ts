@@ -23,9 +23,11 @@ export async function GET(request: Request) {
       primaryColor: theme?.primaryColor || null,
       secondaryColor: theme?.secondaryColor || null,
       accentColor: theme?.accentColor || null,
+      logoUrl: theme?.logoUrl || null,
       faviconUrl: theme?.faviconUrl || null,
       loginBackgroundUrl: theme?.loginBackgroundUrl || null,
       applicationBackgroundUrl: theme?.applicationBackgroundUrl || null,
+      uiLayout: (theme as any)?.uiLayout || "modern",
     };
 
     return Response.json({ theme: publicTheme });
@@ -38,9 +40,11 @@ export async function GET(request: Request) {
         primaryColor: fallback.primaryColor || null,
         secondaryColor: fallback.secondaryColor || null,
         accentColor: fallback.accentColor || null,
+        logoUrl: fallback.logoUrl || null,
         faviconUrl: fallback.faviconUrl || null,
         loginBackgroundUrl: fallback.loginBackgroundUrl || null,
         applicationBackgroundUrl: fallback.applicationBackgroundUrl || null,
+        uiLayout: "modern",
       },
     });
   }

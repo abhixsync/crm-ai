@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
-export async function GET(_request, { params }) {
+export async function GET(request, { params }) {
   const auth = await requireSession();
 
   if (auth.error) return auth.error;
@@ -19,7 +19,7 @@ export async function GET(_request, { params }) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const callLog = await prisma.callLog.findFirst({
       where: {
         id: callLogId,

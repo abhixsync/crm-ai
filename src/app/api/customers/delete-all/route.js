@@ -3,7 +3,7 @@ import { getTenantContext, requireSession } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { canUserDeleteAllCustomers } from "@/lib/customers/delete-all-permissions";
 
-export async function DELETE() {
+export async function DELETE(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
@@ -12,7 +12,7 @@ export async function DELETE() {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const tenantId = tenant.tenantId;
 
     if (!tenantId) {

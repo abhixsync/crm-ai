@@ -4,6 +4,7 @@ import { parseCustomerExcel } from "@/lib/server/excel";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 
 const UPSERT_BATCH_SIZE = 50;
 const ENQUEUE_BATCH_SIZE = 50;
@@ -75,12 +76,20 @@ export async function POST(request) {
   }
 
   const formData = await request.formData();
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
   const tenantId = tenant.tenantId;
   const canRequestEnqueue = hasRole(auth.session, ["ADMIN"]);
 
   if (!tenantId) {
     return Response.json({ error: "Tenant context required." }, { status: 400 });
+  }
+
+  try {
+    const guard = await getPlanGuard(tenantId);
+    guard.assertCanUploadLeads();
+  } catch (err) {
+    if (isPlanLimitError(err)) return planLimitResponse(err);
+    throw err;
   }
 
   const file = formData.get("file");

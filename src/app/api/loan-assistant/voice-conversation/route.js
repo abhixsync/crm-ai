@@ -122,6 +122,7 @@ export async function POST(request) {
       let finalAiAgentName = ai_agent_name || 'Priya Sharma';
       let finalHumanAdvisorName = human_advisor_name || 'John Doe';
       let finalCallbackPhone = callback_phone || process.env.COMPANY_CALLBACK_PHONE || '+91-XXXXXXXXXX';
+      let finalTenantLanguage = 'hinglish';
       
       // If tenant_id provided, fetch tenant config (priority: loanAssistantCompanyName > tenant.name)
       if (tenant_id) {
@@ -136,6 +137,7 @@ export async function POST(request) {
             finalAiAgentName = tenant.aiAgentName || finalAiAgentName;
             finalHumanAdvisorName = tenant.loanAssistantHumanAdvisorName || finalHumanAdvisorName;
             finalCallbackPhone = tenant.loanAssistantCallbackPhone || finalCallbackPhone;
+            finalTenantLanguage = tenant.loanAssistantLanguage || finalTenantLanguage;
             console.log('📦 Tenant Config:', {
               tenantId: tenant_id,
               loanAssistantCompanyName: tenant.loanAssistantCompanyName,
@@ -158,7 +160,8 @@ export async function POST(request) {
         finalCompanyName,
         finalAiAgentName,
         finalCallbackPhone,
-        finalHumanAdvisorName
+        finalHumanAdvisorName,
+        finalTenantLanguage
       );
       const newSessionId = `llm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -255,22 +258,34 @@ export async function POST(request) {
     }
 
     console.log('✅ Session found');
-    console.log('Customer message:', customer_message.substring(0, 50));
+    console.log('Customer message:', customer_message);
+    console.log('Conversation history length:', manager.conversationHistory.length);
+    console.log('Current stage:', manager.currentStage);
+    console.log('Current language signal:', JSON.stringify(manager.getLanguageSignal()));
+    console.log('Extracted data so far:', JSON.stringify(manager.extractedData));
     
     // Ensure is_voice_call flag is maintained throughout conversation
     manager.callMeta.isVoiceCall = is_voice_call;
     console.log('Is Voice Call:', is_voice_call);
 
     // Process customer message using LLM
+    console.log('\n--- [STEP 1] processCustomerResponse() START ---');
     const analysisResult = await manager.processCustomerResponse(customer_message);
+    console.log('--- [STEP 1] processCustomerResponse() END ---');
 
     console.log('📊 Analysis result:');
     console.log('  Intent:', analysisResult.intent);
     console.log('  Confidence:', analysisResult.confidence);
     console.log('  Should End:', analysisResult.shouldEnd);
+    console.log('  Next Stage:', analysisResult.nextStage);
+    console.log('  Reasoning:', analysisResult.reasoning);
+    console.log('  Extracted Data:', JSON.stringify(analysisResult.extractedData));
 
     // Generate next AI response using LLM (context-aware)
+    console.log('\n--- [STEP 2] generateAIResponse() START ---');
     const aiMessage = await manager.generateAIResponse(customer_message);
+    console.log('--- [STEP 2] generateAIResponse() END ---');
+    console.log('🤖 AI Response:', aiMessage);
 
     // Check if conversation should end
     const shouldEndSession =

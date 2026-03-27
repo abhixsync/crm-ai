@@ -1,6 +1,7 @@
 import { CallStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
+import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 import { runAIWithFailover } from "@/lib/ai/provider-router";
 import { initiateTelephonyCallWithFailover } from "@/lib/telephony/provider-router";
 import { logTelephony, redactedPhone } from "@/lib/telephony/logger";
@@ -55,9 +56,19 @@ export async function POST(request) {
     return Response.json({ error: "customerId is required" }, { status: 400 });
   }
 
+  const { tenantId } = getTenantContext(auth.session, request);
+  try {
+    const guard = await getPlanGuard(tenantId);
+    guard.assertHasFeature("hasAiCalling");
+    guard.assertCanMakeAiCall();
+  } catch (err) {
+    if (isPlanLimitError(err)) return planLimitResponse(err);
+    throw err;
+  }
+
   let customer;
   let callLog;
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
 
   try {
     customer = await prisma.customer.findFirst({
@@ -130,6 +141,14 @@ export async function POST(request) {
     const vonageEventUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/vonage/voice/events` : undefined;
     const vonageFallbackUrl = `${baseUrl}/api/vonage/voice/fallback`;
 
+    // Plivo webhook URLs
+    const plivoAnswerUrl = `${baseUrl}/api/plivo/voice/answer?customerId=${customer.id}&callLogId=${callLog.id}`;
+    const plivoCallbackUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/plivo/voice/callback?customerId=${customer.id}&callLogId=${callLog.id}&turn=1` : undefined;
+
+    // Exotel webhook URLs
+    const exotelAnswerUrl = `${baseUrl}/api/exotel/voice/answer?customerId=${customer.id}&callLogId=${callLog.id}`;
+    const exotelStatusUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/exotel/voice/events` : undefined;
+
     if (callFlowDebug.blockingReason) {
       logTelephony("warn", "api.calls.trigger.callbacks_disabled", {
         callLogId: callLog.id,
@@ -149,6 +168,10 @@ export async function POST(request) {
       vonageAnswerUrl,
       vonageEventUrl,
       vonageFallbackUrl,
+      plivoAnswerUrl,
+      plivoCallbackUrl,
+      exotelAnswerUrl,
+      exotelStatusUrl,
     });
 
     const call = telephonyOutput.result;

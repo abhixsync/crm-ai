@@ -22,7 +22,7 @@ export async function GET(request) {
   }
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
 
     const callLog = await prisma.callLog.findFirst({
       where: {

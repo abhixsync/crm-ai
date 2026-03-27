@@ -28,7 +28,7 @@ function getCountsByStatus(rows) {
   };
 }
 
-export async function GET() {
+export async function GET(request) {
   const auth = await requireSession();
   if (auth.error) return auth.error;
 
@@ -36,13 +36,13 @@ export async function GET() {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const tenant = getTenantContext(auth.session);
+  const tenant = getTenantContext(auth.session, request);
 
   try {
     const intervalMinutes = getIntervalMinutes();
     const workerEnabled = isCampaignWorkerEnabled();
 
-    const settings = await getAutomationSettings();
+    const settings = await getAutomationSettings(tenant.tenantId);
     const executionMode = resolveAutomationExecutionMode(settings);
 
     let cronStateRecord = null;
@@ -58,8 +58,8 @@ export async function GET() {
 
     try {
       const [cronState, workerHeartbeat, groupedJobs] = await Promise.all([
-        prisma.automationSetting.findUnique({ where: { key: CRON_STATE_KEY } }),
-        prisma.automationSetting.findUnique({ where: { key: WORKER_HEARTBEAT_KEY } }),
+        prisma.automationSetting.findFirst({ where: { key: CRON_STATE_KEY } }),
+        prisma.automationSetting.findFirst({ where: { key: WORKER_HEARTBEAT_KEY } }),
         prisma.campaignJob.groupBy({
           by: ["status"],
           _count: true,

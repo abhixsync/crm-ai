@@ -169,7 +169,7 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     /\b\d{2,}\b/.test(message) ||
     /\b(amount|lakh|lac|thousand|k|rupees|rs)\b/.test(message);
   const hasLoanTypeSignal =
-    /\b(personal|home|business|working capital|auto|car)\b/.test(message);
+    /\b(personal|home|business|working capital|auto|car|bt|balance transfer|refinance)\b/.test(message);
   const hasTimelineSignal =
     /\b(week|month|quarter|immediate|asap|today|tomorrow|by tomorrow|turant|kal)\b/.test(message);
   const hasStructuredLoanSignal = hasLoanTypeSignal || hasAmountSignal || hasTimelineSignal;
@@ -232,8 +232,29 @@ export function detectIntent(customerMessage, conversationHistory = []) {
   }
 
   // NOT INTERESTED keywords (high priority, before neutral/interested)
+  // Guard: if the message contains a BT/balance-transfer signal OR a "but"/"lekin"/"magar"
+  // contrasting clause after a negative phrase, the customer is redirecting — not declining.
+  const hasBtSignal =
+    /\bbt\b/.test(message) ||
+    message.includes('balance transfer') ||
+    message.includes('refinance') ||
+    (message.includes('transfer') && (message.includes('loan') || message.includes('existing')));
+  const hasContrastClause =
+    /\b(but|lekin|magar|par|parantu|however)\b/.test(message) &&
+    (message.includes('haan') ||
+      message.includes('han') ||
+      message.includes('yes') ||
+      message.includes('hai') ||
+      message.includes('chahiye') ||
+      message.includes('existing') ||
+      message.includes('already') ||
+      message.includes('ek'));
+
+  const hasOverridingPositiveContext = hasBtSignal || hasContrastClause;
+
   if (
-    hasNotInterestedPhrase ||
+    !hasOverridingPositiveContext &&
+    (hasNotInterestedPhrase ||
     message.includes("interested nahi") ||
     message.includes("chahiye nahi") ||
     message.includes("nhi chahiye") ||
@@ -262,12 +283,21 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     message.includes("nhi lunga") ||
     message.includes("na lunga") ||
     (message.includes("nhi ") && hasLoanDeclineContext) ||
-    (/\b(nahi|nahin|nhi)\b/.test(message) && hasLoanDeclineContext)
+    (/\b(nahi|nahin|nhi)\b/.test(message) && hasLoanDeclineContext))
   ) {
     return {
       intent: INTENT_TYPES.NOT_INTERESTED,
       confidence: 0.95,
       details: { reason: 'Customer expressed no interest' },
+    };
+  }
+
+  // Customer declined fresh loan but has a BT/balance transfer need
+  if (hasBtSignal) {
+    return {
+      intent: INTENT_TYPES.INTERESTED,
+      confidence: 0.85,
+      details: { reason: 'Customer interested in balance transfer' },
     };
   }
 
@@ -279,6 +309,46 @@ export function detectIntent(customerMessage, conversationHistory = []) {
         reason: 'Customer is busy and wants callback',
         callbackTime: callbackPreference.callbackTime,
       },
+    };
+  }
+
+  // CONFUSED / SKEPTICAL (customer did not understand, questions the call, or sounds confused)
+  const hasConfusionPhrase =
+    message.includes('samajh nahi') ||
+    message.includes('samajh nhi') ||
+    message.includes('smjha nhi') ||
+    message.includes('smjh nhi') ||
+    message.includes('smjha nahi') ||
+    message.includes('smjh nahi') ||
+    message.includes('samjha nahi') ||
+    message.includes('samjha nhi') ||
+    message.includes('kya bol rahi') ||
+    message.includes('kya bol raha') ||
+    message.includes('kya baat kar rahi') ||
+    message.includes('kya baat kr rhi') ||
+    message.includes('kis trah ki baat') ||
+    message.includes('kis tarah ki baat') ||
+    message.includes('kya matlab') ||
+    message.includes('matlab kya') ||
+    message.includes('i dont understand') ||
+    message.includes("i don't understand") ||
+    message.includes('what do you mean') ||
+    message.includes('what are you saying') ||
+    message.includes('confused') ||
+    message.includes('not clear') ||
+    message.includes('clear nahi') ||
+    message.includes('clear nhi') ||
+    message.includes('kuch samajh nahi') ||
+    message.includes('kuch smjh nhi') ||
+    message.includes('pata nahi kya') ||
+    message.includes('ye kya hai') ||
+    message.includes('ye kya h');
+
+  if (hasConfusionPhrase && !hasNotInterestedPhrase) {
+    return {
+      intent: INTENT_TYPES.CONFUSED,
+      confidence: 0.85,
+      details: { reason: 'Customer sounds confused or did not understand' },
     };
   }
 
@@ -308,8 +378,7 @@ export function detectIntent(customerMessage, conversationHistory = []) {
     hasInterestedWord ||
     message.includes("bilkul") ||
     message.includes("chalega") ||
-    message.includes("ok") ||
-    message.includes("think about it") ||
+    /\bok\b/.test(message) ||
     message.includes("batao") ||
     message.includes("bataye") ||
     message.includes("batayiye") ||
@@ -372,7 +441,27 @@ export function extractLoanDetails(message) {
     .replace(/\blaks?\b/g, 'lakh');
 
   // Detect loan type
-  if (lowerMsg.includes('personal')) {
+  // Balance transfer checked first — customer may say "personal loan...BT karana h"
+  // and BT intent should take priority over the generic loan type.
+  // Also catches rate-reduction phrases like "interest km karana h" / "uska interest km ho skta h".
+  if (
+    lowerMsg.includes('balance transfer') ||
+    lowerMsg.includes('bt loan') ||
+    /\bbt\b/.test(lowerMsg) ||
+    lowerMsg.includes('refinanc') ||
+    (lowerMsg.includes('transfer') && (lowerMsg.includes('loan') || lowerMsg.includes('existing'))) ||
+    lowerMsg.includes('interest km') ||
+    lowerMsg.includes('interest rate km') ||
+    lowerMsg.includes('rate km') ||
+    lowerMsg.includes('rate reduce') ||
+    lowerMsg.includes('interest reduce') ||
+    lowerMsg.includes('interest lower') ||
+    (lowerMsg.includes('existing') && lowerMsg.includes('loan') && lowerMsg.includes('interest')) ||
+    (lowerMsg.includes('purana') && lowerMsg.includes('loan') && lowerMsg.includes('interest')) ||
+    (lowerMsg.includes('interest') && (lowerMsg.includes('kum') || lowerMsg.includes('ghata')))
+  ) {
+    details.loanType = LOAN_TYPES.BALANCE_TRANSFER;
+  } else if (lowerMsg.includes('personal')) {
     details.loanType = LOAN_TYPES.PERSONAL;
   } else if (lowerMsg.includes('home')) {
     details.loanType = LOAN_TYPES.HOME;
@@ -565,4 +654,32 @@ export function determineNextStage(currentStage, intent, extractedData) {
     default:
       return CONVERSATION_STAGES.OPENING;
   }
+}
+
+/**
+ * Merge LLM-based and regex-based intent classification.
+ * LLM intent is primary; regex overrides only for safety-critical cases.
+ */
+export function mergeIntentSources(llmIntent, regexResult) {
+  const llm = String(llmIntent || "").trim().toLowerCase();
+  const regex = regexResult || {};
+  const regexIntent = String(regex.intent || "").trim().toLowerCase();
+
+  // Safety override: regex DO_NOT_CALL always wins (explicit keywords are reliable)
+  if (regexIntent === "do_not_call" && regex.confidence >= 0.9) {
+    return { intent: "do_not_call", confidence: 1.0, source: "regex_safety_override" };
+  }
+
+  // If LLM provided a valid intent, use it
+  if (llm && llm !== "unknown" && llm !== "neutral") {
+    return { intent: llm, confidence: 0.85, source: "llm" };
+  }
+
+  // If LLM said neutral but regex found something specific, prefer regex
+  if (regexIntent && regexIntent !== "neutral" && regexIntent !== "unknown") {
+    return { intent: regexIntent, confidence: regex.confidence || 0.7, source: "regex_fallback" };
+  }
+
+  // Both agree on neutral
+  return { intent: llm || regexIntent || "neutral", confidence: 0.5, source: "default" };
 }

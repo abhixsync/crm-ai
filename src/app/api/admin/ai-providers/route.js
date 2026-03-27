@@ -1,4 +1,4 @@
-import { AiProviderType } from "@prisma/client";
+import { AiProviderType, AiProviderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
@@ -31,7 +31,7 @@ export async function GET() {
 
   try {
     const providers = await prisma.aiProviderConfig.findMany({
-      orderBy: [{ isActive: "desc" }, { priority: "asc" }, { name: "asc" }],
+      orderBy: [{ priority: "asc" }, { name: "asc" }],
     });
 
     return Response.json({ providers });
@@ -60,12 +60,16 @@ export async function POST(request) {
 
   const priority = Number.isFinite(Number(body.priority)) ? Number(body.priority) : 100;
   const timeoutMs = Number.isFinite(Number(body.timeoutMs)) ? Number(body.timeoutMs) : 12000;
-  const makeActive = Boolean(body.isActive);
+  const rawStatus = String(body.status || "STANDBY").toUpperCase();
+  const status = AiProviderStatus[rawStatus] || AiProviderStatus.STANDBY;
 
   try {
     const created = await prisma.$transaction(async (tx) => {
-      if (makeActive) {
-        await tx.aiProviderConfig.updateMany({ data: { isActive: false } });
+      if (status === AiProviderStatus.ACTIVE) {
+        await tx.aiProviderConfig.updateMany({
+          where: { status: AiProviderStatus.ACTIVE },
+          data: { status: AiProviderStatus.STANDBY },
+        });
       }
 
       return tx.aiProviderConfig.create({
@@ -77,8 +81,7 @@ export async function POST(request) {
           model: parseOptionalString(body.model),
           priority,
           timeoutMs,
-          enabled: body.enabled === undefined ? true : Boolean(body.enabled),
-          isActive: makeActive,
+          status,
           metadata: body.metadata || null,
         },
       });

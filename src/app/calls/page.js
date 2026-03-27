@@ -6,7 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { getTenantContext } from "@/lib/server/auth-guard";
 import { CallsAiCallPanel } from "@/components/calls/calls-ai-call-panel";
 import { CallsHistoryTable } from "@/components/calls/calls-history-table";
+import { ModernCallLogsView } from "@/components/modern/call-logs-view";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 function formatCustomerName(customer) {
   if (!customer) return "Unknown";
@@ -21,6 +23,11 @@ export default async function CallsPage() {
   }
 
   const tenant = getTenantContext(session);
+
+  // SUPER_ADMIN must pick a tenant context — don't return unscoped data
+  if (!tenant.tenantId) {
+    return <ModernCallLogsView callLogs={[]} />;
+  }
 
   const callLogs = await prisma.callLog.findMany({
     where: {
@@ -68,6 +75,19 @@ export default async function CallsPage() {
     phone: customer.phone,
     status: customer.status,
   }));
+
+  // Resolve UI layout
+  let uiLayout = "modern";
+  try {
+    const theme = await resolveTenantTheme(tenant.tenantId);
+    uiLayout = theme.uiLayout || "modern";
+  } catch {
+    // fall back to modern
+  }
+
+  if (uiLayout === "modern") {
+    return <ModernCallLogsView callLogs={callLogs} />;
+  }
 
   return (
     <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">

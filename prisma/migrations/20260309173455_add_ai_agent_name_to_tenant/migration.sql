@@ -1,2 +1,2 @@
--- AlterTable
-ALTER TABLE "public"."Tenant" ADD COLUMN     "aiAgentName" TEXT NOT NULL DEFAULT 'Priya';
+-- aiAgentName column already included in 0_init baseline migration.
+-- This migration is a no-op kept for migration history continuity.

@@ -16,6 +16,7 @@ export function LoanAssistantAdmin() {
   const [notificationEmail, setNotificationEmail] = useState("");
   const [aiAgentName, setAiAgentName] = useState("Priya");
   const [humanAdvisorName, setHumanAdvisorName] = useState("John Doe");
+  const [language, setLanguage] = useState("hinglish");
   const [tenantName, setTenantName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -67,6 +68,7 @@ export function LoanAssistantAdmin() {
         setNotificationEmail(data.data.loanAssistantNotificationEmail || "");
         setAiAgentName(data.data.aiAgentName || "Priya");
         setHumanAdvisorName(data.data.loanAssistantHumanAdvisorName || "John Doe");
+        setLanguage(data.data.loanAssistantLanguage || "hinglish");
         setTenantName(data.data.tenantName);
       } else {
         setError(data.error || "Failed to load settings");
@@ -103,6 +105,7 @@ export function LoanAssistantAdmin() {
           loanAssistantCallbackPhone: callbackPhone || null,
           loanAssistantNotificationEmail: notificationEmail || null,
           aiAgentName: aiAgentName || "Priya",
+          loanAssistantLanguage: language,
         }),
       });
 
@@ -247,9 +250,38 @@ export function LoanAssistantAdmin() {
 
             <div className="space-y-2">
               <p className="text-sm font-medium text-slate-700">Supported Languages</p>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-                ✓ Hinglish (Hindi + English mix)
+              <div className="space-y-2">
+                {[
+                  { value: "english", label: "English", desc: "Pure English responses" },
+                  { value: "hindi", label: "Hindi", desc: "Hindi (Roman script) with common English loan terms" },
+                  { value: "hinglish", label: "Hinglish (Hindi Heavy + English)", desc: "Natural Hindi-English mix — default" },
+                ].map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                      language === opt.value
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-slate-200 bg-slate-50 hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="loanAssistantLanguage"
+                      value={opt.value}
+                      checked={language === opt.value}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-slate-800">{opt.label}</span>
+                      <p className="text-xs text-slate-500">{opt.desc}</p>
+                    </div>
+                  </label>
+                ))}
               </div>
+              <p className="text-xs text-slate-500">
+                This controls the LANGUAGE RULES in the AI system prompt. The AI will respond in the selected language style.
+              </p>
             </div>
 
             <div className="flex gap-2">

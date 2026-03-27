@@ -16,7 +16,7 @@ function getIntervalMinutes() {
 
 async function shouldRunCron() {
   const intervalMinutes = getIntervalMinutes();
-  const record = await prisma.automationSetting.findUnique({ where: { key: CRON_STATE_KEY } });
+  const record = await prisma.automationSetting.findFirst({ where: { key: CRON_STATE_KEY } });
   const lastRunAt = record?.value?.lastRunAt ? new Date(record.value.lastRunAt) : null;
 
   if (!lastRunAt || Number.isNaN(lastRunAt.getTime())) {
@@ -30,11 +30,22 @@ async function shouldRunCron() {
 }
 
 async function recordCronRun() {
-  await prisma.automationSetting.upsert({
-    where: { key: CRON_STATE_KEY },
-    create: { key: CRON_STATE_KEY, value: { lastRunAt: new Date().toISOString() } },
-    update: { value: { lastRunAt: new Date().toISOString() } },
-  });
+  const existing = await prisma.automationSetting.findFirst({ where: { key: CRON_STATE_KEY } });
+  const value = { lastRunAt: new Date().toISOString() };
+  if (existing) {
+    await prisma.automationSetting.update({
+      where: { tenantId_key: { tenantId: existing.tenantId, key: CRON_STATE_KEY } },
+      data: { value },
+    });
+  } else {
+    // Anchor to first tenant
+    const tenant = await prisma.tenant.findFirst({ select: { id: true } });
+    if (tenant) {
+      await prisma.automationSetting.create({
+        data: { tenantId: tenant.id, key: CRON_STATE_KEY, value },
+      });
+    }
+  }
 }
 
 function isAuthorized(request) {
@@ -64,7 +75,9 @@ export async function GET(request) {
       });
     }
 
-    const settings = await getAutomationSettings();
+    // Check global automation mode — use first tenant's settings as reference
+    const firstTenant = await prisma.tenant.findFirst({ select: { id: true } });
+    const settings = await getAutomationSettings(firstTenant?.id);
     const executionMode = resolveAutomationExecutionMode(settings);
 
     if (executionMode === "WORKER") {

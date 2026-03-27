@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma.js';
 import { databaseUnavailableResponse, isDatabaseUnavailable } from '@/lib/server/database-error';
 
 const DEFAULT_HUMAN_ADVISOR_NAME = 'John Doe';
-const OPTIONAL_ROLLOUT_FIELDS = ['loanAssistantHumanAdvisorName', 'loanAssistantCallbackPhone', 'loanAssistantNotificationEmail'];
+const OPTIONAL_ROLLOUT_FIELDS = ['loanAssistantHumanAdvisorName', 'loanAssistantCallbackPhone', 'loanAssistantNotificationEmail', 'loanAssistantLanguage'];
 const DATABASE_UNAVAILABLE_COOLDOWN_MS = 15000;
 const OPTIONAL_FIELD_PROBE_COOLDOWN_MS = 30000;
 
@@ -10,6 +10,7 @@ const optionalFieldSupport = {
   loanAssistantHumanAdvisorName: true,
   loanAssistantCallbackPhone: true,
   loanAssistantNotificationEmail: true,
+  loanAssistantLanguage: true,
 };
 let optionalFieldSupportInitialized = false;
 let optionalFieldSupportLastCheckedAt = 0;
@@ -63,7 +64,7 @@ async function ensureOptionalFieldSupport(force = false) {
       FROM information_schema.columns
       WHERE table_schema = 'public'
         AND table_name = 'Tenant'
-        AND column_name IN ('loanAssistantHumanAdvisorName', 'loanAssistantCallbackPhone', 'loanAssistantNotificationEmail')
+        AND column_name IN ('loanAssistantHumanAdvisorName', 'loanAssistantCallbackPhone', 'loanAssistantNotificationEmail', 'loanAssistantLanguage')
     `));
 
     const availableColumns = new Set(
@@ -73,6 +74,7 @@ async function ensureOptionalFieldSupport(force = false) {
     optionalFieldSupport.loanAssistantHumanAdvisorName = availableColumns.has('loanAssistantHumanAdvisorName');
     optionalFieldSupport.loanAssistantCallbackPhone = availableColumns.has('loanAssistantCallbackPhone');
     optionalFieldSupport.loanAssistantNotificationEmail = availableColumns.has('loanAssistantNotificationEmail');
+    optionalFieldSupport.loanAssistantLanguage = availableColumns.has('loanAssistantLanguage');
     optionalFieldSupportInitialized = true;
     optionalFieldSupportLastCheckedAt = Date.now();
   } catch (error) {
@@ -84,6 +86,7 @@ async function ensureOptionalFieldSupport(force = false) {
     optionalFieldSupport.loanAssistantHumanAdvisorName = false;
     optionalFieldSupport.loanAssistantCallbackPhone = false;
     optionalFieldSupport.loanAssistantNotificationEmail = false;
+    optionalFieldSupport.loanAssistantLanguage = false;
     optionalFieldSupportInitialized = true;
     optionalFieldSupportLastCheckedAt = Date.now();
   }
@@ -114,11 +117,13 @@ function markUnsupportedOptionalFields(error) {
   const mentionsHumanAdvisor = message.includes('loanAssistantHumanAdvisorName');
   const mentionsCallbackPhone = message.includes('loanAssistantCallbackPhone');
   const mentionsNotificationEmail = message.includes('loanAssistantNotificationEmail');
+  const mentionsLanguage = message.includes('loanAssistantLanguage');
 
-  if (!mentionsHumanAdvisor && !mentionsCallbackPhone && !mentionsNotificationEmail) {
+  if (!mentionsHumanAdvisor && !mentionsCallbackPhone && !mentionsNotificationEmail && !mentionsLanguage) {
     optionalFieldSupport.loanAssistantHumanAdvisorName = false;
     optionalFieldSupport.loanAssistantCallbackPhone = false;
     optionalFieldSupport.loanAssistantNotificationEmail = false;
+    optionalFieldSupport.loanAssistantLanguage = false;
     optionalFieldSupportInitialized = true;
     optionalFieldSupportLastCheckedAt = Date.now();
     return;
@@ -136,6 +141,10 @@ function markUnsupportedOptionalFields(error) {
     optionalFieldSupport.loanAssistantNotificationEmail = false;
   }
 
+  if (mentionsLanguage) {
+    optionalFieldSupport.loanAssistantLanguage = false;
+  }
+
   optionalFieldSupportInitialized = true;
   optionalFieldSupportLastCheckedAt = Date.now();
 }
@@ -149,6 +158,7 @@ function buildTenantSelect() {
     ...(optionalFieldSupport.loanAssistantHumanAdvisorName ? { loanAssistantHumanAdvisorName: true } : {}),
     ...(optionalFieldSupport.loanAssistantCallbackPhone ? { loanAssistantCallbackPhone: true } : {}),
     ...(optionalFieldSupport.loanAssistantNotificationEmail ? { loanAssistantNotificationEmail: true } : {}),
+    ...(optionalFieldSupport.loanAssistantLanguage ? { loanAssistantLanguage: true } : {}),
   };
 }
 
@@ -163,6 +173,10 @@ function pruneUnsupportedOptionalFields(updateData) {
 
   if (!optionalFieldSupport.loanAssistantNotificationEmail) {
     delete updateData.loanAssistantNotificationEmail;
+  }
+
+  if (!optionalFieldSupport.loanAssistantLanguage) {
+    delete updateData.loanAssistantLanguage;
   }
 }
 
@@ -197,6 +211,7 @@ export async function GET(request) {
     let hasHumanAdvisorField = optionalFieldSupport.loanAssistantHumanAdvisorName;
     let hasCallbackPhoneField = optionalFieldSupport.loanAssistantCallbackPhone;
     let hasNotificationEmailField = optionalFieldSupport.loanAssistantNotificationEmail;
+    let hasLanguageField = optionalFieldSupport.loanAssistantLanguage;
 
     try {
       tenant = await withDatabaseRetry(() => prisma.tenant.findUnique({
@@ -213,6 +228,7 @@ export async function GET(request) {
       hasHumanAdvisorField = optionalFieldSupport.loanAssistantHumanAdvisorName;
       hasCallbackPhoneField = optionalFieldSupport.loanAssistantCallbackPhone;
       hasNotificationEmailField = optionalFieldSupport.loanAssistantNotificationEmail;
+      hasLanguageField = optionalFieldSupport.loanAssistantLanguage;
       tenant = await withDatabaseRetry(() => prisma.tenant.findUnique({
         where: { id: tenantId },
         select: buildTenantSelect(),
@@ -237,6 +253,7 @@ export async function GET(request) {
           : DEFAULT_HUMAN_ADVISOR_NAME,
         loanAssistantCallbackPhone: hasCallbackPhoneField ? (tenant.loanAssistantCallbackPhone ?? null) : null,
         loanAssistantNotificationEmail: hasNotificationEmailField ? (tenant.loanAssistantNotificationEmail ?? null) : null,
+        loanAssistantLanguage: hasLanguageField ? (tenant.loanAssistantLanguage || 'hinglish') : 'hinglish',
         aiAgentName: tenant.aiAgentName,
         // Resolved company name - use loanAssistantCompanyName, fallback to tenantName
         resolvedCompanyName: tenant.loanAssistantCompanyName || tenant.name,
@@ -271,6 +288,8 @@ export async function GET(request) {
  *     loanAssistantCompanyName?: string
  *     loanAssistantHumanAdvisorName?: string
  *     loanAssistantCallbackPhone?: string
+ *     loanAssistantNotificationEmail?: string
+ *     loanAssistantLanguage?: string
  *     aiAgentName?: string
  *   }
  */
@@ -300,6 +319,7 @@ export async function PUT(request) {
       loanAssistantHumanAdvisorName,
       loanAssistantCallbackPhone,
       loanAssistantNotificationEmail,
+      loanAssistantLanguage,
       aiAgentName,
     } = body;
 
@@ -320,6 +340,13 @@ export async function PUT(request) {
     if (
       loanAssistantNotificationEmail !== undefined &&
       !optionalFieldSupport.loanAssistantNotificationEmail
+    ) {
+      await ensureOptionalFieldSupport(true);
+    }
+
+    if (
+      loanAssistantLanguage !== undefined &&
+      !optionalFieldSupport.loanAssistantLanguage
     ) {
       await ensureOptionalFieldSupport(true);
     }
@@ -354,11 +381,17 @@ export async function PUT(request) {
     if (aiAgentName !== undefined) {
       updateData.aiAgentName = aiAgentName;
     }
+    if (loanAssistantLanguage !== undefined) {
+      const lang = String(loanAssistantLanguage || 'hinglish').trim().toLowerCase();
+      const validLangs = ['english', 'hindi', 'hinglish'];
+      updateData.loanAssistantLanguage = validLangs.includes(lang) ? lang : 'hinglish';
+    }
 
     let updatedTenant;
     let hasHumanAdvisorField = optionalFieldSupport.loanAssistantHumanAdvisorName;
     let hasCallbackPhoneField = optionalFieldSupport.loanAssistantCallbackPhone;
     let hasNotificationEmailField = optionalFieldSupport.loanAssistantNotificationEmail;
+    let hasLanguageField = optionalFieldSupport.loanAssistantLanguage;
 
     pruneUnsupportedOptionalFields(updateData);
 
@@ -378,6 +411,7 @@ export async function PUT(request) {
       hasHumanAdvisorField = optionalFieldSupport.loanAssistantHumanAdvisorName;
       hasCallbackPhoneField = optionalFieldSupport.loanAssistantCallbackPhone;
       hasNotificationEmailField = optionalFieldSupport.loanAssistantNotificationEmail;
+      hasLanguageField = optionalFieldSupport.loanAssistantLanguage;
       const fallbackUpdateData = { ...updateData };
       pruneUnsupportedOptionalFields(fallbackUpdateData);
 
@@ -406,6 +440,7 @@ export async function PUT(request) {
           : DEFAULT_HUMAN_ADVISOR_NAME,
         loanAssistantCallbackPhone: hasCallbackPhoneField ? (updatedTenant.loanAssistantCallbackPhone ?? null) : null,
         loanAssistantNotificationEmail: hasNotificationEmailField ? (updatedTenant.loanAssistantNotificationEmail ?? null) : null,
+        loanAssistantLanguage: hasLanguageField ? (updatedTenant.loanAssistantLanguage || 'hinglish') : 'hinglish',
         aiAgentName: updatedTenant.aiAgentName,
         resolvedCompanyName: updatedTenant.loanAssistantCompanyName || updatedTenant.name,
       },

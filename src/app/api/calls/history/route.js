@@ -17,7 +17,7 @@ export async function GET(request) {
   const safeLimit = Number.isNaN(limit) || limit < 1 ? 15 : Math.min(limit, 50);
 
   try {
-    const tenant = getTenantContext(auth.session);
+    const tenant = getTenantContext(auth.session, request);
     const callLogs = await prisma.callLog.findMany({
       where: {
         tenantId: tenant.tenantId,

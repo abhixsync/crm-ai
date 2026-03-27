@@ -1,31 +1,16 @@
-const MEANINGFUL_VOICE_PATTERNS = [
-  /\b(yes|no|nahi|nah|haan|han|bilkul|sure|ok|okay|theek|thik|right|done|accha|acha|sahi)\b/i,
-  /\b(loan|business|personal|home|auto|car|amount|emi|interest|rate|eligibility|eligible|process|apply|application|document|documents|income|salary|salaried|employment|self employed|self-employed|business owner|credit|cibil|advisor|offer|profile|city)\b/i,
-  /\b(call back|callback|call later|later|tomorrow|today|week|month|asap|immediately|available|abhi|subah|shaam|jaldi|turant|fatafat|foran|jitni jaldi)\b/i,
-  /\b(please do|do that|do it|kar do|kardo|kara do|karado|karwa do|karwado|dila do|dilado|de do|dedo|bhej do|bhejdo|le lo|lelo|shuru karo|chalo|aage badho|chahiye|mangta|manga|zaroor|zaruri)\b/i,
-  /\b(bata do|batado|batao|bataye|batayiye|samjhao|samjhaiye|tell me|tell me more|details|detail|explain|repeat|repeating|already told|already asked|same question|max amount|maximum|kitna mil|kitna de sakte|how much can you provide|how much loan)\b/i,
-  // Devanagari script — any Hindi text from speech recognition is meaningful
-  /[\u0900-\u097F]/,
-];
-
+/**
+ * Accept every non-empty transcript from the browser speech recognizer.
+ * The LLM is responsible for understanding or asking for clarification —
+ * we should never silently drop customer speech on the client side.
+ */
 export function normalizeVoiceTranscript(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+  if (typeof value !== 'string') return '';
+  return value.trim().toLowerCase();
 }
 
 export function isMeaningfulVoiceTranscript(value) {
   const normalized = normalizeVoiceTranscript(value);
-  if (!normalized) {
-    return false;
-  }
-
-  if (/\d/.test(normalized)) {
-    return true;
-  }
-
-  return MEANINGFUL_VOICE_PATTERNS.some((pattern) => pattern.test(normalized));
+  return normalized.length > 0;
 }
 
 export function getRecognitionRestartDelayMs(consecutiveSilentCount) {
