@@ -262,9 +262,15 @@
   "hotPaths": [
     {
       "path": "src\\components\\shells\\modern\\modern-shell.css",
-      "accessCount": 27,
-      "lastAccessed": 1775323837446,
+      "accessCount": 37,
+      "lastAccessed": 1775325271279,
       "type": "directory"
+    },
+    {
+      "path": "src\\components\\modern\\billing-view.js",
+      "accessCount": 14,
+      "lastAccessed": 1775332605721,
+      "type": "file"
     },
     {
       "path": "docs\\superpowers\\specs\\2026-04-04-wrenforge-rebrand-design.md",
@@ -276,6 +282,12 @@
       "path": "src\\core\\theme\\system-defaults.ts",
       "accessCount": 6,
       "lastAccessed": 1775321564486,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\modern\\subscription-config-view.js",
+      "accessCount": 5,
+      "lastAccessed": 1775325282536,
       "type": "file"
     },
     {
@@ -408,6 +420,36 @@
       "path": ".superpowers\\brainstorm\\2363-1775323682\\light-theme-compare.html",
       "accessCount": 1,
       "lastAccessed": 1775323752150,
+      "type": "file"
+    },
+    {
+      "path": "src\\modules\\theme\\theme.service.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775324842128,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\modern\\settings-view.js",
+      "accessCount": 1,
+      "lastAccessed": 1775324850953,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\modern\\dashboard-view.js",
+      "accessCount": 1,
+      "lastAccessed": 1775324851097,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\modern\\customers-view.js",
+      "accessCount": 1,
+      "lastAccessed": 1775324851381,
+      "type": "file"
+    },
+    {
+      "path": ".superpowers\\brainstorm\\2363-1775323682\\light-mode-fixes.html",
+      "accessCount": 1,
+      "lastAccessed": 1775325018281,
       "type": "file"
     }
   ],

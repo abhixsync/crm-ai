@@ -131,7 +131,7 @@
   /* Cool dark text */
   --ms-text:      #0F172A;
   --ms-text2:     #64748B;
-  --ms-text3:     #94A3B8;
+  --ms-text3:     #6B7280;
   /* Electric blue accent */
   --ms-accent:    #2563EB;
   --ms-accent2:   #1D4ED8;
@@ -191,6 +191,16 @@
 [data-ui-theme="light"] .ms-input:focus {
   border-color: #2563EB;
   box-shadow: 0 0 0 2px rgba(37,99,235,.15);
+}
+[data-ui-theme="light"] .ms-btn-danger {
+  color: #DC2626; background: rgba(220,38,38,.08); border-color: transparent;
+}
+[data-ui-theme="light"] .ms-btn-danger:hover { background: #DC2626; color: #fff; }
+[data-ui-theme="light"] .ms-btn-danger-ghost { color: #DC2626; }
+[data-ui-theme="light"] .ms-btn-danger-ghost:hover { background: rgba(220,38,38,.10); color: #DC2626; }
+[data-ui-theme="light"] .ms-btn-logout:hover { color: #DC2626; }
+[data-ui-theme="light"] .ms-card {
+  box-shadow: 0 1px 4px rgba(37,99,235,.06), 0 0 0 1px rgba(37,99,235,.06);
 }
 
 /* ═══════════════════ LAYOUT SHELL ═══════════════════ */
