@@ -24,20 +24,23 @@ export function getTenantContext(session, request = null) {
   let tenantId = session?.user?.tenantId || null;
   const isSuperAdmin = role === "SUPER_ADMIN";
 
-  // For super admin with no session tenant, read X-Tenant-ID header
+  // For SUPER_ADMIN with no session tenant: read X-Tenant-ID (tenant switcher)
   if (isSuperAdmin && !tenantId && request) {
-    const headerTenantId = request.headers?.get?.("X-Tenant-ID") || request.headers?.get?.("x-tenant-id");
-    if (headerTenantId) {
-      tenantId = headerTenantId;
-    }
+    const headerTenantId =
+      request.headers?.get?.("X-Tenant-ID") ||
+      request.headers?.get?.("x-tenant-id");
+    if (headerTenantId) tenantId = headerTenantId;
+  }
+
+  // For regular users: x-resolved-tenant-id is injected by middleware
+  if (!isSuperAdmin && !tenantId && request) {
+    const resolved = request.headers?.get?.("x-resolved-tenant-id");
+    if (resolved) tenantId = resolved;
   }
 
   if (!isSuperAdmin && !tenantId) {
     throw new Error("Tenant context missing for non-super admin user.");
   }
 
-  return {
-    tenantId,
-    isSuperAdmin,
-  };
+  return { tenantId, isSuperAdmin };
 }
