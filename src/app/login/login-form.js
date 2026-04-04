@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import "@/components/shells/modern/modern-shell.css";
 
-export default function LoginForm({ theme }) {
+export default function LoginForm({ theme, tenantId, tenantSlug }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [identifier, setIdentifier] = useState("");
@@ -22,6 +22,11 @@ export default function LoginForm({ theme }) {
     if (verified === "success") toast.success("Email verified! You can now sign in.");
     else if (verified === "invalid") toast.error("Verification link is invalid or expired.");
     else if (verified === "already") toast.info("Email already verified — please sign in.");
+
+    const welcome = searchParams.get("welcome");
+    if (welcome === "1") {
+      toast.success(`Workspace ready! Bookmark this URL: ${window.location.origin}`);
+    }
   }, [searchParams]);
 
   async function onSubmit(event) {
@@ -31,11 +36,15 @@ export default function LoginForm({ theme }) {
     const result = await signIn("credentials", {
       email: identifier,
       password,
+      tenantId: tenantId || "",
       redirect: false,
     });
 
     if (result?.error) {
-      toast.error("Invalid username/email or password");
+      const msg = result.error === "ACCESS_DENIED_TENANT"
+        ? "You don't have access to this workspace."
+        : "Invalid username/email or password";
+      toast.error(msg);
       setLoading(false);
       return;
     }
@@ -83,12 +92,14 @@ export default function LoginForm({ theme }) {
               {loading ? "Signing in…" : "Sign In"}
             </button>
           </form>
-          <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--text-muted, #706C78)" }}>
-            Don&apos;t have an account?{" "}
-            <Link href="/register" style={{ color: "var(--ms-accent)", textDecoration: "none" }}>
-              Start free trial
-            </Link>
-          </div>
+          {!tenantId && (
+            <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--text-muted, #706C78)" }}>
+              Don&apos;t have an account?{" "}
+              <Link href="/register" style={{ color: "var(--ms-accent)", textDecoration: "none" }}>
+                Start free trial
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     );
