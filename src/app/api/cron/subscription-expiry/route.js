@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { runSubscriptionExpiryCron } from "@/lib/subscription/trial-cron";
+import { verifyDomainCname } from "@/lib/tenant/domain";
+import { prisma } from "@/lib/prisma";
 
 /**
  * POST /api/cron/subscription-expiry
@@ -15,6 +17,23 @@ export async function POST(req) {
 
   try {
     const result = await runSubscriptionExpiryCron();
+
+    // ─── Domain verification sweep ───────────────────────────────────────────
+    try {
+      const unverified = await prisma.tenant.findMany({
+        where: { customDomain: { not: null }, customDomainVerified: false },
+        select: { id: true, customDomain: true },
+      });
+      for (const t of unverified) {
+        const ok = await verifyDomainCname(t.customDomain);
+        if (ok) {
+          await prisma.tenant.update({ where: { id: t.id }, data: { customDomainVerified: true } });
+        }
+      }
+    } catch (e) {
+      console.error("Domain verification sweep error:", e);
+    }
+
     return NextResponse.json({ ok: true, result });
   } catch (err) {
     console.error("[/api/cron/subscription-expiry]", err);
