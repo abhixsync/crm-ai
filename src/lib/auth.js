@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 
 export const authOptions = {
+  trustHost: true,
   session: {
     strategy: "jwt",
   },
@@ -15,6 +16,7 @@ export const authOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        tenantId: { label: "Tenant", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -48,6 +50,14 @@ export const authOptions = {
 
         if (user.isSuspended) {
           throw new Error("SUSPENDED");
+        }
+
+        // ─── Tenant lock ───────────────────────────────────────────────────────
+        if (user.role !== "SUPER_ADMIN") {
+          const tenantId = credentials.tenantId || null;
+          if (!tenantId || user.tenantId !== tenantId) {
+            throw new Error("ACCESS_DENIED_TENANT");
+          }
         }
 
         return {
