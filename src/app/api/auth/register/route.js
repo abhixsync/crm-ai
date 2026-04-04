@@ -3,23 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createTrialSubscription } from "@/lib/subscription/subscription-service";
 import { sendEmail, buildVerificationEmail, buildTrialWelcomeEmail } from "@/lib/email/mailer";
-
-function slugify(name) {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50);
-}
-
-async function ensureUniqueSlug(base) {
-  let slug = base;
-  let i = 2;
-  while (await prisma.tenant.findUnique({ where: { slug } })) {
-    slug = `${base}-${i++}`;
-  }
-  return slug;
-}
+import { slugify, isReservedSlug, ensureUniqueSlug } from "@/lib/tenant/slug";
 
 export async function POST(request) {
   try {
@@ -50,8 +34,9 @@ export async function POST(request) {
     }
 
     // ─── Create tenant ────────────────────────────────────
-    const baseSlug = slugify(company) || slugify(name);
-    const slug = await ensureUniqueSlug(baseSlug);
+    const base = slugify(company);
+    const safeBase = isReservedSlug(base) ? `${base}-crm` : base;
+    const slug = await ensureUniqueSlug(prisma, safeBase);
 
     const tenant = await prisma.tenant.create({
       data: { name: company, slug, isActive: true },
@@ -84,16 +69,7 @@ export async function POST(request) {
       console.error("[register] Failed to send verification email:", err?.message)
     );
 
-    return Response.json(
-      {
-        ok: true,
-        message: "Account created. Please check your email to verify your address.",
-        userId:   user.id,
-        tenantId: tenant.id,
-        trialEndsAt: subscription.trialEndsAt,
-      },
-      { status: 201 }
-    );
+    return Response.json({ message: "Account created. Please verify your email.", slug }, { status: 201 });
   } catch (err) {
     console.error("[api/auth/register]", err);
     return Response.json({ error: "Registration failed. Please try again." }, { status: 500 });
