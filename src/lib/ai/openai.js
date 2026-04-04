@@ -4,12 +4,12 @@ const hasOpenAI = Boolean(process.env.OPENAI_API_KEY);
 const client = hasOpenAI ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
 function fallbackScript(customer) {
-  const amount = customer.loanAmount ? `for around ₹${customer.loanAmount}` : "";
-  const loanType = customer.loanType ? `${customer.loanType} loan` : "loan";
+  const amountPart = customer.loanAmount ? ` for around ₹${customer.loanAmount}` : "";
+  const loanPart = customer.loanType ? `${customer.loanType} loan` : "loan";
 
   return [
     `Hello ${customer.firstName}, this is the loan assistance desk.`,
-    `We are reaching out regarding your interest in a ${loanType} ${amount}.`,
+    `We are reaching out regarding your interest in a ${loanPart}${amountPart}.`,
     "Are you currently looking to apply this week?",
     "Could you confirm your monthly income range and preferred EMI?",
     "Would you like a call from our loan officer today?",
@@ -62,11 +62,18 @@ export async function summarizeCallTranscript(transcript) {
   }
 }
 
-export function generateInitialCallPrompt(customer) {
-  const amount = customer.loanAmount ? `for around ₹${customer.loanAmount}` : "";
-  const loanType = customer.loanType ? `${customer.loanType} loan` : "loan";
+export function generateInitialCallPrompt(customer, { language = "hinglish", companyName = "Loan Enterprise CRM" } = {}) {
+  const amountPart = customer.loanAmount ? ` for around ₹${customer.loanAmount}` : "";
+  const loanPart = customer.loanType ? `${customer.loanType} loan` : "loan";
+  const firstName = customer.firstName || "";
 
-  return `Hello ${customer.firstName}, this is from Loan Enterprise CRM. I am calling about your ${loanType} enquiry ${amount}. Are you available for a quick 2 minute verification?`;
+  const greetings = {
+    english: `Hello ${firstName}, this is from ${companyName}. I am calling about your ${loanPart} enquiry${amountPart}. Are you available for a quick 2 minute verification?`,
+    hindi: `Namaste ${firstName} ji, main ${companyName} se bol rahi hoon. Aapki ${loanPart} enquiry${amountPart} ke baare mein call kar rahi hoon. Kya aap 2 minute baat kar sakte hain?`,
+    hinglish: `Hello ${firstName} ji, main ${companyName} se call kar rahi hoon. Aapki ${loanPart} enquiry${amountPart} ke regarding baat karni thi. Kya aap 2 minute available hain?`,
+  };
+
+  return greetings[language] || greetings.english;
 }
 
 export async function generateConversationalReply({ customer, transcript, turn }) {

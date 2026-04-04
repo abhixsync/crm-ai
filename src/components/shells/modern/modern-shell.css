@@ -75,11 +75,11 @@
   --ms-text:      #ECEAE8;
   --ms-text2:     #7E7B84;
   --ms-text3:     #46434E;
-  /* Vivid teal accent */
-  --ms-accent:    #1DE9A8;
-  --ms-accent2:   #17C98E;
-  --ms-accent-dim:#0B2D21;
-  --ms-accent-txt:#4EDBA8;
+  /* Electric blue accent */
+  --ms-accent:    #60A5FA;
+  --ms-accent2:   #3B82F6;
+  --ms-accent-dim:#1E3A5F;
+  --ms-accent-txt:#93C5FD;
   --ms-red:       #F25757;
   --ms-red-dim:   #2D1014;
   --ms-amber:     #F5A623;
@@ -103,14 +103,14 @@
   background: linear-gradient(90deg, #110F17 0%, #100E1C 100%);
 }
 [data-ui-theme="dark"] .ms-brand-mark {
-  box-shadow: 0 0 16px rgba(29,233,168,.35);
+  box-shadow: 0 0 16px rgba(37,99,235,.35);
 }
 [data-ui-theme="dark"] .ms-nav-btn.active {
-  background: rgba(29,233,168,.12);
-  color: #1DE9A8;
+  background: rgba(37,99,235,.12);
+  color: #60A5FA;
 }
 [data-ui-theme="dark"] .ms-nav-btn.active:hover {
-  background: rgba(29,233,168,.16);
+  background: rgba(37,99,235,.16);
 }
 [data-ui-theme="dark"] .ms-nav-btn:hover {
   background: rgba(200,190,255,.06);
@@ -118,25 +118,25 @@
 }
 
 [data-ui-theme="light"] {
-  /* Warm cream */
-  --ms-bg:        #F2EFE9;
-  --ms-bg2:       #E9E5DE;
-  --ms-bg3:       #DDD9D1;
-  --ms-bg4:       #D0CCC3;
-  --ms-surface:   #FDFCF9;
-  /* Warm brown-tinted borders */
-  --ms-border:    rgba(55,45,30,.09);
-  --ms-border2:   rgba(55,45,30,.16);
-  --ms-border3:   rgba(55,45,30,.28);
-  /* Dark warm text */
-  --ms-text:      #1A1714;
-  --ms-text2:     #6B6560;
-  --ms-text3:     #B0A99F;
-  /* Richer emerald */
-  --ms-accent:    #059669;
-  --ms-accent2:   #047857;
-  --ms-accent-dim:#C6F0DF;
-  --ms-accent-txt:#065F46;
+  /* Cool blue-white */
+  --ms-bg:        #F0F4FF;
+  --ms-bg2:       #E8EEFB;
+  --ms-bg3:       #DDE6F5;
+  --ms-bg4:       #CDD9EE;
+  --ms-surface:   #FFFFFF;
+  /* Blue-tinted borders */
+  --ms-border:    rgba(37,99,235,.08);
+  --ms-border2:   rgba(37,99,235,.14);
+  --ms-border3:   rgba(37,99,235,.24);
+  /* Cool dark text */
+  --ms-text:      #0F172A;
+  --ms-text2:     #64748B;
+  --ms-text3:     #94A3B8;
+  /* Electric blue accent */
+  --ms-accent:    #2563EB;
+  --ms-accent2:   #1D4ED8;
+  --ms-accent-dim:#DBEAFE;
+  --ms-accent-txt:#1E40AF;
   --ms-red:       #DC2626;
   --ms-red-dim:   #FECACA;
   --ms-amber:     #D97706;
@@ -154,24 +154,24 @@
 }
 
 [data-ui-theme="light"] .ms-sb {
-  background: #EAE6DF;
-  border-right: 1px solid rgba(55,45,30,.12);
+  background: #FFFFFF;
+  border-right: 1px solid rgba(37,99,235,.10);
 }
 [data-ui-theme="light"] .ms-topbar {
-  background: #EAE6DF;
-  border-bottom: 1px solid rgba(55,45,30,.12);
+  background: #FFFFFF;
+  border-bottom: 1px solid rgba(37,99,235,.10);
 }
 [data-ui-theme="light"] .ms-nav-btn.active {
-  background: #D4EEE3;
-  color: #065F46;
+  background: #EEF2FF;
+  color: #1E40AF;
 }
 [data-ui-theme="light"] .ms-nav-btn:hover {
-  background: #DDD9D2;
+  background: #F0F4FF;
   color: var(--ms-text);
 }
 [data-ui-theme="light"] .ms-tbl th,
 [data-ui-theme="light"] .ms-cust-cols {
-  background: #EDE9E2;
+  background: #EEF2FF;
 }
 [data-ui-theme="light"] .ms-shell input,
 [data-ui-theme="light"] .ms-shell select,
@@ -182,15 +182,15 @@
 [data-ui-theme="light"] .ms-srch,
 [data-ui-theme="light"] .ms-login-input {
   background: #FFFFFF;
-  border-color: rgba(55,45,30,.22);
+  border-color: rgba(37,99,235,.18);
 }
 [data-ui-theme="light"] .ms-shell input:focus,
 [data-ui-theme="light"] .ms-shell select:focus,
 [data-ui-theme="light"] .ms-shell textarea:focus,
 [data-ui-theme="light"] .ms-field-inp:focus,
 [data-ui-theme="light"] .ms-input:focus {
-  border-color: #059669;
-  box-shadow: 0 0 0 2px rgba(5,150,105,.15);
+  border-color: #2563EB;
+  box-shadow: 0 0 0 2px rgba(37,99,235,.15);
 }
 
 /* ═══════════════════ LAYOUT SHELL ═══════════════════ */
@@ -225,7 +225,7 @@
 .ms-shell select:focus,
 .ms-shell textarea:focus {
   border-color: var(--ms-accent);
-  box-shadow: 0 0 0 2px rgba(29,233,168,.15);
+  box-shadow: 0 0 0 2px rgba(37,99,235,.15);
   outline: none;
 }
 .ms-shell button {
@@ -349,7 +349,7 @@
 }
 .ms-input:focus, .ms-select:focus {
   border-color: var(--ms-accent);
-  box-shadow: 0 0 0 2px rgba(29,233,168,.15);
+  box-shadow: 0 0 0 2px rgba(37,99,235,.15);
 }
 .ms-input::placeholder { color: var(--ms-text3); }
 .ms-select { cursor: pointer; appearance: none; }
@@ -472,7 +472,7 @@
   display: inline-block; padding: 3px 8px; border-radius: 6px;
   font-size: 10px; font-weight: 600; white-space: nowrap; letter-spacing: .02em;
 }
-.ms-bdg-success { background: rgba(29,233,168,.12); color: var(--ms-accent-txt); }
+.ms-bdg-success { background: rgba(37,99,235,.12); color: var(--ms-accent-txt); }
 .ms-bdg-danger  { background: rgba(242,88,88,.12);  color: var(--ms-red); }
 .ms-bdg-warning { background: rgba(245,166,35,.15); color: var(--ms-amber); }
 .ms-bdg-info    { background: rgba(79,156,249,.15); color: var(--ms-blue); }
@@ -775,9 +775,15 @@ select.ms-field-inp { cursor: pointer; }
 }
 .ms-login-btn:hover { opacity: .88; }
 .ms-login-btn:disabled { opacity: .5; cursor: wait; }
-/* When login has a background image, make the card slightly translucent */
+/* Split-panel login: push card to the right half, keep it solid */
+@media (min-width: 768px) {
+  .ms-login[style*="background-image"] {
+    justify-content: flex-end;
+    padding-right: calc(25% - 190px);
+  }
+}
 .ms-login[style*="background-image"] .ms-login-card {
-  background: color-mix(in srgb, var(--ms-surface) 88%, transparent);
+  background: var(--ms-surface);
 }
 
 /* ═══════════════════ RESPONSIVE — MUST BE LAST ═══════════════════ */

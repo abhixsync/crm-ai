@@ -1,0 +1,38 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg11" x1="12" y1="8" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3478F6"/>
+      <stop offset="48%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1B4BC8"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg11)"/>
+
+  <!-- Heraldic shield (filled white, semi-opaque) -->
+  <path d="M 60 12 L 102 28 L 102 62 C 102 84, 84 100, 60 110 C 36 100, 18 84, 18 62 L 18 28 Z"
+        fill="white" opacity="0.12"/>
+  <path d="M 60 12 L 102 28 L 102 62 C 102 84, 84 100, 60 110 C 36 100, 18 84, 18 62 L 18 28 Z"
+        fill="none" stroke="white" stroke-width="2" stroke-linejoin="round" opacity="0.8"/>
+
+  <!-- Solid wren silhouette (heraldic style) - filled -->
+  <g fill="white">
+    <!-- Body -->
+    <ellipse cx="60" cy="60" rx="13" ry="9" transform="rotate(-15, 60, 60)"/>
+    <!-- Head -->
+    <circle cx="73" cy="48" r="8.5"/>
+    <!-- Neck fill -->
+    <ellipse cx="67" cy="53" rx="7" ry="6" transform="rotate(-25, 67, 53)"/>
+    <!-- Beak -->
+    <path d="M 79 45 L 91 40 L 79 51 Z"/>
+    <!-- Tail cocked up (heraldic style) -->
+    <path d="M 44 64 C 36 54, 26 40, 22 32 C 20 28, 22 25, 25 27 C 30 36, 40 52, 46 62 Z"/>
+    <!-- Wing sweep -->
+    <path d="M 52 58 C 42 48, 32 36, 26 30 C 24 28, 25 26, 27 28 C 33 36, 44 50, 50 60 Z"/>
+    <!-- Feet -->
+    <line x1="56" y1="68" x2="54" y2="75" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="62" y1="68" x2="64" y2="75" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <!-- Eye -->
+  <circle cx="75" cy="47" r="2" fill="#1B4BC8"/>
+  <circle cx="75.5" cy="46.5" r="0.7" fill="white"/>
+</svg>

@@ -1,0 +1,41 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg27" x1="12" y1="8" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3478F6"/>
+      <stop offset="48%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1B4BC8"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg27)"/>
+
+  <!-- Clever concept: the anvil horn IS the wren's beak/head -->
+  <!-- Anvil drawn large, facing right, horn points right as the "beak" -->
+
+  <g fill="white" opacity="0.90">
+    <!-- Anvil top face (horizontal slab) -->
+    <path d="M 24 56 L 88 56 L 92 50 L 20 50 Z"/>
+    <!-- Anvil horn extends right = forms the wren's beak/head -->
+    <path d="M 88 56 L 88 50 L 104 48 C 108 47, 109 50, 107 52 C 104 54, 96 54, 88 56 Z"/>
+    <!-- Wren head merging with horn -->
+    <circle cx="96" cy="44" r="9"/>
+    <!-- Beak tip (the very end of the anvil horn) -->
+    <path d="M 108 50 L 116 47 L 108 53 Z"/>
+
+    <!-- Anvil body -->
+    <rect x="30" y="56" width="52" height="9" rx="1"/>
+    <!-- Anvil base taper -->
+    <path d="M 26 65 L 86 65 L 82 78 L 30 78 Z"/>
+    <!-- Anvil foot -->
+    <rect x="24" y="78" width="64" height="6" rx="3"/>
+
+    <!-- Wren body (above anvil, the bird sits atop) -->
+    <ellipse cx="50" cy="42" rx="11" ry="7" transform="rotate(-5, 50, 42)"/>
+    <!-- Wren wing sweep -->
+    <path d="M 42 38 C 34 28, 24 18, 16 12 C 14 11, 13 13, 15 15 C 22 24, 32 34, 40 42 Z"/>
+    <!-- Wren tail up -->
+    <path d="M 36 44 C 28 36, 18 24, 14 16 C 12 12, 14 10, 16 12 C 22 22, 32 36, 38 46 Z"/>
+  </g>
+  <!-- Eye on wren head (at the anvil horn area) -->
+  <circle cx="98" cy="43" r="2.2" fill="#1B4BC8"/>
+  <circle cx="98.5" cy="42.5" r="0.9" fill="white"/>
+</svg>

@@ -1,0 +1,41 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg4" x1="12" y1="8" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3478F6"/>
+      <stop offset="48%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1B4BC8"/>
+    </linearGradient>
+    <radialGradient id="hi4" cx="0.3" cy="0.22" r="0.7">
+      <stop offset="0%" stop-color="#93C5FD" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg4)"/>
+  <rect width="120" height="120" rx="26" fill="url(#hi4)"/>
+
+  <!-- Outer circle frame -->
+  <circle cx="60" cy="60" r="44" stroke="white" stroke-width="2" fill="none"/>
+  <!-- Inner circle accent -->
+  <circle cx="60" cy="60" r="40" stroke="white" stroke-width="0.5" opacity="0.3" fill="none"/>
+
+  <!-- Wren bird — clean silhouette inside circle -->
+  <g fill="white">
+    <!-- Left wing -->
+    <path d="M 48 54 C 40 44, 30 34, 24 30 C 22 30, 22 32, 24 34 C 30 42, 40 52, 46 58 Z"/>
+    <!-- Right wing -->
+    <path d="M 66 50 C 72 42, 82 32, 88 28 C 90 28, 90 30, 88 32 C 82 40, 72 50, 66 56 Z"/>
+    <!-- Body -->
+    <ellipse cx="57" cy="58" rx="12" ry="8" transform="rotate(-16, 57, 58)"/>
+    <!-- Neck -->
+    <ellipse cx="65" cy="50" rx="7" ry="5" transform="rotate(-26, 65, 50)"/>
+    <!-- Head -->
+    <circle cx="73" cy="44" r="7.5"/>
+    <!-- Beak -->
+    <path d="M 79 41 L 90 37 L 79 45 Z"/>
+    <!-- Tail cocked up -->
+    <path d="M 42 60 C 36 54, 28 44, 26 38 C 24 34, 26 32, 28 34 C 32 42, 40 54, 44 58 Z"/>
+    <path d="M 40 64 C 34 60, 26 50, 22 44 C 20 40, 22 38, 24 40 C 28 48, 38 58, 42 62 Z"/>
+  </g>
+  <circle cx="75" cy="43" r="1.5" fill="#1B4BC8"/>
+  <circle cx="76" cy="42" r="0.5" fill="white"/>
+</svg>

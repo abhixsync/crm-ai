@@ -1,0 +1,50 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg35" x1="12" y1="8" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3478F6"/>
+      <stop offset="48%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1B4BC8"/>
+    </linearGradient>
+    <linearGradient id="wing35" x1="10" y1="40" x2="110" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="white" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="white" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg35)"/>
+
+  <!-- The letter W IS the two wings -->
+  <!-- W = left wing down-up + right wing down-up -->
+  <!-- Left wing (forms left half of W) -->
+  <path d="M 10 30 C 14 38, 18 52, 22 62 C 26 72, 32 76, 36 70 C 40 64, 42 52, 46 46 C 50 40, 54 42, 60 52"
+        stroke="url(#wing35)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
+        fill="none"/>
+  <!-- Right wing (forms right half of W) -->
+  <path d="M 110 30 C 106 38, 102 52, 98 62 C 94 72, 88 76, 84 70 C 80 64, 78 52, 74 46 C 70 40, 66 42, 60 52"
+        stroke="url(#wing35)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
+        fill="none"/>
+
+  <!-- Feather detail strokes -->
+  <g stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4">
+    <path d="M 14 34 C 10 28, 8 22, 10 16"/>
+    <path d="M 18 42 C 12 36, 10 28, 12 20"/>
+    <path d="M 106 34 C 110 28, 112 22, 110 16"/>
+    <path d="M 102 42 C 108 36, 110 28, 108 20"/>
+  </g>
+
+  <!-- Small wren body/head at center (W peak) -->
+  <circle cx="60" cy="58" r="7" fill="white" opacity="0.95"/>
+  <!-- Head -->
+  <circle cx="60" cy="48" r="5.5" fill="white" opacity="0.95"/>
+  <!-- Beak -->
+  <path d="M 64 46 L 72 42 L 64 52 Z" fill="white"/>
+  <!-- Eye -->
+  <circle cx="62" cy="47" r="1.6" fill="#1B4BC8"/>
+
+  <!-- Tail (upward, emerging from body center) -->
+  <path d="M 54 62 C 48 58, 44 50, 42 44" stroke="white" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.85"/>
+
+  <!-- WF lettermark below -->
+  <text x="60" y="100" font-family="sans-serif" font-size="11" font-weight="700" fill="white" opacity="0.7"
+        text-anchor="middle" letter-spacing="4">WRENFORGE</text>
+</svg>

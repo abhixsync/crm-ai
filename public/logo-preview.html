@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WrenForge — Logo Concepts</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0B0A0F; color: #e2e8f0; font-family: system-ui, sans-serif; padding: 40px 24px; }
+  h1 { text-align: center; font-size: 28px; color: #1DE9A8; margin-bottom: 8px; letter-spacing: -0.5px; }
+  p.sub { text-align: center; color: #6b7280; margin-bottom: 40px; font-size: 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .card {
+    background: #16131E;
+    border: 1px solid #2a2438;
+    border-radius: 12px;
+    padding: 24px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .card:hover { border-color: #1DE9A8; transform: translateY(-2px); }
+  .card.selected { border-color: #1DE9A8; background: #0e1f1a; }
+  .card img { width: 120px; height: 120px; object-fit: contain; }
+  .num { font-size: 11px; color: #4b5563; font-weight: 600; letter-spacing: 1px; }
+  .name { font-size: 12px; color: #9ca3af; text-align: center; line-height: 1.4; }
+
+  /* Dark/light toggle */
+  .controls { display: flex; justify-content: center; gap: 12px; margin-bottom: 32px; }
+  .btn { background: #1f1a2e; border: 1px solid #2a2438; color: #9ca3af; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+  .btn:hover, .btn.active { background: #1DE9A8; color: #0B0A0F; border-color: #1DE9A8; font-weight: 600; }
+
+  body.light { background: #F2EFE9; color: #1a1a1a; }
+  body.light .card { background: #fff; border-color: #e5e7eb; }
+  body.light .card:hover { border-color: #059669; }
+  body.light .card.selected { border-color: #059669; background: #f0fdf4; }
+  body.light .name { color: #6b7280; }
+  body.light h1 { color: #059669; }
+  body.light .btn { background: #fff; border-color: #d1d5db; color: #374151; }
+  body.light .btn:hover, body.light .btn.active { background: #059669; color: #fff; border-color: #059669; }
+</style>
+</head>
+<body>
+<h1>WrenForge — Logo Concepts</h1>
+<p class="sub">Click a card to select. Toggle background to preview on light/dark.</p>
+
+<div class="controls">
+  <button class="btn active" onclick="setTheme('dark', this)">Dark</button>
+  <button class="btn" onclick="setTheme('light', this)">Light</button>
+  <button class="btn" onclick="setTheme('white', this)">White</button>
+  <button class="btn" onclick="setTheme('black', this)">Black</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const logos = [
+  [1, "Shield Crest", "01-shield-crest.svg"],
+  [2, "Wren on Anvil", "02-wren-on-anvil.svg"],
+  [3, "Lowpoly Geometric", "03-lowpoly-geometric.svg"],
+  [4, "Circled Wren", "04-circled-wren.svg"],
+  [5, "Wing Spark", "05-wing-spark.svg"],
+  [6, "WF Monogram", "06-wf-monogram.svg"],
+  [7, "Wren Gear", "07-wren-gear.svg"],
+  [8, "Hex Tech", "08-hex-tech.svg"],
+  [9, "Flame Wren", "09-flame-wren.svg"],
+  [10, "Crown Wren", "10-crown-wren.svg"],
+  [11, "Shield Filled Wren", "11-shield-filled-wren.svg"],
+  [12, "Shield Crossed Hammers", "12-shield-crossed-hammers.svg"],
+  [13, "Shield Wren Flight", "13-shield-wren-flight.svg"],
+  [14, "Modern Pentagon Shield", "14-modern-pentagon-shield.svg"],
+  [15, "Shield Crown Wren", "15-shield-crown-wren.svg"],
+  [16, "Roundel Wren", "16-roundel-wren.svg"],
+  [17, "Shield Diagonal Stripe", "17-shield-diagonal-stripe.svg"],
+  [18, "Gothic Shield Banner", "18-gothic-shield-banner.svg"],
+  [19, "Shield Outline Solid Wren", "19-shield-outline-solid-wren.svg"],
+  [20, "Shield Flame Wren", "20-shield-flame-wren.svg"],
+  [21, "Flat Wren Anvil", "21-flat-wren-anvil.svg"],
+  [22, "Wren Flight over Anvil", "22-wren-flight-over-anvil.svg"],
+  [23, "Wren Hammer Beak", "23-wren-hammer-beak.svg"],
+  [24, "Wren Wings over Anvil", "24-wren-wings-over-anvil.svg"],
+  [25, "Wren Anvil Merged", "25-wren-anvil-merged.svg"],
+  [26, "Round Badge Anvil Wren", "26-round-badge-anvil-wren.svg"],
+  [27, "Anvil Horn Wren Beak", "27-anvil-horn-wren-beak.svg"],
+  [28, "Wren Landing Sparks", "28-wren-landing-sparks.svg"],
+  [29, "Isometric Anvil Wren", "29-isometric-anvil-wren.svg"],
+  [30, "Bold Wren on Anvil", "30-bold-wren-on-anvil.svg"],
+  [31, "Phoenix Wren", "31-phoenix-wren.svg"],
+  [32, "Circuit Wren", "32-circuit-wren.svg"],
+  [33, "Brushstroke Wren", "33-brushstroke-wren.svg"],
+  [34, "Geometric Wren Face", "34-geometric-wren-face.svg"],
+  [35, "W Wings", "35-w-wings.svg"],
+  [36, "Constellation Wren", "36-constellation-wren.svg"],
+  [37, "Wren Eye", "37-wren-eye.svg"],
+  [38, "Abstract Flow Wren", "38-abstract-flow-wren.svg"],
+  [39, "Wren Talon Mark", "39-wren-talon-mark.svg"],
+  [40, "Crystal Gem Wren", "40-crystal-gem-wren.svg"],
+  [41, "Soundwave Wren", "41-soundwave-wren.svg"],
+  [42, "Single Line Wren", "42-single-line-wren.svg"],
+  [43, "Neural Wren", "43-neural-wren.svg"],
+  [44, "Wax Seal Wren", "44-wax-seal-wren.svg"],
+  [45, "Lightbulb Wren", "45-lightbulb-wren.svg"],
+  [46, "Databars Wren", "46-databars-wren.svg"],
+  [47, "Split Duality Wren", "47-split-duality-wren.svg"],
+  [48, "Wren Arrow", "48-wren-arrow.svg"],
+  [49, "Negative Space Wren", "49-negative-space-wren.svg"],
+  [50, "Metal Plate Cutout", "50-metal-plate-cutout.svg"],
+  // ── Merged concepts (best of #2 + #21) ──
+  [51, "Forge A · Dark + Teal Sparks", "51-wren-forge-A.svg"],
+  [52, "Forge B · Dark + Teal Wren", "52-wren-forge-B.svg"],
+  [53, "Forge C · Light Flat", "53-wren-forge-C.svg"],
+];
+
+const grid = document.getElementById('grid');
+logos.forEach(([num, name, file]) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <span class="num">#${String(num).padStart(2,'0')}</span>
+    <img src="/theme/defaults/logo-concepts/${file}" alt="${name}" onerror="this.style.opacity=0.2">
+    <span class="name">${name}</span>
+  `;
+  card.onclick = () => card.classList.toggle('selected');
+  grid.appendChild(card);
+});
+
+function setTheme(theme, btn) {
+  document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.body.className = '';
+  if (theme === 'light') document.body.classList.add('light');
+  if (theme === 'white') document.body.style.background = '#fff';
+  if (theme === 'black') document.body.style.background = '#000';
+  if (theme === 'dark') document.body.style.background = '';
+  if (theme === 'light') document.body.style.background = '';
+}
+</script>
+</body>
+</html>

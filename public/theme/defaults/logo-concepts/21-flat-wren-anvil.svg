@@ -1,0 +1,42 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg21" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EFF6FF"/>
+      <stop offset="100%" stop-color="#DBEAFE"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg21)"/>
+
+  <!-- Flat/minimal anvil — dark blue, simple geometric shapes -->
+  <g fill="#1E40AF">
+    <!-- Anvil top surface -->
+    <rect x="28" y="68" width="64" height="10" rx="2"/>
+    <!-- Anvil horn (left) -->
+    <path d="M 28 68 L 14 64 C 12 63, 12 66, 14 67 L 28 78 Z"/>
+    <!-- Anvil body (trapezoid) -->
+    <path d="M 36 78 L 84 78 L 80 92 L 40 92 Z"/>
+    <!-- Anvil base -->
+    <rect x="32" y="92" width="56" height="6" rx="3"/>
+  </g>
+
+  <!-- Flat/minimal wren — clean silhouette, blue accent -->
+  <g fill="#2563EB">
+    <!-- Body -->
+    <ellipse cx="62" cy="53" rx="12" ry="7.5" transform="rotate(-8, 62, 53)"/>
+    <!-- Head -->
+    <circle cx="76" cy="43" r="8.5"/>
+    <!-- Neck -->
+    <ellipse cx="70" cy="47" rx="7" ry="5.5" transform="rotate(-18, 70, 47)"/>
+    <!-- Beak -->
+    <path d="M 82 40 L 93 36 L 82 48 Z"/>
+    <!-- Tail (cocked up, geometric) -->
+    <path d="M 48 57 L 40 40 L 50 56 Z"/>
+    <path d="M 46 59 L 36 44 L 47 58 Z" opacity="0.6"/>
+    <!-- Legs -->
+    <line x1="60" y1="60" x2="58" y2="68" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/>
+    <line x1="66" y1="60" x2="68" y2="68" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <!-- Eye -->
+  <circle cx="78" cy="42" r="2.2" fill="white"/>
+  <circle cx="78" cy="42" r="1" fill="#1E40AF"/>
+</svg>

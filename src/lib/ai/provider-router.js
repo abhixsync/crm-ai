@@ -55,72 +55,74 @@ async function resolveProviders() {
     return providers;
   }
 
-  // Fallback chain: Gemini (fast/cheap) → Groq (free) → Claude (free tier) → OpenAI
+  // Fallback chain: build from ALL available env-var keys
+  // Priority order: Gemini (fast/cheap) → Groq (free) → Claude → OpenAI
+  const implicitProviders = [];
+  let priority = 1;
+
   if (process.env.GOOGLE_AI_API_KEY) {
-    return [
-      {
-        id: "implicit-gemini",
-        name: "Implicit Gemini",
-        type: AiProviderType.GEMINI,
-        endpoint: null,
-        apiKey: process.env.GOOGLE_AI_API_KEY,
-        model: "gemini-2.0-flash",
-        priority: 1,
-        status: AiProviderStatus.ACTIVE,
-        timeoutMs: 12000,
-        metadata: null,
-      },
-    ];
+    implicitProviders.push({
+      id: "implicit-gemini",
+      name: "Implicit Gemini",
+      type: AiProviderType.GEMINI,
+      endpoint: null,
+      apiKey: process.env.GOOGLE_AI_API_KEY,
+      model: "gemini-2.0-flash",
+      priority: priority++,
+      status: AiProviderStatus.ACTIVE,
+      timeoutMs: 12000,
+      metadata: null,
+    });
   }
 
   if (process.env.GROQ_API_KEY) {
-    return [
-      {
-        id: "implicit-groq",
-        name: "Implicit Groq",
-        type: AiProviderType.GROQ,
-        endpoint: null,
-        apiKey: process.env.GROQ_API_KEY,
-        model: "llama-3.1-8b-instant",
-        priority: 1,
-        status: AiProviderStatus.ACTIVE,
-        timeoutMs: 12000,
-        metadata: null,
-      },
-    ];
+    implicitProviders.push({
+      id: "implicit-groq",
+      name: "Implicit Groq",
+      type: AiProviderType.GROQ,
+      endpoint: null,
+      apiKey: process.env.GROQ_API_KEY,
+      model: "llama-3.1-8b-instant",
+      priority: priority++,
+      status: AiProviderStatus.ACTIVE,
+      timeoutMs: 12000,
+      metadata: null,
+    });
   }
 
   if (process.env.ANTHROPIC_API_KEY) {
-    return [
-      {
-        id: "implicit-claude",
-        name: "Implicit Claude",
-        type: AiProviderType.CLAUDE,
-        endpoint: null,
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        model: "claude-3-5-sonnet-20241022",
-        priority: 1,
-        status: AiProviderStatus.ACTIVE,
-        timeoutMs: 12000,
-        metadata: null,
-      },
-    ];
+    implicitProviders.push({
+      id: "implicit-claude",
+      name: "Implicit Claude",
+      type: AiProviderType.CLAUDE,
+      endpoint: null,
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      model: "claude-3-5-sonnet-20241022",
+      priority: priority++,
+      status: AiProviderStatus.ACTIVE,
+      timeoutMs: 12000,
+      metadata: null,
+    });
   }
 
-  return [
-    {
+  if (process.env.OPENAI_API_KEY) {
+    implicitProviders.push({
       id: "implicit-openai",
       name: "Implicit OpenAI",
       type: AiProviderType.OPENAI,
       endpoint: null,
-      apiKey: process.env.OPENAI_API_KEY || "",
+      apiKey: process.env.OPENAI_API_KEY,
       model: "gpt-4.1-mini",
-      priority: 1,
+      priority: priority++,
       status: AiProviderStatus.ACTIVE,
       timeoutMs: 12000,
       metadata: null,
-    },
-  ];
+    });
+  }
+
+  // If no env vars are set, return empty array.
+  // runAIWithFailover handles this by throwing "No AI providers are available."
+  return implicitProviders;
 }
 
 export async function getProviderFailoverOrder() {

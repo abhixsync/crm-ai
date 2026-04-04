@@ -48,10 +48,11 @@ export async function POST(request) {
   }
 
   let callLog;
+  let demoCustomer;
 
   try {
     // Upsert a placeholder demo customer for this tenant so callLog has a valid customerId
-    const demoCustomer = await prisma.customer.upsert({
+    demoCustomer = await prisma.customer.upsert({
       where: { tenantId_phone: { tenantId, phone: "DEMO_PLACEHOLDER" } },
       update: {},
       create: {
@@ -93,12 +94,59 @@ export async function POST(request) {
     const script = aiOutput.result.script;
 
     const baseUrl = process.env.APP_BASE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const isPublicHttps = (() => {
+      try {
+        const parsed = new URL(baseUrl);
+        const host = parsed.hostname.toLowerCase();
+        if (parsed.protocol !== "https:") return false;
+        if (["localhost", "127.0.0.1", "0.0.0.0"].includes(host)) return false;
+        return true;
+      } catch { return false; }
+    })();
+
+    // Twilio conversational + status webhook URLs
+    const callbackUrl = isPublicHttps
+      ? `${baseUrl}/api/calls/webhook?customerId=${demoCustomer.id}&callLogId=${callLog.id}&turn=0`
+      : undefined;
+    const statusCallbackUrl = isPublicHttps ? `${baseUrl}/api/calls/status` : undefined;
+
+    // Vonage webhook URLs
+    const vonageAnswerUrl = `${baseUrl}/api/vonage/voice/answer?customerId=${demoCustomer.id}&callLogId=${callLog.id}`;
+    const vonageEventUrl = isPublicHttps ? `${baseUrl}/api/vonage/voice/events` : undefined;
+    const vonageFallbackUrl = `${baseUrl}/api/vonage/voice/fallback`;
+
+    // Plivo webhook URLs
+    const plivoAnswerUrl = `${baseUrl}/api/plivo/voice/answer?customerId=${demoCustomer.id}&callLogId=${callLog.id}`;
+    const plivoCallbackUrl = isPublicHttps
+      ? `${baseUrl}/api/plivo/voice/callback?customerId=${demoCustomer.id}&callLogId=${callLog.id}&turn=1`
+      : undefined;
+
+    // Exotel webhook URLs
+    const exotelAnswerUrl = `${baseUrl}/api/exotel/voice/answer?customerId=${demoCustomer.id}&callLogId=${callLog.id}`;
+    const exotelStatusUrl = isPublicHttps ? `${baseUrl}/api/exotel/voice/events` : undefined;
+
+    if (!isPublicHttps) {
+      logTelephony("warn", "api.calls.demo.callbacks_disabled", {
+        callLogId: callLog.id,
+        reason: "Local APP_BASE_URL is not a public HTTPS URL — conversational webhooks disabled",
+        baseUrl,
+      });
+    }
 
     const telephonyOutput = await initiateTelephonyCallWithFailover({
       to: phone.trim(),
       script,
       fromNumber: process.env.TWILIO_CALLER_ID || process.env.TWILIO_FROM_NUMBER || undefined,
       preferredProviderType: "TWILIO",
+      callbackUrl,
+      statusCallbackUrl,
+      vonageAnswerUrl,
+      vonageEventUrl,
+      vonageFallbackUrl,
+      plivoAnswerUrl,
+      plivoCallbackUrl,
+      exotelAnswerUrl,
+      exotelStatusUrl,
     });
 
     const call = telephonyOutput.result;

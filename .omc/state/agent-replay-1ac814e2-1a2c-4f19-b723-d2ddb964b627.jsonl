@@ -1,0 +1,8 @@
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"superpowers:brainstorming"}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"obsidian:obsidian-markdown"}
+{"t":0,"agent":"ab09d36","agent_type":"general-purpose","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ab09d36","agent_type":"general-purpose","event":"agent_stop","success":true,"duration_ms":34799}
+{"t":0,"agent":"ac9c475","agent_type":"general-purpose","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ac9c475","agent_type":"general-purpose","event":"agent_stop","success":true,"duration_ms":34676}
+{"t":0,"agent":"ad3e037","agent_type":"general-purpose","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ad3e037","agent_type":"general-purpose","event":"agent_stop","success":true,"duration_ms":35903}

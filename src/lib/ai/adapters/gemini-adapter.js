@@ -99,6 +99,8 @@ function fallbackTurnByLanguage(turn, languageSignal) {
   };
 }
 
+// Fallback heuristic: checks the AI's reply text (not customer input) for end-of-call signals
+// when the LLM response doesn't include a structured shouldEnd field.
 function inferShouldEnd(replyText) {
   const lower = String(replyText || "").toLowerCase();
   return (
@@ -148,7 +150,7 @@ async function invokeGeminiAI({ task, input, config }) {
     const customer = input.customer;
 
     if (!genAI) {
-      return { script: fallbackScript(customer) };
+      throw new Error("Gemini API key not configured");
     }
 
     const prompt = `You are a loan CRM voice assistant. Produce a concise call script (max 120 words) for this customer profile in conversational English. Include qualification questions and next-step ask. Customer: ${JSON.stringify(customer)}`;
@@ -161,7 +163,7 @@ async function invokeGeminiAI({ task, input, config }) {
       return { script: text || fallbackScript(customer) };
     } catch (error) {
       console.error("[gemini-adapter] CALL_SCRIPT error:", error.message);
-      return { script: fallbackScript(customer) };
+      throw error;
     }
   }
 
@@ -169,11 +171,7 @@ async function invokeGeminiAI({ task, input, config }) {
     const transcript = input.transcript || "";
 
     if (!genAI) {
-      return {
-        summary: "Call transcript captured. Manual review required.",
-        intent: "UNKNOWN",
-        nextAction: "Follow up by sales team.",
-      };
+      throw new Error("Gemini API key not configured");
     }
 
     const prompt = buildCallSummaryPrompt({
@@ -203,11 +201,7 @@ async function invokeGeminiAI({ task, input, config }) {
       };
     } catch (error) {
       console.error("[gemini-adapter] CALL_SUMMARY error:", error.message);
-      return {
-        summary: "Transcript processed.",
-        intent: "UNKNOWN",
-        nextAction: "Review manually.",
-      };
+      throw error;
     }
   }
 
@@ -221,8 +215,7 @@ async function invokeGeminiAI({ task, input, config }) {
     console.log("[gemini-adapter] CALL_TURN — latestCustomerMessage:", input.latestCustomerMessage);
 
     if (!genAI) {
-      console.warn("[gemini-adapter] No API client — returning fallback");
-      return fallbackTurnByLanguage(turn, languageSignal);
+      throw new Error("Gemini API key not configured");
     }
 
     const systemPrompt = await buildUnifiedCallTurnPrompt({
@@ -292,9 +285,7 @@ async function invokeGeminiAI({ task, input, config }) {
       };
     } catch (error) {
       console.error("[gemini-adapter] CALL_TURN error:", error.message);
-      return {
-        ...fallbackTurnByLanguage(turn, languageSignal),
-      };
+      throw error;
     }
   }
 

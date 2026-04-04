@@ -50,7 +50,7 @@ export const SYSTEM_THEME_DEFAULT = {
   logoUrl: "/theme/defaults/logo.svg",
   faviconUrl: "/theme/defaults/favicon.svg",
   loginBackgroundUrl: "/theme/defaults/login-background.svg",
-  applicationBackgroundUrl: null, // null → CSS gradient fallback (cleaner for in-app use)
+  applicationBackgroundUrl: "/theme/defaults/application-background.svg",
 
   // 🎨 Custom CSS
   customCss: null,

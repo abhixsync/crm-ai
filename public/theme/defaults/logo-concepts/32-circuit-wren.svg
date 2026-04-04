@@ -1,0 +1,63 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg32" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0C1A2E"/>
+      <stop offset="100%" stop-color="#0F2044"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg32)"/>
+
+  <!-- Circuit traces (background grid feel) -->
+  <g stroke="#1E40AF" stroke-width="0.8" opacity="0.4" fill="none">
+    <path d="M 10 80 L 30 80 L 30 100"/>
+    <path d="M 110 40 L 90 40 L 90 20"/>
+    <path d="M 20 30 L 20 50 L 10 50"/>
+    <path d="M 100 90 L 100 70 L 110 70"/>
+  </g>
+  <!-- Circuit nodes -->
+  <g fill="#2563EB" opacity="0.5">
+    <circle cx="30" cy="100" r="2"/>
+    <circle cx="90" cy="20" r="2"/>
+    <circle cx="10" cy="50" r="2"/>
+    <circle cx="110" cy="70" r="2"/>
+  </g>
+
+  <!-- Wren silhouette outline (the circuit lives inside) -->
+  <g stroke="#3B82F6" stroke-width="1.5" fill="none" opacity="0.9">
+    <!-- Head circle outline -->
+    <circle cx="74" cy="44" r="14"/>
+    <!-- Body outline -->
+    <ellipse cx="56" cy="64" rx="18" ry="12" transform="rotate(-14, 56, 64)"/>
+    <!-- Tail outline -->
+    <path d="M 36 70 C 26 58, 18 42, 14 30"/>
+    <!-- Beak -->
+    <path d="M 84 38 L 98 32 L 84 50"/>
+  </g>
+
+  <!-- Circuit traces inside the wren body -->
+  <g stroke="#60A5FA" stroke-width="1" fill="none" opacity="0.7">
+    <!-- Inside head -->
+    <path d="M 66 44 L 72 44 L 72 38 L 80 38"/>
+    <path d="M 72 44 L 72 50 L 78 50"/>
+    <path d="M 66 44 L 62 44 L 62 38"/>
+    <!-- Inside body -->
+    <path d="M 46 64 L 52 64 L 52 56 L 62 56"/>
+    <path d="M 52 64 L 52 72 L 60 72"/>
+    <path d="M 62 64 L 68 64 L 68 58"/>
+    <path d="M 44 68 L 44 62 L 38 62"/>
+  </g>
+  <!-- Circuit nodes (solder points) inside wren -->
+  <g fill="#60A5FA" opacity="0.9">
+    <circle cx="72" cy="38" r="2"/>
+    <circle cx="78" cy="50" r="2"/>
+    <circle cx="62" cy="38" r="2"/>
+    <circle cx="62" cy="56" r="2"/>
+    <circle cx="60" cy="72" r="2"/>
+    <circle cx="68" cy="58" r="2"/>
+    <circle cx="38" cy="62" r="2"/>
+    <circle cx="72" cy="44" r="2.5" fill="#93C5FD"/>
+  </g>
+  <!-- Wren eye (lit LED style) -->
+  <circle cx="74" cy="44" r="3.5" fill="#2563EB" stroke="#60A5FA" stroke-width="1.5"/>
+  <circle cx="74" cy="44" r="1.5" fill="#BFDBFE"/>
+</svg>

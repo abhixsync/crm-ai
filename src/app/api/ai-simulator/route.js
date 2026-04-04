@@ -67,20 +67,29 @@ export async function POST(request) {
       : transcript;
 
     // Run through the same AI pipeline as the webhook
-    const aiOutput = await runAIWithFailover({
-      task: "CALL_TURN",
-      payload: {
-        customer,
-        transcript: updatedTranscript,
-        turn,
-        latestCustomerMessage: message || "",
-        context: {
-          conversationStage: stage,
-          extractedData: existingExtracted,
-          previousCallSummary: sessionState.previousCallSummary || undefined,
+    let aiOutput;
+    try {
+      aiOutput = await runAIWithFailover({
+        task: "CALL_TURN",
+        payload: {
+          customer,
+          transcript: updatedTranscript,
+          turn,
+          latestCustomerMessage: message || "",
+          context: {
+            conversationStage: stage,
+            extractedData: existingExtracted,
+            previousCallSummary: sessionState.previousCallSummary || undefined,
+          },
         },
-      },
-    });
+      });
+    } catch (aiError) {
+      console.error("[ai-simulator] AI provider failed:", aiError.message);
+      return Response.json({
+        error: "All AI providers failed. Please configure at least one AI provider (Gemini, OpenAI, Claude, or Groq) in AI Config or set the corresponding API key environment variable.",
+        details: aiError.message,
+      }, { status: 503 });
+    }
 
     const aiTurn = aiOutput.result;
     const finalTranscript = `${updatedTranscript}\nAgent: ${aiTurn.reply}`.trim();

@@ -85,7 +85,7 @@ export default function LoginForm({ theme }) {
           </form>
           <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--text-muted, #706C78)" }}>
             Don&apos;t have an account?{" "}
-            <Link href="/register" style={{ color: "var(--accent, #1DE9A8)", textDecoration: "none" }}>
+            <Link href="/register" style={{ color: "var(--ms-accent)", textDecoration: "none" }}>
               Start free trial
             </Link>
           </div>

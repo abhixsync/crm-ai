@@ -1,0 +1,54 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg46" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <!-- Each bar gets its own gradient for depth -->
+    <linearGradient id="bar46a" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#93C5FD"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="bar46b" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg46)"/>
+
+  <!-- Data bars forming a wren silhouette profile (bird facing right) -->
+  <!-- The bars' tops trace the wren outline: tail (up-left), back, head, beak -->
+  <!-- Bars are vertical, anchored to baseline at y=100 -->
+  <!-- Bar heights trace the bird's top silhouette -->
+
+  <!-- Baseline -->
+  <line x1="10" y1="100" x2="110" y2="100" stroke="#1E3A8A" stroke-width="1" opacity="0.5"/>
+
+  <!-- Bar columns, x positions left to right, heights reflect bird silhouette -->
+  <!-- Tail tip: very tall (top of cocked tail) -->
+  <rect x="10" y="24" width="7" height="76" rx="1.5" fill="url(#bar46a)" opacity="0.9"/>
+  <!-- Tail descends -->
+  <rect x="19" y="32" width="7" height="68" rx="1.5" fill="url(#bar46b)" opacity="0.88"/>
+  <rect x="28" y="42" width="7" height="58" rx="1.5" fill="url(#bar46a)" opacity="0.86"/>
+  <!-- Lower back / body -->
+  <rect x="37" y="56" width="7" height="44" rx="1.5" fill="url(#bar46b)" opacity="0.84"/>
+  <rect x="46" y="50" width="7" height="50" rx="1.5" fill="url(#bar46a)" opacity="0.85"/>
+  <!-- Body top -->
+  <rect x="55" y="46" width="7" height="54" rx="1.5" fill="url(#bar46b)" opacity="0.87"/>
+  <!-- Neck curve upward -->
+  <rect x="64" y="36" width="7" height="64" rx="1.5" fill="url(#bar46a)" opacity="0.9"/>
+  <!-- Head (tallest cluster) -->
+  <rect x="73" y="20" width="7" height="80" rx="1.5" fill="url(#bar46b)" opacity="0.95"/>
+  <rect x="82" y="16" width="7" height="84" rx="1.5" fill="url(#bar46a)"/>
+  <!-- Head top descend to beak -->
+  <rect x="91" y="26" width="7" height="74" rx="1.5" fill="url(#bar46b)" opacity="0.9"/>
+  <!-- Beak (drops sharply) -->
+  <rect x="100" y="46" width="7" height="54" rx="1.5" fill="url(#bar46a)" opacity="0.7"/>
+
+  <!-- Wren eye dot on head bar -->
+  <circle cx="86" cy="30" r="3.5" fill="#0F172A" stroke="#93C5FD" stroke-width="1.5"/>
+  <circle cx="86" cy="30" r="1.5" fill="#BFDBFE"/>
+
+  <!-- Beak accent line -->
+  <path d="M 107 46 L 116 38" stroke="#60A5FA" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+</svg>
