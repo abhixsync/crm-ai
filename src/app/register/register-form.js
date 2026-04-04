@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import Link from "next/link";
 import "@/components/shells/modern/modern-shell.css";
 
-export default function RegisterForm() {
+export default function RegisterForm({ theme = {} }) {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", password: "", company: "", phone: "" });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [doneEmail, setDoneEmail] = useState("");
 
@@ -23,7 +23,6 @@ export default function RegisterForm() {
 
   async function onSubmit(e) {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     try {
@@ -36,7 +35,7 @@ export default function RegisterForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Registration failed.");
+        toast.error(data.error || "Registration failed.");
         setLoading(false);
         return;
       }
@@ -50,15 +49,24 @@ export default function RegisterForm() {
       setDoneEmail(form.email);
       setDone(true);
     } catch {
-      setError("Network error. Please try again.");
+      toast.error("Network error. Please try again.");
       setLoading(false);
     }
   }
 
+  const bgStyle = theme.loginBackgroundUrl
+    ? { backgroundImage: `url(${theme.loginBackgroundUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+    : undefined;
+
   if (done) {
     return (
-      <div className="ms-login">
+      <div className="ms-login" style={bgStyle}>
         <div className="ms-login-card" style={{ textAlign: "center" }}>
+          {theme.logoUrl && (
+            <div className="ms-login-logo">
+              <img src={theme.logoUrl} alt="Logo" />
+            </div>
+          )}
           <div style={{ fontSize: 48, marginBottom: 16 }}>✉️</div>
           <div className="ms-login-title">Check your inbox</div>
           <div className="ms-login-subtitle" style={{ marginTop: 8 }}>
@@ -76,18 +84,17 @@ export default function RegisterForm() {
   }
 
   return (
-    <div className="ms-login">
+    <div className="ms-login" style={bgStyle}>
       <div className="ms-login-card" style={{ maxWidth: 440 }}>
+        {theme.logoUrl && (
+          <div className="ms-login-logo">
+            <img src={theme.logoUrl} alt="Logo" />
+          </div>
+        )}
         <div className="ms-login-title">Start your free trial</div>
         <div className="ms-login-subtitle">
           30 days of Pro — no credit card required
         </div>
-
-        {error && (
-          <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "10px 14px", color: "#f87171", fontSize: 13, marginBottom: 12 }}>
-            {error}
-          </div>
-        )}
 
         <form className="ms-login-form" onSubmit={onSubmit}>
           <input
