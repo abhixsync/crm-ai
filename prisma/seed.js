@@ -188,7 +188,7 @@ async function seedSuperAdmin() {
 // ─── DEMO TENANT + ADMIN + PRO SUBSCRIPTION ─────────────
 
 async function seedDemoTenant() {
-  const tenant = await upsertTenant({ name: "Demo CRM", slug: "demo-crm" });
+  const tenant = await upsertTenant({ name: "Demo CRM", slug: "demo" });
 
   const passwordHash = await bcrypt.hash("Admin@123", 10);
   await upsertUser({
