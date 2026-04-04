@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasRole, requireSession } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { isValidSlug, isReservedSlug, ensureUniqueSlug } from "@/lib/tenant/slug";
 
 function normalizeSlug(value) {
   return String(value || "")
@@ -175,12 +176,15 @@ export async function POST(request) {
 
   try {
     const payload = await request.json();
-    const { name, slug } = validatePayload(payload);
+    const { name, slug: rawSlug } = validatePayload(payload);
 
-    const existing = await prisma.tenant.findUnique({ where: { slug } });
-    if (existing) {
-      return Response.json({ error: "Tenant slug already exists." }, { status: 400 });
+    if (!isValidSlug(rawSlug)) {
+      return Response.json({ error: "Invalid slug format." }, { status: 400 });
     }
+    if (isReservedSlug(rawSlug)) {
+      return Response.json({ error: "This subdomain is reserved." }, { status: 400 });
+    }
+    const slug = await ensureUniqueSlug(prisma, rawSlug);
 
     const tenant = await prisma.tenant.create({
       data: {
