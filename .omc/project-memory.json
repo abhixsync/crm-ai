@@ -267,9 +267,69 @@
       "type": "directory"
     },
     {
+      "path": "prisma\\schema.prisma",
+      "accessCount": 19,
+      "lastAccessed": 1775393534719,
+      "type": "file"
+    },
+    {
       "path": "src\\components\\modern\\billing-view.js",
-      "accessCount": 14,
-      "lastAccessed": 1775332605721,
+      "accessCount": 17,
+      "lastAccessed": 1775393501647,
+      "type": "file"
+    },
+    {
+      "path": "src\\modules\\theme\\theme.service.ts",
+      "accessCount": 13,
+      "lastAccessed": 1775392842473,
+      "type": "file"
+    },
+    {
+      "path": "src",
+      "accessCount": 12,
+      "lastAccessed": 1775393510981,
+      "type": "directory"
+    },
+    {
+      "path": "src\\core\\theme\\system-defaults.ts",
+      "accessCount": 11,
+      "lastAccessed": 1775392842432,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\auth\\register\\route.js",
+      "accessCount": 11,
+      "lastAccessed": 1775392851716,
+      "type": "file"
+    },
+    {
+      "path": "docs\\superpowers\\specs\\2026-04-05-subdomain-multitenancy-design.md",
+      "accessCount": 9,
+      "lastAccessed": 1775335511520,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 9,
+      "lastAccessed": 1775336685874,
+      "type": "directory"
+    },
+    {
+      "path": "src\\lib\\auth.js",
+      "accessCount": 9,
+      "lastAccessed": 1775386528441,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\login\\login-form.js",
+      "accessCount": 9,
+      "lastAccessed": 1775392300609,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\register\\page.js",
+      "accessCount": 9,
+      "lastAccessed": 1775392852954,
       "type": "file"
     },
     {
@@ -279,22 +339,34 @@
       "type": "file"
     },
     {
-      "path": "src\\core\\theme\\system-defaults.ts",
-      "accessCount": 6,
-      "lastAccessed": 1775321564486,
-      "type": "file"
-    },
-    {
       "path": "src\\components\\modern\\subscription-config-view.js",
       "accessCount": 5,
       "lastAccessed": 1775325282536,
       "type": "file"
     },
     {
-      "path": "",
+      "path": "src\\middleware.js",
+      "accessCount": 5,
+      "lastAccessed": 1775335442139,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\server\\auth-guard.js",
+      "accessCount": 5,
+      "lastAccessed": 1775335442962,
+      "type": "file"
+    },
+    {
+      "path": "prisma\\seed.js",
+      "accessCount": 5,
+      "lastAccessed": 1775335535912,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\login\\page.js",
       "accessCount": 4,
-      "lastAccessed": 1775321123830,
-      "type": "directory"
+      "lastAccessed": 1775335448486,
+      "type": "file"
     },
     {
       "path": "public\\logo-preview.html",
@@ -307,6 +379,12 @@
       "accessCount": 3,
       "lastAccessed": 1775321430035,
       "type": "directory"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 3,
+      "lastAccessed": 1775335526000,
+      "type": "file"
     },
     {
       "path": "public\\theme\\defaults\\logo-concepts\\53-wren-forge-C.svg",
@@ -339,10 +417,34 @@
       "type": "file"
     },
     {
-      "path": "src\\app\\login\\login-form.js",
+      "path": "next.config.mjs",
       "accessCount": 2,
-      "lastAccessed": 1775323316271,
+      "lastAccessed": 1775334334384,
       "type": "file"
+    },
+    {
+      "path": "src\\app",
+      "accessCount": 2,
+      "lastAccessed": 1775334624158,
+      "type": "directory"
+    },
+    {
+      "path": "src\\app\\login",
+      "accessCount": 2,
+      "lastAccessed": 1775335465737,
+      "type": "directory"
+    },
+    {
+      "path": "src\\app\\api\\cron\\subscription-expiry\\route.js",
+      "accessCount": 2,
+      "lastAccessed": 1775335482685,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\billing",
+      "accessCount": 2,
+      "lastAccessed": 1775393474324,
+      "type": "directory"
     },
     {
       "path": "public\\theme\\defaults\\logo-concepts\\02-wren-on-anvil.svg",
@@ -405,27 +507,9 @@
       "type": "file"
     },
     {
-      "path": "src",
-      "accessCount": 1,
-      "lastAccessed": 1775320959889,
-      "type": "directory"
-    },
-    {
-      "path": "src\\app",
-      "accessCount": 1,
-      "lastAccessed": 1775323247024,
-      "type": "directory"
-    },
-    {
       "path": ".superpowers\\brainstorm\\2363-1775323682\\light-theme-compare.html",
       "accessCount": 1,
       "lastAccessed": 1775323752150,
-      "type": "file"
-    },
-    {
-      "path": "src\\modules\\theme\\theme.service.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775324842128,
       "type": "file"
     },
     {
@@ -451,6 +535,30 @@
       "accessCount": 1,
       "lastAccessed": 1775325018281,
       "type": "file"
+    },
+    {
+      "path": "vercel.json",
+      "accessCount": 1,
+      "lastAccessed": 1775333160501,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\subscription\\plan-guard.js",
+      "accessCount": 1,
+      "lastAccessed": 1775334259534,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\calls\\webhook\\route.js",
+      "accessCount": 1,
+      "lastAccessed": 1775334607082,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\cron",
+      "accessCount": 1,
+      "lastAccessed": 1775334627097,
+      "type": "directory"
     }
   ],
   "userDirectives": []

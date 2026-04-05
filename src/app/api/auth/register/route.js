@@ -19,12 +19,44 @@ export async function POST(request) {
       return Response.json({ error: "name, email, password, and company are required." }, { status: 400 });
     }
 
+    if (name.length < 2 || name.length > 100) {
+      return Response.json({ error: "Full name must be 2–100 characters." }, { status: 400 });
+    }
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return Response.json({ error: "Invalid email address." }, { status: 400 });
     }
 
-    if (password.length < 8) {
-      return Response.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+    if (password.length < 12) {
+      return Response.json({ error: "Password must be at least 12 characters." }, { status: 400 });
+    }
+
+    if (password.length > 128) {
+      return Response.json({ error: "Password is too long (max 128 characters)." }, { status: 400 });
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      return Response.json({ error: "Password must include at least one uppercase letter." }, { status: 400 });
+    }
+
+    if (!/[a-z]/.test(password)) {
+      return Response.json({ error: "Password must include at least one lowercase letter." }, { status: 400 });
+    }
+
+    if (!/[0-9]/.test(password)) {
+      return Response.json({ error: "Password must include at least one number." }, { status: 400 });
+    }
+
+    if (!/[!@#$%^&*()_\-+=\[\]{}|;':,./<>?]/.test(password)) {
+      return Response.json({ error: "Password must include at least one special character." }, { status: 400 });
+    }
+
+    if (company.length < 2 || company.length > 100) {
+      return Response.json({ error: "Company name must be 2–100 characters." }, { status: 400 });
+    }
+
+    if (phone && !/^[+\d][\d\s\-(). ]{5,19}$/.test(phone)) {
+      return Response.json({ error: "Invalid phone number format." }, { status: 400 });
     }
 
     // ─── Duplicate email check (global) ──────────────────

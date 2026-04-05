@@ -31,11 +31,17 @@ export default function LoginForm({ theme, tenantId, tenantSlug }) {
 
   async function onSubmit(event) {
     event.preventDefault();
+    const id = identifier.trim();
+    const pw = password.trim();
+    if (!id) { toast.error("Please enter your username or email."); return; }
+    if (!pw) { toast.error("Please enter your password."); return; }
+    if (id.length < 3) { toast.error("Username or email is too short."); return; }
+    if (pw.length < 6) { toast.error("Password must be at least 6 characters."); return; }
     setLoading(true);
 
     const result = await signIn("credentials", {
-      email: identifier,
-      password,
+      email: id,
+      password: pw,
       tenantId: tenantId || "",
       redirect: false,
     });

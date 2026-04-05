@@ -24,6 +24,11 @@ export const authOptions = {
         }
 
         const identifier = String(credentials.email || "").trim().toLowerCase();
+        const rawPassword = String(credentials.password || "");
+
+        if (identifier.length < 3 || rawPassword.length < 6) {
+          return null;
+        }
 
         const user = await prisma.user.findFirst({
           where: {
@@ -42,7 +47,7 @@ export const authOptions = {
           return null;
         }
 
-        const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
+        const isValid = await bcrypt.compare(rawPassword, user.passwordHash);
 
         if (!isValid) {
           return null;

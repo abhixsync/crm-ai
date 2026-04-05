@@ -39,7 +39,7 @@ describe("authorize() tenant lock", () => {
 
   it("allows login when tenantId matches", async () => {
     vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser());
-    const result = await authorize({ email: "user@test.com", password: "pass", tenantId: TENANT_A });
+    const result = await authorize({ email: "user@test.com", password: "passw0rd", tenantId: TENANT_A });
     expect(result).not.toBeNull();
     expect(result.tenantId).toBe(TENANT_A);
   });
@@ -47,20 +47,20 @@ describe("authorize() tenant lock", () => {
   it("rejects login when tenantId does not match", async () => {
     vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser());
     await expect(
-      authorize({ email: "user@test.com", password: "pass", tenantId: TENANT_B })
+      authorize({ email: "user@test.com", password: "passw0rd", tenantId: TENANT_B })
     ).rejects.toThrow("ACCESS_DENIED_TENANT");
   });
 
   it("rejects login when no tenantId provided for non-SUPER_ADMIN", async () => {
     vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser());
     await expect(
-      authorize({ email: "user@test.com", password: "pass", tenantId: "" })
+      authorize({ email: "user@test.com", password: "passw0rd", tenantId: "" })
     ).rejects.toThrow("ACCESS_DENIED_TENANT");
   });
 
   it("allows SUPER_ADMIN login without tenantId check", async () => {
     vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser({ role: "SUPER_ADMIN", tenantId: null }));
-    const result = await authorize({ email: "admin@test.com", password: "pass", tenantId: "" });
+    const result = await authorize({ email: "admin@test.com", password: "passw0rd", tenantId: "" });
     expect(result).not.toBeNull();
   });
 });

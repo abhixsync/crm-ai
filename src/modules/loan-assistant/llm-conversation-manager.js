@@ -627,6 +627,7 @@ export class LLMConversationManager {
       confidence: 1.0,
       callbackTime: null,
       awaitingClarification: false,
+      consecutiveClarificationCount: 0,
       isVoiceCall: false,
       aiProviderUsed: null,
       summaryText: null,
@@ -749,7 +750,7 @@ export class LLMConversationManager {
     return this.getLanguageText({
       english: 'Sorry, I did not understand what you said. Could you please repeat that?',
       hinglish: 'Maaf kijiye, main aapki baat samajh nahi paayi. Kya aap dobara bata sakte hain?',
-      hindi: 'माफ़ कीजिए, मैं आपकी बात समझ नहीं पाई। क्या आप दोबारा बता सकते हैं?',
+      hindi: 'Maaf kijiye, main aapki baat samajh nahi paayi. Kya aap dobara bata sakte hain?',
       defaultText: 'Sorry, I did not understand what you said. Could you please repeat that?',
     });
   }
@@ -1285,10 +1286,14 @@ Customer Profile:
     const nameComma = namePrefix ? `${namePrefix}, ` : '';
 
     if (finalIntent === 'busy' || finalIntent === 'call_back_later') {
+      const langSignal = this.getLanguageSignal();
+      if (langSignal.style === LANGUAGE_STYLES.HINDI && langSignal.script === 'devanagari') {
+        return `${nameComma}माफ़ कीजिए, लगता है मैंने गलत समय पर call किया। हम आपको ${localizedCallbackTime.hindi} फिर call करेंगे। ज़रूरत हो तो आप हमें ${spokenCallbackNumber} पर भी संपर्क कर सकते हैं।`;
+      }
       return this.getLanguageText({
         english: `${nameComma}sorry for calling at a bad time. We will call you again ${localizedCallbackTime.english}. If needed, you can also reach us on ${spokenCallbackNumber}.`,
         hinglish: `${nameComma}maafi chahungi, lagta hai maine galat samay par call kiya. Hum aapko ${localizedCallbackTime.hinglish} phir call karenge. Zarurat ho to aap hume ${spokenCallbackNumber} par bhi sampark kar sakte hain.`,
-        hindi: `${nameComma}maafi chahungi, lagta hai maine galat samay par call kiya. Hum aapko ${localizedCallbackTime.hindi} phir call karenge. Zarurat ho to aap hume ${spokenCallbackNumber} par bhi sampark kar sakte hain.`,
+        hindi: `${nameComma}maafi chahungi, lagta hai maine galat samay par call kiya. Hum aapko ${localizedCallbackTime.hinglish} phir call karenge. Zarurat ho to aap hume ${spokenCallbackNumber} par bhi sampark kar sakte hain.`,
         defaultText: `${nameComma}sorry for calling at a bad time. We will call you again ${localizedCallbackTime.english}. If needed, you can also reach us on ${spokenCallbackNumber}.`,
       });
     }
@@ -1682,6 +1687,43 @@ Customer Profile:
         this.callMeta.callbackTime = callbackPreference?.callbackTime || inferCallbackTimeFromMessage(customerMessage) || null;
       }
 
+      // Proceed confirmation guard: rule-based detected a proceed signal — don't let LLM override to callback.
+      if (ruleBasedIntent === 'interested' && ['call_back_later', 'busy'].includes(finalIntent)) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.8);
+        reasoning = `${reasoning}:proceed_confirmation_guard`;
+      }
+
+      // Repetition complaint guard: prior-interested customer complaining about repeated questions — keep intent.
+      if (repetitionComplaint && hadPriorPositiveIntent && !END_INTENTS.has(finalIntent)) {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.78);
+        reasoning = `${reasoning}:repetition_complaint_guard`;
+      }
+
+      // Prior interest persistence guard: don't drop a previously-interested customer to neutral on acknowledgements.
+      if (hadPriorPositiveIntent && finalIntent === 'neutral') {
+        finalIntent = 'interested';
+        finalConfidence = Math.max(finalConfidence, 0.78);
+        reasoning = `${reasoning}:prior_interest_persistence_guard`;
+      }
+
+      // Clarification count guard (Gap A + B):
+      // Gap A — prior-interested customers bypass clarification to avoid loop on short acks.
+      // Gap B — after 3 consecutive unclear turns, end the call with a callback rather than loop forever.
+      const prevClarificationCount = this.callMeta.consecutiveClarificationCount || 0;
+      if (clarificationRequired && !hadPriorPositiveIntent) {
+        const newCount = prevClarificationCount + 1;
+        if (newCount >= 3) {
+          finalIntent = 'call_back_later';
+          this.callMeta.consecutiveClarificationCount = 0;
+        } else {
+          this.callMeta.consecutiveClarificationCount = newCount;
+        }
+      } else {
+        this.callMeta.consecutiveClarificationCount = 0;
+      }
+
       // Determine next stage
       const terminalIntentShouldEnd = END_INTENTS.has(finalIntent);
       const nextStage = this.determineNextStage(finalIntent, terminalIntentShouldEnd);
@@ -1691,7 +1733,7 @@ Customer Profile:
       // Update call meta
       this.callMeta.intent = finalIntent;
       this.callMeta.confidence = finalConfidence;
-      this.callMeta.awaitingClarification = clarificationRequired && !shouldEnd;
+      this.callMeta.awaitingClarification = clarificationRequired && !shouldEnd && !hadPriorPositiveIntent;
 
       return {
         intent: finalIntent,
@@ -1785,6 +1827,11 @@ Customer Profile:
 
       case CONVERSATION_STAGES.QUALIFICATION:
         if (hasMandatorySlots) {
+          return CONVERSATION_STAGES.CLOSING;
+        }
+        // Soft close: loanType + amount are the critical slots — if both are captured,
+        // close and let the advisor confirm timeline during their callback.
+        if (hasLoanType && hasAmount && intent === 'interested') {
           return CONVERSATION_STAGES.CLOSING;
         }
         return CONVERSATION_STAGES.QUALIFICATION;

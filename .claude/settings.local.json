@@ -20,7 +20,9 @@
       "Bash(bash \"C:/Users/shukl/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.5/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Work/Learn/crm-ai\")",
       "Bash(python3 -c \":*)",
       "Bash(node -e \":*)",
-      "Bash(SCREEN_DIR=\"C:/Work/Learn/crm-ai/.superpowers/brainstorm/1753-1774867592\")"
+      "Bash(SCREEN_DIR=\"C:/Work/Learn/crm-ai/.superpowers/brainstorm/1753-1774867592\")",
+      "Bash(find src:*)",
+      "Bash(npm test:*)"
     ],
     "deny": [
       "Bash(rm -rf *)"

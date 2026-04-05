@@ -1,0 +1,15 @@
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"superpowers:systematic-debugging"}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"superpowers:systematic-debugging"}
+{"t":0,"agent":"a38ed1a","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a902ae3","agent_type":"Explore","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a902ae3","agent_type":"Explore","event":"agent_stop","success":true,"duration_ms":46299}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"superpowers:brainstorming"}
+{"t":0,"agent":"aaeb5e6","agent_type":"Explore","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aaeb5e6","agent_type":"Explore","event":"agent_stop","success":true,"duration_ms":33827}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"obsidian:obsidian-markdown"}
+{"t":0,"agent":"a0f88c6","agent_type":"critic","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a0f88c6","agent_type":"critic","event":"agent_stop","success":true,"duration_ms":225783}
+{"t":0,"agent":"a0badc9","agent_type":"critic","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a0badc9","agent_type":"critic","event":"agent_stop","success":true,"duration_ms":210437}
+{"t":0,"agent":"af0d260","agent_type":"critic","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"af0d260","agent_type":"critic","event":"agent_stop","success":true,"duration_ms":765710}

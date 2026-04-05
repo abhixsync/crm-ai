@@ -21,8 +21,32 @@ export default function RegisterForm({ theme = {} }) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   }
 
+  function validate() {
+    const name    = form.name.trim();
+    const email   = form.email.trim();
+    const { password } = form;
+    const company = form.company.trim();
+    const phone   = form.phone.trim();
+
+    if (name.length < 2)   return "Full name must be at least 2 characters.";
+    if (name.length > 100) return "Full name is too long.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Enter a valid email address.";
+    if (password.length < 12) return "Password must be at least 12 characters.";
+    if (password.length > 128) return "Password is too long (max 128 characters).";
+    if (!/[A-Z]/.test(password)) return "Password must include at least one uppercase letter.";
+    if (!/[a-z]/.test(password)) return "Password must include at least one lowercase letter.";
+    if (!/[0-9]/.test(password)) return "Password must include at least one number.";
+    if (!/[!@#$%^&*()_\-+=\[\]{}|;':,./<>?]/.test(password)) return "Password must include at least one special character.";
+    if (company.length < 2)   return "Company name must be at least 2 characters.";
+    if (company.length > 100) return "Company name is too long.";
+    if (phone && !/^[+\d][\d\s\-(). ]{5,19}$/.test(phone)) return "Enter a valid phone number.";
+    return null;
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
+    const err = validate();
+    if (err) { toast.error(err); return; }
     setLoading(true);
 
     try {
@@ -41,8 +65,8 @@ export default function RegisterForm({ theme = {} }) {
       }
 
       if (res.ok && data.slug) {
-        const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "wrenforge.com";
-        window.location.href = `https://${data.slug}.${appDomain}/login?welcome=1`;
+        const { protocol, host } = window.location;
+        window.location.href = `${protocol}//${data.slug}.${host}/login?welcome=1`;
         return;
       }
 
@@ -93,7 +117,7 @@ export default function RegisterForm({ theme = {} }) {
         )}
         <div className="ms-login-title">Start your free trial</div>
         <div className="ms-login-subtitle">
-          30 days of Pro — no credit card required
+          30 days of Pro — No Credit Card Required
         </div>
 
         <form className="ms-login-form" onSubmit={onSubmit}>
@@ -101,7 +125,7 @@ export default function RegisterForm({ theme = {} }) {
             className="ms-login-input"
             type="text"
             name="name"
-            placeholder="Your full name"
+            placeholder="Name"
             value={form.name}
             onChange={onChange}
             required
@@ -111,7 +135,7 @@ export default function RegisterForm({ theme = {} }) {
             className="ms-login-input"
             type="email"
             name="email"
-            placeholder="Work email"
+            placeholder="Email"
             value={form.email}
             onChange={onChange}
             required
@@ -121,18 +145,19 @@ export default function RegisterForm({ theme = {} }) {
             className="ms-login-input"
             type="password"
             name="password"
-            placeholder="Password (min 8 characters)"
+            placeholder="Password (min 12 chars, upper, lower, number, symbol)"
             value={form.password}
             onChange={onChange}
             required
-            minLength={8}
+            minLength={12}
+            maxLength={128}
             autoComplete="new-password"
           />
           <input
             className="ms-login-input"
             type="text"
             name="company"
-            placeholder="Company name"
+            placeholder="Company Name"
             value={form.company}
             onChange={onChange}
             required
@@ -141,9 +166,13 @@ export default function RegisterForm({ theme = {} }) {
             className="ms-login-input"
             type="tel"
             name="phone"
-            placeholder="Phone number (optional)"
+            placeholder="Phone Number (optional, e.g. +91 555-123-4567)"
             value={form.phone}
             onChange={onChange}
+            minLength={7}
+            maxLength={20}
+            pattern="[+0-9][0-9 \-(). ]{5,19}"
+            title="Enter a valid phone number (digits, spaces, dashes, parentheses)"
           />
           <button className="ms-login-btn" type="submit" disabled={loading}>
             {loading ? "Creating account…" : "Start Free Trial"}
@@ -152,7 +181,7 @@ export default function RegisterForm({ theme = {} }) {
 
         <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--text-muted, #706C78)" }}>
           Already have an account?{" "}
-          <Link href="/login" style={{ color: "var(--accent, #1DE9A8)", textDecoration: "none" }}>
+          <Link href="/login" style={{ color: "var(--ms-accent)", textDecoration: "none" }}>
             Sign in
           </Link>
         </div>
