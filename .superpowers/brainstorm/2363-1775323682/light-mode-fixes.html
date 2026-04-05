@@ -1,0 +1,248 @@
+<h2>Light Mode — Issues & Fixes</h2>
+<p class="subtitle">5 problems found. Here's before vs after for each. Approve to implement.</p>
+
+<style>
+body { font-family: system-ui; }
+.fix-grid { display: flex; flex-direction: column; gap: 20px; margin-top: 24px; }
+.fix-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.fix-panel { border-radius: 10px; overflow: hidden; }
+.fix-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 8px 14px; }
+.fix-label.bad { background: rgba(239,68,68,.15); color: #EF4444; }
+.fix-label.good { background: rgba(37,99,235,.12); color: #2563EB; }
+.fix-body { padding: 14px; background: #F0F4FF; }
+.section-title { font-size: 11px; font-weight: 700; color: #0F172A; margin-bottom: 12px; border-bottom: 1px solid rgba(37,99,235,.1); padding-bottom: 6px; }
+.issue-num { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: #2563EB; color: white; font-size: 10px; font-weight: 700; text-align: center; line-height: 18px; margin-right: 8px; }
+
+/* ─── ISSUE 1: text3 contrast ─── */
+.text-demo { display: flex; flex-direction: column; gap: 6px; padding: 12px; background: #fff; border-radius: 8px; border: 1px solid rgba(37,99,235,.08); }
+.text-demo span { font-size: 12px; }
+
+/* ─── ISSUE 2: billing badges ─── */
+.badge-row { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px; background: #fff; border-radius: 8px; border: 1px solid rgba(37,99,235,.08); }
+.bdg { padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+
+/* ─── ISSUE 3: toggle ─── */
+.toggle-demo { padding: 12px; background: #fff; border-radius: 8px; border: 1px solid rgba(37,99,235,.08); display: flex; align-items: center; gap: 14px; }
+.toggle-wrap { width: 44px; height: 24px; border-radius: 12px; position: relative; flex-shrink: 0; }
+.toggle-knob { position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; }
+
+/* ─── ISSUE 4: danger button ─── */
+.btn-demo { padding: 12px; background: #fff; border-radius: 8px; border: 1px solid rgba(37,99,235,.08); display: flex; gap: 10px; align-items: center; }
+.btn { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; }
+
+/* ─── ISSUE 5: card surface ─── */
+.surface-demo { padding: 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
+.card { padding: 10px 12px; border-radius: 7px; border: 1px solid; font-size: 12px; }
+</style>
+
+<div class="fix-grid">
+
+  <!-- ISSUE 1: --ms-text3 contrast -->
+  <div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span class="issue-num">1</span>
+      <strong style="font-size:13px;">--ms-text3 too light</strong>
+      <span style="font-size:11px;color:#94A3B8;">Secondary/metadata text — contrast 2.4:1 (needs 4.5:1)</span>
+    </div>
+    <div class="fix-row">
+      <div class="fix-panel">
+        <div class="fix-label bad">BEFORE — #94A3B8 (fails WCAG)</div>
+        <div class="fix-body">
+          <div class="text-demo">
+            <span style="color:#0F172A;font-weight:600;">Section Header</span>
+            <span style="color:#64748B;">Primary info line</span>
+            <span style="color:#94A3B8;">Metadata · Updated 2 hrs ago · 3 items</span>
+            <span style="color:#94A3B8;">Hint text beneath input field</span>
+            <span style="color:#94A3B8;">Table column label · COUNT</span>
+          </div>
+        </div>
+      </div>
+      <div class="fix-panel">
+        <div class="fix-label good">AFTER — #6B7280 (4.1:1, readable)</div>
+        <div class="fix-body">
+          <div class="text-demo">
+            <span style="color:#0F172A;font-weight:600;">Section Header</span>
+            <span style="color:#64748B;">Primary info line</span>
+            <span style="color:#6B7280;">Metadata · Updated 2 hrs ago · 3 items</span>
+            <span style="color:#6B7280;">Hint text beneath input field</span>
+            <span style="color:#6B7280;">Table column label · COUNT</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ISSUE 2: billing plan/status badges -->
+  <div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span class="issue-num">2</span>
+      <strong style="font-size:13px;">Billing plan & status badges</strong>
+      <span style="font-size:11px;color:#94A3B8;">Colours designed for dark mode — look washed out on white</span>
+    </div>
+    <div class="fix-row">
+      <div class="fix-panel">
+        <div class="fix-label bad">BEFORE — dark-mode colours on white</div>
+        <div class="fix-body">
+          <div class="text-demo" style="margin-bottom:8px;">Plan badges:</div>
+          <div class="badge-row">
+            <span class="bdg" style="background:rgba(110,110,110,.14);color:#9ca3af;">FREE</span>
+            <span class="bdg" style="background:rgba(79,156,249,.14);color:#93c5fd;">PLUS</span>
+            <span class="bdg" style="background:rgba(29,233,168,.14);color:#6ee7b7;">PRO</span>
+            <span class="bdg" style="background:rgba(167,139,250,.14);color:#c4b5fd;">MAX</span>
+          </div>
+          <div class="text-demo" style="margin-top:8px;margin-bottom:8px;">Status badges:</div>
+          <div class="badge-row">
+            <span class="bdg" style="background:rgba(29,233,168,.14);color:#6ee7b7;">ACTIVE</span>
+            <span class="bdg" style="background:rgba(79,156,249,.14);color:#93c5fd;">TRIALING</span>
+            <span class="bdg" style="background:rgba(245,166,35,.14);color:#fbbf24;">PAST DUE</span>
+            <span class="bdg" style="background:rgba(242,88,88,.14);color:#fca5a5;">EXPIRED</span>
+          </div>
+        </div>
+      </div>
+      <div class="fix-panel">
+        <div class="fix-label good">AFTER — theme-aware, proper contrast</div>
+        <div class="fix-body">
+          <div class="text-demo" style="margin-bottom:8px;">Plan badges:</div>
+          <div class="badge-row">
+            <span class="bdg" style="background:#F1F5F9;color:#475569;">FREE</span>
+            <span class="bdg" style="background:#EFF6FF;color:#1E40AF;">PLUS</span>
+            <span class="bdg" style="background:#ECFDF5;color:#065F46;">PRO</span>
+            <span class="bdg" style="background:#F5F3FF;color:#5B21B6;">MAX</span>
+          </div>
+          <div class="text-demo" style="margin-top:8px;margin-bottom:8px;">Status badges:</div>
+          <div class="badge-row">
+            <span class="bdg" style="background:#ECFDF5;color:#065F46;">ACTIVE</span>
+            <span class="bdg" style="background:#EFF6FF;color:#1E40AF;">TRIALING</span>
+            <span class="bdg" style="background:#FFFBEB;color:#92400E;">PAST DUE</span>
+            <span class="bdg" style="background:#FEF2F2;color:#991B1B;">EXPIRED</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ISSUE 3: toggle knob -->
+  <div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span class="issue-num">3</span>
+      <strong style="font-size:13px;">Toggle switch knob</strong>
+      <span style="font-size:11px;color:#94A3B8;">Hardcoded #0B0A0F — dark blob on blue toggle, near invisible</span>
+    </div>
+    <div class="fix-row">
+      <div class="fix-panel">
+        <div class="fix-label bad">BEFORE — #0B0A0F knob</div>
+        <div class="fix-body">
+          <div class="toggle-demo">
+            <div>
+              <div style="font-size:11px;color:#64748B;margin-bottom:4px;">OFF state</div>
+              <div class="toggle-wrap" style="background:#CDD9EE;">
+                <div class="toggle-knob" style="left:2px;background:#94A3B8;"></div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#64748B;margin-bottom:4px;">ON state</div>
+              <div class="toggle-wrap" style="background:#2563EB;">
+                <div class="toggle-knob" style="left:22px;background:#0B0A0F;"></div>
+              </div>
+            </div>
+            <span style="font-size:11px;color:#EF4444;">← dark blob on blue</span>
+          </div>
+        </div>
+      </div>
+      <div class="fix-panel">
+        <div class="fix-label good">AFTER — #FFFFFF knob</div>
+        <div class="fix-body">
+          <div class="toggle-demo">
+            <div>
+              <div style="font-size:11px;color:#64748B;margin-bottom:4px;">OFF state</div>
+              <div class="toggle-wrap" style="background:#CDD9EE;">
+                <div class="toggle-knob" style="left:2px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.15);"></div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#64748B;margin-bottom:4px;">ON state</div>
+              <div class="toggle-wrap" style="background:#2563EB;">
+                <div class="toggle-knob" style="left:22px;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.2);"></div>
+              </div>
+            </div>
+            <span style="font-size:11px;color:#059669;">← clean white knob</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ISSUE 4: danger button -->
+  <div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span class="issue-num">4</span>
+      <strong style="font-size:13px;">Danger buttons</strong>
+      <span style="font-size:11px;color:#94A3B8;">No light mode override — colour inconsistencies</span>
+    </div>
+    <div class="fix-row">
+      <div class="fix-panel">
+        <div class="fix-label bad">BEFORE — no light override</div>
+        <div class="fix-body">
+          <div class="btn-demo">
+            <button class="btn" style="background:#F25757;color:#fff;">Delete</button>
+            <button class="btn" style="background:transparent;color:#F25757;border:1px solid #F25757;">Remove</button>
+            <span style="font-size:10px;color:#94A3B8;">Uses dark palette red #F25757</span>
+          </div>
+        </div>
+      </div>
+      <div class="fix-panel">
+        <div class="fix-label good">AFTER — light mode uses #DC2626</div>
+        <div class="fix-body">
+          <div class="btn-demo">
+            <button class="btn" style="background:#DC2626;color:#fff;">Delete</button>
+            <button class="btn" style="background:transparent;color:#DC2626;border:1px solid #DC2626;">Remove</button>
+            <span style="font-size:10px;color:#6B7280;">Uses light palette red #DC2626</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ISSUE 5: card surface clarity -->
+  <div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span class="issue-num">5</span>
+      <strong style="font-size:13px;">Card surface clarity</strong>
+      <span style="font-size:11px;color:#94A3B8;">Some cards use background instead of surface — blend into the page</span>
+    </div>
+    <div class="fix-row">
+      <div class="fix-panel">
+        <div class="fix-label bad">BEFORE — card barely visible on bg</div>
+        <div class="fix-body">
+          <div class="surface-demo" style="background:#F0F4FF;">
+            <div class="card" style="background:#F0F4FF;border-color:rgba(37,99,235,.08);color:#0F172A;">
+              Card using --ms-bg instead of --ms-surface. Blends in.
+            </div>
+            <div class="card" style="background:#F0F4FF;border-color:rgba(37,99,235,.08);color:#0F172A;">
+              Another panel. Same colour as page. Hard to scan.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="fix-panel">
+        <div class="fix-label good">AFTER — white cards on blue bg</div>
+        <div class="fix-body">
+          <div class="surface-demo" style="background:#F0F4FF;">
+            <div class="card" style="background:#FFFFFF;border-color:rgba(37,99,235,.10);color:#0F172A;box-shadow:0 1px 4px rgba(37,99,235,.06);">
+              Card using --ms-surface (#FFFFFF). Clearly defined.
+            </div>
+            <div class="card" style="background:#FFFFFF;border-color:rgba(37,99,235,.10);color:#0F172A;box-shadow:0 1px 4px rgba(37,99,235,.06);">
+              Clean separation. Light blue bg frames the white cards nicely.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:24px;padding:14px 18px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.15);border-radius:10px;font-size:13px;">
+  <strong>5 fixes total:</strong> 2 CSS-only (text3 + danger buttons) · 2 component changes (toggle + billing badges) · 1 CSS card shadow. All safe, no logic changes.
+  <br><br>Reply <strong>"yes implement"</strong> to proceed, or tell me what to adjust.
+</div>

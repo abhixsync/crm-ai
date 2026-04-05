@@ -1,0 +1,120 @@
+<h2>Question 2 — Login Page Style</h2>
+<p class="subtitle">How should the login page feel? Pick a direction.</p>
+
+<style>
+.login-mock {
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  font-family: system-ui;
+  min-height: 260px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-panel {
+  background: white;
+  border-radius: 12px;
+  padding: 24px 28px;
+  width: 190px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  z-index: 2;
+}
+.login-panel .lp-logo { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
+.login-panel .lp-name { font-size:13px; font-weight:700; color:#1E3A8A; }
+.login-panel .lp-tag { font-size:9px; color:#6B7280; margin-bottom:14px; text-align:left; }
+.login-panel .lp-field { background:#F1F5F9; border-radius:6px; height:26px; margin-bottom:8px; }
+.login-panel .lp-btn { background:#2563EB; border-radius:6px; height:28px; width:100%; margin-top:4px; }
+
+/* A: Dark atmospheric */
+.bg-dark { background: linear-gradient(135deg, #0C1445 0%, #1a2f8c 60%, #0f1f5c 100%); }
+.bg-dark::before {
+  content:'';position:absolute;inset:0;
+  background: radial-gradient(ellipse at 20% 50%, rgba(37,99,235,0.25) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 30%, rgba(30,58,138,0.3) 0%, transparent 50%);
+}
+.bg-dark .particles { position:absolute;inset:0;overflow:hidden; }
+
+/* B: Light clean */
+.bg-light { background: linear-gradient(135deg, #F0F4FF 0%, #E4ECFF 50%, #EEF2FF 100%); }
+.bg-light::before {
+  content:'';position:absolute;inset:0;
+  background: radial-gradient(ellipse at 70% 20%, rgba(37,99,235,0.08) 0%, transparent 50%),
+              radial-gradient(ellipse at 20% 80%, rgba(30,58,138,0.06) 0%, transparent 40%);
+}
+
+/* C: Split — dark left, white panel floats */
+.bg-split { background: linear-gradient(105deg, #1E3A8A 0%, #1E3A8A 50%, #F0F4FF 50%, #F0F4FF 100%); }
+</style>
+
+<div class="cards" style="grid-template-columns: repeat(3,1fr); gap:24px; margin-top:28px;">
+
+  <!-- A: Dark atmospheric -->
+  <div class="card" data-choice="dark" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:0; overflow:hidden; min-height:200px;">
+      <div class="login-mock bg-dark">
+        <div class="login-panel">
+          <div class="lp-logo">
+            <svg width="22" height="22" viewBox="0 0 120 120" fill="none"><rect width="120" height="120" rx="24" fill="#E4ECFF"/><g fill="#1E3A8A"><rect x="22" y="64" width="74" height="8" rx="2" fill="#2451B0"/><path d="M22 64 L8 60 C6 59.5 6 63.5 8 64.5 L22 72Z"/><path d="M32 72 L86 72 L82 85 L36 85Z"/><rect x="26" y="85" width="66" height="7" rx="3"/></g><g fill="#2563EB"><ellipse cx="60" cy="52" rx="11" ry="7" transform="rotate(-8 60 52)"/><circle cx="73" cy="42" r="7.5"/><ellipse cx="67" cy="47" rx="7" ry="5" transform="rotate(-20 67 47)"/><path d="M79 39 L93 35 L79 47Z"/><path d="M51 55 C47 47 40 33 36 22 C38 18 42 20 44 24 C48 35 52 51 54 56Z"/><line x1="58" y1="58" x2="56" y2="64" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/><line x1="65" y1="58" x2="67" y2="64" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/></g><circle cx="75" cy="41" r="2.5" fill="white"/><circle cx="75" cy="41" r="1.2" fill="#1E3A8A"/></svg>
+            <span class="lp-name">WrenForge</span>
+          </div>
+          <div class="lp-tag">Forge every deal.</div>
+          <div class="lp-field"></div>
+          <div class="lp-field"></div>
+          <div class="lp-btn"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Dark & dramatic</h3>
+      <p>Deep navy background. Premium, confident. Like enterprise tools (Linear, Vercel).</p>
+    </div>
+  </div>
+
+  <!-- B: Light clean -->
+  <div class="card" data-choice="light" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:0; overflow:hidden; min-height:200px;">
+      <div class="login-mock bg-light">
+        <div class="login-panel" style="box-shadow:0 8px 40px rgba(37,99,235,0.12); border:1px solid #E0E8FF;">
+          <div class="lp-logo">
+            <svg width="22" height="22" viewBox="0 0 120 120" fill="none"><rect width="120" height="120" rx="24" fill="#E4ECFF"/><g fill="#1E3A8A"><rect x="22" y="64" width="74" height="8" rx="2" fill="#2451B0"/><path d="M22 64 L8 60 C6 59.5 6 63.5 8 64.5 L22 72Z"/><path d="M32 72 L86 72 L82 85 L36 85Z"/><rect x="26" y="85" width="66" height="7" rx="3"/></g><g fill="#2563EB"><ellipse cx="60" cy="52" rx="11" ry="7" transform="rotate(-8 60 52)"/><circle cx="73" cy="42" r="7.5"/><ellipse cx="67" cy="47" rx="7" ry="5" transform="rotate(-20 67 47)"/><path d="M79 39 L93 35 L79 47Z"/><path d="M51 55 C47 47 40 33 36 22 C38 18 42 20 44 24 C48 35 52 51 54 56Z"/><line x1="58" y1="58" x2="56" y2="64" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/><line x1="65" y1="58" x2="67" y2="64" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/></g><circle cx="75" cy="41" r="2.5" fill="white"/><circle cx="75" cy="41" r="1.2" fill="#1E3A8A"/></svg>
+            <span class="lp-name" style="color:#1E3A8A;">WrenForge</span>
+          </div>
+          <div class="lp-tag">Forge every deal.</div>
+          <div class="lp-field" style="background:#EEF2FF;"></div>
+          <div class="lp-field" style="background:#EEF2FF;"></div>
+          <div class="lp-btn"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Light & clean</h3>
+      <p>Soft blue-white. Matches the #53 mark perfectly. Feels modern, approachable.</p>
+    </div>
+  </div>
+
+  <!-- C: Split -->
+  <div class="card" data-choice="split" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:0; overflow:hidden; min-height:200px;">
+      <div class="login-mock" style="background: #1E3A8A; justify-content:flex-end;">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:50%;background:#1E3A8A;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+          <svg width="44" height="44" viewBox="0 0 120 120" fill="none"><rect width="120" height="120" rx="24" fill="#E4ECFF"/><g fill="#1E3A8A"><rect x="22" y="64" width="74" height="8" rx="2" fill="#2451B0"/><path d="M22 64 L8 60 C6 59.5 6 63.5 8 64.5 L22 72Z"/><path d="M32 72 L86 72 L82 85 L36 85Z"/><rect x="26" y="85" width="66" height="7" rx="3"/></g><g fill="#2563EB"><ellipse cx="60" cy="52" rx="11" ry="7" transform="rotate(-8 60 52)"/><circle cx="73" cy="42" r="7.5"/><ellipse cx="67" cy="47" rx="7" ry="5" transform="rotate(-20 67 47)"/><path d="M79 39 L93 35 L79 47Z"/><path d="M51 55 C47 47 40 33 36 22 C38 18 42 20 44 24 C48 35 52 51 54 56Z"/><line x1="58" y1="58" x2="56" y2="64" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/><line x1="65" y1="58" x2="67" y2="64" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/></g><circle cx="75" cy="41" r="2.5" fill="white"/><circle cx="75" cy="41" r="1.2" fill="#1E3A8A"/></svg>
+          <div style="color:white;font-size:13px;font-weight:700;font-family:system-ui;">WrenForge</div>
+          <div style="color:rgba(255,255,255,0.5);font-size:9px;font-family:system-ui;letter-spacing:1px;">FORGE EVERY DEAL.</div>
+        </div>
+        <div class="login-panel" style="margin-right:16px;position:relative;z-index:2;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+          <div style="font-size:11px;font-weight:600;color:#1E3A8A;margin-bottom:12px;font-family:system-ui;">Sign in</div>
+          <div class="lp-field"></div>
+          <div class="lp-field"></div>
+          <div class="lp-btn"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Split panel</h3>
+      <p>Dark brand left, white form right. Classic enterprise login. Brand + function separated.</p>
+    </div>
+  </div>
+
+</div>

@@ -13,6 +13,7 @@ import { DataTable, formatDataTableDate } from "@/components/data-table";
 const EMPTY_FORM = {
   name: "",
   slug: "",
+  _slugManuallySet: false,
   isActive: true,
   existingAdminUserId: "",
   adminEmail: "",
@@ -109,6 +110,7 @@ export function TenantsAdminClient() {
     setForm({
       name: tenant.name || "",
       slug: tenant.slug || "",
+      _slugManuallySet: true,
       isActive: Boolean(tenant.isActive),
       existingAdminUserId: currentAdminId,
       adminEmail: "",
@@ -375,16 +377,39 @@ export function TenantsAdminClient() {
               <Input
                 value={form.name}
                 placeholder="Acme Finance"
-                onChange={(event) => updateField("name", event.target.value)}
+                onChange={(event) => {
+                  const name = event.target.value;
+                  setForm((prev) => ({
+                    ...prev,
+                    name,
+                    slug: prev._slugManuallySet
+                      ? prev.slug
+                      : name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50),
+                  }));
+                }}
               />
             </label>
             <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Tenant Slug (optional)</span>
-              <Input
-                value={form.slug}
-                placeholder="acme-finance"
-                onChange={(event) => updateField("slug", event.target.value)}
-              />
+              <span className="text-sm font-medium text-slate-700">Subdomain</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Input
+                  value={form.slug}
+                  placeholder="acme-finance"
+                  maxLength={63}
+                  onChange={(event) => {
+                    const raw = event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
+                    setForm((prev) => ({ ...prev, slug: raw, _slugManuallySet: true }));
+                  }}
+                />
+                <span style={{ color: "var(--ms-text3, #888)", fontSize: 12, whiteSpace: "nowrap" }}>
+                  .{process.env.NEXT_PUBLIC_APP_DOMAIN || "wrenforge.com"}
+                </span>
+              </div>
+              {form.name && !form.slug && (
+                <div style={{ fontSize: 11, color: "var(--ms-text3, #888)", marginTop: 2 }}>
+                  Will be auto-generated from name
+                </div>
+              )}
             </label>
             <label className="space-y-2">
               <span className="text-sm font-medium text-slate-700">Active</span>

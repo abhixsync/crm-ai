@@ -13,7 +13,7 @@ function Toggle({ value, onChange }) {
       }}>
       <span style={{
         position: "absolute", top: 3, left: on ? 22 : 2, width: 18, height: 18,
-        borderRadius: "50%", background: on ? "#0B0A0F" : "var(--ms-text3)", transition: "left .2s",
+        borderRadius: "50%", background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,.2)", transition: "left .2s",
       }} />
     </button>
   );

@@ -248,6 +248,9 @@ model Tenant {
   id                             String   @id @default(cuid())
   name                           String
   slug                           String   @unique
+  customDomain          String?   @unique
+  customDomainVerified  Boolean   @default(false)
+  customDomainAddedAt   DateTime?
   crmName                        String?
   aiAgentName                    String   @default("Priya")
   loanAssistantCompanyName       String?

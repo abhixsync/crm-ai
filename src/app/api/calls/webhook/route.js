@@ -11,8 +11,9 @@ import { notifyAdvisorForCallLog } from "@/lib/notifications/advisor-notifier";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getOrCreateSession, updateSessionAfterCall, getSessionContext } from "@/lib/conversation/session-manager";
 
-// TTS voice config — Google Hindi Wavenet for natural Indian voice
-const TTS_VOICE = "Google.hi-IN-Wavenet-A";
+// TTS voice config — Amazon Polly Hindi voice (works on all Twilio accounts).
+// Fallback from Google.hi-IN-Wavenet-A which requires Google TTS integration.
+const TTS_VOICE = "Polly.Aditi";
 const TTS_LANGUAGE = "hi-IN";
 
 /**
@@ -278,7 +279,7 @@ export async function POST(request) {
       const nextAttempt = failedAttempts + 1;
       const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn}&failedAttempts=${nextAttempt}`;
 
-      const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="1500" numDigits="0" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(retryPrompt)}</Say></Gather><Hangup/>`;
+      const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(retryPrompt)}</Say></Gather><Hangup/>`;
       console.log(`[Webhook] Sending TwiML for retry: ${twiml.substring(0, 100)}...`);
       return twimlResponse(twiml);
     }
@@ -295,7 +296,7 @@ export async function POST(request) {
 
       const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=1`;
 
-      const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="1500" numDigits="0" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(opening)}</Say></Gather><Hangup/>`;
+      const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(opening)}</Say></Gather><Hangup/>`;
       console.log(`[Webhook] Sending initial TwiML with Gather`);
       return twimlResponse(twiml);
     }
@@ -313,20 +314,27 @@ export async function POST(request) {
     const sessionCtx = tenantId ? await getSessionContext(tenantId, customer.id) : {};
 
     console.log(`[Webhook] Processing AI turn ${turn}, transcript length: ${transcript.length}`);
-    const aiOutput = await runAIWithFailover({
-      task: "CALL_TURN",
-      payload: {
-        customer,
-        transcript,
-        turn,
-        latestCustomerMessage: speechResult,
-        context: {
-          conversationStage: sessionCtx.lastStage || undefined,
-          extractedData: sessionCtx.extractedData || undefined,
-          previousCallSummary: sessionCtx.previousCallSummary || undefined,
+    let aiOutput;
+    try {
+      aiOutput = await runAIWithFailover({
+        task: "CALL_TURN",
+        payload: {
+          customer,
+          transcript,
+          turn,
+          latestCustomerMessage: speechResult,
+          context: {
+            conversationStage: sessionCtx.lastStage || undefined,
+            extractedData: sessionCtx.extractedData || undefined,
+            previousCallSummary: sessionCtx.previousCallSummary || undefined,
+          },
         },
-      },
-    });
+      });
+    } catch (aiError) {
+      console.error("[Webhook] AI provider failed:", aiError.message);
+      await finishCall(callLogId, customer.id, tenantId);
+      return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">I apologize for the interruption. Our loan advisor will contact you shortly. Thank you for your time.</Say><Hangup/>`);
+    }
     const aiTurn = aiOutput.result;
 
     // Merge extracted data from LLM response with session data
@@ -376,7 +384,7 @@ export async function POST(request) {
     const nextTurn = turn + 1;
     const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}&failedAttempts=0`;
 
-    const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="1500" numDigits="0" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(aiTurn.reply)}</Say></Gather><Hangup/>`;
+    const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(aiTurn.reply)}</Say></Gather><Hangup/>`;
     console.log(`[Webhook] Sending AI response with Gather for next turn`);
     return twimlResponse(twiml);
   } catch (error) {
@@ -389,6 +397,8 @@ export async function POST(request) {
   }
 }
 
-export async function GET(request) {
-  return POST(request);
+export async function GET() {
+  return twimlResponse(
+    `<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">This endpoint only accepts POST requests from Twilio. Goodbye.</Say><Hangup/>`
+  );
 }

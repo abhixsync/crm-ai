@@ -30,6 +30,7 @@
     "@elevenlabs/elevenlabs-js": "^2.36.0",
     "@google/generative-ai": "^0.24.1",
     "@langchain/langgraph": "^0.2.74",
+    "@neondatabase/serverless": "^1.0.2",
     "@prisma/client": "6.16.2",
     "@tanstack/react-table": "^8.21.3",
     "@twilio/voice-sdk": "^2.18.0",

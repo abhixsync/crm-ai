@@ -14,7 +14,15 @@
       "Bash(DATABASE_URL=\"$POOLER\" DIRECT_URL=\"$POOLER\" npx prisma migrate resolve --applied 0_init)",
       "Bash(DATABASE_URL=\"$POOLER\" DIRECT_URL=\"$POOLER\" npx prisma migrate resolve --applied 20260309091626_add_ai_agent_name_to_tenant)",
       "Bash(DATABASE_URL=\"$POOLER\" DIRECT_URL=\"$POOLER\" npx prisma migrate status)",
-      "Bash(grep -v \"^warn\\\\|^$\\\\|pris.ly\\\\|prisma migrate\")"
+      "Bash(grep -v \"^warn\\\\|^$\\\\|pris.ly\\\\|prisma migrate\")",
+      "Bash(xargs wc:*)",
+      "Bash(npx vitest:*)",
+      "Bash(bash \"C:/Users/shukl/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.5/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Work/Learn/crm-ai\")",
+      "Bash(python3 -c \":*)",
+      "Bash(node -e \":*)",
+      "Bash(SCREEN_DIR=\"C:/Work/Learn/crm-ai/.superpowers/brainstorm/1753-1774867592\")",
+      "Bash(find src:*)",
+      "Bash(npm test:*)"
     ],
     "deny": [
       "Bash(rm -rf *)"

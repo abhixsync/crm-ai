@@ -1,0 +1,92 @@
+<h2>WrenForge — 10 New Unique Concepts (#41–50)</h2>
+<p class="subtitle">Click to select favourites. These are completely fresh directions.</p>
+
+<style>
+.logo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin-top: 20px; }
+.logo-card { background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px 12px 10px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.2s; user-select: none; }
+.logo-card:hover { border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); transform: translateY(-2px); }
+.logo-card.selected { border-color: #22d3ee; background: rgba(34,211,238,0.12); box-shadow: 0 0 0 2px #22d3ee44; }
+.logo-card img { width: 88px; height: 88px; border-radius: 8px; }
+.logo-name { margin-top: 8px; font-size: 11px; text-align: center; opacity: 0.75; line-height: 1.3; }
+.logo-num { font-size: 10px; opacity: 0.4; margin-bottom: 2px; }
+.tag { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 10px; margin-top: 4px; letter-spacing: 0.5px; }
+.tag-ai { background: rgba(99,102,241,0.3); color: #a5b4fc; }
+.tag-craft { background: rgba(245,158,11,0.2); color: #fcd34d; }
+.tag-minimal { background: rgba(34,197,94,0.2); color: #86efac; }
+.tag-bold { background: rgba(239,68,68,0.2); color: #fca5a5; }
+</style>
+
+<div class="logo-grid" data-multiselect>
+  <div class="logo-card" data-choice="41" onclick="toggle(this)">
+    <img src="41-soundwave-wren.svg" alt="41"/>
+    <div class="logo-num">#41</div>
+    <div class="logo-name">Sound Wave Wren</div>
+    <span class="tag tag-ai">AI / Voice</span>
+  </div>
+  <div class="logo-card" data-choice="42" onclick="toggle(this)">
+    <img src="42-single-line-wren.svg" alt="42"/>
+    <div class="logo-num">#42</div>
+    <div class="logo-name">Single Continuous Line</div>
+    <span class="tag tag-minimal">Minimal</span>
+  </div>
+  <div class="logo-card" data-choice="43" onclick="toggle(this)">
+    <img src="43-neural-wren.svg" alt="43"/>
+    <div class="logo-num">#43</div>
+    <div class="logo-name">Neural Network Head</div>
+    <span class="tag tag-ai">AI / Tech</span>
+  </div>
+  <div class="logo-card" data-choice="44" onclick="toggle(this)">
+    <img src="44-wax-seal-wren.svg" alt="44"/>
+    <div class="logo-num">#44</div>
+    <div class="logo-name">Wax Seal Impression</div>
+    <span class="tag tag-craft">Heritage</span>
+  </div>
+  <div class="logo-card" data-choice="45" onclick="toggle(this)">
+    <img src="45-lightbulb-wren.svg" alt="45"/>
+    <div class="logo-num">#45</div>
+    <div class="logo-name">Wren in Lightbulb</div>
+    <span class="tag tag-ai">Intelligence</span>
+  </div>
+  <div class="logo-card" data-choice="46" onclick="toggle(this)">
+    <img src="46-databars-wren.svg" alt="46"/>
+    <div class="logo-num">#46</div>
+    <div class="logo-name">Data Bars Silhouette</div>
+    <span class="tag tag-ai">Analytics</span>
+  </div>
+  <div class="logo-card" data-choice="47" onclick="toggle(this)">
+    <img src="47-split-duality-wren.svg" alt="47"/>
+    <div class="logo-num">#47</div>
+    <div class="logo-name">Split Duality (Nature / Tech)</div>
+    <span class="tag tag-bold">Contrast</span>
+  </div>
+  <div class="logo-card" data-choice="48" onclick="toggle(this)">
+    <img src="48-wren-arrow.svg" alt="48"/>
+    <div class="logo-num">#48</div>
+    <div class="logo-name">Wren-as-Arrow</div>
+    <span class="tag tag-minimal">Direction</span>
+  </div>
+  <div class="logo-card" data-choice="49" onclick="toggle(this)">
+    <img src="49-negative-space-wren.svg" alt="49"/>
+    <div class="logo-num">#49</div>
+    <div class="logo-name">Negative Space Cutout</div>
+    <span class="tag tag-minimal">Clever</span>
+  </div>
+  <div class="logo-card" data-choice="50" onclick="toggle(this)">
+    <img src="50-metal-plate-cutout.svg" alt="50"/>
+    <div class="logo-num">#50</div>
+    <div class="logo-name">Metal Plate + Forge Glow</div>
+    <span class="tag tag-craft">Industrial</span>
+  </div>
+</div>
+
+<div style="margin-top:24px; padding: 14px; background: rgba(255,255,255,0.04); border-radius:10px; border: 1px solid rgba(255,255,255,0.08);">
+  <p style="margin:0; font-size:12px; opacity:0.5;">Also check the previous gallery: <a href="logo-gallery.html" style="color:#60a5fa; opacity:1;">#11–40 gallery →</a></p>
+</div>
+
+<script>
+function toggle(el) {
+  el.classList.toggle('selected');
+  const selected = [...document.querySelectorAll('.logo-card.selected')].map(c => c.dataset.choice);
+  if (window.recordChoice) window.recordChoice(selected.join(','), 'Selected: ' + selected.map(n => '#' + n).join(', '));
+}
+</script>

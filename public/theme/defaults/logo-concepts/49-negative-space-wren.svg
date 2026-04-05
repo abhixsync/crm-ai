@@ -1,0 +1,40 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg49" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3478F6"/>
+      <stop offset="100%" stop-color="#1B4BC8"/>
+    </linearGradient>
+    <!-- The wren is the HOLE — revealed as negative space -->
+    <mask id="wrenmask49">
+      <rect width="120" height="120" fill="white"/>
+      <!-- Wren silhouette is cut out (black = transparent) -->
+      <g fill="black">
+        <!-- Body -->
+        <ellipse cx="60" cy="60" rx="15" ry="10" transform="rotate(-14, 60, 60)"/>
+        <!-- Head -->
+        <circle cx="75" cy="47" r="11"/>
+        <!-- Neck -->
+        <ellipse cx="69" cy="53" rx="9" ry="7" transform="rotate(-25, 69, 53)"/>
+        <!-- Beak -->
+        <path d="M 83 43 L 98 37 L 83 55 Z"/>
+        <!-- Tail cocked up -->
+        <path d="M 42 65 C 32 53, 20 37, 16 27 C 14 22, 16 18, 19 20 C 25 30, 37 48, 44 64 Z"/>
+        <!-- Wing -->
+        <path d="M 52 62 C 42 50, 30 36, 22 26 C 20 23, 20 25, 22 27 C 30 38, 44 54, 54 64 Z"/>
+      </g>
+    </mask>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg49)"/>
+
+  <!-- White panel with wren punched out as negative space -->
+  <rect x="10" y="10" width="100" height="100" rx="16" fill="white" opacity="0.15" mask="url(#wrenmask49)"/>
+  <rect x="10" y="10" width="100" height="100" rx="16" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- Eye (positive, small dot stays visible) -->
+  <circle cx="77" cy="46" r="2.5" fill="white" opacity="0.8"/>
+  <circle cx="77" cy="46" r="1" fill="#1B4BC8"/>
+
+  <!-- Subtle fill shapes that the negative space intersects — gives 3D depth impression -->
+  <ellipse cx="60" cy="60" rx="15" ry="10" transform="rotate(-14, 60, 60)" fill="white" opacity="0.06"/>
+  <circle cx="75" cy="47" r="11" fill="white" opacity="0.06"/>
+</svg>

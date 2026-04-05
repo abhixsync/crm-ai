@@ -1,0 +1,146 @@
+<h2>Question 3 — In-App Accent Color</h2>
+<p class="subtitle">The accent shows on active nav items, buttons, badges, and links. Currently teal. What should it be?</p>
+
+<style>
+.app-mock {
+  font-family: system-ui;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  min-height: 220px;
+  font-size: 11px;
+}
+.sidebar {
+  width: 130px;
+  background: #0B0A0F;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 6px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  margin-bottom: 6px;
+}
+.sidebar-logo-text { color: white; font-weight: 700; font-size: 11px; }
+.nav-item {
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.2); flex-shrink:0; }
+.nav-item.active { background: rgba(255,255,255,0.06); color: white; }
+.main { flex: 1; background: #F8FAFF; padding: 14px; }
+.main-header { font-weight: 700; font-size: 12px; color: #1E3A8A; margin-bottom: 10px; }
+.stat-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.stat { background: white; border: 1px solid #E5E7EB; border-radius: 7px; padding: 8px 10px; flex: 1; }
+.stat-val { font-size: 14px; font-weight: 700; color: #1E3A8A; }
+.stat-label { font-size: 9px; color: #9CA3AF; margin-top: 1px; }
+.mock-btn { display: inline-block; padding: 5px 12px; border-radius: 6px; color: white; font-size: 10px; font-weight: 600; }
+</style>
+
+<div class="cards" style="grid-template-columns: repeat(3,1fr); gap:24px; margin-top:28px;">
+
+  <!-- A: Keep teal -->
+  <div class="card" data-choice="teal" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:0;">
+      <div class="app-mock">
+        <div class="sidebar">
+          <div class="sidebar-logo">
+            <svg width="18" height="18" viewBox="0 0 120 120" fill="none"><rect width="120" height="120" rx="24" fill="#E4ECFF"/><g fill="#1E3A8A"><rect x="22" y="64" width="74" height="8" rx="2" fill="#2451B0"/><path d="M22 64 L8 60 C6 59.5 6 63.5 8 64.5 L22 72Z"/><path d="M32 72 L86 72 L82 85 L36 85Z"/><rect x="26" y="85" width="66" height="7" rx="3"/></g><g fill="#2563EB"><ellipse cx="60" cy="52" rx="11" ry="7" transform="rotate(-8 60 52)"/><circle cx="73" cy="42" r="7.5"/><path d="M79 39 L93 35 L79 47Z"/><path d="M51 55 C47 47 40 33 36 22 C38 18 42 20 44 24 C48 35 52 51 54 56Z"/></g><circle cx="75" cy="41" r="2.5" fill="white"/><circle cx="75" cy="41" r="1.2" fill="#1E3A8A"/></svg>
+            <span class="sidebar-logo-text">WrenForge</span>
+          </div>
+          <div class="nav-item active" style="color:#1DE9A8;"><div class="dot" style="background:#1DE9A8;"></div>Dashboard</div>
+          <div class="nav-item"><div class="dot"></div>Customers</div>
+          <div class="nav-item"><div class="dot"></div>Campaigns</div>
+          <div class="nav-item"><div class="dot"></div>Call Logs</div>
+          <div class="nav-item"><div class="dot"></div>Analytics</div>
+        </div>
+        <div class="main">
+          <div class="main-header">Dashboard</div>
+          <div class="stat-row">
+            <div class="stat"><div class="stat-val" style="color:#1DE9A8;">142</div><div class="stat-label">Calls today</div></div>
+            <div class="stat"><div class="stat-val">38%</div><div class="stat-label">Connect rate</div></div>
+          </div>
+          <div class="mock-btn" style="background:#1DE9A8; color:#0B0A0F;">New Campaign</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Keep Teal <span style="color:#1DE9A8;">#1DE9A8</span></h3>
+      <p>Current accent. High contrast on dark sidebar. Energetic, stands out well.</p>
+    </div>
+  </div>
+
+  <!-- B: Electric blue -->
+  <div class="card" data-choice="blue" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:0;">
+      <div class="app-mock">
+        <div class="sidebar">
+          <div class="sidebar-logo">
+            <svg width="18" height="18" viewBox="0 0 120 120" fill="none"><rect width="120" height="120" rx="24" fill="#E4ECFF"/><g fill="#1E3A8A"><rect x="22" y="64" width="74" height="8" rx="2" fill="#2451B0"/><path d="M22 64 L8 60 C6 59.5 6 63.5 8 64.5 L22 72Z"/><path d="M32 72 L86 72 L82 85 L36 85Z"/><rect x="26" y="85" width="66" height="7" rx="3"/></g><g fill="#2563EB"><ellipse cx="60" cy="52" rx="11" ry="7" transform="rotate(-8 60 52)"/><circle cx="73" cy="42" r="7.5"/><path d="M79 39 L93 35 L79 47Z"/><path d="M51 55 C47 47 40 33 36 22 C38 18 42 20 44 24 C48 35 52 51 54 56Z"/></g><circle cx="75" cy="41" r="2.5" fill="white"/><circle cx="75" cy="41" r="1.2" fill="#1E3A8A"/></svg>
+            <span class="sidebar-logo-text">WrenForge</span>
+          </div>
+          <div class="nav-item active" style="color:#60A5FA;"><div class="dot" style="background:#60A5FA;"></div>Dashboard</div>
+          <div class="nav-item"><div class="dot"></div>Customers</div>
+          <div class="nav-item"><div class="dot"></div>Campaigns</div>
+          <div class="nav-item"><div class="dot"></div>Call Logs</div>
+          <div class="nav-item"><div class="dot"></div>Analytics</div>
+        </div>
+        <div class="main">
+          <div class="main-header">Dashboard</div>
+          <div class="stat-row">
+            <div class="stat"><div class="stat-val" style="color:#2563EB;">142</div><div class="stat-label">Calls today</div></div>
+            <div class="stat"><div class="stat-val">38%</div><div class="stat-label">Connect rate</div></div>
+          </div>
+          <div class="mock-btn" style="background:#2563EB;">New Campaign</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — All Blue <span style="color:#60A5FA;">#60A5FA</span></h3>
+      <p>Full blue palette — matches the logo perfectly. Unified, consistent brand color.</p>
+    </div>
+  </div>
+
+  <!-- C: Amber forge -->
+  <div class="card" data-choice="amber" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:0;">
+      <div class="app-mock">
+        <div class="sidebar">
+          <div class="sidebar-logo">
+            <svg width="18" height="18" viewBox="0 0 120 120" fill="none"><rect width="120" height="120" rx="24" fill="#E4ECFF"/><g fill="#1E3A8A"><rect x="22" y="64" width="74" height="8" rx="2" fill="#2451B0"/><path d="M22 64 L8 60 C6 59.5 6 63.5 8 64.5 L22 72Z"/><path d="M32 72 L86 72 L82 85 L36 85Z"/><rect x="26" y="85" width="66" height="7" rx="3"/></g><g fill="#2563EB"><ellipse cx="60" cy="52" rx="11" ry="7" transform="rotate(-8 60 52)"/><circle cx="73" cy="42" r="7.5"/><path d="M79 39 L93 35 L79 47Z"/><path d="M51 55 C47 47 40 33 36 22 C38 18 42 20 44 24 C48 35 52 51 54 56Z"/></g><circle cx="75" cy="41" r="2.5" fill="white"/><circle cx="75" cy="41" r="1.2" fill="#1E3A8A"/></svg>
+            <span class="sidebar-logo-text">WrenForge</span>
+          </div>
+          <div class="nav-item active" style="color:#FCD34D;"><div class="dot" style="background:#FCD34D;"></div>Dashboard</div>
+          <div class="nav-item"><div class="dot"></div>Customers</div>
+          <div class="nav-item"><div class="dot"></div>Campaigns</div>
+          <div class="nav-item"><div class="dot"></div>Call Logs</div>
+          <div class="nav-item"><div class="dot"></div>Analytics</div>
+        </div>
+        <div class="main">
+          <div class="main-header">Dashboard</div>
+          <div class="stat-row">
+            <div class="stat"><div class="stat-val" style="color:#D97706;">142</div><div class="stat-label">Calls today</div></div>
+            <div class="stat"><div class="stat-val">38%</div><div class="stat-label">Connect rate</div></div>
+          </div>
+          <div class="mock-btn" style="background:#D97706;">New Campaign</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Forge Amber <span style="color:#D97706;">#D97706</span></h3>
+      <p>Warm gold. Nods to forge/fire heat. Blue nav + amber accent = strong contrast pair.</p>
+    </div>
+  </div>
+
+</div>

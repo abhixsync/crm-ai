@@ -6,19 +6,48 @@ import { useTenantSwitcher } from "@/components/providers/tenant-switcher-provid
 import { toast } from "sonner";
 
 const PLAN_COLOR = {
-  FREE: { bg: "rgba(110,110,110,.14)", fg: "#9ca3af", border: "rgba(110,110,110,.3)" },
-  PLUS: { bg: "rgba(79,156,249,.14)", fg: "#93c5fd", border: "rgba(79,156,249,.3)" },
-  PRO:  { bg: "rgba(29,233,168,.14)", fg: "#6ee7b7", border: "rgba(29,233,168,.3)" },
-  MAX:  { bg: "rgba(167,139,250,.14)", fg: "#c4b5fd", border: "rgba(167,139,250,.3)" },
+  dark: {
+    FREE: { bg: "rgba(110,110,110,.14)", fg: "#9ca3af", border: "rgba(110,110,110,.3)" },
+    PLUS: { bg: "rgba(79,156,249,.14)",  fg: "#93c5fd", border: "rgba(79,156,249,.3)" },
+    PRO:  { bg: "rgba(29,233,168,.14)",  fg: "#6ee7b7", border: "rgba(29,233,168,.3)" },
+    MAX:  { bg: "rgba(167,139,250,.14)", fg: "#c4b5fd", border: "rgba(167,139,250,.3)" },
+  },
+  light: {
+    FREE: { bg: "#F1F5F9", fg: "#475569", border: "rgba(71,85,105,.2)" },
+    PLUS: { bg: "#EFF6FF", fg: "#1E40AF", border: "rgba(30,64,175,.2)" },
+    PRO:  { bg: "#ECFDF5", fg: "#065F46", border: "rgba(6,95,70,.2)" },
+    MAX:  { bg: "#F5F3FF", fg: "#5B21B6", border: "rgba(91,33,182,.2)" },
+  },
 };
 
 const STATUS_COLOR = {
-  ACTIVE:   { bg: "rgba(29,233,168,.14)", fg: "#6ee7b7" },
-  TRIALING: { bg: "rgba(79,156,249,.14)", fg: "#93c5fd" },
-  PAST_DUE: { bg: "rgba(245,166,35,.14)", fg: "#fbbf24" },
-  EXPIRED:  { bg: "rgba(242,88,88,.14)",  fg: "#fca5a5" },
-  CANCELLED:{ bg: "rgba(110,110,110,.14)", fg: "#9ca3af" },
+  dark: {
+    ACTIVE:    { bg: "rgba(29,233,168,.14)", fg: "#6ee7b7" },
+    TRIALING:  { bg: "rgba(79,156,249,.14)", fg: "#93c5fd" },
+    PAST_DUE:  { bg: "rgba(245,166,35,.14)", fg: "#fbbf24" },
+    EXPIRED:   { bg: "rgba(242,88,88,.14)",  fg: "#fca5a5" },
+    CANCELLED: { bg: "rgba(110,110,110,.14)", fg: "#9ca3af" },
+  },
+  light: {
+    ACTIVE:    { bg: "#ECFDF5", fg: "#065F46" },
+    TRIALING:  { bg: "#EFF6FF", fg: "#1E40AF" },
+    PAST_DUE:  { bg: "#FFFBEB", fg: "#92400E" },
+    EXPIRED:   { bg: "#FEF2F2", fg: "#991B1B" },
+    CANCELLED: { bg: "#F1F5F9", fg: "#475569" },
+  },
 };
+
+function useUITheme() {
+  const [theme, setTheme] = useState("dark");
+  useEffect(() => {
+    const el = document.documentElement;
+    setTheme(el.dataset.uiTheme || "dark");
+    const obs = new MutationObserver(() => setTheme(el.dataset.uiTheme || "dark"));
+    obs.observe(el, { attributes: true, attributeFilter: ["data-ui-theme"] });
+    return () => obs.disconnect();
+  }, []);
+  return theme;
+}
 
 function fmt(n) { return n == null || n === -1 ? "Unlimited" : n.toLocaleString(); }
 
@@ -48,7 +77,9 @@ function UsageBar({ label, used, max }) {
 }
 
 function PlanBadge({ plan }) {
-  const c = PLAN_COLOR[plan] || PLAN_COLOR.FREE;
+  const theme = useUITheme();
+  const map = PLAN_COLOR[theme] || PLAN_COLOR.dark;
+  const c = map[plan] || map.FREE;
   return (
     <span style={{
       background: c.bg, color: c.fg, border: `1px solid ${c.border}`,
@@ -58,7 +89,9 @@ function PlanBadge({ plan }) {
 }
 
 function StatusBadge({ status }) {
-  const c = STATUS_COLOR[status] || STATUS_COLOR.EXPIRED;
+  const theme = useUITheme();
+  const map = STATUS_COLOR[theme] || STATUS_COLOR.dark;
+  const c = map[status] || map.EXPIRED;
   return (
     <span style={{ background: c.bg, color: c.fg, padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600 }}>
       {status === "TRIALING" ? "TRIAL" : status?.replace("_", " ")}
@@ -78,6 +111,8 @@ function FeatureCheck({ enabled, label }) {
 }
 
 export function ModernBillingView({ user }) {
+  const uiTheme = useUITheme();
+  const planColors = PLAN_COLOR[uiTheme] || PLAN_COLOR.dark;
   const { data: session, status } = useSession();
   const { selectedTenantId, isSuperAdmin } = useTenantSwitcher();
   const [summary, setSummary] = useState(null);
@@ -280,7 +315,7 @@ export function ModernBillingView({ user }) {
 
             <div className="ms-grid-3">
               {plans.filter(p => p.plan !== "FREE").map((plan) => {
-                const c = PLAN_COLOR[plan.plan] || PLAN_COLOR.FREE;
+                const c = planColors[plan.plan] || planColors.FREE;
                 const isCurrent = summary?.plan === plan.plan;
                 const price = currency === "INR"
                   ? (billingCycle === "ANNUAL" ? plan.annualPriceInr : plan.monthlyPriceInr)
@@ -311,14 +346,14 @@ export function ModernBillingView({ user }) {
                     </div>
 
                     <button
-                      className={isCurrent ? "ms-btn" : "ms-btn ms-btn-pri"}
+                      className="ms-btn"
                       onClick={() => !isCurrent && startUpgrade(plan.plan)}
                       disabled={isCurrent || !!isUpgrading}
                       style={{
                         width: "100%", justifyContent: "center",
-                        ...(isCurrent
-                          ? { color: c.fg, borderColor: c.border, cursor: "default" }
-                          : { background: c.fg, color: "#0B0A0F", borderColor: c.fg }),
+                        background: c.bg, color: c.fg, borderColor: c.border,
+                        cursor: isCurrent ? "default" : "pointer",
+                        fontWeight: isCurrent ? 500 : 600,
                         opacity: isUpgrading ? .7 : 1,
                       }}>
                       {isUpgrading ? "Processing…" : isCurrent ? "Current Plan" : `Upgrade to ${plan.plan}`}

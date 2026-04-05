@@ -1,0 +1,141 @@
+<h2>Light Theme — 3 Directions</h2>
+<p class="subtitle">Current has a warm cream + cool blue clash. Pick the direction to fix it.</p>
+
+<style>
+.theme-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 28px; }
+.theme-wrap { border-radius: 10px; overflow: hidden; border: 2px solid transparent; cursor: pointer; transition: border-color .2s, transform .15s; }
+.theme-wrap:hover { transform: translateY(-2px); }
+.theme-wrap.selected { border-color: #60A5FA; }
+.theme-label { text-align: center; padding: 12px 8px 4px; font-size: 12px; font-weight: 600; }
+.theme-desc { text-align: center; padding: 0 8px 12px; font-size: 11px; color: #9CA3AF; }
+
+/* App shell mockup */
+.app { display: flex; height: 260px; font-family: system-ui; font-size: 11px; border-radius: 8px; overflow: hidden; }
+.sb { width: 110px; flex-shrink: 0; display: flex; flex-direction: column; padding: 10px 8px; gap: 2px; }
+.sb-logo { display: flex; align-items: center; gap: 6px; padding: 4px 6px 10px; border-bottom-width: 1px; border-bottom-style: solid; margin-bottom: 6px; }
+.sb-logo-mark { width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0; }
+.sb-logo-text { font-size: 11px; font-weight: 700; }
+.nav { padding: 5px 7px; border-radius: 5px; display: flex; align-items: center; gap: 5px; }
+.nav-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.main { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.topbar { height: 30px; border-bottom-width: 1px; border-bottom-style: solid; display: flex; align-items: center; padding: 0 12px; gap: 8px; font-weight: 600; font-size: 11px; flex-shrink: 0; }
+.main-inner { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.card { border-radius: 7px; border-width: 1px; border-style: solid; padding: 10px; }
+.stat-row { display: flex; gap: 6px; }
+.stat { flex: 1; border-radius: 6px; border-width: 1px; border-style: solid; padding: 7px 8px; }
+.stat-val { font-size: 14px; font-weight: 700; }
+.stat-lbl { font-size: 9px; margin-top: 1px; }
+.tbl-hdr { height: 20px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 9px; font-weight: 600; letter-spacing: .5px; }
+.input-row { height: 22px; border-radius: 5px; border-width: 1px; border-style: solid; }
+.badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 600; }
+.btn { display: inline-block; padding: 4px 10px; border-radius: 5px; font-size: 10px; font-weight: 600; color: white; }
+</style>
+
+<div class="theme-row">
+
+  <!-- CURRENT: Warm cream + blue -->
+  <div class="theme-wrap" data-choice="current" onclick="toggleSelect(this)" style="background:#1a1a2e;">
+    <div class="app" style="background:#F2EFE9;">
+      <div class="sb" style="background:#EAE6DF; border-right: 1px solid rgba(55,45,30,.12);">
+        <div class="sb-logo" style="border-bottom-color: rgba(55,45,30,.10);">
+          <div class="sb-logo-mark" style="background:#E4ECFF;"></div>
+          <span class="sb-logo-text" style="color:#1A1714;">WrenForge</span>
+        </div>
+        <div class="nav" style="background:#DBEAFE; color:#1E40AF;"><div class="nav-dot" style="background:#2563EB;"></div>Dashboard</div>
+        <div class="nav" style="color:#6B6560;"><div class="nav-dot" style="background:rgba(55,45,30,.2);"></div>Customers</div>
+        <div class="nav" style="color:#6B6560;"><div class="nav-dot" style="background:rgba(55,45,30,.2);"></div>Campaigns</div>
+        <div class="nav" style="color:#6B6560;"><div class="nav-dot" style="background:rgba(55,45,30,.2);"></div>Call Logs</div>
+      </div>
+      <div class="main" style="background:#F2EFE9; padding:0;">
+        <div class="topbar" style="background:#EAE6DF; border-bottom-color:rgba(55,45,30,.12); color:#1A1714;">Dashboard <span style="margin-left:auto;color:#B0A99F;font-weight:400;">John D.</span></div>
+        <div class="main-inner">
+          <div class="stat-row">
+            <div class="stat" style="background:#FDFCF9; border-color:rgba(55,45,30,.09);"><div class="stat-val" style="color:#2563EB;">142</div><div class="stat-lbl" style="color:#B0A99F;">Calls</div></div>
+            <div class="stat" style="background:#FDFCF9; border-color:rgba(55,45,30,.09);"><div class="stat-val" style="color:#1A1714;">38%</div><div class="stat-lbl" style="color:#B0A99F;">Connect</div></div>
+            <div class="stat" style="background:#FDFCF9; border-color:rgba(55,45,30,.09);"><div class="stat-val" style="color:#059669;">$24k</div><div class="stat-lbl" style="color:#B0A99F;">Revenue</div></div>
+          </div>
+          <div class="tbl-hdr" style="background:#EDE9E2; color:#6B6560;">NAME &nbsp;·&nbsp; STATUS &nbsp;·&nbsp; VALUE</div>
+          <div class="input-row" style="background:#FFFFFF; border-color:rgba(55,45,30,.22);"></div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <div class="btn" style="background:#2563EB;">New Call</div>
+            <div class="badge" style="background:rgba(37,99,235,.12);color:#1E40AF;">Active</div>
+            <div class="badge" style="background:#FECACA;color:#DC2626;">Overdue</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="theme-label" style="color:#e2e8f0;">CURRENT — Warm Cream + Blue</div>
+    <div class="theme-desc">Warm beige bg + cool blue accent = temperature clash. Logo feels out of place on the sidebar.</div>
+  </div>
+
+  <!-- OPTION A: Cool Blue Light -->
+  <div class="theme-wrap" data-choice="cool-blue" onclick="toggleSelect(this)" style="background:#1a1a2e;">
+    <div class="app" style="background:#F0F4FF;">
+      <div class="sb" style="background:#FFFFFF; border-right: 1px solid rgba(37,99,235,.10);">
+        <div class="sb-logo" style="border-bottom-color: rgba(37,99,235,.08);">
+          <div class="sb-logo-mark" style="background:#E4ECFF;"></div>
+          <span class="sb-logo-text" style="color:#0F172A;">WrenForge</span>
+        </div>
+        <div class="nav" style="background:#EEF2FF; color:#1E40AF;"><div class="nav-dot" style="background:#2563EB;"></div>Dashboard</div>
+        <div class="nav" style="color:#64748B;"><div class="nav-dot" style="background:rgba(37,99,235,.2);"></div>Customers</div>
+        <div class="nav" style="color:#64748B;"><div class="nav-dot" style="background:rgba(37,99,235,.2);"></div>Campaigns</div>
+        <div class="nav" style="color:#64748B;"><div class="nav-dot" style="background:rgba(37,99,235,.2);"></div>Call Logs</div>
+      </div>
+      <div class="main" style="background:#F0F4FF; padding:0;">
+        <div class="topbar" style="background:#FFFFFF; border-bottom-color:rgba(37,99,235,.10); color:#0F172A;">Dashboard <span style="margin-left:auto;color:#94A3B8;font-weight:400;">John D.</span></div>
+        <div class="main-inner">
+          <div class="stat-row">
+            <div class="stat" style="background:#FFFFFF; border-color:rgba(37,99,235,.10);"><div class="stat-val" style="color:#2563EB;">142</div><div class="stat-lbl" style="color:#94A3B8;">Calls</div></div>
+            <div class="stat" style="background:#FFFFFF; border-color:rgba(37,99,235,.10);"><div class="stat-val" style="color:#0F172A;">38%</div><div class="stat-lbl" style="color:#94A3B8;">Connect</div></div>
+            <div class="stat" style="background:#FFFFFF; border-color:rgba(37,99,235,.10);"><div class="stat-val" style="color:#059669;">$24k</div><div class="stat-lbl" style="color:#94A3B8;">Revenue</div></div>
+          </div>
+          <div class="tbl-hdr" style="background:#EEF2FF; color:#64748B;">NAME &nbsp;·&nbsp; STATUS &nbsp;·&nbsp; VALUE</div>
+          <div class="input-row" style="background:#FFFFFF; border-color:rgba(37,99,235,.18);"></div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <div class="btn" style="background:#2563EB;">New Call</div>
+            <div class="badge" style="background:#EEF2FF;color:#1E40AF;">Active</div>
+            <div class="badge" style="background:#FEE2E2;color:#DC2626;">Overdue</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="theme-label" style="color:#e2e8f0;">A — Cool Blue Light ⭐ recommended</div>
+    <div class="theme-desc">White sidebar + light blue content bg. Everything cohesive — logo, accent, and background all in the same blue family.</div>
+  </div>
+
+  <!-- OPTION B: Clean Neutral White -->
+  <div class="theme-wrap" data-choice="clean-white" onclick="toggleSelect(this)" style="background:#1a1a2e;">
+    <div class="app" style="background:#F5F7FA;">
+      <div class="sb" style="background:#FFFFFF; border-right: 1px solid rgba(0,0,0,.08);">
+        <div class="sb-logo" style="border-bottom-color: rgba(0,0,0,.07);">
+          <div class="sb-logo-mark" style="background:#E4ECFF;"></div>
+          <span class="sb-logo-text" style="color:#111827;">WrenForge</span>
+        </div>
+        <div class="nav" style="background:#EFF6FF; color:#1D4ED8;"><div class="nav-dot" style="background:#2563EB;"></div>Dashboard</div>
+        <div class="nav" style="color:#6B7280;"><div class="nav-dot" style="background:rgba(0,0,0,.15);"></div>Customers</div>
+        <div class="nav" style="color:#6B7280;"><div class="nav-dot" style="background:rgba(0,0,0,.15);"></div>Campaigns</div>
+        <div class="nav" style="color:#6B7280;"><div class="nav-dot" style="background:rgba(0,0,0,.15);"></div>Call Logs</div>
+      </div>
+      <div class="main" style="background:#F5F7FA; padding:0;">
+        <div class="topbar" style="background:#FFFFFF; border-bottom-color:rgba(0,0,0,.08); color:#111827;">Dashboard <span style="margin-left:auto;color:#9CA3AF;font-weight:400;">John D.</span></div>
+        <div class="main-inner">
+          <div class="stat-row">
+            <div class="stat" style="background:#FFFFFF; border-color:rgba(0,0,0,.08);"><div class="stat-val" style="color:#2563EB;">142</div><div class="stat-lbl" style="color:#9CA3AF;">Calls</div></div>
+            <div class="stat" style="background:#FFFFFF; border-color:rgba(0,0,0,.08);"><div class="stat-val" style="color:#111827;">38%</div><div class="stat-lbl" style="color:#9CA3AF;">Connect</div></div>
+            <div class="stat" style="background:#FFFFFF; border-color:rgba(0,0,0,.08);"><div class="stat-val" style="color:#059669;">$24k</div><div class="stat-lbl" style="color:#9CA3AF;">Revenue</div></div>
+          </div>
+          <div class="tbl-hdr" style="background:#F1F3F7; color:#6B7280;">NAME &nbsp;·&nbsp; STATUS &nbsp;·&nbsp; VALUE</div>
+          <div class="input-row" style="background:#FFFFFF; border-color:rgba(0,0,0,.14);"></div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <div class="btn" style="background:#2563EB;">New Call</div>
+            <div class="badge" style="background:#EFF6FF;color:#1D4ED8;">Active</div>
+            <div class="badge" style="background:#FEE2E2;color:#DC2626;">Overdue</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="theme-label" style="color:#e2e8f0;">B — Clean Neutral White</div>
+    <div class="theme-desc">Pure white sidebar + light grey content. Notion/Linear style. Neutral — works with any accent but less branded.</div>
+  </div>
+
+</div>

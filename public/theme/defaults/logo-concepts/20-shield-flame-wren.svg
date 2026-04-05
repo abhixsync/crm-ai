@@ -1,0 +1,40 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg20" x1="12" y1="8" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3478F6"/>
+      <stop offset="48%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1B4BC8"/>
+    </linearGradient>
+    <linearGradient id="flame20" x1="60" y1="100" x2="60" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="60%" stop-color="#EF4444"/>
+      <stop offset="100%" stop-color="#DC2626" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="sc20">
+      <path d="M 60 12 L 100 27 L 100 60 C 100 82, 83 98, 60 108 C 37 98, 20 82, 20 60 L 20 27 Z"/>
+    </clipPath>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg20)"/>
+
+  <!-- Shield -->
+  <path d="M 60 12 L 100 27 L 100 60 C 100 82, 83 98, 60 108 C 37 98, 20 82, 20 60 L 20 27 Z"
+        fill="white" opacity="0.08"/>
+  <path d="M 60 12 L 100 27 L 100 60 C 100 82, 83 98, 60 108 C 37 99, 20 82, 20 60 L 20 27 Z"
+        fill="none" stroke="white" stroke-width="2" stroke-linejoin="round" opacity="0.85"/>
+
+  <!-- Forge flame (clipped inside shield) -->
+  <g clip-path="url(#sc20)">
+    <path d="M 60 105 C 50 90, 38 78, 40 65 C 42 55, 48 52, 46 42 C 50 50, 50 56, 55 52 C 52 45, 54 38, 60 35 C 58 42, 62 48, 66 44 C 64 38, 66 32, 72 30 C 68 40, 70 50, 74 56 C 78 62, 80 72, 78 82 C 76 70, 70 64, 70 68 C 74 78, 72 92, 60 105 Z"
+          fill="url(#flame20)" opacity="0.75"/>
+  </g>
+
+  <!-- Wren perched on top of flame -->
+  <g fill="white">
+    <ellipse cx="60" cy="46" rx="9" ry="6" transform="rotate(-10, 60, 46)"/>
+    <circle cx="71" cy="37" r="7"/>
+    <ellipse cx="66" cy="41" rx="6" ry="5" transform="rotate(-20, 66, 41)"/>
+    <path d="M 76 34 L 85 31 L 76 41 Z"/>
+    <path d="M 48 50 C 42 42, 34 30, 30 24 C 28 21, 30 19, 32 21 C 37 29, 44 42, 48 50 Z"/>
+  </g>
+  <circle cx="73" cy="36" r="1.8" fill="#1B4BC8"/>
+</svg>

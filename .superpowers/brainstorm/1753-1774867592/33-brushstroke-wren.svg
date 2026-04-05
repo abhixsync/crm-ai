@@ -1,0 +1,44 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg33" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F8F4EF"/>
+      <stop offset="100%" stop-color="#EDE8E0"/>
+    </linearGradient>
+    <linearGradient id="ink33" x1="20" y1="20" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg33)"/>
+
+  <!-- Calligraphic/ink brush wren — single gestural strokes -->
+  <!-- Main body stroke (broad brush) -->
+  <path d="M 30 82 C 28 72, 30 58, 38 50 C 46 42, 56 40, 64 38 C 72 36, 80 32, 84 26 C 86 22, 88 18, 86 16 C 84 14, 80 16, 76 20 C 70 28, 66 38, 68 48 C 70 56, 74 60, 72 66 C 70 72, 62 74, 56 72 C 48 70, 40 64, 36 58 C 32 52, 32 44, 36 40"
+        stroke="url(#ink33)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"
+        fill="none" opacity="0.9"/>
+
+  <!-- Head stroke -->
+  <path d="M 76 22 C 80 18, 88 16, 92 20 C 96 24, 94 32, 90 36 C 86 40, 80 40, 76 36 C 72 32, 72 26, 76 22 Z"
+        fill="url(#ink33)" opacity="0.85"/>
+
+  <!-- Beak (short decisive stroke) -->
+  <path d="M 90 22 L 104 16" stroke="url(#ink33)" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.9"/>
+
+  <!-- Tail stroke (upward flick) -->
+  <path d="M 34 58 C 24 48, 16 34, 14 22" stroke="url(#ink33)" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.8"/>
+
+  <!-- Feather detail strokes -->
+  <path d="M 50 46 C 44 40, 36 32, 30 26" stroke="url(#ink33)" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.4"/>
+  <path d="M 42 54 C 34 48, 24 40, 20 34" stroke="url(#ink33)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.3"/>
+
+  <!-- Eye (ink dot) -->
+  <circle cx="84" cy="28" r="3" fill="url(#ink33)"/>
+
+  <!-- Small ink splash/splatter around eye -->
+  <g fill="#1E3A8A" opacity="0.35">
+    <circle cx="90" cy="24" r="1.2"/>
+    <circle cx="92" cy="30" r="0.8"/>
+    <circle cx="88" cy="34" r="1"/>
+    <circle cx="80" cy="24" r="0.7"/>
+  </g>
+</svg>

@@ -1,0 +1,197 @@
+<h2>WrenForge Logo Concepts — Pick your favourites</h2>
+<p class="subtitle">Multi-select any you like. New batch: 20 shield &amp; anvil variants + 10 completely different directions.</p>
+
+<style>
+.logo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin-top: 20px; }
+.logo-card { background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px 12px 10px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.2s; user-select: none; }
+.logo-card:hover { border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); transform: translateY(-2px); }
+.logo-card.selected { border-color: #22d3ee; background: rgba(34,211,238,0.12); box-shadow: 0 0 0 2px #22d3ee44; }
+.logo-card img { width: 88px; height: 88px; border-radius: 8px; }
+.logo-name { margin-top: 8px; font-size: 11px; text-align: center; opacity: 0.75; line-height: 1.3; }
+.logo-num { font-size: 10px; opacity: 0.4; margin-bottom: 2px; }
+.section-label { margin: 28px 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; opacity: 0.5; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; }
+</style>
+
+<div class="section-label">Original Favourites (for reference)</div>
+<div class="logo-grid" id="orig-grid">
+  <div class="logo-card" data-choice="01" onclick="toggle(this)">
+    <img src="01-shield-crest.svg" alt="01"/>
+    <div class="logo-num">#01</div>
+    <div class="logo-name">Shield Crest</div>
+  </div>
+  <div class="logo-card" data-choice="02" onclick="toggle(this)">
+    <img src="02-wren-on-anvil.svg" alt="02"/>
+    <div class="logo-num">#02</div>
+    <div class="logo-name">Wren on Anvil</div>
+  </div>
+</div>
+
+<div class="section-label">Shield-Inspired Variants (#11–20)</div>
+<div class="logo-grid" id="shield-grid">
+  <div class="logo-card" data-choice="11" onclick="toggle(this)">
+    <img src="11-shield-filled-wren.svg" alt="11"/>
+    <div class="logo-num">#11</div>
+    <div class="logo-name">Shield Filled Wren</div>
+  </div>
+  <div class="logo-card" data-choice="12" onclick="toggle(this)">
+    <img src="12-shield-crossed-hammers.svg" alt="12"/>
+    <div class="logo-num">#12</div>
+    <div class="logo-name">Shield Crossed Hammers</div>
+  </div>
+  <div class="logo-card" data-choice="13" onclick="toggle(this)">
+    <img src="13-shield-wren-flight.svg" alt="13"/>
+    <div class="logo-num">#13</div>
+    <div class="logo-name">Shield Wren in Flight</div>
+  </div>
+  <div class="logo-card" data-choice="14" onclick="toggle(this)">
+    <img src="14-modern-pentagon-shield.svg" alt="14"/>
+    <div class="logo-num">#14</div>
+    <div class="logo-name">Pentagon Shield Modern</div>
+  </div>
+  <div class="logo-card" data-choice="15" onclick="toggle(this)">
+    <img src="15-shield-crown-wren.svg" alt="15"/>
+    <div class="logo-num">#15</div>
+    <div class="logo-name">Shield + Crown</div>
+  </div>
+  <div class="logo-card" data-choice="16" onclick="toggle(this)">
+    <img src="16-roundel-wren.svg" alt="16"/>
+    <div class="logo-num">#16</div>
+    <div class="logo-name">Roundel / Circle</div>
+  </div>
+  <div class="logo-card" data-choice="17" onclick="toggle(this)">
+    <img src="17-shield-diagonal-stripe.svg" alt="17"/>
+    <div class="logo-num">#17</div>
+    <div class="logo-name">Shield Diagonal Stripe</div>
+  </div>
+  <div class="logo-card" data-choice="18" onclick="toggle(this)">
+    <img src="18-gothic-shield-banner.svg" alt="18"/>
+    <div class="logo-num">#18</div>
+    <div class="logo-name">Gothic Shield + WF Banner</div>
+  </div>
+  <div class="logo-card" data-choice="19" onclick="toggle(this)">
+    <img src="19-shield-outline-solid-wren.svg" alt="19"/>
+    <div class="logo-num">#19</div>
+    <div class="logo-name">Minimal Shield + Bold Wren</div>
+  </div>
+  <div class="logo-card" data-choice="20" onclick="toggle(this)">
+    <img src="20-shield-flame-wren.svg" alt="20"/>
+    <div class="logo-num">#20</div>
+    <div class="logo-name">Shield Flame + Wren</div>
+  </div>
+</div>
+
+<div class="section-label">Anvil &amp; Wren Variants (#21–30)</div>
+<div class="logo-grid" id="anvil-grid">
+  <div class="logo-card" data-choice="21" onclick="toggle(this)">
+    <img src="21-flat-wren-anvil.svg" alt="21"/>
+    <div class="logo-num">#21</div>
+    <div class="logo-name">Flat / Modern Minimal</div>
+  </div>
+  <div class="logo-card" data-choice="22" onclick="toggle(this)">
+    <img src="22-wren-flight-over-anvil.svg" alt="22"/>
+    <div class="logo-num">#22</div>
+    <div class="logo-name">Wren in Flight over Anvil</div>
+  </div>
+  <div class="logo-card" data-choice="23" onclick="toggle(this)">
+    <img src="23-wren-hammer-beak.svg" alt="23"/>
+    <div class="logo-num">#23</div>
+    <div class="logo-name">Wren with Hammer in Beak</div>
+  </div>
+  <div class="logo-card" data-choice="24" onclick="toggle(this)">
+    <img src="24-wren-wings-over-anvil.svg" alt="24"/>
+    <div class="logo-num">#24</div>
+    <div class="logo-name">Guardian Wings over Anvil</div>
+  </div>
+  <div class="logo-card" data-choice="25" onclick="toggle(this)">
+    <img src="25-wren-anvil-merged.svg" alt="25"/>
+    <div class="logo-num">#25</div>
+    <div class="logo-name">Wren + Anvil Merged</div>
+  </div>
+  <div class="logo-card" data-choice="26" onclick="toggle(this)">
+    <img src="26-round-badge-anvil-wren.svg" alt="26"/>
+    <div class="logo-num">#26</div>
+    <div class="logo-name">Round Badge</div>
+  </div>
+  <div class="logo-card" data-choice="27" onclick="toggle(this)">
+    <img src="27-anvil-horn-wren-beak.svg" alt="27"/>
+    <div class="logo-num">#27</div>
+    <div class="logo-name">Horn = Beak (Morphed)</div>
+  </div>
+  <div class="logo-card" data-choice="28" onclick="toggle(this)">
+    <img src="28-wren-landing-sparks.svg" alt="28"/>
+    <div class="logo-num">#28</div>
+    <div class="logo-name">Wren Landing + Sparks</div>
+  </div>
+  <div class="logo-card" data-choice="29" onclick="toggle(this)">
+    <img src="29-isometric-anvil-wren.svg" alt="29"/>
+    <div class="logo-num">#29</div>
+    <div class="logo-name">Isometric 3D Anvil</div>
+  </div>
+  <div class="logo-card" data-choice="30" onclick="toggle(this)">
+    <img src="30-bold-wren-on-anvil.svg" alt="30"/>
+    <div class="logo-num">#30</div>
+    <div class="logo-name">Bold High-Contrast</div>
+  </div>
+</div>
+
+<div class="section-label">Completely Different Directions (#31–40)</div>
+<div class="logo-grid" id="diff-grid">
+  <div class="logo-card" data-choice="31" onclick="toggle(this)">
+    <img src="31-phoenix-wren.svg" alt="31"/>
+    <div class="logo-num">#31</div>
+    <div class="logo-name">Phoenix Wren (Fire)</div>
+  </div>
+  <div class="logo-card" data-choice="32" onclick="toggle(this)">
+    <img src="32-circuit-wren.svg" alt="32"/>
+    <div class="logo-num">#32</div>
+    <div class="logo-name">Circuit / Tech Wren</div>
+  </div>
+  <div class="logo-card" data-choice="33" onclick="toggle(this)">
+    <img src="33-brushstroke-wren.svg" alt="33"/>
+    <div class="logo-num">#33</div>
+    <div class="logo-name">Ink Brush Stroke</div>
+  </div>
+  <div class="logo-card" data-choice="34" onclick="toggle(this)">
+    <img src="34-geometric-wren-face.svg" alt="34"/>
+    <div class="logo-num">#34</div>
+    <div class="logo-name">Geometric Face Portrait</div>
+  </div>
+  <div class="logo-card" data-choice="35" onclick="toggle(this)">
+    <img src="35-w-wings.svg" alt="35"/>
+    <div class="logo-num">#35</div>
+    <div class="logo-name">W = Wings Lettermark</div>
+  </div>
+  <div class="logo-card" data-choice="36" onclick="toggle(this)">
+    <img src="36-constellation-wren.svg" alt="36"/>
+    <div class="logo-num">#36</div>
+    <div class="logo-name">Constellation Stars</div>
+  </div>
+  <div class="logo-card" data-choice="37" onclick="toggle(this)">
+    <img src="37-wren-eye.svg" alt="37"/>
+    <div class="logo-num">#37</div>
+    <div class="logo-name">Close-up Eye</div>
+  </div>
+  <div class="logo-card" data-choice="38" onclick="toggle(this)">
+    <img src="38-abstract-flow-wren.svg" alt="38"/>
+    <div class="logo-num">#38</div>
+    <div class="logo-name">Abstract Data Flow</div>
+  </div>
+  <div class="logo-card" data-choice="39" onclick="toggle(this)">
+    <img src="39-wren-talon-mark.svg" alt="39"/>
+    <div class="logo-num">#39</div>
+    <div class="logo-name">Talon / Footprint Mark</div>
+  </div>
+  <div class="logo-card" data-choice="40" onclick="toggle(this)">
+    <img src="40-crystal-gem-wren.svg" alt="40"/>
+    <div class="logo-num">#40</div>
+    <div class="logo-name">Crystal Gem / Faceted</div>
+  </div>
+</div>
+
+<script>
+function toggle(el) {
+  el.classList.toggle('selected');
+  const selected = [...document.querySelectorAll('.logo-card.selected')].map(c => c.dataset.choice);
+  if (window.recordChoice) window.recordChoice(selected.join(','), 'Selected: ' + selected.map(n => '#' + n).join(', '));
+}
+</script>

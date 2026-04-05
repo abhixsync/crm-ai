@@ -1,0 +1,42 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg14" x1="12" y1="8" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E40AF"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="shield14" x1="20" y1="18" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#1E40AF" stop-opacity="0.2"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg14)"/>
+
+  <!-- Modern flat pentagon shield -->
+  <path d="M 60 16 L 98 38 L 98 78 L 60 104 L 22 78 L 22 38 Z"
+        fill="url(#shield14)" stroke="white" stroke-width="2.5" stroke-linejoin="round" opacity="0.9"/>
+
+  <!-- Inner accent line -->
+  <path d="M 60 24 L 90 42 L 90 76 L 60 96 L 30 76 L 30 42 Z"
+        fill="none" stroke="white" stroke-width="0.8" opacity="0.25"/>
+
+  <!-- Minimal wren mark - geometric simplified -->
+  <g fill="white">
+    <!-- Stylized wren: just bold head + beak + cocked tail -->
+    <circle cx="65" cy="52" r="9"/>
+    <path d="M 72 48 L 82 44 L 72 56 Z"/>
+    <!-- Body blob -->
+    <ellipse cx="55" cy="62" rx="10" ry="6.5" transform="rotate(-10, 55, 62)"/>
+    <!-- Upright tail (geometric) -->
+    <path d="M 44 65 L 38 48 L 46 64 Z"/>
+    <path d="M 42 66 L 34 52 L 44 66 Z" opacity="0.6"/>
+  </g>
+  <circle cx="67" cy="50" r="2" fill="#1E40AF"/>
+
+  <!-- Corner accent dots -->
+  <circle cx="60" cy="17" r="2.5" fill="white" opacity="0.6"/>
+  <circle cx="98" cy="38" r="2" fill="white" opacity="0.4"/>
+  <circle cx="98" cy="78" r="2" fill="white" opacity="0.4"/>
+  <circle cx="60" cy="104" r="2" fill="white" opacity="0.4"/>
+  <circle cx="22" cy="78" r="2" fill="white" opacity="0.4"/>
+  <circle cx="22" cy="38" r="2" fill="white" opacity="0.4"/>
+</svg>

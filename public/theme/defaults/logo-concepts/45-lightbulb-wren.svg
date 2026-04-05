@@ -1,0 +1,67 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg45" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0C1A2E"/>
+      <stop offset="100%" stop-color="#0F2044"/>
+    </linearGradient>
+    <radialGradient id="glow45" cx="0.5" cy="0.4" r="0.6">
+      <stop offset="0%" stop-color="#FCD34D" stop-opacity="0.5"/>
+      <stop offset="50%" stop-color="#F59E0B" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bulb45" x1="30" y1="10" x2="90" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FDE68A" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.5"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg45)"/>
+
+  <!-- Outer glow -->
+  <circle cx="60" cy="52" r="44" fill="url(#glow45)"/>
+
+  <!-- Lightbulb shape -->
+  <!-- Bulb (circle top) -->
+  <path d="M 60 10 C 40 10, 24 26, 24 46 C 24 60, 32 72, 44 78 L 44 90 L 76 90 L 76 78 C 88 72, 96 60, 96 46 C 96 26, 80 10, 60 10 Z"
+        fill="url(#bulb45)" opacity="0.3"/>
+  <path d="M 60 10 C 40 10, 24 26, 24 46 C 24 60, 32 72, 44 78 L 44 90 L 76 90 L 76 78 C 88 72, 96 60, 96 46 C 96 26, 80 10, 60 10 Z"
+        fill="none" stroke="#F59E0B" stroke-width="2" opacity="0.7"/>
+
+  <!-- Bulb screw base -->
+  <rect x="44" y="90" width="32" height="5" rx="1" fill="#F59E0B" opacity="0.6"/>
+  <rect x="46" y="95" width="28" height="5" rx="1" fill="#F59E0B" opacity="0.5"/>
+  <rect x="48" y="100" width="24" height="5" rx="1" fill="#F59E0B" opacity="0.4"/>
+
+  <!-- Wren INSIDE the lightbulb (as the filament/idea) -->
+  <g fill="white" opacity="0.95">
+    <!-- Body -->
+    <ellipse cx="60" cy="58" rx="11" ry="7" transform="rotate(-10, 60, 58)"/>
+    <!-- Head -->
+    <circle cx="73" cy="46" r="8.5"/>
+    <!-- Neck -->
+    <ellipse cx="67" cy="51" rx="6.5" ry="5" transform="rotate(-22, 67, 51)"/>
+    <!-- Beak -->
+    <path d="M 79 43 L 90 39 L 79 50 Z"/>
+    <!-- Tail (upward) -->
+    <path d="M 46 62 C 38 52, 28 38, 24 28 C 22 24, 24 21, 26 23 C 32 32, 42 48, 48 60 Z"/>
+  </g>
+  <!-- Eye -->
+  <circle cx="75" cy="45" r="2" fill="#F59E0B"/>
+  <circle cx="75.5" cy="44.5" r="0.8" fill="white"/>
+
+  <!-- Filament glow lines -->
+  <g stroke="#FCD34D" stroke-width="1" fill="none" opacity="0.4">
+    <path d="M 48 72 C 44 68, 40 60, 40 52"/>
+    <path d="M 72 72 C 76 68, 80 60, 80 52"/>
+  </g>
+
+  <!-- Rays of light -->
+  <g stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round" opacity="0.4">
+    <line x1="60" y1="8" x2="60" y2="2"/>
+    <line x1="22" y1="22" x2="18" y2="18"/>
+    <line x1="98" y1="22" x2="102" y2="18"/>
+    <line x1="12" y1="52" x2="6" y2="52"/>
+    <line x1="108" y1="52" x2="114" y2="52"/>
+    <line x1="28" y1="80" x2="22" y2="86"/>
+    <line x1="92" y1="80" x2="98" y2="86"/>
+  </g>
+</svg>

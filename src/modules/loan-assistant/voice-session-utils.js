@@ -3,6 +3,24 @@
  * The LLM is responsible for understanding or asking for clarification —
  * we should never silently drop customer speech on the client side.
  */
+
+const PROFANITY_WORDS = new Set([
+  // English
+  'shit', 'fuck', 'fucking', 'fucked', 'ass', 'asshole', 'bitch',
+  'bastard', 'crap', 'cock', 'dick', 'pussy', 'damn', 'piss',
+  // Hindi (Roman script)
+  'madarchod', 'behenchod', 'bhosdike', 'chutiya', 'gandu',
+  'haramzada', 'randi', 'kamina', 'kaminey', 'harami',
+]);
+
+const GARBAGE_PHRASES = [
+  'first get yourself for brain',
+  'yah ladki',
+  'aye ladki',
+  'oye ladki',
+  'yeh ladki',
+];
+
 export function normalizeVoiceTranscript(value) {
   if (typeof value !== 'string') return '';
   return value.trim().toLowerCase();
@@ -10,7 +28,13 @@ export function normalizeVoiceTranscript(value) {
 
 export function isMeaningfulVoiceTranscript(value) {
   const normalized = normalizeVoiceTranscript(value);
-  return normalized.length > 0;
+  if (!normalized.length) return false;
+
+  const tokens = normalized.split(/\s+/);
+  if (tokens.some((token) => PROFANITY_WORDS.has(token))) return false;
+  if (GARBAGE_PHRASES.some((phrase) => normalized.includes(phrase))) return false;
+
+  return true;
 }
 
 export function getRecognitionRestartDelayMs(consecutiveSilentCount) {

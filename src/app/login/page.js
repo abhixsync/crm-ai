@@ -1,17 +1,29 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import { getActiveTheme } from "@/modules/theme/theme.service";
 import { prisma } from "@/lib/prisma";
 import LoginForm from "./login-form";
 
 export default async function LoginPage() {
-  let theme = { loginBackgroundUrl: null, logoUrl: null, themeName: null, displayName: null, primaryColor: null, secondaryColor: null, accentColor: null, uiLayout: "modern" };
+  const headersList = await headers();
+  const tenantId   = headersList.get("x-resolved-tenant-id")   || null;
+  const tenantSlug = headersList.get("x-resolved-tenant-slug") || null;
+
+  let theme = {
+    loginBackgroundUrl: null, logoUrl: null, themeName: null,
+    displayName: null, primaryColor: null, secondaryColor: null,
+    accentColor: null, uiLayout: "modern",
+  };
 
   try {
-    const active = await getActiveTheme(null);
+    const active = await getActiveTheme(tenantId);
     let displayName = active?.themeName || null;
     if (active?.tenantId) {
       try {
-        const tenant = await prisma.tenant.findUnique({ where: { id: active.tenantId }, select: { crmName: true, name: true } });
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: active.tenantId },
+          select: { crmName: true, name: true },
+        });
         if (tenant) displayName = tenant.crmName || tenant.name || displayName;
       } catch {}
     }
@@ -29,7 +41,7 @@ export default async function LoginPage() {
 
   return (
     <Suspense>
-      <LoginForm theme={theme} />
+      <LoginForm theme={theme} tenantId={tenantId} tenantSlug={tenantSlug} />
     </Suspense>
   );
 }

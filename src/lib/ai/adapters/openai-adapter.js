@@ -99,6 +99,8 @@ function getFallbackTurnResponse(turn, languageSignal) {
   };
 }
 
+// Fallback heuristic: checks the AI's reply text (not customer input) for end-of-call signals
+// when the LLM response doesn't include a structured shouldEnd field.
 function inferShouldEndFromReply(reply) {
   const lower = String(reply || "").toLowerCase();
   return (
@@ -122,7 +124,7 @@ async function invokeOpenAI({ task, input, config }) {
     const customer = input.customer;
 
     if (!client) {
-      return { script: fallbackScript(customer) };
+      throw new Error("OpenAI API key not configured");
     }
 
     const prompt = `You are a loan CRM voice assistant. Produce a concise call script (max 120 words) for this customer profile in conversational English. Include qualification questions and next-step ask. Customer: ${JSON.stringify(
@@ -137,11 +139,7 @@ async function invokeOpenAI({ task, input, config }) {
     const transcript = input.transcript || "";
 
     if (!client) {
-      return {
-        summary: "Call transcript captured. Manual review required.",
-        intent: "UNKNOWN",
-        nextAction: "Follow up by sales team.",
-      };
+      throw new Error("OpenAI API key not configured");
     }
 
     const prompt = `Analyze this loan sales call transcript and return JSON with keys summary, intent, nextAction. Transcript: ${transcript}`;
@@ -168,7 +166,7 @@ async function invokeOpenAI({ task, input, config }) {
       context.languageInstruction || getLanguageMirroringInstruction(languageSignal);
 
     if (!client) {
-      return getFallbackTurnResponse(turn, languageSignal);
+      throw new Error("OpenAI API key not configured");
     }
 
     const unifiedSystemPrompt = await buildUnifiedCallTurnPrompt({

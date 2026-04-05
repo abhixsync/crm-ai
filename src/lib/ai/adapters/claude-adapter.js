@@ -99,6 +99,8 @@ function fallbackTurnByLanguage(turn, languageSignal) {
   };
 }
 
+// Fallback heuristic: checks the AI's reply text (not customer input) for end-of-call signals
+// when the LLM response doesn't include a structured shouldEnd field.
 function inferShouldEnd(replyText) {
   const lower = String(replyText || "").toLowerCase();
   return (
@@ -122,7 +124,7 @@ async function invokeClaudeAI({ task, input, config }) {
     const customer = input.customer;
 
     if (!client) {
-      return { script: fallbackScript(customer) };
+      throw new Error("Claude API key not configured");
     }
 
     const prompt = `You are a loan CRM voice assistant. Produce a concise call script (max 120 words) for this customer profile in conversational English. Include qualification questions and next-step ask. Customer: ${JSON.stringify(
@@ -144,7 +146,7 @@ async function invokeClaudeAI({ task, input, config }) {
       return { script };
     } catch (error) {
       console.error("Claude API error:", error.message);
-      return { script: fallbackScript(customer) };
+      throw error;
     }
   }
 
@@ -152,11 +154,7 @@ async function invokeClaudeAI({ task, input, config }) {
     const transcript = input.transcript || "";
 
     if (!client) {
-      return {
-        summary: "Call transcript captured. Manual review required.",
-        intent: "UNKNOWN",
-        nextAction: "Follow up by sales team.",
-      };
+      throw new Error("Claude API key not configured");
     }
 
     const prompt = buildCallSummaryPrompt({
@@ -187,11 +185,7 @@ async function invokeClaudeAI({ task, input, config }) {
       }
     } catch (error) {
       console.error("Claude API error:", error.message);
-      return {
-        summary: "Transcript processed.",
-        intent: "UNKNOWN",
-        nextAction: "Review manually.",
-      };
+      throw error;
     }
   }
 
@@ -205,8 +199,7 @@ async function invokeClaudeAI({ task, input, config }) {
     console.log('[claude-adapter] CALL_TURN — latestCustomerMessage:', input.latestCustomerMessage);
 
     if (!client) {
-      console.warn('[claude-adapter] No API client — returning fallback');
-      return fallbackTurnByLanguage(turn, languageSignal);
+      throw new Error("Claude API key not configured");
     }
 
     const systemPrompt = await buildUnifiedCallTurnPrompt({
@@ -272,9 +265,7 @@ async function invokeClaudeAI({ task, input, config }) {
       };
     } catch (error) {
       console.error("Claude API error:", error.message);
-      return {
-        ...fallbackTurnByLanguage(turn, languageSignal),
-      };
+      throw error;
     }
   }
 
@@ -283,7 +274,7 @@ async function invokeClaudeAI({ task, input, config }) {
 
 export function createClaudeEngine() {
   return createEngineAdapter({
-    name: "Claude AI Engine",
+    id: "claude-engine",
     supportedTasks: new Set([
       AI_TASKS.CALL_SCRIPT,
       AI_TASKS.CALL_SUMMARY,
