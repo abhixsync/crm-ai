@@ -49,30 +49,24 @@ export async function reserveCredits(tenantId, callLogId) {
     throw err;
   }
 
-  // Atomic reserve — single UPDATE WHERE; zero rows = race condition
-  const affected = await prisma.$executeRaw`
-    UPDATE "TenantCreditBalance"
-    SET "reservedCredits" = "reservedCredits" + ${reserveAmount},
-        "updatedAt" = NOW()
-    WHERE "tenantId" = ${tenantId}
-      AND ("planCredits" + "purchasedCredits" - "reservedCredits") >= ${reserveAmount}
-  `;
+  // Atomic reserve — single interactive transaction so raw SQL + ORM ops commit together
+  const affected = await prisma.$transaction(async (tx) => {
+    const rows = await tx.$executeRaw`
+      UPDATE "TenantCreditBalance"
+      SET "reservedCredits" = "reservedCredits" + ${reserveAmount},
+          "updatedAt" = NOW()
+      WHERE "tenantId" = ${tenantId}
+        AND ("planCredits" + "purchasedCredits" - "reservedCredits") >= ${reserveAmount}
+    `;
 
-  if (affected === 0) {
-    const err = new Error("Insufficient credits");
-    err.status = 402;
-    err.code = "INSUFFICIENT_CREDITS";
-    err.available = 0;
-    err.required = reserveAmount;
-    throw err;
-  }
+    if (rows === 0) return 0;
 
-  await prisma.$transaction([
-    prisma.callLog.update({
+    await tx.callLog.update({
       where: { id: callLogId },
       data: { creditsReserved: reserveAmount, reservedAt: new Date() },
-    }),
-    prisma.creditTransaction.create({
+    });
+
+    await tx.creditTransaction.create({
       data: {
         tenantId,
         type: "RESERVE",
@@ -82,8 +76,19 @@ export async function reserveCredits(tenantId, callLogId) {
         callLogId,
         idempotencyKey: `reserve-${callLogId}`,
       },
-    }),
-  ]);
+    });
+
+    return rows;
+  });
+
+  if (affected === 0) {
+    const err = new Error("Insufficient credits");
+    err.status = 402;
+    err.code = "INSUFFICIENT_CREDITS";
+    err.available = 0;
+    err.required = reserveAmount;
+    throw err;
+  }
 }
 
 // ─── SETTLE ─────────────────────────────────────────────
@@ -108,7 +113,7 @@ export async function settleCredits(tenantId, callLogId, durationSecs) {
 
   // Deduct plan credits first, remainder from purchased
   const deductFromPlan = Math.min(balance.planCredits, actual);
-  const deductFromPurchased = actual - deductFromPlan;
+  const deductFromPurchased = Math.min(actual - deductFromPlan, balance.purchasedCredits);
   const sourcePool = deductFromPurchased > 0 ? "PURCHASED" : "PLAN";
   const balanceAfter =
     balance.planCredits - deductFromPlan +
@@ -178,7 +183,7 @@ export async function refundReserve(tenantId, callLogId) {
         sourcePool: "PLAN",
         balanceAfter,
         callLogId,
-        idempotencyKey: `settle-${callLogId}`,
+        idempotencyKey: `refund-${callLogId}`,
       },
     }),
   ]);
@@ -300,7 +305,9 @@ export async function releaseStaleReserves() {
 
   for (const log of staleLogs) {
     // Settle with durationSecs=0 → charges init fee only
-    await settleCredits(log.tenantId, log.id, 0).catch(() => {});
+    await settleCredits(log.tenantId, log.id, 0).catch((err) => {
+      console.error(`[releaseStaleReserves] failed for callLog ${log.id}:`, err);
+    });
   }
 }
 
