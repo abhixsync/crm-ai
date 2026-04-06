@@ -556,6 +556,9 @@ model CallLog {
   intentClassification  String?
   nextAction            String?
   durationSecs          Int?
+  creditsReserved       Int?
+  creditsCharged        Int?
+  reservedAt            DateTime?
   recordingUrl          String?
   confidenceScore       Float?
   metadata              Json?
@@ -1258,6 +1261,7 @@ model PlanDefinition {
   maxCustomFields        Int @default(0)
   maxTeams               Int @default(0)
   maxStorageMb           Int @default(0)
+  creditsPerMonth        Int @default(0)
 
   // Feature flags
   hasAiCalling          Boolean @default(false)
