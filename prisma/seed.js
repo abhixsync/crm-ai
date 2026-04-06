@@ -183,7 +183,7 @@ async function seedPlanDefinitions() {
   for (const plan of plans) {
     await prisma.planDefinition.upsert({
       where:  { plan: plan.plan },
-      update: { creditsPerMonth: plan.creditsPerMonth, maxAiCallsPerMonth: plan.maxAiCallsPerMonth },
+      update: plan,
       create: plan,
     });
   }
