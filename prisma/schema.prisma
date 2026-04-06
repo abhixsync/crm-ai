@@ -572,6 +572,7 @@ model CallLog {
   manualReviews        ManualReview[]
   aiScoringHistory     AiScoringHistory[]
   conversationSessions ConversationSession[]
+  creditTransactions   CreditTransaction[]
 
   // FIX: providerCallId now scoped to tenant
   @@unique([tenantId, providerCallId])
@@ -1452,10 +1453,13 @@ model CreditTransaction {
   meta             Json?
   createdAt        DateTime              @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant       Tenant              @relation(fields: [tenantId], references: [id])
+  callLog      CallLog?            @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+  packPurchase CreditPackPurchase? @relation(fields: [packPurchaseId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
   @@index([callLogId])
+  @@index([packPurchaseId])
   @@index([tenantId, type])
 }
 
@@ -1464,8 +1468,8 @@ model CreditPack {
   name           String
   credits        Int
   bonusCredits   Int           @default(0)
-  priceInr       Decimal
-  priceUsd       Decimal
+  priceInr       Decimal       @db.Decimal(10, 2)
+  priceUsd       Decimal       @db.Decimal(10, 2)
   isRecurring    Boolean       @default(false)
   billingCycle   BillingCycle?
   isActive       Boolean       @default(true)
@@ -1483,9 +1487,9 @@ model CreditPackPurchase {
   tenantId               String
   packId                 String
   creditsAtPurchase      Int
-  priceAtPurchase        Decimal
-  amountInr              Decimal?
-  amountUsd              Decimal?
+  priceAtPurchase        Decimal         @db.Decimal(10, 2)
+  amountInr              Decimal?        @db.Decimal(10, 2)
+  amountUsd              Decimal?        @db.Decimal(10, 2)
   billingProvider        BillingProvider
   providerTxId           String?
   stripeSubscriptionId   String?
@@ -1501,7 +1505,10 @@ model CreditPackPurchase {
   tenant Tenant     @relation(fields: [tenantId], references: [id])
   pack   CreditPack @relation(fields: [packId], references: [id])
 
+  creditTransactions CreditTransaction[]
+
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
   @@index([tenantId, expiresAt])
+  @@index([packId])
 }
