@@ -18,6 +18,10 @@ export default function LoginForm({ theme, tenantId, tenantSlug }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    document.documentElement.setAttribute("data-ui-theme", "light");
+  }, []);
+
+  useEffect(() => {
     const verified = searchParams.get("verified");
     if (verified === "success") toast.success("Email verified! You can now sign in.");
     else if (verified === "invalid") toast.error("Verification link is invalid or expired.");
