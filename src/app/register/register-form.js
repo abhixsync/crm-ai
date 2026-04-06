@@ -66,7 +66,9 @@ export default function RegisterForm({ theme = {} }) {
 
       if (res.ok && data.slug) {
         const { protocol, host } = window.location;
-        window.location.href = `${protocol}//${data.slug}.${host}/login?welcome=1`;
+        const parts = host.split(".");
+        const rootDomain = parts.length > 2 ? parts.slice(-2).join(".") : host;
+        window.location.href = `${protocol}//${data.slug}.${rootDomain}/login?welcome=1`;
         return;
       }
 
