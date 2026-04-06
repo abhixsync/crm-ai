@@ -332,7 +332,7 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [uiTheme, setUiTheme] = useState("dark");
+  const [uiTheme, setUiTheme] = useState("light");
   const [uiLang, setUiLang] = useState("en");
   const [langOpen, setLangOpen] = useState(false);
   const [tenantOpen, setTenantOpen] = useState(false);

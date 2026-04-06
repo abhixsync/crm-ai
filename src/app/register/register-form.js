@@ -14,7 +14,7 @@ export default function RegisterForm({ theme = {} }) {
   const [doneEmail, setDoneEmail] = useState("");
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-ui-theme", localStorage.getItem("ms-ui-theme") || "dark");
+    document.documentElement.setAttribute("data-ui-theme", "light");
   }, []);
 
   function onChange(e) {

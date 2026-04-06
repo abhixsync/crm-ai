@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1775315148118,
+  "lastScanned": 1775488781561,
   "projectRoot": "C:\\Work\\Learn\\crm-ai",
   "techStack": {
     "languages": [
@@ -106,21 +106,21 @@
       "path": "app_legacy",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1775315148095,
+      "lastAccessed": 1775488781542,
       "keyFiles": []
     },
     "components": {
       "path": "components",
       "purpose": "UI components",
       "fileCount": 0,
-      "lastAccessed": 1775315148096,
+      "lastAccessed": 1775488781542,
       "keyFiles": []
     },
     "creds": {
       "path": "creds",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1775315148104,
+      "lastAccessed": 1775488781547,
       "keyFiles": [
         "crm-ai-488319-980bd95ed936.json",
         "vonage.key"
@@ -130,7 +130,7 @@
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 12,
-      "lastAccessed": 1775315148104,
+      "lastAccessed": 1775488781547,
       "keyFiles": [
         "abhishek-shukla-resume.md",
         "ai-campaign-worker-setup-and-alternatives.md",
@@ -143,14 +143,14 @@
       "path": "mobile-view",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1775315148105,
+      "lastAccessed": 1775488781547,
       "keyFiles": []
     },
     "prisma": {
       "path": "prisma",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1775315148105,
+      "lastAccessed": 1775488781548,
       "keyFiles": [
         "schema.prisma",
         "seed.js"
@@ -159,21 +159,21 @@
     "public": {
       "path": "public",
       "purpose": "Public files",
-      "fileCount": 5,
-      "lastAccessed": 1775315148105,
+      "fileCount": 6,
+      "lastAccessed": 1775488781548,
       "keyFiles": [
         "file.svg",
         "globe.svg",
+        "logo-preview.html",
         "next.svg",
-        "vercel.svg",
-        "window.svg"
+        "vercel.svg"
       ]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 8,
-      "lastAccessed": 1775315148106,
+      "lastAccessed": 1775488781548,
       "keyFiles": [
         "apply-default-theme-assets.cjs",
         "backfill-campaign-job-runtime.cjs",
@@ -186,7 +186,7 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 1,
-      "lastAccessed": 1775315148106,
+      "lastAccessed": 1775488781548,
       "keyFiles": [
         "middleware.js"
       ]
@@ -195,7 +195,7 @@
       "path": "prisma\\migrations",
       "purpose": "Database migrations",
       "fileCount": 1,
-      "lastAccessed": 1775315148108,
+      "lastAccessed": 1775488781549,
       "keyFiles": [
         "migration_lock.toml"
       ]
@@ -204,7 +204,7 @@
       "path": "scripts\\tests",
       "purpose": "Test files",
       "fileCount": 7,
-      "lastAccessed": 1775315148109,
+      "lastAccessed": 1775488781549,
       "keyFiles": [
         "stress-intent-classification.cjs",
         "stress-timeline-signal.cjs",
@@ -215,7 +215,7 @@
       "path": "src\\app",
       "purpose": "Application code",
       "fileCount": 4,
-      "lastAccessed": 1775315148109,
+      "lastAccessed": 1775488781550,
       "keyFiles": [
         "favicon.ico",
         "globals.css",
@@ -226,14 +226,14 @@
       "path": "src\\components",
       "purpose": "UI components",
       "fileCount": 0,
-      "lastAccessed": 1775315148109,
+      "lastAccessed": 1775488781550,
       "keyFiles": []
     },
     "src\\lib": {
       "path": "src\\lib",
       "purpose": "Library code",
       "fileCount": 4,
-      "lastAccessed": 1775315148110,
+      "lastAccessed": 1775488781551,
       "keyFiles": [
         "auth.js",
         "env.js",
@@ -244,7 +244,7 @@
       "path": "src\\middleware",
       "purpose": "Middleware",
       "fileCount": 1,
-      "lastAccessed": 1775315148110,
+      "lastAccessed": 1775488781551,
       "keyFiles": [
         "tenant.middleware.ts"
       ]
@@ -253,10 +253,17 @@
       "path": "src\\types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1775315148110,
+      "lastAccessed": 1775488781551,
       "keyFiles": [
         "next-auth.d.ts"
       ]
+    },
+    "src\\__tests__": {
+      "path": "src\\__tests__",
+      "purpose": "Test files",
+      "fileCount": 0,
+      "lastAccessed": 1775488781551,
+      "keyFiles": []
     }
   },
   "hotPaths": [
@@ -286,14 +293,20 @@
     },
     {
       "path": "src",
-      "accessCount": 12,
-      "lastAccessed": 1775393510981,
+      "accessCount": 13,
+      "lastAccessed": 1775489905790,
       "type": "directory"
     },
     {
       "path": "src\\core\\theme\\system-defaults.ts",
-      "accessCount": 11,
-      "lastAccessed": 1775392842432,
+      "accessCount": 12,
+      "lastAccessed": 1775489895935,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\login\\login-form.js",
+      "accessCount": 12,
+      "lastAccessed": 1775490065668,
       "type": "file"
     },
     {
@@ -304,26 +317,20 @@
     },
     {
       "path": "docs\\superpowers\\specs\\2026-04-05-subdomain-multitenancy-design.md",
-      "accessCount": 9,
-      "lastAccessed": 1775335511520,
+      "accessCount": 10,
+      "lastAccessed": 1775401368922,
       "type": "file"
     },
     {
       "path": "",
-      "accessCount": 9,
-      "lastAccessed": 1775336685874,
+      "accessCount": 10,
+      "lastAccessed": 1775490047733,
       "type": "directory"
     },
     {
       "path": "src\\lib\\auth.js",
       "accessCount": 9,
       "lastAccessed": 1775386528441,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\login\\login-form.js",
-      "accessCount": 9,
-      "lastAccessed": 1775392300609,
       "type": "file"
     },
     {
@@ -369,22 +376,28 @@
       "type": "file"
     },
     {
+      "path": "src\\components\\shells\\modern",
+      "accessCount": 4,
+      "lastAccessed": 1775489904690,
+      "type": "directory"
+    },
+    {
       "path": "public\\logo-preview.html",
       "accessCount": 3,
       "lastAccessed": 1775318714437,
       "type": "file"
     },
     {
-      "path": "src\\components\\shells\\modern",
-      "accessCount": 3,
-      "lastAccessed": 1775321430035,
-      "type": "directory"
-    },
-    {
       "path": "package.json",
       "accessCount": 3,
       "lastAccessed": 1775335526000,
       "type": "file"
+    },
+    {
+      "path": "src\\app",
+      "accessCount": 3,
+      "lastAccessed": 1775490043051,
+      "type": "directory"
     },
     {
       "path": "public\\theme\\defaults\\logo-concepts\\53-wren-forge-C.svg",
@@ -421,12 +434,6 @@
       "accessCount": 2,
       "lastAccessed": 1775334334384,
       "type": "file"
-    },
-    {
-      "path": "src\\app",
-      "accessCount": 2,
-      "lastAccessed": 1775334624158,
-      "type": "directory"
     },
     {
       "path": "src\\app\\login",

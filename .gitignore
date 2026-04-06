@@ -42,3 +42,6 @@ next-env.d.ts
 
 # creds
 /creds
+
+# claude code agent worktrees
+.claude/worktrees/
