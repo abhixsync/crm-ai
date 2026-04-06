@@ -286,16 +286,16 @@
       "type": "file"
     },
     {
+      "path": "src",
+      "accessCount": 14,
+      "lastAccessed": 1775491432060,
+      "type": "directory"
+    },
+    {
       "path": "src\\modules\\theme\\theme.service.ts",
       "accessCount": 13,
       "lastAccessed": 1775392842473,
       "type": "file"
-    },
-    {
-      "path": "src",
-      "accessCount": 13,
-      "lastAccessed": 1775489905790,
-      "type": "directory"
     },
     {
       "path": "src\\core\\theme\\system-defaults.ts",
