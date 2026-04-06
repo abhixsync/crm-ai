@@ -242,6 +242,34 @@ enum SuspendedReason {
   ACCOUNT_VIOLATION
 }
 
+// ─── CREDIT ENUMS ───────────────────────────────────────
+
+enum CreditTransactionType {
+  MONTHLY_GRANT
+  RESERVE
+  SETTLE
+  PURCHASE
+  SUBSCRIPTION_GRANT
+  EXPIRE
+  ADJUSTMENT
+  REFUND
+}
+
+enum CreditPool {
+  PLAN
+  PURCHASED
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  ACTIVE_RECURRING
+  RENEWAL_FAILED
+  CANCELLED
+  REFUNDED
+}
+
 // ─── TENANT ────────────────────────────────────────────
 
 model Tenant {
@@ -293,6 +321,9 @@ model Tenant {
   followUpTasks        FollowUpTask[]
   subscription             TenantSubscription?
   intentTrainingPhrases    IntentTrainingPhrase[]
+  creditBalance            TenantCreditBalance?
+  creditTransactions       CreditTransaction[]
+  creditPackPurchases      CreditPackPurchase[]
 }
 
 // ─── TENANT THEME ───────────────────────────────────────
@@ -1387,4 +1418,90 @@ model IntentTrainingPhrase {
 
   @@index([tenantId, intentType])
   @@index([tenantId, isActive])
+}
+
+// ─── CREDITS ────────────────────────────────────────────
+
+model TenantCreditBalance {
+  id                       String    @id @default(cuid())
+  tenantId                 String    @unique
+  planCredits              Int       @default(0)
+  purchasedCredits         Int       @default(0)
+  reservedCredits          Int       @default(0)
+  planCreditsAllocated     Int       @default(0)
+  planCreditsUsedThisMonth Int       @default(0)
+  planResetAt              DateTime?
+  planResetNextAt          DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model CreditTransaction {
+  id               String                @id @default(cuid())
+  tenantId         String
+  type             CreditTransactionType
+  amount           Int
+  sourcePool       CreditPool
+  balanceAfter     Int
+  callLogId        String?
+  packPurchaseId   String?
+  idempotencyKey   String                @unique
+  description      String?
+  meta             Json?
+  createdAt        DateTime              @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([callLogId])
+  @@index([tenantId, type])
+}
+
+model CreditPack {
+  id             String        @id @default(cuid())
+  name           String
+  credits        Int
+  bonusCredits   Int           @default(0)
+  priceInr       Decimal
+  priceUsd       Decimal
+  isRecurring    Boolean       @default(false)
+  billingCycle   BillingCycle?
+  isActive       Boolean       @default(true)
+  sortOrder      Int           @default(0)
+  stripePriceId  String?
+  razorpayPlanId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  purchases CreditPackPurchase[]
+}
+
+model CreditPackPurchase {
+  id                     String          @id @default(cuid())
+  tenantId               String
+  packId                 String
+  creditsAtPurchase      Int
+  priceAtPurchase        Decimal
+  amountInr              Decimal?
+  amountUsd              Decimal?
+  billingProvider        BillingProvider
+  providerTxId           String?
+  stripeSubscriptionId   String?
+  razorpaySubscriptionId String?
+  status                 PurchaseStatus
+  isRecurring            Boolean         @default(false)
+  nextRenewalAt          DateTime?
+  renewalCount           Int             @default(0)
+  expiresAt              DateTime?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id])
+  pack   CreditPack @relation(fields: [packId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, expiresAt])
 }
