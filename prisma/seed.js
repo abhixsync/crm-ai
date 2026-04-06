@@ -41,6 +41,13 @@ async function seedSubscriptionConfig() {
     { key: "stripe_enabled",    value: false },
     { key: "razorpay_enabled",  value: false },
     { key: "currency",          value: "INR" },
+    { key: "credit_init_fee",              value: 2 },
+    { key: "credit_per_minute",            value: 1 },
+    { key: "credit_reserve_amount",        value: 20 },
+    { key: "credit_low_warning_pct",       value: 20 },
+    { key: "credit_low_warning_pct_2",     value: 5 },
+    { key: "credit_purchased_expiry_days", value: 365 },
+    { key: "credit_reserve_timeout_hours", value: 2 },
   ];
 
   for (const { key, value } of configs) {
@@ -51,6 +58,28 @@ async function seedSubscriptionConfig() {
     });
   }
   console.log("✓ SubscriptionConfig seeded");
+}
+
+// ─── CREDIT PACKS ────────────────────────────────────────
+
+async function seedCreditPacks() {
+  const packs = [
+    { name: "Micro",           credits: 100,   bonusCredits: 0, priceInr: 49,   priceUsd: 0.60,  isRecurring: false, sortOrder: 1 },
+    { name: "Starter",         credits: 300,   bonusCredits: 0, priceInr: 149,  priceUsd: 2.00,  isRecurring: false, sortOrder: 2 },
+    { name: "Standard",        credits: 1000,  bonusCredits: 0, priceInr: 399,  priceUsd: 5.00,  isRecurring: false, sortOrder: 3 },
+    { name: "Pro Pack",        credits: 3000,  bonusCredits: 0, priceInr: 999,  priceUsd: 12.00, isRecurring: false, sortOrder: 4 },
+    { name: "Power Pack",      credits: 10000, bonusCredits: 0, priceInr: 2999, priceUsd: 36.00, isRecurring: false, sortOrder: 5 },
+    { name: "Basic Add-on",    credits: 500,   bonusCredits: 0, priceInr: 199,  priceUsd: 2.50,  isRecurring: true,  billingCycle: "MONTHLY", sortOrder: 6 },
+    { name: "Standard Add-on", credits: 2000,  bonusCredits: 0, priceInr: 699,  priceUsd: 8.50,  isRecurring: true,  billingCycle: "MONTHLY", sortOrder: 7 },
+  ];
+
+  for (const pack of packs) {
+    const existing = await prisma.creditPack.findFirst({ where: { name: pack.name } });
+    if (!existing) {
+      await prisma.creditPack.create({ data: pack });
+    }
+  }
+  console.log("✓ CreditPacks seeded");
 }
 
 // ─── PLAN DEFINITIONS ───────────────────────────────────
@@ -65,7 +94,8 @@ async function seedPlanDefinitions() {
       monthlyPriceInr: 0,   annualPriceInr: 0,
       annualDiscountPct: 0,
       maxUsers: 1,          maxCustomers: 100,
-      maxAiCallsPerMonth: 0, maxLeadUploadsPerMonth: 0,
+      creditsPerMonth: 0,
+      maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: 0,
       maxWebhooks: 0,        maxCustomFields: 0,
       maxTeams: 0,           maxStorageMb: 0,
       hasAiCalling: false,   hasAdvancedAnalytics: false,
@@ -87,7 +117,8 @@ async function seedPlanDefinitions() {
       monthlyPriceInr: 299, annualPriceInr: 2999,       // ₹249.92/mo
       annualDiscountPct: 20,
       maxUsers: 3,           maxCustomers: 1000,
-      maxAiCallsPerMonth: 300, maxLeadUploadsPerMonth: 5,
+      creditsPerMonth: 100,
+      maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: 5,
       maxWebhooks: 1,        maxCustomFields: 5,
       maxTeams: 0,           maxStorageMb: 512,        // 500 MB
       hasAiCalling: true,    hasAdvancedAnalytics: false,
@@ -109,7 +140,8 @@ async function seedPlanDefinitions() {
       monthlyPriceInr: 499,  annualPriceInr: 3999,       // ₹333.25/mo
       annualDiscountPct: 20,
       maxUsers: 10,          maxCustomers: 10000,
-      maxAiCallsPerMonth: 2000, maxLeadUploadsPerMonth: -1, // unlimited
+      creditsPerMonth: 500,
+      maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: -1, // unlimited
       maxWebhooks: 5,        maxCustomFields: 20,
       maxTeams: 5,           maxStorageMb: 10240,         // 10 GB
       hasAiCalling: true,    hasAdvancedAnalytics: true,
@@ -131,6 +163,7 @@ async function seedPlanDefinitions() {
       monthlyPriceInr: 799,  annualPriceInr: 5999,       // ₹499.92/mo
       annualDiscountPct: 20,
       maxUsers: -1,          maxCustomers: -1,
+      creditsPerMonth: 2000,
       maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: -1,
       maxWebhooks: -1,       maxCustomFields: -1,
       maxTeams: -1,          maxStorageMb: -1,
@@ -150,7 +183,7 @@ async function seedPlanDefinitions() {
   for (const plan of plans) {
     await prisma.planDefinition.upsert({
       where:  { plan: plan.plan },
-      update: plan,
+      update: { creditsPerMonth: plan.creditsPerMonth, maxAiCallsPerMonth: plan.maxAiCallsPerMonth },
       create: plan,
     });
   }
@@ -363,6 +396,7 @@ async function main() {
 
   // Order matters: configs and plans first, then tenants that reference plans
   await seedSubscriptionConfig();
+  await seedCreditPacks();
   await seedPlanDefinitions();
   await seedSuperAdmin();
   await seedDemoTenant();
