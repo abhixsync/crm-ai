@@ -269,9 +269,15 @@
   "hotPaths": [
     {
       "path": "prisma\\schema.prisma",
-      "accessCount": 142,
-      "lastAccessed": 1775589663470,
+      "accessCount": 143,
+      "lastAccessed": 1775596320492,
       "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 40,
+      "lastAccessed": 1775597255701,
+      "type": "directory"
     },
     {
       "path": "src\\components\\shells\\modern\\modern-shell.css",
@@ -281,14 +287,8 @@
     },
     {
       "path": "src",
-      "accessCount": 32,
-      "lastAccessed": 1775587841092,
-      "type": "directory"
-    },
-    {
-      "path": "",
-      "accessCount": 30,
-      "lastAccessed": 1775593306928,
+      "accessCount": 34,
+      "lastAccessed": 1775597245787,
       "type": "directory"
     },
     {
@@ -299,20 +299,20 @@
     },
     {
       "path": "src\\components\\modern\\billing-view.js",
-      "accessCount": 22,
-      "lastAccessed": 1775574297011,
+      "accessCount": 23,
+      "lastAccessed": 1775594422587,
       "type": "file"
     },
     {
       "path": "src\\modules\\theme\\theme.service.ts",
-      "accessCount": 20,
-      "lastAccessed": 1775587583412,
+      "accessCount": 22,
+      "lastAccessed": 1775596033257,
       "type": "file"
     },
     {
       "path": "src\\core\\theme\\system-defaults.ts",
-      "accessCount": 17,
-      "lastAccessed": 1775574085921,
+      "accessCount": 18,
+      "lastAccessed": 1775594396870,
       "type": "file"
     },
     {
@@ -323,14 +323,20 @@
     },
     {
       "path": "src\\app\\login\\login-form.js",
-      "accessCount": 16,
-      "lastAccessed": 1775587659371,
+      "accessCount": 17,
+      "lastAccessed": 1775594523697,
       "type": "file"
     },
     {
       "path": "src\\app\\register\\page.js",
-      "accessCount": 13,
-      "lastAccessed": 1775574295757,
+      "accessCount": 14,
+      "lastAccessed": 1775594421878,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\server\\auth-guard.js",
+      "accessCount": 11,
+      "lastAccessed": 1775595619037,
       "type": "file"
     },
     {
@@ -346,9 +352,9 @@
       "type": "file"
     },
     {
-      "path": "src\\lib\\server\\auth-guard.js",
-      "accessCount": 9,
-      "lastAccessed": 1775589644932,
+      "path": "src\\components\\modern\\customers-view.js",
+      "accessCount": 7,
+      "lastAccessed": 1775596454681,
       "type": "file"
     },
     {
@@ -541,12 +547,6 @@
       "path": "src\\components\\modern\\dashboard-view.js",
       "accessCount": 1,
       "lastAccessed": 1775324851097,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\modern\\customers-view.js",
-      "accessCount": 1,
-      "lastAccessed": 1775324851381,
       "type": "file"
     },
     {
