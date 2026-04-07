@@ -22,7 +22,18 @@
       "Bash(node -e \":*)",
       "Bash(SCREEN_DIR=\"C:/Work/Learn/crm-ai/.superpowers/brainstorm/1753-1774867592\")",
       "Bash(find src:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(xargs grep:*)",
+      "Bash(where inkscape:*)",
+      "Bash(where convert:*)",
+      "Bash(where magick:*)",
+      "Bash(node -e \"require\\(''sharp''\\)\")",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Work/Learn/crm-ai/**)",
+      "Bash(done)",
+      "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
+      "mcp__plugin_oh-my-claudecode_t__ast_grep_search"
     ],
     "deny": [
       "Bash(rm -rf *)"
