@@ -11,6 +11,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { invalidatePlanGuardCache } from "./plan-guard";
+import { initializeCreditBalance } from "@/lib/credits/credit-service";
 
 // ─── CONFIG ──────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ export async function createTrialSubscription(tenantId) {
 
   const planSnapshot = await buildPlanSnapshot("PRO");
 
-  return prisma.tenantSubscription.create({
+  const subscription = await prisma.tenantSubscription.create({
     data: {
       tenantId,
       plan: "PRO",
@@ -96,6 +97,11 @@ export async function createTrialSubscription(tenantId) {
       planSnapshot,
     },
   });
+
+  // Initialize credit balance with PRO credits for trial
+  await initializeCreditBalance(tenantId, proPlan?.creditsPerMonth ?? 500, trialEndsAt).catch(() => {});
+
+  return subscription;
 }
 
 // ─── UPGRADE PLAN ────────────────────────────────────────
@@ -156,6 +162,27 @@ export async function upgradePlan(tenantId, {
     data:  { isSuspended: false, suspendedAt: null, suspendedReason: null },
   });
 
+  // Grant new plan's credits immediately on upgrade
+  const newPlanDef = await prisma.planDefinition.findFirst({ where: { plan } });
+  const newCredits = newPlanDef?.creditsPerMonth ?? 0;
+  const nextReset = currentPeriodEnd ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  await prisma.tenantCreditBalance.upsert({
+    where: { tenantId },
+    update: {
+      planCredits: newCredits,
+      planCreditsAllocated: newCredits,
+      planCreditsUsedThisMonth: 0,
+      planResetNextAt: nextReset,
+    },
+    create: {
+      tenantId,
+      planCredits: newCredits,
+      planCreditsAllocated: newCredits,
+      planResetNextAt: nextReset,
+    },
+  });
+
   invalidatePlanGuardCache(tenantId);
   return updated;
 }
@@ -205,6 +232,16 @@ export async function downgradeToFree(tenantId) {
       where: { tenantId, status: "RUNNING" },
       data: { status: "PAUSED" },
     });
+  });
+
+  // Downgrade plan credits — purchased credits are preserved
+  const freePlan = await prisma.planDefinition.findFirst({ where: { plan: "FREE" } });
+  await prisma.tenantCreditBalance.updateMany({
+    where: { tenantId },
+    data: {
+      planCredits: freePlan?.creditsPerMonth ?? 0,
+      planCreditsAllocated: freePlan?.creditsPerMonth ?? 0,
+    },
   });
 
   invalidatePlanGuardCache(tenantId);
