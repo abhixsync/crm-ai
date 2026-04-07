@@ -124,6 +124,9 @@ export function ModernBillingView({ user }) {
   const [billingCycle, setBillingCycle] = useState("MONTHLY");
   const [currency, setCurrency] = useState("INR");
 
+  const [brandName, setBrandName]         = useState("");
+  const [primaryColor, setPrimaryColor]   = useState("");
+
   const [creditBalance, setCreditBalance] = useState(null);
   const [creditPacks, setCreditPacks]     = useState([]);
   const [creditTxns, setCreditTxns]       = useState({ transactions: [], total: 0, page: 1, pages: 1 });
@@ -140,13 +143,21 @@ export function ModernBillingView({ user }) {
       if (isSuperAdmin && selectedTenantId) {
         headers["X-Tenant-ID"] = selectedTenantId;
       }
-      const res = await fetch("/api/subscription/summary", { headers });
-      if (res.ok) {
-        const data = await res.json();
+      const [subRes, themeRes] = await Promise.all([
+        fetch("/api/subscription/summary", { headers }),
+        fetch("/api/theme/active"),
+      ]);
+      if (subRes.ok) {
+        const data = await subRes.json();
         setSummary(data.summary);
         setSubscription(data.subscription);
         setPlans(data.plans || []);
         if (data.currency) setCurrency(data.currency);
+      }
+      if (themeRes.ok) {
+        const themeData = await themeRes.json();
+        if (themeData.brandName) setBrandName(themeData.brandName);
+        if (themeData.primaryColor) setPrimaryColor(themeData.primaryColor);
       }
     } catch { /* silent */ }
     setLoading(false);
@@ -208,7 +219,7 @@ export function ModernBillingView({ user }) {
     const options = {
       key:             razorpayKeyId,
       subscription_id: subscriptionId,
-      name:            "CRM AI",
+      name:            brandName || process.env.NEXT_PUBLIC_APP_NAME || "CRM AI",
       description:     `${billingCycle} subscription`,
       handler: function () {
         fetchData();
@@ -218,7 +229,7 @@ export function ModernBillingView({ user }) {
         email: session?.user?.email || "",
         name:  session?.user?.name  || "",
       },
-      theme: { color: "#1DE9A8" },
+      theme: { color: primaryColor || "#1DE9A8" },
     };
 
     const script = document.createElement("script");

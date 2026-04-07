@@ -4,7 +4,7 @@
  */
 
 export {
-  LOAN_ASSISTANT_SYSTEM_PROMPT,
+  buildSystemPrompt,
   INTENT_TYPES,
   CONVERSATION_STAGES,
   EMPLOYMENT_TYPES,

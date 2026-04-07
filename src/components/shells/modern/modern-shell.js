@@ -439,8 +439,8 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
 
   const userName = user?.name || "User";
   const userInitials = getInitials(userName);
-  const displayBrand = brandName || "CRM AI";
-  const displaySub = brandSub || "AI Sales Platform";
+  const displayBrand = brandName || process.env.NEXT_PUBLIC_APP_NAME || "CRM AI";
+  const displaySub = brandSub || "";
 
   // Close drawer on route change
   useEffect(() => {

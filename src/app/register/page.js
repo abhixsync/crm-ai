@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getActiveTheme } from "@/modules/theme/theme.service";
+import { prisma } from "@/lib/prisma";
 import RegisterForm from "./register-form";
 
 export default async function RegisterPage() {
@@ -29,5 +30,11 @@ export default async function RegisterPage() {
     }
   } catch {}
 
-  return <RegisterForm theme={theme} />;
+  let trialDays = 30;
+  try {
+    const proPlan = await prisma.planDefinition.findFirst({ where: { name: "PRO" } });
+    trialDays = proPlan?.trialDays ?? 30;
+  } catch {}
+
+  return <RegisterForm theme={theme} trialDays={trialDays} />;
 }
