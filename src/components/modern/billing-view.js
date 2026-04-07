@@ -124,6 +124,11 @@ export function ModernBillingView({ user }) {
   const [billingCycle, setBillingCycle] = useState("MONTHLY");
   const [currency, setCurrency] = useState("INR");
 
+  const [creditBalance, setCreditBalance] = useState(null);
+  const [creditPacks, setCreditPacks]     = useState([]);
+  const [creditTxns, setCreditTxns]       = useState({ transactions: [], total: 0, page: 1, pages: 1 });
+  const [creditLoading, setCreditLoading] = useState(true);
+
   // Provider is derived from currency — not user-selectable
   const provider = currency === "USD" ? "stripe" : "razorpay";
   const currencySymbol = currency === "USD" ? "$" : "₹";
@@ -147,11 +152,32 @@ export function ModernBillingView({ user }) {
     setLoading(false);
   }, [isSuperAdmin, selectedTenantId]);
 
+  const loadCredits = useCallback(async () => {
+    setCreditLoading(true);
+    try {
+      const [balRes, packsRes, txnsRes] = await Promise.all([
+        fetch("/api/credits/balance"),
+        fetch("/api/credits/packs"),
+        fetch("/api/credits/transactions?limit=10"),
+      ]);
+      if (balRes.ok)   setCreditBalance(await balRes.json());
+      if (packsRes.ok) setCreditPacks((await packsRes.json()).packs || []);
+      if (txnsRes.ok)  setCreditTxns(await txnsRes.json());
+    } catch { /* silent */ }
+    setCreditLoading(false);
+  }, []);
+
   // Wait for session to load before fetching
   useEffect(() => {
     if (status === "loading") return;
     fetchData();
-  }, [status, fetchData]);
+    loadCredits();
+
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("credit_success")) {
+      loadCredits();
+    }
+  }, [status, fetchData, loadCredits]);
 
   async function startUpgrade(planKey) {
     setError("");
@@ -199,6 +225,21 @@ export function ModernBillingView({ user }) {
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.onload = () => { new window.Razorpay(options).open(); };
     document.body.appendChild(script);
+  }
+
+  async function handleBuyPack(packId) {
+    try {
+      const res = await fetch("/api/billing/credits/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else alert(data.error || "Checkout failed");
+    } catch {
+      alert("Failed to start checkout");
+    }
   }
 
   const activeUser = session?.user || user;
@@ -362,6 +403,94 @@ export function ModernBillingView({ user }) {
                 );
               })}
             </div>
+          </div>
+
+          {/* ── AI Credits ─────────────────────────────── */}
+          <div className="ms-card" style={{ padding: "20px" }}>
+            <div style={{ fontWeight: 700, fontSize: "16px", marginBottom: "16px" }}>AI Credits</div>
+
+            {creditLoading ? (
+              <div style={{ color: "var(--ms-text2)", fontSize: "14px" }}>Loading...</div>
+            ) : (
+              <>
+                {/* Balance summary */}
+                {creditBalance && (
+                  <div style={{ marginBottom: "20px", padding: "14px", background: "var(--ms-bg2)", borderRadius: "8px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <span style={{ fontSize: "24px", fontWeight: 700, color: "var(--ms-accent)" }}>
+                        {creditBalance.available?.toLocaleString() ?? 0}
+                      </span>
+                      <span style={{ fontSize: "12px", color: "var(--ms-text2)" }}>credits available</span>
+                    </div>
+                    <div style={{ display: "flex", gap: "16px", fontSize: "12px", color: "var(--ms-text2)" }}>
+                      <span>Plan: {creditBalance.planCredits?.toLocaleString()}</span>
+                      {creditBalance.purchasedCredits > 0 && <span>Purchased: {creditBalance.purchasedCredits?.toLocaleString()}</span>}
+                      {creditBalance.reservedCredits > 0 && <span>Reserved: {creditBalance.reservedCredits?.toLocaleString()}</span>}
+                    </div>
+                    {creditBalance.planResetNextAt && (
+                      <div style={{ marginTop: "6px", fontSize: "11px", color: "var(--ms-text3, var(--ms-text2))" }}>
+                        Plan credits reset {new Date(creditBalance.planResetNextAt).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Credit packs */}
+                {creditPacks.length > 0 && (
+                  <div style={{ marginBottom: "20px" }}>
+                    <div style={{ fontWeight: 600, fontSize: "13px", marginBottom: "10px" }}>Buy Credits</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "10px" }}>
+                      {creditPacks.map((pack) => (
+                        <div key={pack.id} className="ms-card" style={{ padding: "12px", cursor: "pointer" }}
+                          onClick={() => handleBuyPack(pack.id)}>
+                          <div style={{ fontWeight: 600, fontSize: "13px", marginBottom: "4px" }}>{pack.name}</div>
+                          <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--ms-accent)", marginBottom: "4px" }}>
+                            {pack.credits.toLocaleString()}
+                            {pack.bonusCredits > 0 && <span style={{ fontSize: "11px", color: "var(--ms-text2)" }}> +{pack.bonusCredits}</span>}
+                          </div>
+                          <div style={{ fontSize: "11px", color: "var(--ms-text2)", marginBottom: "8px" }}>
+                            credits{pack.isRecurring ? "/month" : ""}
+                          </div>
+                          <div style={{ fontSize: "13px", fontWeight: 600 }}>
+                            ${Number(pack.priceUsd).toFixed(2)}
+                            {pack.isRecurring && <span style={{ fontSize: "11px", fontWeight: 400, color: "var(--ms-text2)" }}>/mo</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent transactions */}
+                {creditTxns.transactions.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "13px", marginBottom: "10px" }}>Recent Transactions</div>
+                    <table className="ms-tbl" style={{ width: "100%" }}>
+                      <thead>
+                        <tr>
+                          <th>Type</th>
+                          <th>Amount</th>
+                          <th>Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {creditTxns.transactions.map((tx) => (
+                          <tr key={tx.id}>
+                            <td style={{ fontSize: "12px" }}>{tx.type}</td>
+                            <td style={{ fontSize: "12px", color: tx.amount > 0 ? "var(--ms-accent)" : "var(--ms-text2)" }}>
+                              {tx.amount > 0 ? "+" : ""}{tx.amount}
+                            </td>
+                            <td style={{ fontSize: "12px", color: "var(--ms-text2)" }}>
+                              {new Date(tx.createdAt).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Invoice History */}
