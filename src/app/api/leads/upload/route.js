@@ -5,6 +5,7 @@ import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-gua
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
+import { createNotification } from "@/lib/notifications/notification-service";
 
 const UPSERT_BATCH_SIZE = 50;
 const ENQUEUE_BATCH_SIZE = 50;
@@ -180,6 +181,15 @@ export async function POST(request) {
 
     throw error;
   }
+
+  // In-app notification (non-blocking)
+  createNotification(tenantId, {
+    userId: auth.session.user.id,
+    type: "UPLOAD_COMPLETE",
+    title: "Lead upload complete",
+    body: `${successRows} of ${rows.length} rows imported from "${file.name}".`,
+    link: "/admin/lead-uploads",
+  }).catch(() => {});
 
   return Response.json({
     message: "Lead upload processed",

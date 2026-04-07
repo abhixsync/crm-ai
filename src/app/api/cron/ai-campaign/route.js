@@ -8,6 +8,7 @@ import {
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { sendEmail, buildCampaignCompletionEmail } from "@/lib/email/mailer";
 import { resolveTenantTheme } from "@/modules/theme/theme.service";
+import { createNotification } from "@/lib/notifications/notification-service";
 
 const CRON_STATE_KEY = "AI_CAMPAIGN_CRON_STATE";
 
@@ -78,6 +79,14 @@ async function checkAndNotifyCampaignCompletion() {
 
     // Mark campaign complete
     await prisma.campaign.update({ where: { id: campaign.id }, data: { status: "COMPLETED" } }).catch(() => {});
+
+    // In-app notification (non-blocking)
+    createNotification(campaign.tenantId, {
+      type: "CAMPAIGN_UPDATE",
+      title: `Campaign completed: ${campaign.name}`,
+      body: `All jobs processed. Check the campaign report for results.`,
+      link: "/admin/automation",
+    }).catch(() => {});
 
     // Gather stats
     const [total, completed, failed] = await Promise.all([

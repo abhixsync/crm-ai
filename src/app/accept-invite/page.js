@@ -28,8 +28,8 @@ export default function AcceptInvitePage() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (password.length < 12) {
+      setError("Password must be at least 12 characters.");
       return;
     }
 
@@ -127,11 +127,11 @@ export default function AcceptInvitePage() {
           <input
             className="ms-login-input"
             type="password"
-            placeholder="New Password (min 8 characters)"
+            placeholder="New Password (min 12 characters)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={8}
+            minLength={12}
             autoComplete="new-password"
           />
           <input
@@ -141,7 +141,7 @@ export default function AcceptInvitePage() {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             required
-            minLength={8}
+            minLength={12}
             autoComplete="new-password"
           />
           <button className="ms-login-btn" type="submit" disabled={loading}>
