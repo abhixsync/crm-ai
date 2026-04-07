@@ -18,7 +18,7 @@ export default function ResetPasswordForm({ token }) {
   async function onSubmit(e) {
     e.preventDefault();
     if (!token) { setError("Missing reset token. Please use the link from your email."); return; }
-    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (password.length < 12) { setError("Password must be at least 12 characters."); return; }
     if (password !== confirm) { setError("Passwords do not match."); return; }
     setError("");
     setLoading(true);
@@ -63,7 +63,8 @@ export default function ResetPasswordForm({ token }) {
               <input
                 className="ms-login-input"
                 type="password"
-                placeholder="New password"
+                placeholder="New password (min 12 characters)"
+                minLength={12}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
