@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { Mail, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -89,6 +89,11 @@ export function UserManagementAdminClient() {
   const [bulkRunning, setBulkRunning] = useState(false);
   const userDialogRef = useRef(null);
   const roleDialogRef = useRef(null);
+
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("SALES");
+  const [sendingInvite, setSendingInvite] = useState(false);
 
   const selectedRole = useMemo(
     () => roles.find((role) => role.key === userForm.roleKey) || null,
@@ -585,6 +590,39 @@ export function UserManagementAdminClient() {
     setSelectedRoleId("");
   }
 
+  function closeInviteDialog() {
+    setShowInviteForm(false);
+    setInviteEmail("");
+    setInviteRole("SALES");
+  }
+
+  async function sendInvite() {
+    const email = String(inviteEmail || "").trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    setSendingInvite(true);
+    try {
+      const response = await fetch("/api/admin/user-management/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, role: inviteRole }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to send invite.");
+
+      toast.success(`Invite sent to ${email}.`);
+      closeInviteDialog();
+    } catch (error) {
+      toast.error(error?.message || "Unable to send invite.");
+    } finally {
+      setSendingInvite(false);
+    }
+  }
+
   useEffect(() => {
     if (!showUserForm && !showRoleForm) return;
 
@@ -859,10 +897,16 @@ export function UserManagementAdminClient() {
                 Create, edit, and remove users with role-driven configuration and override controls.
               </CardDescription>
             </div>
-            <Button onClick={startCreateUser}>
-              <Plus className="mr-1 h-4 w-4" />
-              Add User
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => setShowInviteForm(true)}>
+                <Mail className="mr-1 h-4 w-4" />
+                Invite Member
+              </Button>
+              <Button onClick={startCreateUser}>
+                <Plus className="mr-1 h-4 w-4" />
+                Add User
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1060,6 +1104,47 @@ export function UserManagementAdminClient() {
             )}
           </div>
         </div>
+      ) : null}
+
+      {showInviteForm ? (
+        <Modal
+          open={showInviteForm}
+          onClose={closeInviteDialog}
+          title="Invite Team Member"
+          description="Send an email invitation. The invitee will set their own password when they accept."
+          ariaLabel="Invite member dialog"
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Email Address</span>
+              <input
+                className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
+                type="email"
+                placeholder="colleague@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                autoComplete="off"
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Role</span>
+              <select
+                className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+              >
+                <option value="SALES">Sales Agent</option>
+                <option value="ADMIN">Administrator</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <Button onClick={sendInvite} loading={sendingInvite} loadingText="Sending…" disabled={sendingInvite}>
+              Send Invite
+            </Button>
+            <Button variant="secondary" onClick={closeInviteDialog}>Cancel</Button>
+          </div>
+        </Modal>
       ) : null}
 
       {!isAdminOnly ? (

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyRazorpayWebhook } from "@/lib/billing/razorpay";
 import { upgradePlan, cancelSubscription } from "@/lib/subscription/subscription-service";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, buildPaymentConfirmationEmail } from "@/lib/email/mailer";
+import { sendEmail, buildPaymentConfirmationEmail, buildPaymentFailureEmail, buildCreditPurchaseEmail, buildPlanUpgradeEmail } from "@/lib/email/mailer";
 import { grantPurchaseCredits } from "@/lib/credits/credit-service";
 import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
@@ -62,6 +62,20 @@ export async function POST(req) {
             "RAZORPAY",
             { inr: paymentEntity?.amount ? paymentEntity.amount / 100 : null }
           );
+          // Send credit purchase confirmation (non-blocking)
+          (async () => {
+            try {
+              const owner = await prisma.user.findFirst({ where: { tenantId, isPrimaryOwner: true }, select: { email: true, name: true } });
+              if (!owner?.email) return;
+              const theme = await resolveTenantTheme(tenantId).catch(() => null);
+              const emailCtx = { brandName: theme?.emailFromName || theme?.brandName || null, primaryColor: theme?.primaryColor || null, fromName: theme?.emailFromName || theme?.brandName || null };
+              const pack = await prisma.creditPack.findUnique({ where: { id: packId } });
+              const balance = await import("@/lib/credits/credit-service").then(m => m.getCreditBalance(tenantId));
+              const totalCredits = (pack?.credits || 0) + (pack?.bonusCredits || 0);
+              const email = buildCreditPurchaseEmail(owner.name || "there", pack?.name || "Credit Pack", totalCredits, balance?.available || 0, null, paymentEntity?.amount ? paymentEntity.amount / 100 : null, "INR", emailCtx);
+              await sendEmail({ to: owner.email, ...email, fromName: email.fromName });
+            } catch {}
+          })();
           break;
         }
 
@@ -79,6 +93,19 @@ export async function POST(req) {
           where: { tenantId },
           data: { razorpaySubscriptionId: rzpSubId },
         });
+
+        // Send plan upgrade confirmation (non-blocking)
+        (async () => {
+          try {
+            const owner = await prisma.user.findFirst({ where: { tenantId, isPrimaryOwner: true }, select: { email: true, name: true } });
+            if (!owner?.email) return;
+            const sub = await prisma.tenantSubscription.findUnique({ where: { tenantId }, select: { plan: true } });
+            const theme = await resolveTenantTheme(tenantId).catch(() => null);
+            const emailCtx = { brandName: theme?.emailFromName || theme?.brandName || null, primaryColor: theme?.primaryColor || null, fromName: theme?.emailFromName || theme?.brandName || null };
+            const email = buildPlanUpgradeEmail(owner.name || "there", null, sub?.plan || "PRO", emailCtx);
+            await sendEmail({ to: owner.email, ...email, fromName: email.fromName });
+          } catch {}
+        })();
         break;
       }
 
@@ -123,7 +150,7 @@ export async function POST(req) {
               fromName:     theme?.emailFromName || theme?.brandName || null,
             };
             const confirmation = buildPaymentConfirmationEmail(owner.name || "there", {
-              amountPaid: amount, currency: "INR", plan: sub.plan, createdAt: paidAt,
+              amountPaid: amount / 100, currency: "INR", plan: sub.plan, createdAt: paidAt,
             }, emailCtx);
             return sendEmail({ to: owner.email, ...confirmation, fromName: confirmation.fromName });
           }).catch(() => {});
@@ -140,6 +167,15 @@ export async function POST(req) {
             where: { id: sub.id },
             data: { status: "PAST_DUE" },
           });
+          // Send payment failure email (non-blocking)
+          prisma.user.findFirst({ where: { tenantId: sub.tenantId, isPrimaryOwner: true }, select: { email: true, name: true } })
+            .then(async (owner) => {
+              if (!owner?.email) return;
+              const theme = await resolveTenantTheme(sub.tenantId).catch(() => null);
+              const emailCtx = { brandName: theme?.emailFromName || theme?.brandName || null, primaryColor: theme?.primaryColor || null, fromName: theme?.emailFromName || theme?.brandName || null };
+              const email = buildPaymentFailureEmail(owner.name || "there", { amountDue: (paymentEntity?.amount || 0) / 100, currency: "INR" }, emailCtx);
+              return sendEmail({ to: owner.email, ...email, fromName: email.fromName });
+            }).catch(() => {});
         }
         break;
     }

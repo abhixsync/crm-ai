@@ -324,6 +324,7 @@ model Tenant {
   creditBalance            TenantCreditBalance?
   creditTransactions       CreditTransaction[]
   creditPackPurchases      CreditPackPurchase[]
+  pendingInvites           PendingInvite[]
 }
 
 // ─── TENANT THEME ───────────────────────────────────────
@@ -420,7 +421,9 @@ model User {
   documents          Document[]
   customerActivities CustomerActivity[]
   aiScoringHistory   AiScoringHistory[]
-  webhookConfigs     WebhookConfig[]
+  webhookConfigs        WebhookConfig[]
+  passwordResetTokens   PasswordResetToken[]
+  sentInvites           PendingInvite[]       @relation("SentInvites")
 
   // email unique per tenant; NULL tenantId = platform admin (enforced at app layer)
   @@unique([tenantId, email])
@@ -1518,4 +1521,39 @@ model CreditPackPurchase {
   @@index([tenantId, createdAt])
   @@index([tenantId, expiresAt])
   @@index([packId])
+}
+
+// ─── PASSWORD RESET TOKENS ──────────────────────────────
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── PENDING INVITES ────────────────────────────────────
+
+model PendingInvite {
+  id          String    @id @default(cuid())
+  tenantId    String
+  email       String
+  role        UserRole  @default(SALES)
+  token       String    @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("SentInvites", fields: [invitedById], references: [id])
+
+  @@index([tenantId])
+  @@index([email])
 }

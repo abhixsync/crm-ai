@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSubscriptionConfig } from "@/lib/subscription/subscription-service";
+import { sendEmail, buildCreditLowWarningEmail, buildCreditExpiringSoonEmail } from "@/lib/email/mailer";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 // ─── BALANCE ────────────────────────────────────────────
 
@@ -154,6 +156,13 @@ export async function settleCredits(tenantId, callLogId, durationSecs) {
 // ─── REFUND ─────────────────────────────────────────────
 
 export async function refundReserve(tenantId, callLogId) {
+  // Already refunded? (idempotent)
+  const alreadyRefunded = await prisma.creditTransaction.findUnique({
+    where: { idempotencyKey: `refund-${callLogId}` },
+  });
+  if (alreadyRefunded) return;
+
+  // Already settled? Don't refund a settled call
   const existing = await prisma.creditTransaction.findUnique({
     where: { idempotencyKey: `settle-${callLogId}` },
   });
@@ -323,6 +332,63 @@ export async function expirePurchasedCredits(tenantId = null) {
 
   const expired = await prisma.creditPackPurchase.findMany({ where });
 
+  // Send "expiring soon" warnings for purchases within 7 days of expiry
+  const soon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const expiringSoon = await prisma.creditPackPurchase.findMany({
+    where: {
+      expiresAt: { gt: now, lte: soon },
+      status: { in: ["COMPLETED", "ACTIVE_RECURRING"] },
+      ...(tenantId ? { tenantId } : {}),
+    },
+    include: { pack: { select: { name: true } } },
+  });
+
+  for (const purchase of expiringSoon) {
+    const idempotencyKey = `expire-warn-${purchase.id}-${now.toISOString().slice(0, 10)}`;
+    // Use CreditTransaction to deduplicate — just check if we warned today
+    const alreadyWarned = await prisma.creditTransaction.findUnique({
+      where: { idempotencyKey },
+    });
+    if (alreadyWarned) continue;
+
+    // Claim the dedup slot first to prevent concurrent duplicate sends
+    const claimed = await prisma.creditTransaction.create({
+      data: {
+        tenantId: purchase.tenantId,
+        type: "ADJUSTMENT",
+        amount: 0,
+        sourcePool: "PURCHASED",
+        balanceAfter: 0,
+        idempotencyKey,
+        description: `expiry-warning-${purchase.id}`,
+      },
+    }).catch(() => null);
+    if (!claimed) continue;
+
+    (async () => {
+      try {
+        const owner = await prisma.user.findFirst({
+          where: { tenantId: purchase.tenantId, isPrimaryOwner: true },
+          select: { email: true, name: true },
+        });
+        if (!owner?.email) return;
+        const theme = await resolveTenantTheme(purchase.tenantId).catch(() => null);
+        const emailCtx = {
+          brandName:    theme?.emailFromName || theme?.brandName || null,
+          primaryColor: theme?.primaryColor || null,
+          fromName:     theme?.emailFromName || theme?.brandName || null,
+        };
+        const email = buildCreditExpiringSoonEmail(
+          owner.name || "there",
+          purchase.creditsAtPurchase,
+          purchase.expiresAt,
+          emailCtx
+        );
+        await sendEmail({ to: owner.email, ...email, fromName: email.fromName });
+      } catch {}
+    })();
+  }
+
   for (const purchase of expired) {
     const balance = await prisma.tenantCreditBalance.findUnique({ where: { tenantId: purchase.tenantId } });
     if (!balance) continue;
@@ -424,15 +490,37 @@ async function checkLowCreditWarnings(tenantId, currentAvailable) {
   const pct = (currentAvailable / balance.planCreditsAllocated) * 100;
 
   if (pct <= 0) {
-    // Pause all active campaigns for this tenant
+    // Pause all active campaigns
     await prisma.campaign.updateMany({
-      where: { tenantId, status: "ACTIVE" },
-      data: {
-        status: "PAUSED",
-        metadata: { pauseReason: "INSUFFICIENT_CREDITS" },
-      },
+      where: { tenantId, status: "RUNNING" },
+      data: { status: "PAUSED", metadata: { pauseReason: "INSUFFICIENT_CREDITS" } },
     });
   }
-  // In-app notifications and emails are handled by the UI polling /api/credits/balance
-  // Low-credit email sending can be added here in a future iteration
+
+  // Send warning email at threshold levels (pct <= warnPct or pct <= warnPct2)
+  if (pct <= warnPct) {
+    (async () => {
+      try {
+        const owner = await prisma.user.findFirst({
+          where: { tenantId, isPrimaryOwner: true },
+          select: { email: true, name: true },
+        });
+        if (!owner?.email) return;
+        const theme = await resolveTenantTheme(tenantId).catch(() => null);
+        const emailCtx = {
+          brandName:    theme?.emailFromName || theme?.brandName || null,
+          primaryColor: theme?.primaryColor || null,
+          fromName:     theme?.emailFromName || theme?.brandName || null,
+        };
+        const email = buildCreditLowWarningEmail(
+          owner.name || "there",
+          currentAvailable,
+          balance.planCreditsAllocated,
+          pct <= warnPct2 ? warnPct2 : warnPct,
+          emailCtx
+        );
+        await sendEmail({ to: owner.email, ...email, fromName: email.fromName });
+      } catch {}
+    })();
+  }
 }

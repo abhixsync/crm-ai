@@ -12,6 +12,8 @@
 import { prisma } from "@/lib/prisma";
 import { invalidatePlanGuardCache } from "./plan-guard";
 import { initializeCreditBalance } from "@/lib/credits/credit-service";
+import { sendEmail, buildPlanDowngradeEmail, buildAccountSuspendEmail } from "@/lib/email/mailer";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 // ─── CONFIG ──────────────────────────────────────────────
 
@@ -243,6 +245,38 @@ export async function downgradeToFree(tenantId) {
       planCreditsAllocated: freePlan?.creditsPerMonth ?? 0,
     },
   });
+
+  // Send downgrade notification to primary owner (non-blocking)
+  (async () => {
+    try {
+      const owner = await prisma.user.findFirst({ where: { tenantId, isPrimaryOwner: true }, select: { email: true, name: true } });
+      if (!owner?.email) return;
+      const theme = await resolveTenantTheme(tenantId).catch(() => null);
+      const emailCtx = { brandName: theme?.emailFromName || theme?.brandName || null, primaryColor: theme?.primaryColor || null, fromName: theme?.emailFromName || theme?.brandName || null };
+      const email = buildPlanDowngradeEmail(owner.name || "there", "Pro", emailCtx);
+      await sendEmail({ to: owner.email, ...email, fromName: email.fromName });
+    } catch {}
+  })();
+
+  // Notify suspended users (non-blocking)
+  (async () => {
+    try {
+      const suspended = await prisma.user.findMany({
+        where: { tenantId, isSuspended: true, suspendedReason: "PLAN_DOWNGRADE" },
+        select: { email: true, name: true },
+      });
+      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
+      const theme = await resolveTenantTheme(tenantId).catch(() => null);
+      const emailCtx = { brandName: theme?.emailFromName || theme?.brandName || null, primaryColor: theme?.primaryColor || null, fromName: theme?.emailFromName || theme?.brandName || null };
+      for (const user of suspended) {
+        if (!user.email) continue;
+        try {
+          const email = buildAccountSuspendEmail(user.name || "there", tenant?.name || null, emailCtx);
+          await sendEmail({ to: user.email, ...email, fromName: email.fromName });
+        } catch {}
+      }
+    } catch {}
+  })();
 
   invalidatePlanGuardCache(tenantId);
 }
