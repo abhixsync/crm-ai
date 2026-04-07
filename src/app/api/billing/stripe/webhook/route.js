@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail, buildPaymentConfirmationEmail, buildPaymentFailureEmail, buildCreditPurchaseEmail, buildPlanUpgradeEmail } from "@/lib/email/mailer";
 import { grantPurchaseCredits } from "@/lib/credits/credit-service";
 import { resolveTenantTheme } from "@/modules/theme/theme.service";
+import { createNotification } from "@/lib/notifications/notification-service";
 
 /**
  * POST /api/billing/stripe/webhook
@@ -152,6 +153,12 @@ export async function POST(req) {
             where: { id: sub.id },
             data: { status: "PAST_DUE" },
           });
+          createNotification(sub.tenantId, {
+            type: "SYSTEM",
+            title: "Payment failed",
+            body: "Your subscription payment could not be processed. Please update your payment method.",
+            link: "/admin/billing",
+          }).catch(() => {});
           // Send payment failure email (non-blocking)
           prisma.user.findFirst({ where: { tenantId: sub.tenantId, isPrimaryOwner: true }, select: { email: true, name: true } })
             .then(async (owner) => {

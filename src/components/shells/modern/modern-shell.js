@@ -7,6 +7,7 @@ import Link from "next/link";
 import "./modern-shell.css";
 import { LANGUAGES, LANG_STORAGE_KEY, t, getLangConfig } from "@/lib/i18n/languages";
 import { useTenantSwitcher } from "@/components/providers/tenant-switcher-provider";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 const THEME_STORAGE_KEY = "ms-ui-theme";
 
@@ -604,6 +605,8 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
           </div>
 
           {session?.user?.role !== "SUPER_ADMIN" && <CreditWidget />}
+
+          {session?.user && <NotificationBell />}
 
           <button
             className="ms-theme-toggle"
