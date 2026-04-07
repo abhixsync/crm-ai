@@ -52,6 +52,11 @@ export const SYSTEM_THEME_DEFAULT = {
   loginBackgroundUrl: "/theme/defaults/login-background.svg",
   applicationBackgroundUrl: "/theme/defaults/application-background.svg",
 
+  // 🆔 Identity
+  brandName: "CRM AI" as string | null,
+  brandTagline: "AI Sales Platform" as string | null,
+  emailFromName: null as string | null,
+
   // 🎨 Custom CSS
   customCss: null,
 
@@ -102,6 +107,9 @@ export type EditableTheme = {
   faviconUrl: string | null;
   loginBackgroundUrl: string | null;
   applicationBackgroundUrl: string | null;
+  brandName: string | null;
+  brandTagline: string | null;
+  emailFromName: string | null;
   customCss: string | null;
   uiLayout: string;
   isActive: boolean;

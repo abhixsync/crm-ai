@@ -46,6 +46,9 @@ const MUTABLE_SYSTEM_DEFAULT: ThemeTokens = {
   faviconUrl: SYSTEM_THEME_DEFAULT.faviconUrl,
   loginBackgroundUrl: SYSTEM_THEME_DEFAULT.loginBackgroundUrl,
   applicationBackgroundUrl: SYSTEM_THEME_DEFAULT.applicationBackgroundUrl,
+  brandName: SYSTEM_THEME_DEFAULT.brandName,
+  brandTagline: SYSTEM_THEME_DEFAULT.brandTagline,
+  emailFromName: SYSTEM_THEME_DEFAULT.emailFromName,
   customCss: SYSTEM_THEME_DEFAULT.customCss,
   uiLayout: SYSTEM_THEME_DEFAULT.uiLayout,
   isActive: SYSTEM_THEME_DEFAULT.isActive,
@@ -194,6 +197,9 @@ export async function resolveTenantTheme(tenantId: string | null): Promise<Activ
       faviconUrl: baseTheme.faviconUrl,
       loginBackgroundUrl: baseTheme.loginBackgroundUrl,
       applicationBackgroundUrl: baseTheme.applicationBackgroundUrl,
+      brandName: baseTheme.brandName ?? null,
+      brandTagline: baseTheme.brandTagline ?? null,
+      emailFromName: baseTheme.emailFromName ?? null,
       customCss: baseTheme.customCss,
       uiLayout: baseTheme.uiLayout,
       isActive: baseTheme.isActive,
@@ -470,6 +476,12 @@ export async function hasTenantCustomTheme(tenantId: string): Promise<boolean> {
   });
 
   return count > 0;
+}
+
+// 🏷️ GET BASE BRAND NAME - Resolves the platform brand name from base theme or env
+export async function getBaseBrandName(): Promise<string> {
+  const resolved = await resolveTenantTheme(null);
+  return (resolved as any)?.brandName || process.env.NEXT_PUBLIC_APP_NAME || "CRM AI";
 }
 
 // 📊 GET TENANT THEME STATUS - For UI display

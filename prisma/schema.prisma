@@ -280,9 +280,9 @@ model Tenant {
   customDomainVerified  Boolean   @default(false)
   customDomainAddedAt   DateTime?
   crmName                        String?
-  aiAgentName                    String   @default("Priya")
+  aiAgentName                    String   @default("Your Advisor")
   loanAssistantCompanyName       String?
-  loanAssistantHumanAdvisorName  String   @default("John Doe")
+  loanAssistantHumanAdvisorName  String   @default("Our Advisor")
   loanAssistantCallbackPhone     String?
   loanAssistantNotificationEmail String?
   uiLanguage                     String   @default("en")
@@ -364,6 +364,9 @@ model TenantTheme {
   faviconUrl               String?
   loginBackgroundUrl       String?
   applicationBackgroundUrl String?
+  brandName                String?
+  brandTagline             String?
+  emailFromName            String?
   customCss                String?  @db.Text
   isActive                 Boolean  @default(true)
   createdAt                DateTime @default(now())
