@@ -3,6 +3,7 @@ import { constructStripeEvent } from "@/lib/billing/stripe";
 import { upgradePlan, cancelSubscription } from "@/lib/subscription/subscription-service";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, buildPaymentConfirmationEmail } from "@/lib/email/mailer";
+import { grantPurchaseCredits } from "@/lib/credits/credit-service";
 
 /**
  * POST /api/billing/stripe/webhook
@@ -31,6 +32,21 @@ export async function POST(req) {
 
       case "checkout.session.completed": {
         const session = event.data.object;
+        const purchaseType = session.metadata?.purchaseType;
+
+        if (purchaseType === "credit_pack") {
+          const tenantId = session.metadata?.tenantId || session.client_reference_id;
+          const packId = session.metadata?.packId;
+          await grantPurchaseCredits(
+            tenantId,
+            packId,
+            session.payment_intent || session.id,
+            "STRIPE",
+            { usd: session.amount_total ? session.amount_total / 100 : null }
+          );
+          break;
+        }
+
         const tenantId = session.metadata?.tenantId || session.client_reference_id;
         if (!tenantId || session.mode !== "subscription") break;
 
