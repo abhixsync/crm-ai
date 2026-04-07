@@ -192,6 +192,56 @@ const icons = {
   ),
 };
 
+function CreditWidget() {
+  const [credits, setCredits] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/credits/balance");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setCredits(data);
+      } catch {}
+    }
+    load();
+    const interval = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  if (!credits) return null;
+
+  const pct = credits.planCreditsAllocated > 0
+    ? (credits.available / credits.planCreditsAllocated) * 100
+    : 100;
+
+  const color = pct <= 5 ? "var(--ms-error, #ef4444)" : pct <= 20 ? "#f59e0b" : "var(--ms-accent)";
+
+  return (
+    <a
+      href="/admin/billing"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "5px",
+        padding: "4px 10px",
+        borderRadius: "6px",
+        background: "var(--ms-bg2)",
+        border: "1px solid var(--ms-border)",
+        fontSize: "12px",
+        fontWeight: 600,
+        color,
+        textDecoration: "none",
+        whiteSpace: "nowrap",
+      }}
+      title={`${credits.available} credits available — click to buy more`}
+    >
+      ⚡ {credits.available.toLocaleString()}
+    </a>
+  );
+}
+
 function getInitials(name) {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
@@ -552,6 +602,8 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
               </>
             )}
           </div>
+
+          {session?.user?.role !== "SUPER_ADMIN" && <CreditWidget />}
 
           <button
             className="ms-theme-toggle"
