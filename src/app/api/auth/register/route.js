@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { createTrialSubscription } from "@/lib/subscription/subscription-service";
 import { sendEmail, buildVerificationEmail, buildTrialWelcomeEmail } from "@/lib/email/mailer";
 import { slugify, isReservedSlug, ensureUniqueSlug } from "@/lib/tenant/slug";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 export async function POST(request) {
   try {
@@ -96,8 +97,14 @@ export async function POST(request) {
     const subscription = await createTrialSubscription(tenant.id);
 
     // ─── Send verification email (non-blocking) ───────────
-    const verifyEmail = buildVerificationEmail(name, verifyToken);
-    sendEmail({ to: email, ...verifyEmail }).catch((err) =>
+    const theme = await resolveTenantTheme(tenant.id).catch(() => null);
+    const emailCtx = {
+      brandName:    theme?.emailFromName || theme?.brandName || null,
+      primaryColor: theme?.primaryColor || null,
+      fromName:     theme?.emailFromName || theme?.brandName || null,
+    };
+    const verifyEmail = buildVerificationEmail(name, verifyToken, emailCtx);
+    sendEmail({ to: email, ...verifyEmail, fromName: verifyEmail.fromName }).catch((err) =>
       console.error("[register] Failed to send verification email:", err?.message)
     );
 

@@ -2,6 +2,7 @@ import { CallStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
+import { reserveCredits, refundReserve } from "@/lib/credits/credit-service";
 import { runAIWithFailover } from "@/lib/ai/provider-router";
 import { initiateTelephonyCallWithFailover } from "@/lib/telephony/provider-router";
 import { logTelephony, redactedPhone } from "@/lib/telephony/logger";
@@ -37,11 +38,10 @@ export async function POST(request) {
     return Response.json({ error: "Demo calls require a tenant context. Log in as a tenant admin to use this feature." }, { status: 400 });
   }
 
-  // Plan guard — demo calls still count against quota
+  // Plan guard — demo calls still require the feature
   try {
     const guard = await getPlanGuard(tenantId);
     guard.assertHasFeature("hasAiCalling");
-    guard.assertCanMakeAiCall();
   } catch (err) {
     if (isPlanLimitError(err)) return planLimitResponse(err);
     throw err;
@@ -80,6 +80,20 @@ export async function POST(request) {
     throw error;
   }
 
+  // Reserve credits — throws 402 if insufficient
+  try {
+    await reserveCredits(tenantId, callLog.id);
+  } catch (err) {
+    await prisma.callLog.update({
+      where: { id: callLog.id },
+      data: { status: "FAILED", errorReason: err.code ?? "INSUFFICIENT_CREDITS" },
+    }).catch(() => {});
+    return Response.json(
+      { error: err.message, code: err.code, available: err.available, required: err.required },
+      { status: 402 }
+    );
+  }
+
   try {
     const demoPrompt = DEMO_PROMPTS[scriptType] || DEMO_PROMPTS.new_lead;
 
@@ -108,7 +122,9 @@ export async function POST(request) {
     const callbackUrl = isPublicHttps
       ? `${baseUrl}/api/calls/webhook?customerId=${demoCustomer.id}&callLogId=${callLog.id}&turn=0`
       : undefined;
-    const statusCallbackUrl = isPublicHttps ? `${baseUrl}/api/calls/status` : undefined;
+    const statusCallbackUrl = isPublicHttps
+      ? `${baseUrl}/api/calls/status?tenantId=${tenantId}&callLogId=${callLog.id}`
+      : undefined;
 
     // Vonage webhook URLs
     const vonageAnswerUrl = `${baseUrl}/api/vonage/voice/answer?customerId=${demoCustomer.id}&callLogId=${callLog.id}`;
@@ -179,6 +195,7 @@ export async function POST(request) {
     if (isDatabaseUnavailable(error)) return databaseUnavailableResponse();
 
     if (callLog?.id) {
+      await refundReserve(tenantId, callLog.id).catch(() => {});
       await prisma.callLog.updateMany({
         where: { id: callLog.id, tenantId },
         data: {

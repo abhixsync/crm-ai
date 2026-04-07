@@ -102,6 +102,11 @@ export default function LoginForm({ theme, tenantId, tenantSlug }) {
               {loading ? "Signing in…" : "Sign In"}
             </button>
           </form>
+          <div style={{ textAlign: "right", marginTop: 8, fontSize: 12 }}>
+            <Link href="/forgot-password" style={{ color: "var(--ms-accent)", textDecoration: "none" }}>
+              Forgot password?
+            </Link>
+          </div>
           {!tenantId && (
             <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--text-muted, #706C78)" }}>
               Don&apos;t have an account?{" "}

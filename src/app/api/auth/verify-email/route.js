@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail, buildTrialWelcomeEmail } from "@/lib/email/mailer";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -28,8 +29,14 @@ export async function GET(request) {
   // Send welcome / trial info email (non-blocking)
   const sub = await prisma.tenantSubscription.findUnique({ where: { tenantId: user.tenantId } });
   if (sub?.trialEndsAt) {
-    const welcome = buildTrialWelcomeEmail(user.name, sub.trialEndsAt);
-    sendEmail({ to: user.email, ...welcome }).catch(() => {});
+    const theme = await resolveTenantTheme(user.tenantId).catch(() => null);
+    const emailCtx = {
+      brandName:    theme?.emailFromName || theme?.brandName || null,
+      primaryColor: theme?.primaryColor || null,
+      fromName:     theme?.emailFromName || theme?.brandName || null,
+    };
+    const welcome = buildTrialWelcomeEmail(user.name, sub.trialEndsAt, emailCtx);
+    sendEmail({ to: user.email, ...welcome, fromName: welcome.fromName }).catch(() => {});
   }
 
   return Response.redirect(new URL("/login?verified=success", request.url));

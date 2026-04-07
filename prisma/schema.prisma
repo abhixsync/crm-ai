@@ -242,6 +242,34 @@ enum SuspendedReason {
   ACCOUNT_VIOLATION
 }
 
+// ─── CREDIT ENUMS ───────────────────────────────────────
+
+enum CreditTransactionType {
+  MONTHLY_GRANT
+  RESERVE
+  SETTLE
+  PURCHASE
+  SUBSCRIPTION_GRANT
+  EXPIRE
+  ADJUSTMENT
+  REFUND
+}
+
+enum CreditPool {
+  PLAN
+  PURCHASED
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  ACTIVE_RECURRING
+  RENEWAL_FAILED
+  CANCELLED
+  REFUNDED
+}
+
 // ─── TENANT ────────────────────────────────────────────
 
 model Tenant {
@@ -252,9 +280,9 @@ model Tenant {
   customDomainVerified  Boolean   @default(false)
   customDomainAddedAt   DateTime?
   crmName                        String?
-  aiAgentName                    String   @default("Priya")
+  aiAgentName                    String   @default("Your Advisor")
   loanAssistantCompanyName       String?
-  loanAssistantHumanAdvisorName  String   @default("John Doe")
+  loanAssistantHumanAdvisorName  String   @default("Our Advisor")
   loanAssistantCallbackPhone     String?
   loanAssistantNotificationEmail String?
   uiLanguage                     String   @default("en")
@@ -293,6 +321,10 @@ model Tenant {
   followUpTasks        FollowUpTask[]
   subscription             TenantSubscription?
   intentTrainingPhrases    IntentTrainingPhrase[]
+  creditBalance            TenantCreditBalance?
+  creditTransactions       CreditTransaction[]
+  creditPackPurchases      CreditPackPurchase[]
+  pendingInvites           PendingInvite[]
 }
 
 // ─── TENANT THEME ───────────────────────────────────────
@@ -333,6 +365,9 @@ model TenantTheme {
   faviconUrl               String?
   loginBackgroundUrl       String?
   applicationBackgroundUrl String?
+  brandName                String?
+  brandTagline             String?
+  emailFromName            String?
   customCss                String?  @db.Text
   isActive                 Boolean  @default(true)
   createdAt                DateTime @default(now())
@@ -386,7 +421,9 @@ model User {
   documents          Document[]
   customerActivities CustomerActivity[]
   aiScoringHistory   AiScoringHistory[]
-  webhookConfigs     WebhookConfig[]
+  webhookConfigs        WebhookConfig[]
+  passwordResetTokens   PasswordResetToken[]
+  sentInvites           PendingInvite[]       @relation("SentInvites")
 
   // email unique per tenant; NULL tenantId = platform admin (enforced at app layer)
   @@unique([tenantId, email])
@@ -525,6 +562,9 @@ model CallLog {
   intentClassification  String?
   nextAction            String?
   durationSecs          Int?
+  creditsReserved       Int?
+  creditsCharged        Int?
+  reservedAt            DateTime?
   recordingUrl          String?
   confidenceScore       Float?
   metadata              Json?
@@ -541,6 +581,7 @@ model CallLog {
   manualReviews        ManualReview[]
   aiScoringHistory     AiScoringHistory[]
   conversationSessions ConversationSession[]
+  creditTransactions   CreditTransaction[]
 
   // FIX: providerCallId now scoped to tenant
   @@unique([tenantId, providerCallId])
@@ -1226,6 +1267,7 @@ model PlanDefinition {
   maxCustomFields        Int @default(0)
   maxTeams               Int @default(0)
   maxStorageMb           Int @default(0)
+  creditsPerMonth        Int @default(0)
 
   // Feature flags
   hasAiCalling          Boolean @default(false)
@@ -1387,4 +1429,131 @@ model IntentTrainingPhrase {
 
   @@index([tenantId, intentType])
   @@index([tenantId, isActive])
+}
+
+// ─── CREDITS ────────────────────────────────────────────
+
+model TenantCreditBalance {
+  id                       String    @id @default(cuid())
+  tenantId                 String    @unique
+  planCredits              Int       @default(0)
+  purchasedCredits         Int       @default(0)
+  reservedCredits          Int       @default(0)
+  planCreditsAllocated     Int       @default(0)
+  planCreditsUsedThisMonth Int       @default(0)
+  planResetAt              DateTime?
+  planResetNextAt          DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model CreditTransaction {
+  id               String                @id @default(cuid())
+  tenantId         String
+  type             CreditTransactionType
+  amount           Int
+  sourcePool       CreditPool
+  balanceAfter     Int
+  callLogId        String?
+  packPurchaseId   String?
+  idempotencyKey   String                @unique
+  description      String?
+  meta             Json?
+  createdAt        DateTime              @default(now())
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id])
+  callLog      CallLog?            @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+  packPurchase CreditPackPurchase? @relation(fields: [packPurchaseId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([callLogId])
+  @@index([packPurchaseId])
+  @@index([tenantId, type])
+}
+
+model CreditPack {
+  id             String        @id @default(cuid())
+  name           String
+  credits        Int
+  bonusCredits   Int           @default(0)
+  priceInr       Decimal       @db.Decimal(10, 2)
+  priceUsd       Decimal       @db.Decimal(10, 2)
+  isRecurring    Boolean       @default(false)
+  billingCycle   BillingCycle?
+  isActive       Boolean       @default(true)
+  sortOrder      Int           @default(0)
+  stripePriceId  String?
+  razorpayPlanId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  purchases CreditPackPurchase[]
+}
+
+model CreditPackPurchase {
+  id                     String          @id @default(cuid())
+  tenantId               String
+  packId                 String
+  creditsAtPurchase      Int
+  priceAtPurchase        Decimal         @db.Decimal(10, 2)
+  amountInr              Decimal?        @db.Decimal(10, 2)
+  amountUsd              Decimal?        @db.Decimal(10, 2)
+  billingProvider        BillingProvider
+  providerTxId           String?
+  stripeSubscriptionId   String?
+  razorpaySubscriptionId String?
+  status                 PurchaseStatus
+  isRecurring            Boolean         @default(false)
+  nextRenewalAt          DateTime?
+  renewalCount           Int             @default(0)
+  expiresAt              DateTime?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id])
+  pack   CreditPack @relation(fields: [packId], references: [id])
+
+  creditTransactions CreditTransaction[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, expiresAt])
+  @@index([packId])
+}
+
+// ─── PASSWORD RESET TOKENS ──────────────────────────────
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── PENDING INVITES ────────────────────────────────────
+
+model PendingInvite {
+  id          String    @id @default(cuid())
+  tenantId    String
+  email       String
+  role        UserRole  @default(SALES)
+  token       String    @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("SentInvites", fields: [invitedById], references: [id])
+
+  @@index([tenantId])
+  @@index([email])
 }

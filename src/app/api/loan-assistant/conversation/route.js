@@ -14,6 +14,7 @@
  * }
  */
 
+import { getBaseBrandName } from '@/modules/theme/theme.service';
 import { ConversationManager } from '@/modules/loan-assistant/conversation-manager.js';
 import { notifyAdvisorForCallLog, notifyAdvisorForSummary } from '@/lib/notifications/advisor-notifier.js';
 import {
@@ -154,8 +155,9 @@ export async function POST(request) {
       console.log('📍 Creating new conversation (init)...');
       
       // Determine company name and AI agent name
-      let finalCompanyName = company_name || 'FinServe Loans';
-      let finalAiAgentName = ai_agent_name || 'Priya Sharma';
+      const resolvedBaseBrandName = await getBaseBrandName();
+      let finalCompanyName = company_name || resolvedBaseBrandName;
+      let finalAiAgentName = ai_agent_name || 'Your Advisor';
       
       // If tenant_id provided, fetch tenant config (priority: loanAssistantCompanyName > tenant.name)
       if (tenant_id) {

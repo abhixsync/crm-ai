@@ -1,6 +1,7 @@
 import { CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
+import { getCreditBalance } from "@/lib/credits/credit-service";
 
 const PIPELINE_STATUSES = [
   "NEW", "CALL_PENDING", "CALLING", "INTERESTED", "FOLLOW_UP",
@@ -46,8 +47,19 @@ export async function GET(request) {
     const results = await Promise.all(baseQueries);
     const [totalCustomers, interestedCustomers, followUps, totalCalls] = results;
 
+    const creditBalance = await getCreditBalance(tenantId).catch(() => null);
+
     const response = {
       metrics: { totalCustomers, interestedCustomers, followUps, totalCalls },
+      credits: creditBalance
+        ? {
+            available:            creditBalance.available,
+            planCredits:          creditBalance.planCredits,
+            purchasedCredits:     creditBalance.purchasedCredits,
+            planCreditsAllocated: creditBalance.planCreditsAllocated,
+            planResetNextAt:      creditBalance.planResetNextAt,
+          }
+        : null,
     };
 
     if (includePipeline && results[4]) {

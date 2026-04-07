@@ -6,6 +6,8 @@ import {
   resolveAutomationExecutionMode,
 } from "@/lib/journey/automation-settings";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { sendEmail, buildCampaignCompletionEmail } from "@/lib/email/mailer";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 const CRON_STATE_KEY = "AI_CAMPAIGN_CRON_STATE";
 
@@ -61,6 +63,61 @@ function isAuthorized(request) {
   return false;
 }
 
+async function checkAndNotifyCampaignCompletion() {
+  // Find RUNNING campaigns where all queued/active jobs are now done
+  const runningCampaigns = await prisma.campaign.findMany({
+    where: { status: "RUNNING" },
+    select: { id: true, tenantId: true, name: true, createdById: true },
+  });
+
+  for (const campaign of runningCampaigns) {
+    const pendingJobs = await prisma.campaignJob.count({
+      where: { campaignId: campaign.id, status: { in: ["QUEUED", "ACTIVE"] } },
+    });
+    if (pendingJobs > 0) continue;
+
+    // Mark campaign complete
+    await prisma.campaign.update({ where: { id: campaign.id }, data: { status: "COMPLETED" } }).catch(() => {});
+
+    // Gather stats
+    const [total, completed, failed] = await Promise.all([
+      prisma.campaignJob.count({ where: { campaignId: campaign.id } }),
+      prisma.campaignJob.count({ where: { campaignId: campaign.id, status: "COMPLETED" } }),
+      prisma.campaignJob.count({ where: { campaignId: campaign.id, status: "FAILED" } }),
+    ]);
+    const interested = await prisma.customer.count({
+      where: {
+        tenantId: campaign.tenantId,
+        status: "INTERESTED",
+        campaignJobs: { some: { campaignId: campaign.id } },
+      },
+    });
+
+    // Send email to campaign creator (non-blocking)
+    (async () => {
+      try {
+        const creator = campaign.createdById
+          ? await prisma.user.findUnique({ where: { id: campaign.createdById }, select: { email: true, name: true } })
+          : await prisma.user.findFirst({ where: { tenantId: campaign.tenantId, isPrimaryOwner: true }, select: { email: true, name: true } });
+        if (!creator?.email) return;
+        const theme = await resolveTenantTheme(campaign.tenantId).catch(() => null);
+        const emailCtx = {
+          brandName:    theme?.emailFromName || theme?.brandName || null,
+          primaryColor: theme?.primaryColor || null,
+          fromName:     theme?.emailFromName || theme?.brandName || null,
+        };
+        const email = buildCampaignCompletionEmail(
+          creator.name || "there",
+          campaign.name,
+          { total, completed, failed, interested },
+          emailCtx
+        );
+        await sendEmail({ to: creator.email, ...email, fromName: email.fromName });
+      } catch {}
+    })();
+  }
+}
+
 export async function GET(request) {
   if (!isAuthorized(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -104,6 +161,8 @@ export async function GET(request) {
     if (!result.ok) {
       return Response.json({ error: result.error }, { status: result.status });
     }
+
+    checkAndNotifyCampaignCompletion().catch(() => {});
 
     await recordCronRun();
 

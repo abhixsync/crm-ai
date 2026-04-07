@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import "@/components/shells/modern/modern-shell.css";
 
-export default function RegisterForm({ theme = {} }) {
+export default function RegisterForm({ theme = {}, trialDays = 30 }) {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", password: "", company: "", phone: "" });
   const [loading, setLoading] = useState(false);
@@ -97,7 +97,7 @@ export default function RegisterForm({ theme = {} }) {
           <div className="ms-login-title">Check your inbox</div>
           <div className="ms-login-subtitle" style={{ marginTop: 8 }}>
             We sent a verification link to <strong>{doneEmail}</strong>.
-            <br />Click it to activate your 30-day Pro trial.
+            <br />Click it to activate your {trialDays}-day Pro trial.
           </div>
           <div style={{ marginTop: 24 }}>
             <Link href="/login" className="ms-login-btn" style={{ display: "inline-block", textDecoration: "none" }}>
@@ -119,7 +119,7 @@ export default function RegisterForm({ theme = {} }) {
         )}
         <div className="ms-login-title">Start your free trial</div>
         <div className="ms-login-subtitle">
-          30 days of Pro — No Credit Card Required
+          {trialDays} days of Pro — No Credit Card Required
         </div>
 
         <form className="ms-login-form" onSubmit={onSubmit}>

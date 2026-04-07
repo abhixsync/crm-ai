@@ -189,7 +189,6 @@ async function buildGuard(tenantId) {
 
     assertCanAddCustomer()  { assertLimit(usage.customers,  limits.maxCustomers,          "customers"); },
     assertCanAddUser()      { assertLimit(usage.users,      limits.maxUsers,              "users"); },
-    assertCanMakeAiCall()   { assertLimit(usage.aiCallsUsed, limits.maxAiCallsPerMonth,   "aiCalls"); },
     assertCanUploadLeads()  { assertLimit(usage.leadsUploaded, limits.maxLeadUploadsPerMonth, "leadUploads"); },
     assertHasFeature(key)   { assertFeature(key); },
 
@@ -212,7 +211,6 @@ export async function getPlanGuard(tenantId) {
       usage: { customers: 0, users: 0, aiCallsUsed: 0, leadsUploaded: 0 },
       assertCanAddCustomer() {},
       assertCanAddUser() {},
-      assertCanMakeAiCall() {},
       assertCanUploadLeads() {},
       assertHasFeature() {},
       toClientSummary() { return { plan: "MAX", status: "ACTIVE" }; },

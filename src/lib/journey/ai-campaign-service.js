@@ -5,6 +5,7 @@ import { runAIWithFailover } from "@/lib/ai/provider-router";
 import { initiateTelephonyCallWithFailover } from "@/lib/telephony/provider-router";
 import { buildHinglishLoanPrompt } from "@/lib/journey/prompt-builder";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
+import { reserveCredits } from "@/lib/credits/credit-service";
 
 const CallGraphState = Annotation.Root({
   customer: Annotation(),
@@ -71,6 +72,21 @@ async function stateToCalling(state) {
     tenantId: state.customer.tenantId,
   });
 
+  // Reserve credits — if insufficient, pause the campaign
+  try {
+    await reserveCredits(state.customer.tenantId, createdCall.id);
+  } catch (err) {
+    await prisma.campaign.updateMany({
+      where: { tenantId: state.customer.tenantId, status: "ACTIVE" },
+      data: { status: "PAUSED", metadata: { pauseReason: "INSUFFICIENT_CREDITS" } },
+    }).catch(() => {});
+    await prisma.callLog.update({
+      where: { id: createdCall.id },
+      data: { status: "FAILED", errorReason: "INSUFFICIENT_CREDITS" },
+    }).catch(() => {});
+    throw err;
+  }
+
   return {
     ...state,
     callLogId: createdCall.id,
@@ -95,7 +111,9 @@ async function runCall(state) {
   const callbackUrl = isPublicHttpsUrl(baseUrl)
     ? `${baseUrl}/api/calls/webhook?customerId=${state.customer.id}&callLogId=${state.callLogId}&turn=0`
     : undefined;
-  const statusCallbackUrl = isPublicHttpsUrl(baseUrl) ? `${baseUrl}/api/calls/status` : undefined;
+  const statusCallbackUrl = isPublicHttpsUrl(baseUrl)
+    ? `${baseUrl}/api/calls/status?tenantId=${state.customer.tenantId}&callLogId=${state.callLogId}`
+    : undefined;
 
   const telephonyOutput = await initiateTelephonyCallWithFailover({
     to: state.customer.phone,

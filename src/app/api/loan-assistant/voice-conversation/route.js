@@ -18,6 +18,7 @@
  * }
  */
 
+import { getBaseBrandName } from '@/modules/theme/theme.service';
 import { LLMConversationManager } from '@/modules/loan-assistant/llm-conversation-manager.js';
 import { notifyAdvisorForCallLog, notifyAdvisorForSummary } from '@/lib/notifications/advisor-notifier.js';
 import {
@@ -118,9 +119,10 @@ export async function POST(request) {
       console.log('\n📍 Creating new LLM conversation session...');
       
       // Determine company name and AI agent name
-      let finalCompanyName = company_name || 'FinServe Loans';
-      let finalAiAgentName = ai_agent_name || 'Priya Sharma';
-      let finalHumanAdvisorName = human_advisor_name || 'John Doe';
+      const resolvedBaseBrandName = await getBaseBrandName();
+      let finalCompanyName = company_name || resolvedBaseBrandName;
+      let finalAiAgentName = ai_agent_name || 'Your Advisor';
+      let finalHumanAdvisorName = human_advisor_name || 'Our Advisor';
       let finalCallbackPhone = callback_phone || process.env.COMPANY_CALLBACK_PHONE || '+91-XXXXXXXXXX';
       let finalTenantLanguage = 'hinglish';
       

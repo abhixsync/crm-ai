@@ -36,7 +36,8 @@ const getBootstrapData = cache(async () => {
     preloadedTheme = SYSTEM_THEME_DEFAULT;
   }
 
-  let crmTitle = "Loan Enterprise CRM";
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || "CRM AI";
+  let crmTitle = appName;
   let tenantName = "";
   if (tenantId) {
     try {
@@ -44,10 +45,10 @@ const getBootstrapData = cache(async () => {
         where: { id: tenantId },
         select: { crmName: true, name: true },
       });
-      crmTitle = tenant?.crmName || tenant?.name || "CRM";
+      crmTitle = tenant?.crmName || tenant?.name || appName;
       tenantName = tenant?.name || "";
     } catch {
-      crmTitle = "CRM";
+      crmTitle = appName;
     }
   }
 
@@ -135,7 +136,7 @@ export default async function RootLayout({ children }) {
               <ShellWrapper
                 uiLayout={uiLayout}
                 brandName={brandName}
-                brandSub="AI Sales Platform"
+                brandSub={preloadedTheme?.brandTagline || ""}
                 logoUrl={logoUrl}
                 tenantName={tenantName}
                 initialRole={session?.user?.role || null}

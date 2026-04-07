@@ -11,6 +11,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { invalidatePlanGuardCache } from "./plan-guard";
+import { initializeCreditBalance } from "@/lib/credits/credit-service";
+import { sendEmail, buildPlanDowngradeEmail, buildAccountSuspendEmail } from "@/lib/email/mailer";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 // ─── CONFIG ──────────────────────────────────────────────
 
@@ -84,7 +87,7 @@ export async function createTrialSubscription(tenantId) {
 
   const planSnapshot = await buildPlanSnapshot("PRO");
 
-  return prisma.tenantSubscription.create({
+  const subscription = await prisma.tenantSubscription.create({
     data: {
       tenantId,
       plan: "PRO",
@@ -96,6 +99,11 @@ export async function createTrialSubscription(tenantId) {
       planSnapshot,
     },
   });
+
+  // Initialize credit balance with PRO credits for trial
+  await initializeCreditBalance(tenantId, proPlan?.creditsPerMonth ?? 500, trialEndsAt).catch(() => {});
+
+  return subscription;
 }
 
 // ─── UPGRADE PLAN ────────────────────────────────────────
@@ -156,6 +164,27 @@ export async function upgradePlan(tenantId, {
     data:  { isSuspended: false, suspendedAt: null, suspendedReason: null },
   });
 
+  // Grant new plan's credits immediately on upgrade
+  const newPlanDef = await prisma.planDefinition.findFirst({ where: { plan } });
+  const newCredits = newPlanDef?.creditsPerMonth ?? 0;
+  const nextReset = currentPeriodEnd ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  await prisma.tenantCreditBalance.upsert({
+    where: { tenantId },
+    update: {
+      planCredits: newCredits,
+      planCreditsAllocated: newCredits,
+      planCreditsUsedThisMonth: 0,
+      planResetNextAt: nextReset,
+    },
+    create: {
+      tenantId,
+      planCredits: newCredits,
+      planCreditsAllocated: newCredits,
+      planResetNextAt: nextReset,
+    },
+  });
+
   invalidatePlanGuardCache(tenantId);
   return updated;
 }
@@ -206,6 +235,48 @@ export async function downgradeToFree(tenantId) {
       data: { status: "PAUSED" },
     });
   });
+
+  // Downgrade plan credits — purchased credits are preserved
+  const freePlan = await prisma.planDefinition.findFirst({ where: { plan: "FREE" } });
+  await prisma.tenantCreditBalance.updateMany({
+    where: { tenantId },
+    data: {
+      planCredits: freePlan?.creditsPerMonth ?? 0,
+      planCreditsAllocated: freePlan?.creditsPerMonth ?? 0,
+    },
+  });
+
+  // Send downgrade notification to primary owner (non-blocking)
+  (async () => {
+    try {
+      const owner = await prisma.user.findFirst({ where: { tenantId, isPrimaryOwner: true }, select: { email: true, name: true } });
+      if (!owner?.email) return;
+      const theme = await resolveTenantTheme(tenantId).catch(() => null);
+      const emailCtx = { brandName: theme?.emailFromName || theme?.brandName || null, primaryColor: theme?.primaryColor || null, fromName: theme?.emailFromName || theme?.brandName || null };
+      const email = buildPlanDowngradeEmail(owner.name || "there", "Pro", emailCtx);
+      await sendEmail({ to: owner.email, ...email, fromName: email.fromName });
+    } catch {}
+  })();
+
+  // Notify suspended users (non-blocking)
+  (async () => {
+    try {
+      const suspended = await prisma.user.findMany({
+        where: { tenantId, isSuspended: true, suspendedReason: "PLAN_DOWNGRADE" },
+        select: { email: true, name: true },
+      });
+      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
+      const theme = await resolveTenantTheme(tenantId).catch(() => null);
+      const emailCtx = { brandName: theme?.emailFromName || theme?.brandName || null, primaryColor: theme?.primaryColor || null, fromName: theme?.emailFromName || theme?.brandName || null };
+      for (const user of suspended) {
+        if (!user.email) continue;
+        try {
+          const email = buildAccountSuspendEmail(user.name || "there", tenant?.name || null, emailCtx);
+          await sendEmail({ to: user.email, ...email, fromName: email.fromName });
+        } catch {}
+      }
+    } catch {}
+  })();
 
   invalidatePlanGuardCache(tenantId);
 }
