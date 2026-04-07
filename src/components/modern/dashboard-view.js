@@ -311,6 +311,40 @@ export function ModernDashboardView({
             </div>
           )}
 
+          {/* AI Credits Card */}
+          {metrics?.credits && (
+            <div className="ms-card" style={{ padding: "16px" }}>
+              <div style={{ fontSize: "12px", color: "var(--ms-text2)", marginBottom: "8px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                AI Credits
+              </div>
+              <div style={{ marginBottom: "6px" }}>
+                <div style={{ background: "var(--ms-bg2)", borderRadius: "4px", height: "6px", overflow: "hidden" }}>
+                  <div style={{
+                    background: "#6366f1",
+                    width: `${Math.min(100, metrics.credits.planCreditsAllocated > 0 ? (metrics.credits.planCredits / metrics.credits.planCreditsAllocated) * 100 : 0)}%`,
+                    height: "100%",
+                    borderRadius: "4px",
+                    transition: "width 0.3s ease",
+                  }} />
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--ms-text2)" }}>
+                <span>{(metrics.credits.planCreditsAllocated - metrics.credits.planCredits).toLocaleString()} used</span>
+                <span>
+                  {metrics.credits.planCreditsAllocated.toLocaleString()} / month
+                  {metrics.credits.planResetNextAt && (
+                    <> · resets in {Math.max(0, Math.ceil((new Date(metrics.credits.planResetNextAt) - Date.now()) / 86400000))}d</>
+                  )}
+                </span>
+              </div>
+              {metrics.credits.purchasedCredits > 0 && (
+                <div style={{ marginTop: "6px", fontSize: "12px", color: "var(--ms-text2)" }}>
+                  + {metrics.credits.purchasedCredits.toLocaleString()} purchased credits remaining
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Follow-ups Card */}
           <div className="ms-card">
             <div className="ms-card-hd">
