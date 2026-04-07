@@ -84,7 +84,7 @@ CONFUSION RECOVERY:
   - Briefly apologize and clarify who you are and why you are calling.
   - Rephrase the previous question in simpler language.
   - Ask the same question again, more simply.
-- Example: "Maafi chahungi, main Priya hoon FinServe Loans se. Bas yeh jaanna tha ki aapko kis type ka loan chahiye — personal, home, ya business?"
+- Example: "Maafi chahungi, main {AGENT_NAME} hoon {COMPANY_NAME} se. Bas yeh jaanna tha ki aapko kis type ka loan chahiye — personal, home, ya business?"
 
 BANNED PHRASES:
 - Never say "noted", "noted ji", "recorded", or "understood" as standalone acknowledgments.
@@ -338,6 +338,8 @@ export async function buildUnifiedCallTurnPrompt({
   tenantId,
   extractedData,
   previousCallSummary,
+  agentName,
+  companyName,
 }) {
   const resolvedTenantId = await resolveTenantIdForPrompt({ tenantId, customer });
   console.log(
@@ -348,10 +350,13 @@ export async function buildUnifiedCallTurnPrompt({
     'customerId:',
     customer?.id
   );
-  const [basePrompt, chatHistory] = await Promise.all([
+  const [rawBasePrompt, chatHistory] = await Promise.all([
     getActiveSystemPrompt(resolvedTenantId),
     getCustomerChatHistory(customer?.id),
   ]);
+  const basePrompt = rawBasePrompt
+    .replace(/\{AGENT_NAME\}/g, agentName || "Your Advisor")
+    .replace(/\{COMPANY_NAME\}/g, companyName || "Our Company");
   console.log('[system-prompt] basePrompt length:', basePrompt.length, 'chatHistory length:', chatHistory.length);
 
   const parts = [basePrompt];

@@ -88,6 +88,7 @@ const TENANT_ASSETS = [
 const MODULAR_SAVE_KEYS = [
   "primaryColor", "secondaryColor", "accentColor",
   "logoUrl", "faviconUrl", "customCss",
+  "brandName", "brandTagline", "emailFromName",
 ];
 
 /* ── Helpers ────────────────────────────────────────────── */
@@ -235,10 +236,19 @@ export function ThemeEditor({ mode = "tenant" }) {
     try {
       let payload;
       if (isGlobal) {
-        payload = { ...theme, isBaseTheme: true };
+        payload = {
+          ...theme,
+          isBaseTheme: true,
+          brandName:     theme.brandName?.trim() || null,
+          brandTagline:  theme.brandTagline?.trim() || null,
+          emailFromName: theme.emailFromName?.trim() || null,
+        };
       } else {
         payload = {};
         MODULAR_SAVE_KEYS.forEach((k) => { if (theme[k] !== undefined) payload[k] = theme[k]; });
+        payload.brandName     = theme.brandName?.trim() || null;
+        payload.brandTagline  = theme.brandTagline?.trim() || null;
+        payload.emailFromName = theme.emailFromName?.trim() || null;
       }
       const res = await fetch("/api/admin/theme", {
         method: "PUT",
@@ -398,6 +408,40 @@ export function ThemeEditor({ mode = "tenant" }) {
           </div>
         </div>
       )}
+
+      {/* identity */}
+      <div className="ms-card" style={{ padding: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ms-text)", marginBottom: 16 }}>Identity</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <FormRow label="Brand Name">
+            <input
+              className="ms-field-inp"
+              type="text"
+              value={theme.brandName || ""}
+              placeholder="Inherited from base"
+              onChange={(e) => updateField("brandName", e.target.value)}
+            />
+          </FormRow>
+          <FormRow label="Brand Tagline">
+            <input
+              className="ms-field-inp"
+              type="text"
+              value={theme.brandTagline || ""}
+              placeholder="Inherited from base"
+              onChange={(e) => updateField("brandTagline", e.target.value)}
+            />
+          </FormRow>
+          <FormRow label="Email Sender Name">
+            <input
+              className="ms-field-inp"
+              type="text"
+              value={theme.emailFromName || ""}
+              placeholder="Falls back to Brand Name"
+              onChange={(e) => updateField("emailFromName", e.target.value)}
+            />
+          </FormRow>
+        </div>
+      </div>
 
       {/* assets */}
       <div className="ms-card" style={{ padding: 20 }}>
