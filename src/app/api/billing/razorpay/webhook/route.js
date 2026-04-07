@@ -3,6 +3,7 @@ import { verifyRazorpayWebhook } from "@/lib/billing/razorpay";
 import { upgradePlan, cancelSubscription } from "@/lib/subscription/subscription-service";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, buildPaymentConfirmationEmail } from "@/lib/email/mailer";
+import { grantPurchaseCredits } from "@/lib/credits/credit-service";
 
 /**
  * POST /api/billing/razorpay/webhook
@@ -48,6 +49,20 @@ export async function POST(req) {
     switch (event) {
       case "subscription.activated": {
         if (!tenantId) break;
+
+        const purchaseType = subscriptionEntity?.notes?.purchaseType;
+
+        if (purchaseType === "credit_pack") {
+          const packId = subscriptionEntity?.notes?.packId;
+          await grantPurchaseCredits(
+            tenantId,
+            packId,
+            rzpSubId || subscriptionEntity?.id,
+            "RAZORPAY",
+            { inr: paymentEntity?.amount ? paymentEntity.amount / 100 : null }
+          );
+          break;
+        }
 
         const plan = await resolvePlanFromRazorpaySubscription(subscriptionEntity);
         await upgradePlan(tenantId, {
