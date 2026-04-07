@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { runSubscriptionExpiryCron } from "@/lib/subscription/trial-cron";
 import { verifyDomainCname } from "@/lib/tenant/domain";
 import { prisma } from "@/lib/prisma";
+import { releaseStaleReserves, expirePurchasedCredits, grantMonthlyCredits } from "@/lib/credits/credit-service";
 
 /**
  * POST /api/cron/subscription-expiry
@@ -32,6 +33,22 @@ export async function POST(req) {
       }
     } catch (e) {
       console.error("Domain verification sweep error:", e);
+    }
+
+    // Release stale reserves (calls that never received a status webhook)
+    await releaseStaleReserves().catch((err) =>
+      console.error("[cron] releaseStaleReserves failed:", err)
+    );
+
+    // Monthly credit grants for all tenants due for reset
+    const dueBalances = await prisma.tenantCreditBalance.findMany({
+      where: { planResetNextAt: { lte: new Date() } },
+      select: { tenantId: true },
+    });
+    for (const { tenantId } of dueBalances) {
+      await grantMonthlyCredits(tenantId).catch((err) =>
+        console.error(`[cron] monthly grant failed for ${tenantId}:`, err)
+      );
     }
 
     return NextResponse.json({ ok: true, result });
