@@ -99,6 +99,12 @@ export function ModernCustomersView({
   const [deletingId, setDeletingId] = useState("");
   const [deletingAll, setDeletingAll] = useState(false);
   const [busyCallId, setBusyCallId] = useState("");
+  const [batchStatus, setBatchStatus] = useState("");
+  const [activityPanel, setActivityPanel] = useState(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [segments, setSegments] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("crm-segments") || "[]"); } catch { return []; }
+  });
 
   /* Confirmation dialog */
   const [confirm, setConfirm] = useState(null);
@@ -233,6 +239,51 @@ export function ModernCustomersView({
     });
   }
 
+  /* ── Batch status update ── */
+  async function batchUpdateStatus() {
+    if (!selected.length || !batchStatus) return;
+    setBatchRunning(true);
+    try {
+      const r = await fetch("/api/customers/batch", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "UPDATE_STATUS", customerIds: selected, status: batchStatus }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Batch update failed");
+      toast.success(`${d.count} customer${d.count === 1 ? "" : "s"} updated to ${statusLabel(batchStatus)}.`);
+      setSelected([]); setBatchStatus("");
+      await fetchCustomers(pageRef.current, { showLoading: false });
+    } catch (e) { toast.error(e.message); } finally { setBatchRunning(false); }
+  }
+
+  /* ── Activity timeline ── */
+  async function openActivity(c) {
+    setActivityPanel({ customer: c, activities: [], calls: [] });
+    setActivityLoading(true);
+    try {
+      const r = await fetch(`/api/customers/${c.id}/activity`);
+      const d = await r.json();
+      setActivityPanel({ customer: c, activities: d.activities || [], calls: d.calls || [] });
+    } catch { toast.error("Failed to load activity."); } finally { setActivityLoading(false); }
+  }
+
+  /* ── Saved filter segments ── */
+  function saveSegment() {
+    if (!query && !statusFilter) { toast("Set a filter first."); return; }
+    const name = window.prompt("Name this filter segment:");
+    if (!name?.trim()) return;
+    const updated = [...segments, { name: name.trim(), query, statusFilter }];
+    setSegments(updated);
+    try { localStorage.setItem("crm-segments", JSON.stringify(updated)); } catch {}
+    toast.success(`Segment "${name.trim()}" saved.`);
+  }
+
+  function deleteSegment(idx) {
+    const updated = segments.filter((_, i) => i !== idx);
+    setSegments(updated);
+    try { localStorage.setItem("crm-segments", JSON.stringify(updated)); } catch {}
+  }
+
   /* ── Trigger AI call ── */
   async function triggerCall(c) {
     setBusyCallId(c.id);
@@ -342,12 +393,39 @@ export function ModernCustomersView({
           )}
         </div>
 
+        {/* Saved segments row */}
+        {(segments.length > 0 || query || statusFilter) && (
+          <div style={{ padding: "6px 20px", borderBottom: "1px solid var(--ms-border)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {segments.map((seg, idx) => (
+              <span key={idx} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 8px", borderRadius: 20, background: "var(--ms-bg3)", border: "1px solid var(--ms-border2)", color: "var(--ms-text2)" }}>
+                <span style={{ cursor: "pointer" }} onClick={() => { setQuery(seg.query || ""); setStatusFilter(seg.statusFilter || ""); }}>{seg.name}</span>
+                <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ms-text3)", padding: 0, lineHeight: 1, fontSize: 13 }} onClick={() => deleteSegment(idx)}>×</button>
+              </span>
+            ))}
+            {(query || statusFilter) && (
+              <button className="ms-btn" style={{ fontSize: 11, padding: "3px 8px" }} onClick={saveSegment}>+ Save filter</button>
+            )}
+          </div>
+        )}
+
         {/* Batch bar */}
         {selected.length > 0 && (
-          <div style={{ padding: "8px 20px", borderBottom: "1px solid var(--ms-border)", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ padding: "8px 20px", borderBottom: "1px solid var(--ms-border)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12, color: "var(--ms-text2)" }}>{selected.length} selected</span>
+            <select
+              className="ms-srch"
+              style={{ width: 150, fontSize: 11 }}
+              value={batchStatus}
+              onChange={e => setBatchStatus(e.target.value)}
+            >
+              <option value="">Set status…</option>
+              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
+            </select>
+            <button className="ms-btn ms-btn-pri" style={{ fontSize: 11 }} onClick={batchUpdateStatus} disabled={!batchStatus || batchRunning}>
+              Update Status
+            </button>
             <button className="ms-btn ms-btn-danger-ghost" style={{ fontSize: 11 }} onClick={confirmBatchDelete} disabled={batchRunning}>
-              {batchRunning ? "Deleting…" : "Delete Selected"}
+              {batchRunning ? "Running…" : "Delete Selected"}
             </button>
           </div>
         )}
@@ -387,7 +465,7 @@ export function ModernCustomersView({
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div className="ms-cust-av" style={{ background: av.bg, color: av.fg }}>{initials(c.firstName, c.lastName)}</div>
                         <div>
-                          <div className="ms-cust-name">{name}</div>
+                          <div className="ms-cust-name" style={{ cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: 2 }} onClick={() => openActivity(c)}>{name}</div>
                           {c.email && <div className="ms-cust-sub">{c.email}</div>}
                         </div>
                       </div>
@@ -475,6 +553,51 @@ export function ModernCustomersView({
               <button className="ms-btn" onClick={() => setConfirm(null)}>Cancel</button>
               <button className="ms-btn ms-btn-danger" onClick={confirm.onConfirm}>{confirm.label}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Activity Timeline Panel ── */}
+      {activityPanel && (
+        <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 380, background: "var(--ms-surface)", borderLeft: "1px solid var(--ms-border)", zIndex: 1000, display: "flex", flexDirection: "column", boxShadow: "-4px 0 32px rgba(0,0,0,.25)" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--ms-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ms-text)" }}>{activityPanel.customer.firstName} {activityPanel.customer.lastName || ""}</div>
+              <div style={{ fontSize: 11, color: "var(--ms-text3)", marginTop: 2 }}>Activity Timeline</div>
+            </div>
+            <button className="ms-btn" style={{ padding: "4px 10px" }} onClick={() => setActivityPanel(null)}>✕</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+            {activityLoading && <div style={{ textAlign: "center", padding: 40, color: "var(--ms-text3)", fontSize: 12 }}>Loading…</div>}
+            {!activityLoading && activityPanel.activities.length === 0 && activityPanel.calls.length === 0 && (
+              <div style={{ textAlign: "center", padding: 40, color: "var(--ms-text3)", fontSize: 12 }}>No activity recorded yet.</div>
+            )}
+            {!activityLoading && (() => {
+              const items = [
+                ...activityPanel.activities.map(a => ({ ...a, _kind: "activity" })),
+                ...activityPanel.calls.map(c => ({ ...c, _kind: "call" })),
+              ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+              return items.map(item => (
+                <div key={item.id} style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13,
+                    background: item._kind === "call" ? "rgba(79,156,249,.15)" : "rgba(34,201,147,.12)",
+                    color: item._kind === "call" ? "#93c5fd" : "#6ee7b7",
+                  }}>
+                    {item._kind === "call" ? "📞" : item.type === "STATUS_CHANGE" ? "🔄" : item.type === "NOTE" ? "📝" : "⚡"}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ms-text)", lineHeight: 1.4 }}>
+                      {item._kind === "call" ? `Call — ${item.status}` : item.summary}
+                    </div>
+                    {item._kind === "call" && item.summary && <div style={{ fontSize: 11, color: "var(--ms-text2)", marginTop: 2, lineHeight: 1.4 }}>{item.summary}</div>}
+                    {item._kind === "activity" && item.actor?.name && <div style={{ fontSize: 11, color: "var(--ms-text2)", marginTop: 1 }}>by {item.actor.name}</div>}
+                    <div style={{ fontSize: 10, color: "var(--ms-text3)", marginTop: 3 }}>
+                      {timeAgo(item.createdAt)}{item._kind === "call" && item.duration ? ` · ${item.duration}s` : ""}
+                    </div>
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         </div>
       )}

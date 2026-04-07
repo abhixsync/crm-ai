@@ -3,9 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
+const VALID_STATUSES = [
+  "NEW", "CALL_PENDING", "CALLING", "INTERESTED", "FOLLOW_UP",
+  "NOT_INTERESTED", "DO_NOT_CALL", "CONVERTED", "CALL_FAILED", "RETRY_SCHEDULED",
+];
+
 const batchSchema = z.object({
-  action: z.enum(["DELETE"]),
+  action: z.enum(["DELETE", "UPDATE_STATUS"]),
   customerIds: z.array(z.string().trim().min(1)).min(1).max(500),
+  status: z.enum(VALID_STATUSES).optional(),
 });
 
 export async function POST(request) {
@@ -45,6 +51,17 @@ export async function POST(request) {
         action: "DELETE",
         count: result.count,
       });
+    }
+
+    if (parsed.action === "UPDATE_STATUS") {
+      if (!parsed.status) {
+        return Response.json({ error: "status is required for UPDATE_STATUS" }, { status: 400 });
+      }
+      const result = await prisma.customer.updateMany({
+        where: { id: { in: customerIds }, tenantId, archivedAt: null },
+        data: { status: parsed.status },
+      });
+      return Response.json({ ok: true, action: "UPDATE_STATUS", count: result.count });
     }
 
     return Response.json({ error: "Unsupported action." }, { status: 400 });
