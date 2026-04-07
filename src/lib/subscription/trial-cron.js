@@ -10,6 +10,7 @@
 import { prisma } from "@/lib/prisma";
 import { downgradeToFree } from "./subscription-service";
 import { sendEmail, buildTrialExpiryWarningEmail } from "@/lib/email/mailer";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 // ─── TRIAL WARNING EMAILS ────────────────────────────────
 
@@ -36,12 +37,19 @@ async function sendTrialWarnings() {
       });
       if (!owner?.email) continue;
 
-      const { subject, html, text } = buildTrialExpiryWarningEmail(
+      const theme = await resolveTenantTheme(sub.tenantId).catch(() => null);
+      const emailCtx = {
+        brandName:    theme?.emailFromName || theme?.brandName || null,
+        primaryColor: theme?.primaryColor || null,
+        fromName:     theme?.emailFromName || theme?.brandName || null,
+      };
+      const warning = buildTrialExpiryWarningEmail(
         owner.name || "there",
         sub.trialEndsAt,
-        daysLeft
+        daysLeft,
+        emailCtx
       );
-      await sendEmail({ to: owner.email, subject, html, text }).catch(() => {});
+      await sendEmail({ to: owner.email, ...warning, fromName: warning.fromName }).catch(() => {});
       sent++;
     }
   }

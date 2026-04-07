@@ -4,6 +4,7 @@ import { upgradePlan, cancelSubscription } from "@/lib/subscription/subscription
 import { prisma } from "@/lib/prisma";
 import { sendEmail, buildPaymentConfirmationEmail } from "@/lib/email/mailer";
 import { grantPurchaseCredits } from "@/lib/credits/credit-service";
+import { resolveTenantTheme } from "@/modules/theme/theme.service";
 
 /**
  * POST /api/billing/razorpay/webhook
@@ -113,12 +114,18 @@ export async function POST(req) {
 
         // Send payment confirmation email (non-blocking)
         prisma.user.findFirst({ where: { tenantId: sub.tenantId, isPrimaryOwner: true }, select: { email: true, name: true } })
-          .then((owner) => {
+          .then(async (owner) => {
             if (!owner?.email) return;
-            const { subject, html, text } = buildPaymentConfirmationEmail(owner.name || "there", {
+            const theme = await resolveTenantTheme(sub.tenantId).catch(() => null);
+            const emailCtx = {
+              brandName:    theme?.emailFromName || theme?.brandName || null,
+              primaryColor: theme?.primaryColor || null,
+              fromName:     theme?.emailFromName || theme?.brandName || null,
+            };
+            const confirmation = buildPaymentConfirmationEmail(owner.name || "there", {
               amountPaid: amount, currency: "INR", plan: sub.plan, createdAt: paidAt,
-            });
-            return sendEmail({ to: owner.email, subject, html, text });
+            }, emailCtx);
+            return sendEmail({ to: owner.email, ...confirmation, fromName: confirmation.fromName });
           }).catch(() => {});
         break;
       }
