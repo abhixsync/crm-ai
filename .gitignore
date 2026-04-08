@@ -48,3 +48,7 @@ next-env.d.ts
 
 # superpowers brainstorm sessions
 .superpowers/
+
+# oh-my-claudecode runtime state
+.omc/state/
+.omc/sessions/

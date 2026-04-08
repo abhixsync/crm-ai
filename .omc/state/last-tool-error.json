@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"C:/Work/Learn/crm-ai\\\" && npm test src/lib/telephony/__tests__/telephony-contract.test.js 2>&1\",\"timeout\":60000,\"description\":\"Run telephony contract tests\"}",
-  "error": "Exit code 1\n\n> crm-ai@0.1.0 test\n> vitest run src/lib/telephony/__tests__/telephony-contract.test.js\n\n\n\u001b[1m\u001b[7m\u001b[36m RUN \u001b[39m\u001b[27m\u001b[22m \u001b[36mv2.1.9 \u001b[39m\u001b[90mC:/Work/Learn/crm-ai\u001b[39m\n\n \u001b[31m❯\u001b[39m src/lib/telephony/__tests__/telephony-contract.test.js \u001b[2m(\u001b[22m\u001b[2m70 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[31m10 failed\u001b[39m\u001b[2m)\u001b[22m\u001b[33m 359\u001b[2mms\u001b[22m\u001b[39m\n\u001b[31m   \u001b[31m×\u001b[31m TwilioAdapter — initiateCall status propagation\u001b[2m > \u001b[22mreturns status INITIATED when Twilio reports 'queued'\u001b[90m 5\u001b[2mms\u001b[22m\u001b[...",
-  "timestamp": "2026-04-07T21:35:14.731Z",
-  "retry_count": 1
-}
