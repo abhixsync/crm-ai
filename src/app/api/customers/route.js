@@ -4,6 +4,7 @@ import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 import { invalidateCache } from "@/lib/cache/api-cache";
+import { publishEvent } from "@/lib/events/event-publisher";
 
 export async function GET(request) {
   const auth = await requireSession();
@@ -152,6 +153,7 @@ export async function POST(request) {
       }
 
       invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
+      publishEvent(tenantId, { type: "metrics:update" }).catch(() => {});
       return Response.json({ customer });
     }
 
@@ -180,6 +182,7 @@ export async function POST(request) {
     }
 
     invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
+    publishEvent(tenantId, { type: "metrics:update" }).catch(() => {});
     return Response.json({ customer });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {

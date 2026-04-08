@@ -4,6 +4,7 @@ import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { isTerminalState } from "@/lib/journey/constants";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { invalidateCache } from "@/lib/cache/api-cache";
+import { publishEvent } from "@/lib/events/event-publisher";
 
 export async function PATCH(request, { params }) {
   const auth = await requireSession();
@@ -107,6 +108,7 @@ export async function PATCH(request, { params }) {
     }
 
     invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
+    publishEvent(tenantId, { type: "metrics:update" }).catch(() => {});
     return Response.json({ customer });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
@@ -154,6 +156,7 @@ export async function DELETE(request, { params }) {
     }
 
     invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
+    publishEvent(tenantId, { type: "metrics:update" }).catch(() => {});
     return Response.json({ success: true });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {

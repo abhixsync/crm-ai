@@ -3,6 +3,7 @@ import { getTenantContext, requireSession } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { canUserDeleteAllCustomers } from "@/lib/customers/delete-all-permissions";
 import { invalidateCache } from "@/lib/cache/api-cache";
+import { publishEvent } from "@/lib/events/event-publisher";
 
 export async function DELETE(request) {
   const auth = await requireSession();
@@ -35,6 +36,7 @@ export async function DELETE(request) {
     ]);
 
     invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
+    publishEvent(tenantId, { type: "metrics:update" }).catch(() => {});
     return Response.json({
       message: "All customer data deleted.",
       deleted: {

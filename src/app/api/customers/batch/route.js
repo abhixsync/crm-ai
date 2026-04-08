@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { invalidateCache } from "@/lib/cache/api-cache";
+import { publishEvent } from "@/lib/events/event-publisher";
 
 const VALID_STATUSES = [
   "NEW", "CALL_PENDING", "CALLING", "INTERESTED", "FOLLOW_UP",
@@ -48,6 +49,7 @@ export async function POST(request) {
       });
 
       invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
+      publishEvent(tenantId, { type: "metrics:update" }).catch(() => {});
       return Response.json({
         ok: true,
         action: "DELETE",
@@ -64,6 +66,7 @@ export async function POST(request) {
         data: { status: parsed.status },
       });
       invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
+      publishEvent(tenantId, { type: "metrics:update" }).catch(() => {});
       return Response.json({ ok: true, action: "UPDATE_STATUS", count: result.count });
     }
 
