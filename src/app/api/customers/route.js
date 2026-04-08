@@ -3,6 +3,7 @@ import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-gua
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
+import { invalidateCache } from "@/lib/cache/api-cache";
 
 export async function GET(request) {
   const auth = await requireSession();
@@ -46,22 +47,26 @@ export async function GET(request) {
   };
 
   try {
-    const total = await prisma.customer.count({ where });
-    const totalPages = Math.max(1, Math.ceil(total / safePageSize));
-    const currentPage = Math.min(safePage, totalPages);
-
-    const customers = await prisma.customer.findMany({
-      where,
-      include: {
-        calls: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
+    const [total, customers] = await Promise.all([
+      prisma.customer.count({ where }),
+      prisma.customer.findMany({
+        where,
+        include: {
+          calls: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (currentPage - 1) * safePageSize,
-      take: safePageSize,
-    });
+        orderBy: { createdAt: "desc" },
+        skip: (safePage - 1) * safePageSize,
+        take: safePageSize,
+      }),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / safePageSize));
+    // Clamp currentPage for the response so callers always get a valid page number,
+    // even though the DB skip used the raw safePage (returns empty array for out-of-range).
+    const currentPage = Math.min(safePage, totalPages);
 
     const serializedCustomers = customers.map(c => ({
       ...c,
@@ -146,6 +151,7 @@ export async function POST(request) {
         console.warn("[api/customers] Failed to enqueue reactivated customer:", err?.message);
       }
 
+      invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
       return Response.json({ customer });
     }
 
@@ -173,6 +179,7 @@ export async function POST(request) {
       console.warn("[api/customers] Failed to enqueue new customer:", err?.message);
     }
 
+    invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
     return Response.json({ customer });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
