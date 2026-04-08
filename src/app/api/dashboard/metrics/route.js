@@ -36,6 +36,7 @@ export async function GET(request) {
         prisma.customer.count({ where: { tenantId, status: CustomerStatus.FOLLOW_UP, archivedAt: null } }),
         prisma.callLog.count({ where: { tenantId } }),
         getCreditBalance(tenantId).catch(() => null),  // index 4 — now parallel
+        prisma.customer.count({ where: { tenantId, status: CustomerStatus.CALLING, archivedAt: null } }),  // index 5 — active calls
       ];
 
       if (includePipeline) {
@@ -49,10 +50,10 @@ export async function GET(request) {
       }
 
       const results = await Promise.all(baseQueries);
-      const [totalCustomers, interestedCustomers, followUps, totalCalls, creditBalance] = results;
+      const [totalCustomers, interestedCustomers, followUps, totalCalls, creditBalance, activeCalls] = results;
 
       const response = {
-        metrics: { totalCustomers, interestedCustomers, followUps, totalCalls },
+        metrics: { totalCustomers, interestedCustomers, followUps, totalCalls, activeCalls },
         credits: creditBalance
           ? {
               available:            creditBalance.available,
@@ -64,10 +65,10 @@ export async function GET(request) {
           : null,
       };
 
-      if (includePipeline && results[5]) {
+      if (includePipeline && results[6]) {
         const pipelineMap = {};
         for (const s of PIPELINE_STATUSES) pipelineMap[s] = 0;
-        for (const row of results[5]) pipelineMap[row.status] = row._count;
+        for (const row of results[6]) pipelineMap[row.status] = row._count;
         response.pipeline = pipelineMap;
       }
 
