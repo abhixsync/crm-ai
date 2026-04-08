@@ -1,0 +1,122 @@
+<h2>Design — Section 2: Credit Lifecycle</h2>
+<p class="subtitle">How credits flow through every event in the system. Confirm to move to Section 3.</p>
+
+<div class="section">
+  <p class="label">Full lifecycle map</p>
+  <div style="display:grid;gap:10px">
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:#6366f1;padding:8px 16px;font-size:12px;font-weight:600;color:white;letter-spacing:0.05em">1 — TENANT CREATED (registration)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        <code>createTrialSubscription()</code> also calls <code>createCreditBalance(tenantId, PRO_credits)</code><br>
+        <span style="color:var(--text-secondary)">Creates TenantCreditBalance with planCredits = PRO.creditsPerMonth, planCreditsAllocated = same, planResetNextAt = trialEndsAt</span>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:#0ea5e9;padding:8px 16px;font-size:12px;font-weight:600;color:white;letter-spacing:0.05em">2 — CALL TRIGGERED (pre-call)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:start">
+          <span style="font-weight:600;color:#0ea5e9">Step A</span>
+          <span>Read balance: <code>available = planCredits + purchasedCredits − reservedCredits</code></span>
+          <span style="font-weight:600;color:#0ea5e9">Step B</span>
+          <span>Check <code>available ≥ credit_reserve_amount</code> (config, default 20). Block with 402 if not.</span>
+          <span style="font-weight:600;color:#0ea5e9">Step C</span>
+          <span>Atomic reserve: <code>UPDATE ... SET reservedCredits += 20 WHERE available ≥ 20</code>. Zero rows = race condition caught, block.</span>
+          <span style="font-weight:600;color:#0ea5e9">Step D</span>
+          <span>Log <code>RESERVE</code> transaction. Key: <code>reserve-{callLogId}</code>. Write <code>CallLog.reservedAt = now()</code> and <code>creditsReserved = 20</code>.</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:#f59e0b;padding:8px 16px;font-size:12px;font-weight:600;color:white;letter-spacing:0.05em">3A — CALL COMPLETED (webhook settles)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:start">
+          <span style="font-weight:600;color:#f59e0b">Step A</span>
+          <span>Receive <code>durationSecs</code> from Twilio/Vonage status webhook</span>
+          <span style="font-weight:600;color:#f59e0b">Step B</span>
+          <span>Compute: <code>actual = credit_init_fee + ⌈durationSecs / 60⌉</code> (e.g. 95s → 2 + 2 = 4 credits)</span>
+          <span style="font-weight:600;color:#f59e0b">Step C</span>
+          <span>Deduct order — plan credits first, then purchased: if <code>planCredits ≥ actual</code> → deduct all from plan. Else → deduct remaining from purchasedCredits.</span>
+          <span style="font-weight:600;color:#f59e0b">Step D</span>
+          <span>In one DB transaction: <code>reservedCredits -= 20</code>, deduct actual, increment <code>planCreditsUsedThisMonth</code>, update <code>CallLog.creditsCharged</code>.</span>
+          <span style="font-weight:600;color:#f59e0b">Step E</span>
+          <span>Log <code>SETTLE</code> transaction. Key: <code>settle-{callLogId}</code>. Idempotent — webhook retry is a no-op.</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:#ef4444;padding:8px 16px;font-size:12px;font-weight:600;color:white;letter-spacing:0.05em">3B — CALL FAILED / NO-ANSWER (full refund)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        Status = FAILED, BUSY, or NO_ANSWER from webhook. <strong>No credits charged.</strong><br>
+        <span style="color:var(--text-secondary)">reservedCredits -= 20 (full release). Log <code>REFUND</code> transaction. Key: <code>settle-{callLogId}</code> (same key — idempotent). CallLog.creditsCharged = 0.</span>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:#64748b;padding:8px 16px;font-size:12px;font-weight:600;color:white;letter-spacing:0.05em">3C — STALE RESERVE (cron cleanup)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        Cron finds: <code>CallLog WHERE creditsReserved &gt; 0 AND creditsCharged IS NULL AND reservedAt &lt; now() − credit_reserve_timeout_hours</code><br>
+        <span style="color:var(--text-secondary)">Auto-settles with durationSecs = 0 → charges only initiation fee (2 credits). Logs SETTLE with meta: <code>auto_settled_timeout: true</code>. Prevents permanent credit lock.</span>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:#22c55e;padding:8px 16px;font-size:12px;font-weight:600;color:white;letter-spacing:0.05em">4 — CREDIT PURCHASE (one-time or recurring)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        Stripe/Razorpay webhook fires with <code>metadata.purchaseType = "credit_pack"</code><br>
+        <span style="color:var(--text-secondary)">In one transaction: create CreditPackPurchase (status=COMPLETED), increment purchasedCredits, log PURCHASE transaction. Key: <code>purchase-{providerTxId}</code>.</span><br>
+        <span style="color:var(--text-secondary);margin-top:4px;display:block">Recurring add-on: same flow on each renewal. Updates nextRenewalAt, increments renewalCount. Status stays ACTIVE_RECURRING.</span>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:#6366f1;padding:8px 16px;font-size:12px;font-weight:600;color:white;letter-spacing:0.05em">5 — MONTHLY RESET (cron)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:start">
+          <span style="font-weight:600;color:#6366f1">Check</span>
+          <span>Only run if <code>planResetNextAt ≤ now()</code> — idempotency guard. Key: <code>monthly-{tenantId}-{YYYY-MM}</code>.</span>
+          <span style="font-weight:600;color:#6366f1">Reset</span>
+          <span>Set <code>planCredits = plan.creditsPerMonth</code>, <code>planCreditsUsedThisMonth = 0</code>, <code>planResetAt = now()</code>, <code>planResetNextAt = next cycle</code>.</span>
+          <span style="font-weight:600;color:#6366f1">Safe</span>
+          <span><code>reservedCredits</code> is NOT touched — in-flight calls are unaffected. purchasedCredits untouched.</span>
+          <span style="font-weight:600;color:#6366f1">Log</span>
+          <span>MONTHLY_GRANT transaction. If <code>credit_purchased_expiry_days &gt; 0</code>, run expiry check on old CreditPackPurchases.</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:#8b5cf6;padding:8px 16px;font-size:12px;font-weight:600;color:white;letter-spacing:0.05em">6 — LOW CREDIT WARNINGS (async, non-blocking)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        After every SETTLE, check <code>available / planCreditsAllocated</code>:<br>
+        <span style="color:var(--text-secondary)">≤ 20% → in-app banner (amber) + email to ADMIN. ≤ 5% → in-app banner (red) + second email.<br>
+        Campaigns: credit check runs per-call in automation runner. On first failure → set campaign PAUSED, reason = <code>INSUFFICIENT_CREDITS</code>. Resume is manual after top-up.</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px">
+  <p class="label">New service file: src/lib/credits/credit-service.js</p>
+  <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:13px;color:var(--text-primary)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px"><code>getCreditBalance(tenantId)</code></div>
+      <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px"><code>reserveCredits(tenantId, callLogId)</code></div>
+      <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px"><code>settleCredits(tenantId, callLogId, durationSecs)</code></div>
+      <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px"><code>refundReserve(tenantId, callLogId)</code></div>
+      <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px"><code>grantMonthlyCredits(tenantId)</code></div>
+      <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px"><code>grantPurchaseCredits(tenantId, packPurchaseId)</code></div>
+      <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px"><code>releaseStaleReserves()</code> — cron</div>
+      <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px"><code>expirePurchasedCredits()</code> — cron</div>
+      <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px"><code>adjustCredits(tenantId, amount, reason)</code> — SUPER_ADMIN</div>
+      <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px"><code>getCreditTransactions(tenantId, page)</code></div>
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:var(--text-secondary)">All mutations use Prisma <code>$transaction()</code>. All writes include idempotency key. Single source of truth for all credit operations.</div>
+  </div>
+</div>
+
+<p style="margin-top:20px;color:var(--text-secondary);font-size:13px;text-align:center">Does this lifecycle look correct? Confirm to move to Section 3: APIs + UI.</p>

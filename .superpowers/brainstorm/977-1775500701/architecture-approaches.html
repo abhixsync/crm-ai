@@ -1,0 +1,85 @@
+<h2>AI Credits — System Architecture</h2>
+<p class="subtitle">3 approaches to building the credit engine. Pick one to proceed to full design.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="1" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>Extend UsageRecord <span style="font-size:11px;background:var(--bg-tertiary);color:var(--text-secondary);padding:2px 8px;border-radius:4px;margin-left:8px">Minimal change</span></h3>
+      <p>Add credit fields to the existing UsageRecord model. No new models.</p>
+      <div style="margin-top:10px;font-size:13px">
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Least code — extends existing pattern</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ No schema migration complexity</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--error)">✗ UsageRecord is monthly-scoped — purchased credits (cross-month) don't fit</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--error)">✗ No transaction history — can't audit "who spent what when"</span></div>
+        <div><span style="color:var(--error)">✗ Reserve+settle becomes messy in a single row</span></div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg-tertiary);border-radius:6px;font-size:12px;color:var(--text-secondary)">
+        <strong style="color:var(--text-primary)">New fields on UsageRecord:</strong> creditsUsed, creditsReserved<br>
+        <strong style="color:var(--text-primary)">New model:</strong> CreditPurchase (one row per top-up)
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="2" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>Event-Sourced Ledger <span style="font-size:11px;background:var(--bg-tertiary);color:var(--text-secondary);padding:2px 8px;border-radius:4px;margin-left:8px">Most accurate</span></h3>
+      <p>Every credit event (grant, spend, reserve, settle, purchase, expire) is an immutable row. Balance = sum of all entries.</p>
+      <div style="margin-top:10px;font-size:13px">
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Perfect audit trail — every credit accounted for</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Handles all edge cases naturally</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Replay-safe, never gets out of sync</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--error)">✗ Balance requires summing all rows — slow at scale</span></div>
+        <div><span style="color:var(--error)">✗ Over-engineered for current scale</span></div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg-tertiary);border-radius:6px;font-size:12px;color:var(--text-secondary)">
+        <strong style="color:var(--text-primary)">New models:</strong> CreditLedgerEntry (type, amount, tenantId, callLogId, meta)<br>
+        Balance computed on read — no denormalized total field
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="3" onclick="toggleSelect(this)" style="border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,0.2)">
+    <div class="letter" style="background:#6366f1">3</div>
+    <div class="content">
+      <h3>Balance + Transaction Log <span style="font-size:11px;background:#6366f1;color:white;padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:500">⭐ Recommended</span></h3>
+      <p>One balance row per tenant (fast reads). Append-only transaction log for audit trail.</p>
+      <div style="margin-top:10px;font-size:13px">
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Fast balance reads — single DB row for plan-guard checks</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Full audit trail for billing disputes</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Reserve+settle maps cleanly to reservedCredits field</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Clean separation: plan credits vs purchased credits</span></div>
+        <div><span style="color:var(--error)">✗ Balance + log must stay in sync (use DB transactions)</span></div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:rgba(99,102,241,0.1);border-radius:6px;font-size:12px;border:1px solid rgba(99,102,241,0.25);color:var(--text-primary)">
+        <strong>TenantCreditBalance:</strong> planCredits, purchasedCredits, reservedCredits, usedThisMonth<br>
+        <strong>CreditTransaction:</strong> type, amount, callLogId, meta, createdAt (append-only)<br>
+        <strong>CreditPack:</strong> SUPER_ADMIN configurable packs (name, credits, priceInr, priceUsd, isRecurring)<br>
+        <strong>CreditPackPurchase:</strong> tenant purchases — one-time + recurring subscriptions
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:24px">
+  <p class="label">Credit flow for a single AI call (Approach 3)</p>
+  <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:13px;color:var(--text-primary)">
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:start">
+      <span style="background:#6366f1;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">1. PRE-CALL</span>
+      <span>Check available = planCredits + purchasedCredits - reservedCredits ≥ reserveAmount (configurable, default 20). Block if not enough.</span>
+      <span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">2. RESERVE</span>
+      <span>reservedCredits += 20. Log: <code>RESERVE</code> transaction. Call proceeds.</span>
+      <span style="background:#3b82f6;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">3. CALL ENDS</span>
+      <span>Webhook receives durationSecs. actual = 2 + ⌈durationSecs / 60⌉</span>
+      <span style="background:#22c55e;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">4. SETTLE</span>
+      <span>reservedCredits -= 20. Deduct actual from planCredits first, then purchasedCredits. Log: <code>SETTLE</code> transaction with callLogId.</span>
+      <span style="background:#64748b;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">5. MONTHLY</span>
+      <span>Cron resets planCredits to plan allocation. purchasedCredits untouched. Log: <code>MONTHLY_GRANT</code>.</span>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:20px;color:var(--text-secondary);font-size:13px;text-align:center">Click your preferred approach, then confirm in the terminal.</p>

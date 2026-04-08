@@ -1,0 +1,94 @@
+<h2>AI Credits Consumption Model</h2>
+<p class="subtitle">Based on deep codebase analysis — pick the model that fits best</p>
+
+<div class="section">
+  <p class="label">Key finding from code analysis</p>
+  <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:8px;font-size:14px;line-height:1.7;color:var(--text-primary)">
+    Each AI call = <strong>1 CALL_SCRIPT</strong> + <strong>N CALL_TURNs</strong> (avg 3–4, max 12) + <strong>1 CALL_SUMMARY</strong>.<br>
+    Your tenants use <em>their own</em> Twilio/Vonage/Plivo credentials — so <strong>telephony costs go to them directly</strong>.<br>
+    AI costs (Groq/Gemini) are nearly free. Credits are really about <strong>metering + upsell</strong>, not cost recovery.
+  </div>
+</div>
+
+<div class="options">
+
+  <div class="option" data-choice="A" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Flat Per-Call <span style="font-size:11px;background:var(--bg-tertiary);color:var(--text-secondary);padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:500">Current model, renamed</span></h3>
+      <p>1 credit per call initiated, regardless of duration or turns.</p>
+      <div style="margin-top:10px;font-size:13px">
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Zero new code (just fix broken increment)</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Simplest mental model</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--error)">✗ 2-min call = 15-min call (unfair to short calls)</span></div>
+        <div><span style="color:var(--error)">✗ No real benefit over current plan limits</span></div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg-tertiary);border-radius:6px;font-size:13px;color:var(--text-primary)">
+        <strong>Example:</strong> 2-min call = <strong>1 credit</strong> &nbsp;|&nbsp; 10-min call = <strong>1 credit</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="C" onclick="toggleSelect(this)" style="border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,0.2)">
+    <div class="letter" style="background:#6366f1">C</div>
+    <div class="content">
+      <h3>Hybrid: Initiation + Per-Minute <span style="font-size:11px;background:#6366f1;color:white;padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:500">⭐ Recommended</span></h3>
+      <p>Flat credits to connect a call, then credits per minute of actual duration.</p>
+      <div style="margin-top:10px;font-size:13px">
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Reflects real usage — longer call costs more</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ durationSecs already in CallLog (from Twilio webhook)</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Familiar model (like mobile call billing)</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Can pre-check credit balance before connecting</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--error)">✗ Final deduction happens after call ends (webhook)</span></div>
+        <div><span style="color:var(--error)">✗ Slightly more complex than Option A</span></div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:rgba(99,102,241,0.12);border-radius:6px;font-size:13px;border:1px solid rgba(99,102,241,0.3);color:var(--text-primary)">
+        <strong>Formula:</strong> <code style="background:rgba(99,102,241,0.15);padding:2px 6px;border-radius:4px">credits = 2 (init) + ⌈duration_mins⌉</code><br>
+        <span style="color:var(--text-secondary);margin-top:4px;display:block">2-min call = <strong>4 credits</strong> &nbsp;|&nbsp; 5-min call = <strong>7 credits</strong> &nbsp;|&nbsp; 10-min call = <strong>12 credits</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="B" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Per AI Turn</h3>
+      <p>1 credit per LLM call: CALL_SCRIPT (1) + each conversation turn + CALL_SUMMARY (1).</p>
+      <div style="margin-top:10px;font-size:13px">
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Most technically accurate</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--success)">✓ Incentivises shorter AI responses</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--error)">✗ Unpredictable for users (5–14 credits per call)</span></div>
+        <div style="margin-bottom:5px"><span style="color:var(--error)">✗ Must track in 3 places (trigger + webhook × 2)</span></div>
+        <div><span style="color:var(--error)">✗ Hard to pre-check credit limit mid-conversation</span></div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg-tertiary);border-radius:6px;font-size:13px;color:var(--text-primary)">
+        <strong>Example:</strong> Short call (3 turns) = <strong>5 credits</strong> &nbsp;|&nbsp; Long call (12 turns) = <strong>14 credits</strong>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:24px">
+  <p class="label">Why Hybrid is recommended</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+    <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);color:var(--text-primary)">
+      <strong>Tenants pay their own telephony</strong><br>
+      <span style="color:var(--text-secondary)">Twilio charges go to them. Your AI cost (Groq/Gemini) is tiny. Duration is the fairest meter.</span>
+    </div>
+    <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);color:var(--text-primary)">
+      <strong>Duration already in DB</strong><br>
+      <span style="color:var(--text-secondary)"><code>CallLog.durationSecs</code> populated from webhook. No adapter changes needed.</span>
+    </div>
+    <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);color:var(--text-primary)">
+      <strong>Familiar to users</strong><br>
+      <span style="color:var(--text-secondary)">"Pay to connect + per minute" is how every telecom works. Zero learning curve.</span>
+    </div>
+    <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);color:var(--text-primary)">
+      <strong>Easy to upgrade later</strong><br>
+      <span style="color:var(--text-secondary)">Start here, add AI-turn multiplier later without changing the mental model.</span>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:20px;color:var(--text-secondary);font-size:13px;text-align:center">Click your preferred option above, then tell me in the terminal.</p>

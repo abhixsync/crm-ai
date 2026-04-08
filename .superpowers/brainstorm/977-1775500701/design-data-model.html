@@ -1,0 +1,114 @@
+<h2>Design — Section 1: Data Model</h2>
+<p class="subtitle">4 new models + small additions to existing ones. Approve before we move to Section 2.</p>
+
+<div class="section">
+  <p class="label">New Models</p>
+
+  <div style="display:grid;gap:12px">
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <span style="background:#6366f1;color:white;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:600">TenantCreditBalance</span>
+        <span style="color:var(--text-secondary);font-size:12px">One row per tenant — fast balance reads for plan-guard checks</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px">
+        <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>planCredits</code> <span style="color:var(--text-secondary)">Int — monthly grant, resets each cycle</span></div>
+        <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>purchasedCredits</code> <span style="color:var(--text-secondary)">Int — from top-ups, persists</span></div>
+        <div style="padding:6px 10px;background:rgba(245,158,11,0.15);border-radius:4px;color:var(--text-primary)"><code>reservedCredits</code> <span style="color:var(--text-secondary)">Int — held during active calls</span></div>
+        <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>usedThisMonth</code> <span style="color:var(--text-secondary)">Int — for display only</span></div>
+        <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>planResetAt</code> <span style="color:var(--text-secondary)">DateTime — last monthly reset</span></div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text-secondary)">
+        <strong style="color:var(--text-primary)">Available balance formula:</strong> planCredits + purchasedCredits − reservedCredits
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <span style="background:#8b5cf6;color:white;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:600">CreditTransaction</span>
+        <span style="color:var(--text-secondary);font-size:12px">Append-only audit log — one row per credit event</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:10px">
+        <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>type</code> <span style="color:var(--text-secondary)">enum (see below)</span></div>
+        <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>amount</code> <span style="color:var(--text-secondary)">Int (+credit / −debit)</span></div>
+        <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>balanceAfter</code> <span style="color:var(--text-secondary)">Int snapshot for display</span></div>
+        <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>callLogId</code> <span style="color:var(--text-secondary)">FK → CallLog (RESERVE/SETTLE)</span></div>
+        <div style="padding:6px 10px;background:rgba(99,102,241,0.1);border-radius:4px;color:var(--text-primary)"><code>idempotencyKey</code> <span style="color:var(--text-secondary)">Unique — prevents double-deduction</span></div>
+        <div style="padding:6px 10px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>meta</code> <span style="color:var(--text-secondary)">JSON — provider, duration, etc.</span></div>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary)">
+        <strong style="color:var(--text-primary)">Types:</strong>
+        <span style="display:inline-flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+          <code style="background:var(--bg-tertiary);padding:2px 6px;border-radius:3px">MONTHLY_GRANT</code>
+          <code style="background:rgba(245,158,11,0.15);padding:2px 6px;border-radius:3px">RESERVE</code>
+          <code style="background:rgba(34,197,94,0.15);padding:2px 6px;border-radius:3px">SETTLE</code>
+          <code style="background:rgba(59,130,246,0.15);padding:2px 6px;border-radius:3px">PURCHASE</code>
+          <code style="background:var(--bg-tertiary);padding:2px 6px;border-radius:3px">SUBSCRIPTION_GRANT</code>
+          <code style="background:rgba(239,68,68,0.15);padding:2px 6px;border-radius:3px">EXPIRE</code>
+          <code style="background:var(--bg-tertiary);padding:2px 6px;border-radius:3px">ADJUSTMENT</code>
+          <code style="background:var(--bg-tertiary);padding:2px 6px;border-radius:3px">REFUND</code>
+        </span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="background:#0ea5e9;color:white;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:600">CreditPack</span>
+          <span style="color:var(--text-secondary);font-size:12px">SUPER_ADMIN configures</span>
+        </div>
+        <div style="display:grid;gap:5px;font-size:13px">
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>name</code> <span style="color:var(--text-secondary)">"Starter Pack"</span></div>
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>credits</code> <span style="color:var(--text-secondary)">Int — granted on purchase</span></div>
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>priceInr / priceUsd</code> <span style="color:var(--text-secondary)">Decimal</span></div>
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>isRecurring</code> <span style="color:var(--text-secondary)">Boolean — add-on vs one-time</span></div>
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>stripePriceId / razorpayPlanId</code></div>
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>isActive, sortOrder</code></div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="background:#f59e0b;color:white;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:600">CreditPackPurchase</span>
+          <span style="color:var(--text-secondary);font-size:12px">Per purchase record</span>
+        </div>
+        <div style="display:grid;gap:5px;font-size:13px">
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>tenantId, packId</code></div>
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>creditsGranted</code> <span style="color:var(--text-secondary)">Int snapshot</span></div>
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>amountInr / amountUsd</code></div>
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>billingProvider</code> <span style="color:var(--text-secondary)">STRIPE | RAZORPAY</span></div>
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>status</code> <span style="color:var(--text-secondary)">PENDING/COMPLETED/FAILED/REFUNDED</span></div>
+          <div style="padding:5px 8px;background:var(--bg-tertiary);border-radius:4px;color:var(--text-primary)"><code>expiresAt</code> <span style="color:var(--text-secondary)">null = never expires</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px">
+  <p class="label">Changes to existing models</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;font-size:13px">
+    <div style="padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary)">
+      <strong>PlanDefinition</strong><br>
+      <span style="color:var(--success)">+ creditsPerMonth Int</span><br>
+      <span style="color:var(--text-secondary);font-size:12px">Replaces maxAiCallsPerMonth logically. Keep old field for backward compat, set to -1.</span>
+    </div>
+    <div style="padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary)">
+      <strong>CallLog</strong><br>
+      <span style="color:var(--success)">+ creditsReserved Int?</span><br>
+      <span style="color:var(--success)">+ creditsCharged Int?</span><br>
+      <span style="color:var(--text-secondary);font-size:12px">Track per-call credit usage for reconciliation.</span>
+    </div>
+    <div style="padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary)">
+      <strong>SubscriptionConfig</strong><br>
+      <span style="color:var(--success)">+ credit_init_fee (2)</span><br>
+      <span style="color:var(--success)">+ credit_per_minute (1)</span><br>
+      <span style="color:var(--success)">+ credit_reserve_amount (20)</span><br>
+      <span style="color:var(--success)">+ credit_low_warning_pct (20)</span><br>
+      <span style="color:var(--success)">+ credit_purchased_expiry_days (365)</span>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:20px;color:var(--text-secondary);font-size:13px;text-align:center">Does this data model look right? Confirm in terminal to move to Section 2: Credit Lifecycle.</p>

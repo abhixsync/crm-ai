@@ -1,0 +1,124 @@
+<h2>Design — Section 4 v2: Plan Defaults + Pack Pricing</h2>
+<p class="subtitle">Updated plan allocations. Click a pack option to select it, then confirm in terminal.</p>
+
+<div class="section">
+  <p class="label">Monthly plan credit allocations</p>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:13px">
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="background:var(--bg-tertiary);padding:10px 14px;border-bottom:1px solid var(--border)">
+        <div style="font-weight:700;color:var(--text-primary)">FREE</div>
+        <div style="color:var(--text-secondary);font-size:12px">$0 / ₹0 per month</div>
+      </div>
+      <div style="padding:14px">
+        <div style="font-size:28px;font-weight:700;color:var(--text-primary)">0</div>
+        <div style="color:var(--text-secondary);font-size:12px">credits / month</div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-secondary)">AI calling disabled<br>Can buy credit packs</div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="background:var(--bg-tertiary);padding:10px 14px;border-bottom:1px solid var(--border)">
+        <div style="font-weight:700;color:var(--text-primary)">PLUS</div>
+        <div style="color:var(--text-secondary);font-size:12px">$9 / ₹299 per month</div>
+      </div>
+      <div style="padding:14px">
+        <div style="font-size:28px;font-weight:700;color:var(--text-primary)">100</div>
+        <div style="color:var(--text-secondary);font-size:12px">credits / month</div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-secondary)">~20 calls @ 3 min avg<br>~14 calls @ 5 min avg<br><span style="color:#f59e0b">Buy packs for more</span></div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid #6366f1;border-radius:10px;overflow:hidden;box-shadow:0 0 0 2px rgba(99,102,241,0.15)">
+      <div style="background:#6366f1;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.15)">
+        <div style="font-weight:700;color:white">PRO</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:12px">$29 / ₹499 per month</div>
+      </div>
+      <div style="padding:14px">
+        <div style="font-size:28px;font-weight:700;color:var(--text-primary)">500</div>
+        <div style="color:var(--text-secondary);font-size:12px">credits / month</div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-secondary)">~100 calls @ 3 min avg<br>~71 calls @ 5 min avg<br><span style="color:#f59e0b">Buy packs for more</span></div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="background:var(--bg-tertiary);padding:10px 14px;border-bottom:1px solid var(--border)">
+        <div style="font-weight:700;color:var(--text-primary)">MAX</div>
+        <div style="color:var(--text-secondary);font-size:12px">$79 / ₹799 per month</div>
+      </div>
+      <div style="padding:14px">
+        <div style="font-size:28px;font-weight:700;color:var(--text-primary)">2,000</div>
+        <div style="color:var(--text-secondary);font-size:12px">credits / month</div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-secondary)">~400 calls @ 3 min avg<br>~285 calls @ 5 min avg<br><span style="color:#f59e0b">Buy packs for more</span></div>
+      </div>
+    </div>
+
+  </div>
+  <div style="margin-top:8px;font-size:12px;color:var(--text-secondary);padding:8px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px">
+    <strong style="color:var(--text-primary)">Formula:</strong> 2 credits (initiation) + ⌈durationSecs / 60⌉ &nbsp;|&nbsp; 2-min call = 4 credits &nbsp;|&nbsp; 5-min call = 7 credits &nbsp;|&nbsp; 10-min call = 12 credits &nbsp;|&nbsp; Credit check applies to ALL plans including MAX.
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px">
+  <p class="label">One-time credit packs — click to select your preferred set</p>
+
+  <div class="options">
+    <div class="option" data-choice="pack-set-A" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Conservative packs <span style="font-size:11px;background:var(--bg-tertiary);color:var(--text-secondary);padding:2px 8px;border-radius:4px;margin-left:6px">Small steps</span></h3>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;font-size:12px">
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Micro</strong><br><span style="color:#6366f1;font-weight:700">100</span> credits<br><span style="color:var(--text-secondary)">₹99 / $1.2</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Starter</strong><br><span style="color:#6366f1;font-weight:700">300</span> credits<br><span style="color:var(--text-secondary)">₹249 / $3</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Standard</strong><br><span style="color:#6366f1;font-weight:700">1,000</span> credits<br><span style="color:var(--text-secondary)">₹699 / $9</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Pro</strong><br><span style="color:#6366f1;font-weight:700">3,000</span> credits<br><span style="color:var(--text-secondary)">₹1,799 / $22</span></div>
+        </div>
+        <div style="margin-top:6px;font-size:12px;color:var(--text-secondary)">₹0.99/credit → ₹0.60/credit. Good for low-volume users topping up frequently.</div>
+      </div>
+    </div>
+
+    <div class="option" data-choice="pack-set-B" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>Balanced packs <span style="font-size:11px;background:#6366f1;color:white;padding:2px 8px;border-radius:4px;margin-left:6px">⭐ Recommended</span></h3>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;font-size:12px">
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Starter</strong><br><span style="color:#6366f1;font-weight:700">300</span> credits<br><span style="color:var(--text-secondary)">₹149 / $2</span></div>
+          <div style="padding:8px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Standard</strong><br><span style="color:#6366f1;font-weight:700">1,000</span> credits<br><span style="color:var(--text-secondary)">₹399 / $5</span></div>
+          <div style="padding:8px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Pro Pack</strong><br><span style="color:#6366f1;font-weight:700">3,000</span> credits<br><span style="color:var(--text-secondary)">₹999 / $12</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Power</strong><br><span style="color:#6366f1;font-weight:700">10,000</span> credits<br><span style="color:var(--text-secondary)">₹2,999 / $36</span></div>
+        </div>
+        <div style="margin-top:6px;font-size:12px;color:var(--text-secondary)">₹0.50/credit → ₹0.30/credit. Sweet spot — affordable entry, strong bulk value.</div>
+      </div>
+    </div>
+
+    <div class="option" data-choice="pack-set-C" onclick="toggleSelect(this)">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>Aggressive packs <span style="font-size:11px;background:var(--bg-tertiary);color:var(--text-secondary);padding:2px 8px;border-radius:4px;margin-left:6px">Volume play</span></h3>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;font-size:12px">
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Starter</strong><br><span style="color:#6366f1;font-weight:700">500</span> credits<br><span style="color:var(--text-secondary)">₹149 / $2</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Standard</strong><br><span style="color:#6366f1;font-weight:700">2,000</span> credits<br><span style="color:var(--text-secondary)">₹399 / $5</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Pro Pack</strong><br><span style="color:#6366f1;font-weight:700">5,000</span> credits<br><span style="color:var(--text-secondary)">₹799 / $10</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px;text-align:center"><strong style="color:var(--text-primary)">Power</strong><br><span style="color:#6366f1;font-weight:700">15,000</span> credits<br><span style="color:var(--text-secondary)">₹1,999 / $24</span></div>
+        </div>
+        <div style="margin-top:6px;font-size:12px;color:var(--text-secondary)">₹0.30/credit → ₹0.13/credit. Very generous credits — good for high-volume calling teams.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px">
+  <p class="label">Recurring monthly add-ons (same across all sets)</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+    <div style="padding:12px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary)">
+      <strong>Basic Add-on</strong> — <span style="color:#6366f1;font-weight:700">500 credits/month</span><br>
+      <span style="color:var(--text-secondary)">₹199/month / $2.50/month · Cancel anytime</span>
+    </div>
+    <div style="padding:12px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary)">
+      <strong>Standard Add-on</strong> — <span style="color:#6366f1;font-weight:700">2,000 credits/month</span><br>
+      <span style="color:var(--text-secondary)">₹699/month / $8.50/month · Cancel anytime</span>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:20px;color:var(--text-secondary);font-size:13px;text-align:center">Click a pack set above, then tell me in the terminal. After that we write the spec.</p>

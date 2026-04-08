@@ -1,0 +1,121 @@
+<h2>Design — Section 3: APIs + UI</h2>
+<p class="subtitle">New endpoints, changes to existing ones, and UI surfaces. Confirm to move to Section 4: Plan Defaults.</p>
+
+<div class="section">
+  <p class="label">New API endpoints</p>
+  <div style="display:grid;gap:6px;font-size:13px">
+    <div style="display:grid;grid-template-columns:200px 1fr;gap:0;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:var(--bg-tertiary);padding:10px 14px;font-weight:600;color:var(--text-primary);border-right:1px solid var(--border)">Tenant (ADMIN)</div>
+      <div style="padding:10px 14px;color:var(--text-primary);display:grid;gap:4px">
+        <div><span style="background:rgba(34,197,94,0.15);color:var(--success);padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">GET</span><code>/api/credits/balance</code> <span style="color:var(--text-secondary)">— balance, reserved, reset date, used this month</span></div>
+        <div><span style="background:rgba(34,197,94,0.15);color:var(--success);padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">GET</span><code>/api/credits/transactions</code> <span style="color:var(--text-secondary)">— paginated history, filterable by type</span></div>
+        <div><span style="background:rgba(34,197,94,0.15);color:var(--success);padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">GET</span><code>/api/credits/packs</code> <span style="color:var(--text-secondary)">— available packs (active only)</span></div>
+        <div><span style="background:rgba(59,130,246,0.15);color:#3b82f6;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">POST</span><code>/api/billing/credits/checkout</code> <span style="color:var(--text-secondary)">— create Stripe/Razorpay checkout for a pack</span></div>
+        <div><span style="background:rgba(59,130,246,0.15);color:#3b82f6;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">POST</span><code>/api/billing/credits/cancel-recurring</code> <span style="color:var(--text-secondary)">— cancel recurring add-on</span></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:200px 1fr;gap:0;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:var(--bg-tertiary);padding:10px 14px;font-weight:600;color:var(--text-primary);border-right:1px solid var(--border)">SUPER_ADMIN</div>
+      <div style="padding:10px 14px;color:var(--text-primary);display:grid;gap:4px">
+        <div><span style="background:rgba(34,197,94,0.15);color:var(--success);padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">GET</span><span style="background:rgba(59,130,246,0.15);color:#3b82f6;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">POST</span><code>/api/admin/credit-packs</code> <span style="color:var(--text-secondary)">— list + create packs</span></div>
+        <div><span style="background:rgba(245,158,11,0.15);color:#f59e0b;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">PUT</span><span style="background:rgba(239,68,68,0.15);color:var(--error);padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">DEL</span><code>/api/admin/credit-packs/[id]</code> <span style="color:var(--text-secondary)">— edit / deactivate</span></div>
+        <div><span style="background:rgba(59,130,246,0.15);color:#3b82f6;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">POST</span><code>/api/admin/credits/adjust</code> <span style="color:var(--text-secondary)">— manually grant/deduct credits for any tenant</span></div>
+        <div><span style="background:rgba(34,197,94,0.15);color:var(--success);padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;margin-right:6px">GET</span><code>/api/admin/credits/[tenantId]</code> <span style="color:var(--text-secondary)">— view any tenant's credit balance</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px">
+  <p class="label">Changes to existing endpoints</p>
+  <div style="display:grid;gap:6px;font-size:13px">
+    <div style="padding:10px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary)">
+      <strong>POST /api/calls/trigger</strong><br>
+      <span style="color:var(--error)">Remove:</span> <code>guard.assertCanMakeAiCall()</code><br>
+      <span style="color:var(--success)">Add:</span> <code>creditService.reserveCredits(tenantId, callLogId)</code> — atomic reserve, throws 402 if insufficient
+    </div>
+    <div style="padding:10px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary)">
+      <strong>POST /api/calls/status</strong> (Twilio/Vonage status webhook)<br>
+      <span style="color:var(--success)">Add:</span> On COMPLETED → <code>settleCredits(tenantId, callLogId, durationSecs)</code><br>
+      <span style="color:var(--success)">Add:</span> On FAILED/BUSY/NO_ANSWER → <code>refundReserve(tenantId, callLogId)</code>
+    </div>
+    <div style="padding:10px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary)">
+      <strong>POST /api/billing/stripe/webhook</strong><br>
+      <span style="color:var(--success)">Add:</span> Check <code>session.metadata.purchaseType</code>:<br>
+      <span style="color:var(--text-secondary);padding-left:16px;display:block"><code>"plan_subscription"</code> → existing <code>upgradePlan()</code> flow</span>
+      <span style="color:var(--text-secondary);padding-left:16px;display:block"><code>"credit_pack"</code> → new <code>grantPurchaseCredits()</code> flow</span>
+    </div>
+    <div style="padding:10px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary)">
+      <strong>POST /api/billing/razorpay/webhook</strong> — same purchaseType routing as Stripe
+    </div>
+    <div style="padding:10px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)">
+      <strong>POST /api/cron/subscription-expiry</strong><br>
+      <span style="color:var(--success)">Add 3 steps:</span> <code>releaseStaleReserves()</code> → <code>expirePurchasedCredits()</code> → <code>grantMonthlyCredits()</code> for all due tenants
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px">
+  <p class="label">UI — 3 surfaces</p>
+  <div style="display:grid;gap:10px">
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:var(--bg-tertiary);padding:8px 16px;font-size:12px;font-weight:600;color:var(--text-primary);border-bottom:1px solid var(--border)">① Navbar Widget (modern-shell.js)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        Always visible in header. Hidden for SUPER_ADMIN (unlimited).<br>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <div style="padding:6px 12px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:6px;font-size:12px;color:var(--success)">⚡ 340 credits — green (&gt;20%)</div>
+          <div style="padding:6px 12px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:12px;color:#f59e0b">⚡ 87 credits — amber (5–20%)</div>
+          <div style="padding:6px 12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:12px;color:var(--error)">⚡ 12 credits — red (≤5%)</div>
+        </div>
+        <div style="margin-top:6px;color:var(--text-secondary);font-size:12px">Click → Settings → Billing. Fetches from <code>/api/credits/balance</code> on mount, cached 60s.</div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:var(--bg-tertiary);padding:8px 16px;font-size:12px;font-weight:600;color:var(--text-primary);border-bottom:1px solid var(--border)">② Dashboard Metrics Tile (dashboard-view.js)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        Added to the existing metrics grid alongside customer count, call logs, etc.<br>
+        <div style="margin-top:8px;padding:12px;background:var(--bg-tertiary);border-radius:6px;font-size:12px">
+          <div style="font-weight:600;margin-bottom:6px">AI Credits</div>
+          <div style="background:var(--bg-secondary);border-radius:4px;height:6px;margin-bottom:4px;overflow:hidden">
+            <div style="background:#6366f1;width:65%;height:100%;border-radius:4px"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;color:var(--text-secondary)">
+            <span>975 used</span><span>1,500 / month · resets in 18d</span>
+          </div>
+          <div style="margin-top:6px;color:var(--text-secondary)">+ 250 purchased credits remaining</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:var(--bg-tertiary);padding:8px 16px;font-size:12px;font-weight:600;color:var(--text-primary);border-bottom:1px solid var(--border)">③ Billing Page — Credits Section (billing-view.js)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        New section added to the existing billing page. Subsections:
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;font-size:12px">
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px"><strong>Credit Balance</strong><br><span style="color:var(--text-secondary)">Plan credits, purchased credits, reserved, reset date</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px"><strong>Buy Credits</strong><br><span style="color:var(--text-secondary)">One-time pack cards with INR/USD price. Stripe or Razorpay checkout.</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px"><strong>Recurring Add-ons</strong><br><span style="color:var(--text-secondary)">Active recurring packs with cancel button. Renewal date shown.</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px"><strong>Transaction History</strong><br><span style="color:var(--text-secondary)">Paginated log: date, type, amount, call link, balance snapshot</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      <div style="background:var(--bg-tertiary);padding:8px 16px;font-size:12px;font-weight:600;color:var(--text-primary);border-bottom:1px solid var(--border)">④ SUPER_ADMIN — Credit Config (Subscription Config page)</div>
+      <div style="padding:12px 16px;font-size:13px;color:var(--text-primary)">
+        New section in existing Subscription Config admin page:
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;font-size:12px">
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px"><strong>Credit Pack Manager</strong><br><span style="color:var(--text-secondary)">Create/edit/deactivate packs. Set name, credits, INR price, USD price, one-time vs recurring.</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px"><strong>Credit Settings</strong><br><span style="color:var(--text-secondary)">Init fee, per-minute rate, reserve amount, warning thresholds, expiry days, timeout hours.</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px"><strong>Manual Adjustment</strong><br><span style="color:var(--text-secondary)">Grant/deduct credits for any tenant with a reason note.</span></div>
+          <div style="padding:8px;background:var(--bg-tertiary);border-radius:6px"><strong>Plan Credit Allocations</strong><br><span style="color:var(--text-secondary)">Set creditsPerMonth per plan (FREE/PLUS/PRO/MAX).</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p style="margin-top:20px;color:var(--text-secondary);font-size:13px;text-align:center">Confirm to move to Section 4: Plan Defaults + Credit Pack Pricing.</p>

@@ -1,0 +1,89 @@
+<h2>Real-Time Architecture</h2>
+<p class="subtitle">SSE + Redis Pub/Sub — how events flow from DB write to browser</p>
+
+<div style="font-family: monospace; background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 28px; margin: 16px 0; font-size: 13px; line-height: 1.8;">
+
+  <div style="color:#94a3b8; margin-bottom:16px;">── WRITE PATH (existing endpoints) ──────────────────</div>
+
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+    <div style="background:#1e40af; padding:6px 14px; border-radius:6px; color:#bfdbfe;">POST /customers</div>
+    <div style="color:#64748b;">→</div>
+    <div style="background:#1e40af; padding:6px 14px; border-radius:6px; color:#bfdbfe;">PATCH /customers/[id]</div>
+    <div style="color:#64748b;">→</div>
+    <div style="background:#1e40af; padding:6px 14px; border-radius:6px; color:#bfdbfe;">DELETE /customers/...</div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:12px; margin:8px 0 4px 80px;">
+    <div style="color:#64748b;">↓ (after DB write, already calls invalidateCache)</div>
+  </div>
+  <div style="display:flex; align-items:center; gap:12px; margin:4px 0 4px 80px;">
+    <div style="background:#065f46; padding:6px 14px; border-radius:6px; color:#6ee7b7;">+ publishEvent("tenant:{id}", {type:"metrics:update"})</div>
+  </div>
+
+  <div style="margin: 20px 0; border-top: 1px solid #1e293b;"></div>
+
+  <div style="color:#94a3b8; margin-bottom:16px;">── EVENT BUS ─────────────────────────────────────────</div>
+
+  <div style="display:flex; align-items:center; gap:16px; margin-bottom:8px;">
+    <div style="background:#7c2d12; padding:6px 14px; border-radius:6px; color:#fed7aa;">src/lib/events/event-publisher.ts</div>
+    <div style="color:#64748b;">publishes to</div>
+    <div style="background:#581c87; padding:6px 14px; border-radius:6px; color:#e9d5ff;">Redis Pub/Sub channel</div>
+  </div>
+  <div style="margin-left:200px; color:#64748b; font-size:12px;">channel: "realtime:{tenantId}"</div>
+
+  <div style="margin: 20px 0; border-top: 1px solid #1e293b;"></div>
+
+  <div style="color:#94a3b8; margin-bottom:16px;">── READ PATH (new SSE endpoint) ─────────────────────</div>
+
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+    <div style="background:#581c87; padding:6px 14px; border-radius:6px; color:#e9d5ff;">Redis Pub/Sub</div>
+    <div style="color:#64748b;">→</div>
+    <div style="background:#065f46; padding:6px 14px; border-radius:6px; color:#6ee7b7;">GET /api/events (SSE)</div>
+    <div style="color:#64748b;">→</div>
+    <div style="background:#1e3a5f; padding:6px 14px; border-radius:6px; color:#93c5fd;">browser EventSource</div>
+  </div>
+  <div style="margin-left:300px; color:#64748b; font-size:12px;">streams: metrics:update, notification:new, call:status</div>
+
+  <div style="margin: 20px 0; border-top: 1px solid #1e293b;"></div>
+
+  <div style="color:#94a3b8; margin-bottom:16px;">── BROWSER (client hooks) ────────────────────────────</div>
+
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+    <div style="background:#1e3a5f; padding:6px 14px; border-radius:6px; color:#93c5fd;">useSSE() hook</div>
+    <div style="color:#64748b;">→ on "metrics:update" →</div>
+    <div style="background:#1e293b; padding:6px 14px; border-radius:6px; color:#94a3b8;">dashboard re-fetches /api/dashboard/metrics</div>
+  </div>
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+    <div style="background:#1e3a5f; padding:6px 14px; border-radius:6px; color:#93c5fd;">useSSE() hook</div>
+    <div style="color:#64748b;">→ on "notification:new" →</div>
+    <div style="background:#1e293b; padding:6px 14px; border-radius:6px; color:#94a3b8;">shell re-fetches unread count</div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Events</h3>
+  <table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:left; padding:8px; color:var(--text-muted)">Event type</th>
+      <th style="text-align:left; padding:8px; color:var(--text-muted)">Triggered by</th>
+      <th style="text-align:left; padding:8px; color:var(--text-muted)">Browser reaction</th>
+    </tr></thead>
+    <tbody>
+      <tr style="border-bottom:1px solid var(--border-light)">
+        <td style="padding:8px; font-family:monospace; color:#6ee7b7;">metrics:update</td>
+        <td style="padding:8px;">Any customer write</td>
+        <td style="padding:8px;">Dashboard refetches metrics</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border-light)">
+        <td style="padding:8px; font-family:monospace; color:#6ee7b7;">notification:new</td>
+        <td style="padding:8px;">New InAppNotification created</td>
+        <td style="padding:8px;">Bell badge count updates</td>
+      </tr>
+      <tr>
+        <td style="padding:8px; font-family:monospace; color:#6ee7b7;">call:status</td>
+        <td style="padding:8px;">Call webhook / status change</td>
+        <td style="padding:8px;">Dashboard "active calls" refreshes</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
