@@ -15,6 +15,7 @@ function getPublisher(): Redis | null {
     lazyConnect: false,
   });
   pubClient.on("error", () => {
+    pubClient?.disconnect();
     pubClient = null;
   });
   return pubClient;
