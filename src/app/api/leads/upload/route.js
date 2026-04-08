@@ -6,6 +6,8 @@ import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 import { createNotification } from "@/lib/notifications/notification-service";
+import { invalidateCache } from "@/lib/cache/api-cache";
+import { publishEvent } from "@/lib/events/event-publisher";
 
 const UPSERT_BATCH_SIZE = 50;
 const ENQUEUE_BATCH_SIZE = 50;
@@ -190,6 +192,9 @@ export async function POST(request) {
     body: `${successRows} of ${rows.length} rows imported from "${file.name}".`,
     link: "/admin/lead-uploads",
   }).catch(() => {});
+
+  invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
+  publishEvent(tenantId, { type: "metrics:update" }).catch(() => {});
 
   return Response.json({
     message: "Lead upload processed",
