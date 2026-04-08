@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { getRedisOptions } from "@/lib/redis/options";
 import { LLMConversationManager } from "@/modules/loan-assistant/llm-conversation-manager.js";
 import { ConversationManager } from "@/modules/loan-assistant/conversation-manager.js";
 
@@ -15,13 +16,7 @@ async function getRedis() {
   if (Date.now() < redisUnavailableUntil) return null;
   if (redisClient) return redisClient;
   try {
-    redisClient = new Redis({
-      host: process.env.REDIS_HOST || "127.0.0.1",
-      port: Number(process.env.REDIS_PORT || 6379),
-      password: process.env.REDIS_PASSWORD || undefined,
-      maxRetriesPerRequest: 1,
-      lazyConnect: true,
-    });
+    redisClient = new Redis(getRedisOptions({ maxRetriesPerRequest: 1, lazyConnect: true }));
     await redisClient.connect();
     return redisClient;
   } catch {

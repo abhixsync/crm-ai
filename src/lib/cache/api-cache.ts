@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { getRedisOptions } from "@/lib/redis/options";
 
 let redisClient: Redis | null = null;
 let connectingPromise: Promise<Redis | null> | null = null;
@@ -12,13 +13,7 @@ async function getRedisClient(): Promise<Redis | null> {
 
   connectingPromise = (async () => {
     try {
-      const client = new Redis({
-        host: process.env.REDIS_HOST || "127.0.0.1",
-        port: Number(process.env.REDIS_PORT || 6379),
-        password: process.env.REDIS_PASSWORD || undefined,
-        maxRetriesPerRequest: 1,
-        lazyConnect: true,
-      });
+      const client = new Redis(getRedisOptions({ maxRetriesPerRequest: 1, lazyConnect: true }));
       client.on("error", () => { redisClient = null; });
       await client.connect();
       redisUnavailableUntil = 0;

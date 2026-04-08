@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import Redis from "ioredis";
+import { getRedisOptions } from "@/lib/redis/options";
 import { prisma } from "@/lib/prisma";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
 import { SYSTEM_THEME_DEFAULT, EditableTheme, ThemeTokens } from "@/core/theme/system-defaults";
@@ -284,13 +285,7 @@ async function getRedisClient() {
   if (redisClient) return redisClient;
 
   try {
-    redisClient = new Redis({
-      host: process.env.REDIS_HOST || "127.0.0.1",
-      port: Number(process.env.REDIS_PORT || 6379),
-      password: process.env.REDIS_PASSWORD || undefined,
-      maxRetriesPerRequest: 1,
-      lazyConnect: true,
-    });
+    redisClient = new Redis(getRedisOptions({ maxRetriesPerRequest: 1, lazyConnect: true }));
 
     await redisClient.connect();
     return redisClient;
