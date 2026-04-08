@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { NotificationFeed } from "./NotificationFeed";
+import { useSSEEvent } from "@/hooks/useSSE";
 
 export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -33,12 +34,11 @@ export function NotificationBell() {
     setLoading(false);
   }, []);
 
-  // Poll count every 60s
   useEffect(() => {
     fetchCount();
-    const id = setInterval(fetchCount, 60000);
-    return () => clearInterval(id);
   }, [fetchCount]);
+
+  useSSEEvent("notification:new", fetchCount);
 
   // Fetch full list when opened
   useEffect(() => {
