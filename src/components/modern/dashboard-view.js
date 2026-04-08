@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useSSEEvent } from "@/hooks/useSSE";
 
 const PIPELINE_CONFIG = [
   { status: "NEW", label: "New", color: "var(--ms-blue, #4f9cf9)" },
@@ -143,6 +144,9 @@ export function ModernDashboardView({
     fetchCampaignHealth();
   }, [fetchDashboardData, fetchCampaignHealth]);
 
+  useSSEEvent("metrics:update", fetchDashboardData);
+  useSSEEvent("call:status", fetchDashboardData);
+
   const totalForPipeline = pipeline
     ? Object.values(pipeline).reduce((a, b) => a + b, 0)
     : metrics.totalCustomers;
@@ -170,6 +174,10 @@ export function ModernDashboardView({
         <div className="ms-m-tile">
           <div className="ms-m-tile-lbl">Total calls</div>
           <div className="ms-m-tile-val">{metrics.totalCalls.toLocaleString()}</div>
+        </div>
+        <div className="ms-m-tile">
+          <div className="ms-m-tile-lbl">Active Calls</div>
+          <div className="ms-m-tile-val">{(metrics.activeCalls ?? 0).toLocaleString()}</div>
         </div>
         <div className="ms-m-tile">
           <div className="ms-m-tile-lbl">Interested rate</div>
