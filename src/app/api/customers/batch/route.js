@@ -2,6 +2,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, hasRole, requireSession } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { invalidateCache } from "@/lib/cache/api-cache";
 
 const VALID_STATUSES = [
   "NEW", "CALL_PENDING", "CALLING", "INTERESTED", "FOLLOW_UP",
@@ -46,6 +47,7 @@ export async function POST(request) {
         },
       });
 
+      invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
       return Response.json({
         ok: true,
         action: "DELETE",
@@ -61,6 +63,7 @@ export async function POST(request) {
         where: { id: { in: customerIds }, tenantId, archivedAt: null },
         data: { status: parsed.status },
       });
+      invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
       return Response.json({ ok: true, action: "UPDATE_STATUS", count: result.count });
     }
 
