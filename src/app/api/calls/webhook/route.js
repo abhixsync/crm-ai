@@ -8,6 +8,8 @@ import { toIntentLabel } from "@/lib/journey/constants";
 import { canonicalizeIntent } from "@/lib/journey/intent-normalization";
 import { evaluateCrmEventDecision } from "@/lib/crm/event-triggers";
 import { notifyAdvisorForCallLog } from "@/lib/notifications/advisor-notifier";
+import { createNotification } from "@/lib/notifications/notification-service";
+import { publishEvent } from "@/lib/events/event-publisher";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getOrCreateSession, updateSessionAfterCall, getSessionContext } from "@/lib/conversation/session-manager";
 
@@ -198,6 +200,19 @@ async function finishCall(callLogId, customerId, tenantId) {
   } else {
     console.info("[api/calls/webhook] Advisor notification result:", advisorNotification.channels);
   }
+
+  // In-app notification — fire-and-forget
+  createNotification(callLog.tenantId, {
+    type: "CALL_COMPLETED",
+    title: "Call completed",
+    body: analysis?.summary || "A call has ended.",
+    link: "/admin/calls",
+  }).catch(() => {});
+
+  // SSE events — fire-and-forget; never block call completion
+  publishEvent(callLog.tenantId, { type: "metrics:update" }).catch(() => {});
+  publishEvent(callLog.tenantId, { type: "notification:new" }).catch(() => {});
+  publishEvent(callLog.tenantId, { type: "call:status", payload: { status: mappedStatus } }).catch(() => {});
 }
 
 export async function POST(request) {
