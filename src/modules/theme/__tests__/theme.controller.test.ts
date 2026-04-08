@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { updateThemeController } from "@/modules/theme/theme.controller";
 import { getActiveTheme, getDefaultTheme, invalidateThemeCache } from "@/modules/theme/theme.service";
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    tenantTheme: { findFirst: vi.fn().mockResolvedValue(null) },
+  },
+}));
 
 describe("theme module", () => {
   it("returns forbidden for non-admin on update", async () => {

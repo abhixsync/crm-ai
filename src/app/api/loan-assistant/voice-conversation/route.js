@@ -32,9 +32,7 @@ import {
 import { prisma } from '@/lib/prisma.js';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth.js';
-
-// In-memory session storage (production: use Redis)
-const activeSessions = new Map();
+import { getSession, setSession, deleteSession } from '@/lib/loan-assistant/session-store.js';
 
 export async function POST(request) {
   try {
@@ -174,8 +172,6 @@ export async function POST(request) {
       manager.callMeta.customerId = null;
       isNewSession = true;
 
-      activeSessions.set(newSessionId, manager);
-
       if (tenant_id) {
         try {
           const customer = await ensureLoanAssistantDemoCustomer({
@@ -208,6 +204,7 @@ export async function POST(request) {
 
       // Generate opening message using LLM
       const aiMessage = await manager.generateAIResponse();
+      await setSession(newSessionId, manager);
 
       console.log('✅ LLM Session initialized');
       console.log('Session ID:', newSessionId);
@@ -242,7 +239,7 @@ export async function POST(request) {
       );
     }
 
-    manager = activeSessions.get(session_id);
+    manager = await getSession(session_id);
 
     if (!manager) {
       console.error('❌ Session not found:', session_id);
@@ -362,7 +359,9 @@ export async function POST(request) {
         console.info('[api/loan-assistant/voice-conversation] Advisor notification result:', notification.channels);
       }
 
-      activeSessions.delete(session_id);
+      await deleteSession(session_id);
+    } else {
+      await setSession(session_id, manager);
     }
 
     return Response.json(
@@ -414,7 +413,7 @@ export async function GET(request) {
       );
     }
 
-    const manager = activeSessions.get(sessionId);
+    const manager = await getSession(sessionId);
 
     if (!manager) {
       return Response.json(

@@ -3,6 +3,7 @@ import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-gua
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { isTerminalState } from "@/lib/journey/constants";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { invalidateCache } from "@/lib/cache/api-cache";
 
 export async function PATCH(request, { params }) {
   const auth = await requireSession();
@@ -105,6 +106,7 @@ export async function PATCH(request, { params }) {
       }
     }
 
+    invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
     return Response.json({ customer });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
@@ -151,6 +153,7 @@ export async function DELETE(request, { params }) {
       return Response.json({ error: "Customer not found" }, { status: 404 });
     }
 
+    invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});
     return Response.json({ success: true });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
