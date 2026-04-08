@@ -8,6 +8,7 @@
     "start": "next start",
     "worker:ai-campaign": "tsx --tsconfig tsconfig.json src/workers/ai-campaign-worker.js",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "lint": "eslint",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",

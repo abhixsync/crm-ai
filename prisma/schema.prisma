@@ -369,6 +369,7 @@ model TenantTheme {
   brandTagline             String?
   emailFromName            String?
   customCss                String?  @db.Text
+  uiLayout                 String   @default("modern")
   isActive                 Boolean  @default(true)
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt

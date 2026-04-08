@@ -215,7 +215,7 @@ describeThemeDb("Theme Inheritance System", () => {
   });
 
   describe("Tenant Override Inheritance", () => {
-    it("tenant override takes precedence over base theme", { timeout: 20000 }, async () => {
+    it("tenant override takes precedence over base theme", async () => {
       // Create base theme
       const baseTheme = {
         primaryColor: "#ff0000",
@@ -242,7 +242,7 @@ describeThemeDb("Theme Inheritance System", () => {
       expect(theme.source).toBe("tenant");
     });
 
-    it("partial tenant override merges correctly", { timeout: 20000 }, async () => {
+    it("partial tenant override merges correctly", async () => {
       // Create base theme
       const baseTheme = {
         primaryColor: "#ff0000",
@@ -288,7 +288,7 @@ describeThemeDb("Theme Inheritance System", () => {
       expect(resetTheme.source).toBe(expectedSource);
     });
 
-    it("resetTenantTheme works when base theme exists", { timeout: 20000 }, async () => {
+    it("resetTenantTheme works when base theme exists", async () => {
       // Create base theme
       const baseTheme = {
         primaryColor: "#ff0000"
@@ -360,7 +360,7 @@ describeThemeDb("Theme Inheritance System", () => {
       expect(theme.source).toBe(expectedNoOverrideSource());
     });
 
-    it("multiple tenant overrides work independently", { timeout: 20000 }, async () => {
+    it("multiple tenant overrides work independently", async () => {
       const tenant1Id = "tenant-1";
       const tenant2Id = "tenant-2";
 
@@ -405,7 +405,7 @@ describeThemeDb("Theme Inheritance System", () => {
       });
     });
 
-    it("base theme update affects all tenants without overrides", { timeout: 20000 }, async () => {
+    it("base theme update affects all tenants without overrides", async () => {
       const tenant1Id = "tenant-1";
       const tenant2Id = "tenant-2";
 

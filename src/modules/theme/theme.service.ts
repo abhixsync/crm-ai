@@ -139,16 +139,19 @@ export async function resolveTenantTheme(tenantId: string | null): Promise<Activ
       if (tenantTheme) {
         const { id, tenantId: _, createdAt, updatedAt, ...themeData } = tenantTheme;
 
-        // Include all stored tenant values so they override the base theme.
-        // Fields in BASE_THEME_ONLY are global settings controlled by SUPER_ADMIN
-        // via the base theme — tenant overrides must not shadow them, because every
-        // DB record stores the column default even when the tenant never set it.
+        // Only include tenant values that differ from the system default.
+        // Because updateTenantTheme normalises the full record (all columns are
+        // written, including unset fields which get the system default), a value
+        // that equals the system default means "tenant never explicitly set this"
+        // and should fall through to the base theme for proper inheritance.
+        // Fields in BASE_THEME_ONLY are always excluded — they are SUPER_ADMIN-only.
         const BASE_THEME_ONLY = new Set(["uiLayout"]);
         const customizedFields: Partial<ThemeTokens> = {};
         Object.keys(themeData).forEach(key => {
           if (key in MUTABLE_SYSTEM_DEFAULT && !BASE_THEME_ONLY.has(key)) {
             const tenantValue = (themeData as any)[key];
-            if (tenantValue !== undefined && tenantValue !== null) {
+            const systemDefault = (MUTABLE_SYSTEM_DEFAULT as any)[key];
+            if (tenantValue !== undefined && tenantValue !== null && tenantValue !== systemDefault) {
               (customizedFields as any)[key] = tenantValue;
             }
           }
