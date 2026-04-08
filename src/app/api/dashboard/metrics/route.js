@@ -46,7 +46,7 @@ export async function GET(request) {
             where: { tenantId, archivedAt: null },
             _count: true,
           })
-        );  // index 5 when pipeline=1
+        );  // index 6 when pipeline=1
       }
 
       const results = await Promise.all(baseQueries);
@@ -86,6 +86,7 @@ export async function GET(request) {
           interestedCustomers: 0,
           followUps: 0,
           totalCalls: 0,
+          activeCalls: 0,
         },
         degraded: true,
         error: "Database unavailable",
