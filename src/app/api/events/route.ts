@@ -7,8 +7,13 @@ export async function GET(request: Request) {
   const auth = await requireSession();
   if (auth.error) return new Response("Unauthorized", { status: 401 });
 
-  const tenant = getTenantContext(auth.session, request);
-  const tenantId = tenant?.tenantId;
+  let tenantId: string | null = null;
+  try {
+    const tenant = getTenantContext(auth.session, request);
+    tenantId = tenant?.tenantId ?? null;
+  } catch {
+    return new Response("Tenant required", { status: 400 });
+  }
   if (!tenantId) return new Response("Tenant required", { status: 400 });
 
   const channel = `realtime:${tenantId}`;
@@ -39,12 +44,16 @@ export async function GET(request: Request) {
       }
 
       if (subscriber) {
-        await subscriber.subscribe(channel);
-        subscriber.on("message", (_ch: string, message: string) => {
-          try {
-            controller.enqueue(enc.encode(`data: ${message}\n\n`));
-          } catch {}
-        });
+        try {
+          await subscriber.subscribe(channel);
+          subscriber.on("message", (_ch: string, message: string) => {
+            try {
+              controller.enqueue(enc.encode(`data: ${message}\n\n`));
+            } catch {}
+          });
+        } catch {
+          await cleanup();
+        }
       }
 
       // Cleanup on client disconnect
