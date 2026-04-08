@@ -32,6 +32,11 @@ import { getSession, setSession, deleteSession } from '@/lib/loan-assistant/sess
 
 export async function POST(request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     console.log('\n\n');
     console.log('╔════════════════════════════════════════════════════════╗');
     console.log('║ [Loan Assistant API] POST Request Received              ║');

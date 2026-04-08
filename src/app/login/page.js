@@ -4,6 +4,11 @@ import { getActiveTheme } from "@/modules/theme/theme.service";
 import { prisma } from "@/lib/prisma";
 import LoginForm from "./login-form";
 
+export const metadata = {
+  title: "Sign In",
+  description: "Sign in to your CRM AI account to manage customers, calls, and campaigns.",
+};
+
 export default async function LoginPage() {
   const headersList = await headers();
   const tenantId   = headersList.get("x-resolved-tenant-id")   || null;

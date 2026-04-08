@@ -92,7 +92,7 @@ async function ensureAdminForTenant(payload, tenantId) {
     throw new Error("adminPassword (min 6 chars) is required when creating a new admin user.");
   }
 
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
 
   return prisma.user.create({
     data: {

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth.js";
 
 const DEFAULT_ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
 const DEFAULT_MODEL_ID = "eleven_multilingual_v2";
@@ -52,6 +54,11 @@ function resolveVoiceId(languageCode, requestedVoiceId) {
 
 export async function POST(request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const isElevenLabsDisabled = parseBoolean(
       process.env.DISABLE_ELEVENLABS_TTS ?? process.env.NEXT_PUBLIC_DISABLE_ELEVENLABS_TTS,
       false

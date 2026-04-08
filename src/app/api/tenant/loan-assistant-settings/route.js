@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma.js';
 import { databaseUnavailableResponse, isDatabaseUnavailable } from '@/lib/server/database-error';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth.js';
 
 const DEFAULT_HUMAN_ADVISOR_NAME = 'John Doe';
 const OPTIONAL_ROLLOUT_FIELDS = ['loanAssistantHumanAdvisorName', 'loanAssistantCallbackPhone', 'loanAssistantNotificationEmail', 'loanAssistantLanguage'];
@@ -189,6 +191,11 @@ function pruneUnsupportedOptionalFields(updateData) {
  */
 export async function GET(request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return Response.json({ error: 'Unauthorized', success: false }, { status: 401 });
+    }
+
     const tenantId = request.headers.get('X-Tenant-ID');
 
     if (!tenantId) {
@@ -295,6 +302,11 @@ export async function GET(request) {
  */
 export async function PUT(request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return Response.json({ error: 'Unauthorized', success: false }, { status: 401 });
+    }
+
     const tenantId = request.headers.get('X-Tenant-ID');
 
     if (!tenantId) {

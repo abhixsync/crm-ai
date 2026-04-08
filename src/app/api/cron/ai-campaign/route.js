@@ -53,7 +53,7 @@ async function recordCronRun() {
 
 function isAuthorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
-  if (!secret) return true;
+  if (!secret) return false;
 
   const headerSecret = String(request.headers.get("x-cron-secret") || "").trim();
   const authHeader = String(request.headers.get("authorization") || "").trim();

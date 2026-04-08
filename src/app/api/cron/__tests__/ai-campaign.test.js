@@ -151,11 +151,11 @@ describe("GET /api/cron/ai-campaign — auth", () => {
     expect(res.status).toBe(200);
   });
 
-  it("allows any request when CRON_SECRET env var is not set", async () => {
+  it("returns 401 when CRON_SECRET env var is not set (fail-closed)", async () => {
     delete process.env.CRON_SECRET;
     const req = mockReq({}); // no auth header at all
     const res = await GET(req);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
   });
 });
 

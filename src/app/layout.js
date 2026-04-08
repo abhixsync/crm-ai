@@ -88,7 +88,11 @@ export async function generateMetadata() {
     }
     : undefined;
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  const defaultOgImage = "/theme/defaults/application-background.png";
+
   return {
+    metadataBase: appUrl ? new URL(appUrl) : undefined,
     title: crmTitle,
     description,
     icons: iconList,
@@ -96,13 +100,21 @@ export async function generateMetadata() {
       title: crmTitle,
       description,
       siteName: crmTitle,
-      images: faviconWithVersion ? [{ url: faviconWithVersion }] : undefined,
+      type: "website",
+      images: [
+        {
+          url: faviconWithVersion || defaultOgImage,
+          width: 1200,
+          height: 630,
+          alt: crmTitle,
+        },
+      ],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: crmTitle,
       description,
-      images: faviconWithVersion ? [faviconWithVersion] : undefined,
+      images: [faviconWithVersion || defaultOgImage],
     },
   };
 }

@@ -357,7 +357,7 @@ export async function createUser(input, actorUserId, tenantId = null) {
     throw new Error("A user with this email already exists.");
   }
 
-  const passwordHash = await bcrypt.hash(parsed.password, 10);
+  const passwordHash = await bcrypt.hash(parsed.password, 12);
 
   let user;
   try {
@@ -409,7 +409,7 @@ export async function updateUser(userId, input, actorUserId, tenantId = undefine
   if (parsed.isActive !== undefined) updateData.isActive = parsed.isActive;
 
   if (parsed.password) {
-    updateData.passwordHash = await bcrypt.hash(parsed.password, 10);
+    updateData.passwordHash = await bcrypt.hash(parsed.password, 12);
   }
 
   if (parsed.roleKey) {

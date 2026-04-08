@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /login
+Allow: /register
+Allow: /forgot-password
+Allow: /reset-password
+Allow: /verify-email
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /customers
+Disallow: /calls
+Disallow: /messages
+Disallow: /admin/
+
+Sitemap: /sitemap.xml
