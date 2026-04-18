@@ -5,6 +5,7 @@ import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { CustomerStatus } from "@prisma/client";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { settleCredits } from "@/lib/credits/credit-service";
 
 export async function POST(request) {
   let callSid = "";
@@ -109,6 +110,10 @@ export async function POST(request) {
           failureCode: normalizedProviderStatus,
           errorMessage: `Telephony callback reported ${normalizedProviderStatus}`,
         });
+      }
+
+      if (callLog.tenantId && (mappedStatus === "COMPLETED" || mappedStatus === "NO_ANSWER" || mappedStatus === "FAILED")) {
+        settleCredits(callLog.tenantId, callLog.id, mappedStatus === "COMPLETED" ? Number(duration) : 0).catch(() => {});
       }
     }
 

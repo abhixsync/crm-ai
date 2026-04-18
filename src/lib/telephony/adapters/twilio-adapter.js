@@ -15,12 +15,14 @@ function mapStatus(providerStatus) {
 }
 
 function resolveCredentials(config) {
+  const metadata = config?.metadata || {};
   return {
-    accountSid: String(process.env.TWILIO_ACCOUNT_SID || "").trim(),
-    authToken: String(process.env.TWILIO_AUTH_TOKEN || "").trim(),
-    fromNumber: String(
-      process.env.TWILIO_CALLER_ID || process.env.TWILIO_FROM_NUMBER || ""
-    ).trim(),
+    accountSid: String(metadata.accountSid || process.env.TWILIO_ACCOUNT_SID || "").trim(),
+    authToken:  String(config?.apiKey || metadata.authToken || process.env.TWILIO_AUTH_TOKEN || "").trim(),
+    fromNumber: String(metadata.fromNumber || metadata.callerId || process.env.TWILIO_CALLER_ID || process.env.TWILIO_FROM_NUMBER || "").trim(),
+    apiKeySid:  String(metadata.apiKeySid || process.env.TWILIO_API_KEY_SID || "").trim(),
+    apiKeySecret: String(metadata.apiKeySecret || process.env.TWILIO_API_KEY_SECRET || "").trim(),
+    twimlAppSid: String(metadata.twimlAppSid || process.env.TWILIO_TWIML_APP_SID || "").trim(),
   };
 }
 

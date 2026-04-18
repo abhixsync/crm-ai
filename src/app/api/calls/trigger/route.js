@@ -1,4 +1,4 @@
-import { CallStatus } from "@prisma/client";
+import { CallStatus, CallMode } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
@@ -57,7 +57,8 @@ export async function POST(request) {
     return Response.json({ error: "customerId is required" }, { status: 400 });
   }
 
-  const { tenantId } = getTenantContext(auth.session, request);
+  const tenant = getTenantContext(auth.session, request);
+  const { tenantId } = tenant;
   try {
     const guard = await getPlanGuard(tenantId);
     guard.assertHasFeature("hasAiCalling");
@@ -68,7 +69,6 @@ export async function POST(request) {
 
   let customer;
   let callLog;
-  const tenant = getTenantContext(auth.session, request);
 
   try {
     // Verify customer exists first so we can return 404 before attempting lock
@@ -102,7 +102,7 @@ export async function POST(request) {
         tenantId: customer.tenantId,
         customerId: customer.id,
         status: CallStatus.INITIATED,
-        mode: "AI",
+        mode: CallMode.AI,
         attemptNumber: (customer.retryCount || 0) + 1,
         startedAt: new Date(),
         summary: "Automated outbound loan-interest call initiated.",
@@ -159,9 +159,22 @@ export async function POST(request) {
       to: redactedPhone(customer.phone),
     });
 
+    const customerForAI = {
+      id: customer.id,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      loanType: customer.loanType,
+      loanAmount: customer.loanAmount,
+      monthlyIncome: customer.monthlyIncome,
+      employmentType: customer.employmentType,
+      city: customer.city,
+      notes: customer.notes,
+      status: customer.status,
+      retryCount: customer.retryCount,
+    };
     const aiOutput = await runAIWithFailover({
       task: "CALL_SCRIPT",
-      payload: { customer },
+      payload: { customer: customerForAI },
     });
     const script = aiOutput.result.script;
 

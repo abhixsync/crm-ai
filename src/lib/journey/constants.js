@@ -54,6 +54,7 @@ export const RETRYABLE_FAILURE_CODES = new Set([
   "ai_timeout",
   "no_answer",
   "busy",
+  "BUSY",
   "network_error",
   "failed",
 ]);

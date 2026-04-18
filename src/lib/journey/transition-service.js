@@ -25,8 +25,8 @@ export async function applyCustomerTransition({
   });
 
   return prisma.$transaction(async (tx) => {
-    const existingTransition = await tx.customerTransition.findUnique({
-      where: { transitionKey },
+    const existingTransition = await tx.customerTransition.findFirst({
+      where: { tenantId, transitionKey },
     });
 
     if (existingTransition) {

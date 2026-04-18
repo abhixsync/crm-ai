@@ -1,7 +1,7 @@
 import { CallStatus, CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { generateInitialCallPrompt } from "@/lib/ai/openai";
 import { runAIWithFailover } from "@/lib/ai/provider-router";
+import { settleCredits } from "@/lib/credits/credit-service";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 import { toIntentLabel } from "@/lib/journey/constants";
@@ -97,7 +97,12 @@ async function appendTranscript(callLogId, speaker, message) {
   `;
 }
 
-async function finishCall(callLogId, customerId, tenantId) {
+function fallbackGreeting(customer) {
+  const firstName = String(customer?.name || "").split(" ")[0] || "ji";
+  return `Namaste ${firstName} ji! Main aapko loan ke baare mein baat karna chahta hoon. Kya aap abhi baat kar sakte hain?`;
+}
+
+async function finishCall(callLogId, customerId, tenantId, sessionCtx, mergedExtracted, turn) {
   if (!callLogId) {
     return;
   }
@@ -120,6 +125,17 @@ async function finishCall(callLogId, customerId, tenantId) {
 
   if (alreadyFinalized) {
     return;
+  }
+
+  // Fix 1: Settle credits — non-blocking, idempotent
+  if (tenantId) {
+    const durationSecs =
+      callLog.durationSecs != null
+        ? callLog.durationSecs
+        : callLog.startedAt
+          ? Math.floor((Date.now() - new Date(callLog.startedAt).getTime()) / 1000)
+          : 0;
+    settleCredits(tenantId, callLogId, durationSecs).catch(() => {});
   }
 
   const transcript = callLog?.transcript || "";
@@ -212,6 +228,15 @@ async function finishCall(callLogId, customerId, tenantId) {
   publishEvent(callLog.tenantId, { type: "metrics:update" }).catch(() => {});
   publishEvent(callLog.tenantId, { type: "notification:new" }).catch(() => {});
   publishEvent(callLog.tenantId, { type: "call:status", payload: { status: mappedStatus } }).catch(() => {});
+
+  // Fix 5: Persist session on ALL exit paths (session may be null on error paths)
+  if (sessionCtx?.sessionId) {
+    await updateSessionAfterCall(sessionCtx.sessionId, {
+      callLogId,
+      turnCount: turn ?? 0,
+      extractedData: mergedExtracted ?? {},
+    }).catch(() => {});
+  }
 }
 
 export async function POST(request) {
@@ -290,7 +315,7 @@ export async function POST(request) {
       if (failedAttempts >= maxRetries) {
         // After max retries, end the call gracefully
         console.log(`[Webhook] Max retries reached, ending call`);
-        await finishCall(callLogId, customer.id, tenantId);
+        await finishCall(callLogId, customer.id, tenantId, null, {}, turn);
         return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">I apologize, I couldn't hear your response clearly. Thank you for your time. Our loan advisor will contact you shortly.</Say><Hangup/>`);
       }
 
@@ -315,8 +340,23 @@ export async function POST(request) {
       await appendTranscript(callLogId, "Customer", speechResult);
     }
 
+    // Fix 4: transcript is fetched once above; update in-memory after customer speech append
+    let transcript = callLog?.transcript || "";
+    if (speechResult) {
+      transcript = transcript ? transcript + "\nCustomer: " + speechResult : "Customer: " + speechResult;
+    }
+
     if (!speechResult && turn === 0) {
-      const opening = generateInitialCallPrompt(customer);
+      let opening;
+      try {
+        const greetOutput = await runAIWithFailover({
+          task: "CALL_SCRIPT",
+          payload: { customer },
+        });
+        opening = greetOutput.result?.script || fallbackGreeting(customer);
+      } catch {
+        opening = fallbackGreeting(customer);
+      }
       console.log(`[Webhook] Initial greeting on turn 0: ${opening.substring(0, 50)}...`);
       await appendTranscript(callLogId, "Agent", opening);
 
@@ -330,22 +370,33 @@ export async function POST(request) {
     // Ensure we only process AI if we have speech from customer
     if (!speechResult) {
       console.log(`[Webhook] No speech result and not initial turn, ending call`);
-      await finishCall(callLogId, customer.id, tenantId);
+      await finishCall(callLogId, customer.id, tenantId, null, {}, turn);
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">Thank you for your time. Our loan advisor will contact you shortly.</Say><Hangup/>`);
     }
-
-    const transcript = callLog?.transcript || "";
 
     // Get cross-call memory session
     const sessionCtx = tenantId ? await getSessionContext(tenantId, customer.id) : {};
 
+    const customerForAI = {
+      id: customer.id,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      loanType: customer.loanType,
+      loanAmount: customer.loanAmount,
+      monthlyIncome: customer.monthlyIncome,
+      employmentType: customer.employmentType,
+      city: customer.city,
+      notes: customer.notes,
+      status: customer.status,
+      retryCount: customer.retryCount,
+    };
     console.log(`[Webhook] Processing AI turn ${turn}, transcript length: ${transcript.length}`);
     let aiOutput;
     try {
       aiOutput = await runAIWithFailover({
         task: "CALL_TURN",
         payload: {
-          customer,
+          customer: customerForAI,
           transcript,
           turn,
           latestCustomerMessage: speechResult,
@@ -358,7 +409,7 @@ export async function POST(request) {
       });
     } catch (aiError) {
       console.error("[Webhook] AI provider failed:", aiError.message);
-      await finishCall(callLogId, customer.id, tenantId);
+      await finishCall(callLogId, customer.id, tenantId, sessionCtx, {}, turn);
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">I apologize for the interruption. Our loan advisor will contact you shortly. Thank you for your time.</Say><Hangup/>`);
     }
     const aiTurn = aiOutput.result;
@@ -373,6 +424,8 @@ export async function POST(request) {
 
     console.log(`[Webhook] AI response: ${aiTurn.reply.substring(0, 50)}..., shouldEnd: ${aiTurn.shouldEnd}, intent: ${aiTurn.intent || "n/a"}`);
     await appendTranscript(callLogId, "Agent", aiTurn.reply);
+    // Fix 4: keep in-memory transcript in sync after AI reply append
+    transcript = transcript ? transcript + "\nAgent: " + aiTurn.reply : "Agent: " + aiTurn.reply;
 
     if (callLogId) {
       await prisma.callLog.updateMany({
@@ -392,16 +445,7 @@ export async function POST(request) {
     if (endCall) {
       console.log(`[Webhook] Call should end. Finishing call.`);
       const closing = `${aiTurn.reply} Thank you for your time. Our loan advisor will contact you shortly.`;
-      await finishCall(callLogId, customer.id, tenantId);
-
-      // Update session with final state
-      if (sessionCtx.sessionId) {
-        await updateSessionAfterCall(sessionCtx.sessionId, {
-          callLogId,
-          turnCount: turn,
-          extractedData: mergedExtracted,
-        });
-      }
+      await finishCall(callLogId, customer.id, tenantId, sessionCtx, mergedExtracted, turn);
 
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(closing)}</Say><Hangup/>`);
     }
@@ -417,6 +461,24 @@ export async function POST(request) {
     if (isDatabaseUnavailable(error)) {
       console.warn("[api/calls/webhook] Database unavailable; returning fallback TwiML.");
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">System is temporarily unavailable. Please try again later.</Say><Hangup/>`);
+    }
+
+    // Fix 3: Reset inActiveCall lock on any unexpected error to prevent permanent lock
+    const errUrl = new URL(request.url);
+    const errCustomerId = errUrl.searchParams.get("customerId");
+    const errCallLogId = errUrl.searchParams.get("callLogId");
+    if (errCustomerId || errCallLogId) {
+      const lockedCallLog = errCallLogId
+        ? await prisma.callLog.findFirst({ where: { id: errCallLogId }, select: { customerId: true, tenantId: true } }).catch(() => null)
+        : null;
+      const resolvedCustomerId = lockedCallLog?.customerId || errCustomerId;
+      const resolvedTenantId = lockedCallLog?.tenantId || null;
+      if (resolvedCustomerId && resolvedTenantId) {
+        await prisma.customer.updateMany({
+          where: { id: resolvedCustomerId, tenantId: resolvedTenantId },
+          data: { inActiveCall: false },
+        }).catch(() => {});
+      }
     }
 
     throw error;
