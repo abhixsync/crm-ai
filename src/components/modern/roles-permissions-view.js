@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { useTenantSwitcher } from "@/components/providers/tenant-switcher-provider";
 
 /* ── helpers ── */
 function parseCsv(text) {
@@ -76,6 +77,7 @@ function Field({ label, children }) {
 /* ── Main ── */
 export function ModernRolesPermissionsView({ user }) {
   const { data: session } = useSession();
+  const { selectedTenantId } = useTenantSwitcher();
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -110,7 +112,7 @@ export function ModernRolesPermissionsView({ user }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedTenantId]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 

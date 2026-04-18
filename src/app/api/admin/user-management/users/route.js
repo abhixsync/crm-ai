@@ -16,7 +16,7 @@ export async function GET(request) {
 
   try {
     const tenant = getTenantContext(auth.session, request);
-    const users = await listUsers(tenant.isSuperAdmin ? undefined : tenant.tenantId);
+    const users = await listUsers(tenant.tenantId || undefined);
     return Response.json({ users });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
