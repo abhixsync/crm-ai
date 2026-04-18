@@ -130,6 +130,14 @@ export async function POST(request) {
       return databaseUnavailableResponse();
     }
 
+    // Release the active-call lock so the customer is not permanently stuck
+    if (customer?.id) {
+      await prisma.customer.updateMany({
+        where: { id: customer.id, tenantId: customer.tenantId },
+        data: { inActiveCall: false },
+      }).catch(() => {});
+    }
+
     throw error;
   }
 
