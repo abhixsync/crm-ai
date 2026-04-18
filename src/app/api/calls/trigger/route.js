@@ -9,6 +9,7 @@ import { logTelephony, redactedPhone } from "@/lib/telephony/logger";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { signWebhookUrl } from "@/lib/telephony/webhook-auth";
 
 const CALLBACK_BLOCKING_MESSAGE =
   "Local APP_BASE_URL is not a public HTTPS URL, so conversational/status webhooks are disabled and advisor notifications will not trigger for AI outbound calls.";
@@ -189,10 +190,10 @@ export async function POST(request) {
     const baseUrl = process.env.APP_BASE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
     const callFlowDebug = buildCallFlowDebug(baseUrl);
     const callbackUrl = callFlowDebug.conversationalWebhookEnabled
-      ? `${baseUrl}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLog.id}&turn=0`
+      ? signWebhookUrl(`${baseUrl}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLog.id}&turn=0`, callLog.id)
       : undefined;
     const statusCallbackUrl = callFlowDebug.statusCallbackEnabled
-      ? `${baseUrl}/api/calls/status?tenantId=${tenantId}&callLogId=${callLog.id}`
+      ? signWebhookUrl(`${baseUrl}/api/calls/status?tenantId=${tenantId}&callLogId=${callLog.id}`, callLog.id)
       : undefined;
     const vonageAnswerUrl = `${baseUrl}/api/vonage/voice/answer?customerId=${customer.id}&callLogId=${callLog.id}`;
     const vonageEventUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/vonage/voice/events` : undefined;

@@ -12,6 +12,7 @@ import { createNotification } from "@/lib/notifications/notification-service";
 import { publishEvent } from "@/lib/events/event-publisher";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getOrCreateSession, updateSessionAfterCall, getSessionContext } from "@/lib/conversation/session-manager";
+import { verifyWebhookSig } from "@/lib/telephony/webhook-auth";
 
 // TTS voice config — Amazon Polly Hindi voice (works on all Twilio accounts).
 // Fallback from Google.hi-IN-Wavenet-A which requires Google TTS integration.
@@ -248,8 +249,11 @@ export async function POST(request) {
     const turn = Number(url.searchParams.get("turn") || "0");
     const failedAttempts = Number(url.searchParams.get("failedAttempts") || "0");
 
-    // Verify callLogId exists in DB to prevent forged webhook requests
+    // Verify webhook signature and callLogId existence
     if (callLogId) {
+      if (!verifyWebhookSig(url.searchParams, callLogId)) {
+        return new Response("Forbidden", { status: 403 });
+      }
       const exists = await prisma.callLog.findFirst({
         where: { id: callLogId },
         select: { id: true },

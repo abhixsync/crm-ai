@@ -53,8 +53,10 @@ export const RETRYABLE_FAILURE_CODES = new Set([
   "telephony_failure",
   "ai_timeout",
   "no_answer",
+  "no-answer",
   "busy",
-  "BUSY",
+  "cancelled",
+  "canceled",
   "network_error",
   "failed",
 ]);

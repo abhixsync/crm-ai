@@ -6,6 +6,7 @@ import { initiateTelephonyCallWithFailover } from "@/lib/telephony/provider-rout
 import { buildHinglishLoanPrompt } from "@/lib/journey/prompt-builder";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { reserveCredits } from "@/lib/credits/credit-service";
+import { signWebhookUrl } from "@/lib/telephony/webhook-auth";
 
 const CallGraphState = Annotation.Root({
   customer: Annotation(),
@@ -84,6 +85,16 @@ async function stateToCalling(state) {
       where: { id: createdCall.id },
       data: { status: "FAILED", errorReason: "INSUFFICIENT_CREDITS" },
     }).catch(() => {});
+    // Release inActiveCall lock so customer is not permanently stuck
+    await applyCustomerTransition({
+      customerId: state.customer.id,
+      toStatus: CustomerStatus.CALL_FAILED,
+      reason: "Insufficient credits to start call",
+      source: "AI_AUTOMATION",
+      metadata: { inActiveCall: false },
+      idempotencyScope: { stage: "credit_failure", callLogId: createdCall.id },
+      tenantId: state.customer.tenantId,
+    }).catch(() => {});
     throw err;
   }
 
@@ -109,10 +120,10 @@ async function runCall(state) {
 
   const baseUrl = process.env.APP_BASE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
   const callbackUrl = isPublicHttpsUrl(baseUrl)
-    ? `${baseUrl}/api/calls/webhook?customerId=${state.customer.id}&callLogId=${state.callLogId}&turn=0`
+    ? signWebhookUrl(`${baseUrl}/api/calls/webhook?customerId=${state.customer.id}&callLogId=${state.callLogId}&turn=0`, state.callLogId)
     : undefined;
   const statusCallbackUrl = isPublicHttpsUrl(baseUrl)
-    ? `${baseUrl}/api/calls/status?tenantId=${state.customer.tenantId}&callLogId=${state.callLogId}`
+    ? signWebhookUrl(`${baseUrl}/api/calls/status?tenantId=${state.customer.tenantId}&callLogId=${state.callLogId}`, state.callLogId)
     : undefined;
 
   const telephonyOutput = await initiateTelephonyCallWithFailover({

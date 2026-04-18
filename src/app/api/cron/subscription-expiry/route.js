@@ -50,6 +50,32 @@ export async function POST(req) {
       console.error("[cron] releaseStaleReserves failed:", err)
     );
 
+    // Release stale inActiveCall locks (customers stuck > 2h with no active call)
+    try {
+      const TWO_HOURS_AGO = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const stuck = await prisma.customer.findMany({
+        where: { inActiveCall: true },
+        select: {
+          id: true,
+          callLogs: {
+            where: { status: { in: ["INITIATED", "ANSWERED"] }, startedAt: { gte: TWO_HOURS_AGO } },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      });
+      const staleIds = stuck.filter((c) => c.callLogs.length === 0).map((c) => c.id);
+      if (staleIds.length > 0) {
+        const freed = await prisma.customer.updateMany({
+          where: { id: { in: staleIds } },
+          data: { inActiveCall: false },
+        });
+        console.info(`[cron] Released ${freed.count} stale inActiveCall locks`);
+      }
+    } catch (err) {
+      console.error("[cron] releaseStaleCallLocks failed:", err);
+    }
+
     // Monthly credit grants for all tenants due for reset
     const dueBalances = await prisma.tenantCreditBalance.findMany({
       where: { planResetNextAt: { lte: new Date() } },

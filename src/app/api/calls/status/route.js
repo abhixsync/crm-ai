@@ -6,6 +6,7 @@ import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { CustomerStatus } from "@prisma/client";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { settleCredits } from "@/lib/credits/credit-service";
+import { verifyWebhookSig } from "@/lib/telephony/webhook-auth";
 
 export async function POST(request) {
   let callSid = "";
@@ -52,8 +53,21 @@ export async function POST(request) {
       telephonyProviderType: existingCall?.telephonyProviderType || "UNKNOWN",
     });
 
+    // Read tenantId + callLogId from query param (set by trigger/campaign when building statusCallbackUrl)
+    const url = new URL(request.url);
+    const qTenantId = url.searchParams.get("tenantId") || null;
+    const qCallLogId = url.searchParams.get("callLogId") || null;
+
+    // Verify webhook signature if present
+    if (qCallLogId && !verifyWebhookSig(url.searchParams, qCallLogId)) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const callLog = await prisma.callLog.findFirst({
-      where: { providerCallId: String(callSid) },
+      where: {
+        providerCallId: String(callSid),
+        ...(qTenantId ? { tenantId: qTenantId } : {}),
+      },
       select: { id: true, customerId: true, mode: true, tenantId: true },
     });
 
@@ -78,6 +92,14 @@ export async function POST(request) {
       });
 
       if (shouldDeferAIFinalization) {
+        // The telephony call is physically over — release the lock so the
+        // customer is not stuck if finishCall() in the webhook never runs.
+        if (callLog.customerId) {
+          await prisma.customer.updateMany({
+            where: { id: callLog.customerId, tenantId: callLog.tenantId },
+            data: { inActiveCall: false },
+          }).catch(() => {});
+        }
         logTelephony("info", "api.calls.status.defer_ai_completion", {
           providerCallId: String(callSid),
           callLogId: callLog.id,
