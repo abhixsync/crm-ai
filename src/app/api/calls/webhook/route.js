@@ -347,11 +347,24 @@ export async function POST(request) {
     }
 
     if (!speechResult && turn === 0) {
+      const customerForAI = {
+        id: customer.id,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        loanType: customer.loanType,
+        loanAmount: customer.loanAmount,
+        monthlyIncome: customer.monthlyIncome,
+        employmentType: customer.employmentType,
+        city: customer.city,
+        notes: customer.notes,
+        status: customer.status,
+        retryCount: customer.retryCount,
+      };
       let opening;
       try {
         const greetOutput = await runAIWithFailover({
           task: "CALL_SCRIPT",
-          payload: { customer },
+          payload: { customer: customerForAI },
         });
         opening = greetOutput.result?.script || fallbackGreeting(customer);
       } catch {

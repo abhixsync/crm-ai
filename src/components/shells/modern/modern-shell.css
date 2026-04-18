@@ -417,7 +417,7 @@
 .ms-lang-dropdown {
   position: absolute; top: 40px; right: 0; z-index: 100;
   background: var(--ms-surface); border: 1px solid var(--ms-border);
-  border-radius: 10px; padding: 6px; min-width: 180;
+  border-radius: 10px; padding: 6px; min-width: 180px;
   box-shadow: 0 8px 24px rgba(0,0,0,.25);
   display: flex; flex-direction: column; gap: 2px;
 }
@@ -518,7 +518,7 @@
 .ms-empty { padding: 40px 20px; text-align: center; color: var(--ms-text3); font-size: 12px; }
 
 /* Metric tiles */
-.ms-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+.ms-metrics { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; }
 .ms-m-tile {
   background: var(--ms-surface); border: 1px solid var(--ms-border);
   border-radius: 12px; padding: 20px 22px;
@@ -809,6 +809,7 @@ select.ms-field-inp { cursor: pointer; }
 /* ─── Tablet ─── */
 @media (max-width: 1024px) {
   .ms-sb { width: 200px; }
+  .ms-metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
   .ms-m-tile-val { font-size: 24px; }
   .ms-dash-body { grid-template-columns: 1fr; }
 }

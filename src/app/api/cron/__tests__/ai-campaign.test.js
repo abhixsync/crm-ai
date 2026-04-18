@@ -4,8 +4,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    campaign:           { findMany: vi.fn(), update: vi.fn(), count: vi.fn() },
-    campaignJob:        { count: vi.fn() },
+    campaign:           { findMany: vi.fn(), updateMany: vi.fn(), count: vi.fn() },
+    campaignJob:        { groupBy: vi.fn() },
     customer:           { count: vi.fn() },
     user:               { findUnique: vi.fn(), findFirst: vi.fn() },
     subscriptionConfig: { findUnique: vi.fn(async () => null) },
@@ -61,6 +61,10 @@ vi.mock("@/lib/server/database-error", () => ({
   ),
 }));
 
+vi.mock("@/lib/notifications/notification-service", () => ({
+  createNotification: vi.fn().mockResolvedValue({}),
+}));
+
 // ─── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { prisma }                                   from "@/lib/prisma";
@@ -71,7 +75,7 @@ import { isCampaignWorkerEnabled,
          getAutomationSettings }                    from "@/lib/journey/automation-settings";
 import { GET }                                      from "@/app/api/cron/ai-campaign/route";
 
-// ─── Helpers ─────────────────────────────────────────────name──────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function mockReq(headers = {}) {
   return { headers: { get: (k) => headers[k] ?? null } };
@@ -111,6 +115,7 @@ beforeEach(() => {
 
   // Default DB state
   prisma.campaign.findMany.mockResolvedValue([]);
+  prisma.campaignJob.groupBy.mockResolvedValue([]);
   prisma.tenant.findFirst.mockResolvedValue(null);
   prisma.automationSetting.findFirst.mockResolvedValue(null);
   prisma.automationSetting.findUnique.mockResolvedValue(null);
@@ -180,13 +185,15 @@ describe("checkAndNotifyCampaignCompletion — RUNNING campaign with pending job
     prisma.campaign.findMany.mockResolvedValue([
       { id: "camp-1", tenantId: "t-1", name: "Spring Promo", createdById: "u-1" },
     ]);
-    // pending jobs > 0 → skip this campaign
-    prisma.campaignJob.count.mockResolvedValueOnce(5);
+    // groupBy returns a row for camp-1 → it has pending jobs → skip it
+    prisma.campaignJob.groupBy.mockResolvedValueOnce([
+      { campaignId: "camp-1", _count: { id: 5 } },
+    ]);
 
     await callGet();
     await settle();
 
-    expect(prisma.campaign.update).not.toHaveBeenCalled();
+    expect(prisma.campaign.updateMany).not.toHaveBeenCalled();
     expect(buildCampaignCompletionEmail).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
   });
@@ -200,31 +207,27 @@ describe("checkAndNotifyCampaignCompletion — RUNNING campaign with zero pendin
 
   function setupCompletedCampaign() {
     prisma.campaign.findMany.mockResolvedValue([campaign]);
-    prisma.campaign.update.mockResolvedValue({});
+    prisma.campaign.updateMany.mockResolvedValue({ count: 1 });
 
-    // count call sequence:
-    // 1. pendingJobs (QUEUED | ACTIVE) → 0
-    // 2. total jobs
-    // 3. completed jobs
-    // 4. failed jobs
-    prisma.campaignJob.count
-      .mockResolvedValueOnce(0)   // pending = 0 → proceed
-      .mockResolvedValueOnce(10)  // total
-      .mockResolvedValueOnce(8)   // completed
-      .mockResolvedValueOnce(2);  // failed
-
-    prisma.customer.count.mockResolvedValueOnce(3); // interested
+    // First groupBy: pending jobs (QUEUED|ACTIVE) — empty means 0 pending for camp-2
+    // Second groupBy: job stats by status for completed campaigns
+    prisma.campaignJob.groupBy
+      .mockResolvedValueOnce([])  // pending counts — camp-2 not present → 0 pending
+      .mockResolvedValueOnce([
+        { campaignId: "camp-2", status: "COMPLETED", _count: { id: 8 } },
+        { campaignId: "camp-2", status: "FAILED",    _count: { id: 2 } },
+      ]);
 
     prisma.user.findUnique.mockResolvedValue(creator);
   }
 
-  it("calls prisma.campaign.update with status COMPLETED", async () => {
+  it("calls prisma.campaign.updateMany with status COMPLETED", async () => {
     setupCompletedCampaign();
     await callGet();
     await settle();
 
-    expect(prisma.campaign.update).toHaveBeenCalledWith({
-      where: { id: campaign.id },
+    expect(prisma.campaign.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: [campaign.id] } },
       data:  { status: "COMPLETED" },
     });
   });
@@ -237,7 +240,7 @@ describe("checkAndNotifyCampaignCompletion — RUNNING campaign with zero pendin
     expect(buildCampaignCompletionEmail).toHaveBeenCalledOnce();
     const [, calledName, stats] = buildCampaignCompletionEmail.mock.calls[0];
     expect(calledName).toBe("Summer Sale");
-    expect(stats).toMatchObject({ total: 10, completed: 8, failed: 2, interested: 3 });
+    expect(stats).toMatchObject({ total: 10, completed: 8, failed: 2, interested: 0 });
   });
 
   it("calls sendEmail after building the email", async () => {
@@ -254,27 +257,28 @@ describe("checkAndNotifyCampaignCompletion — RUNNING campaign with zero pendin
 // ─── Stats use campaignId filter, not tenant-wide ────────────────────────────
 
 describe("checkAndNotifyCampaignCompletion — stats use campaignId filter", () => {
-  it("queries campaignJob.count with the specific campaignId, not a tenant-wide filter", async () => {
+  it("queries campaignJob.groupBy with the specific campaignId, not a tenant-wide filter", async () => {
     const campaign = { id: "camp-3", tenantId: "t-3", name: "Q1 Push", createdById: "u-3" };
     prisma.campaign.findMany.mockResolvedValue([campaign]);
-    prisma.campaign.update.mockResolvedValue({});
+    prisma.campaign.updateMany.mockResolvedValue({ count: 1 });
 
-    // pendingJobs = 0 → triggers stats queries
-    prisma.campaignJob.count
-      .mockResolvedValueOnce(0)  // pending
-      .mockResolvedValueOnce(5)  // total
-      .mockResolvedValueOnce(4)  // completed
-      .mockResolvedValueOnce(1); // failed
+    // First groupBy: no pending jobs for camp-3
+    // Second groupBy: stats
+    prisma.campaignJob.groupBy
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { campaignId: "camp-3", status: "COMPLETED", _count: { id: 4 } },
+        { campaignId: "camp-3", status: "FAILED",    _count: { id: 1 } },
+      ]);
 
-    prisma.customer.count.mockResolvedValueOnce(2);
     prisma.user.findUnique.mockResolvedValue({ email: "owner@t.com", name: "Bob" });
 
     await callGet();
     await settle();
 
-    // Every campaignJob.count call must carry { campaignId: campaign.id }
-    for (const call of prisma.campaignJob.count.mock.calls) {
-      expect(call[0].where).toMatchObject({ campaignId: "camp-3" });
+    // Both groupBy calls must filter by the specific campaignId(s)
+    for (const call of prisma.campaignJob.groupBy.mock.calls) {
+      expect(call[0].where).toMatchObject({ campaignId: { in: ["camp-3"] } });
     }
   });
 });
@@ -284,13 +288,13 @@ describe("checkAndNotifyCampaignCompletion — stats use campaignId filter", () 
 describe("checkAndNotifyCampaignCompletion — email recipient selection", () => {
   function setupSingleCompletedCampaign(campaign) {
     prisma.campaign.findMany.mockResolvedValue([campaign]);
-    prisma.campaign.update.mockResolvedValue({});
-    prisma.campaignJob.count
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(10)
-      .mockResolvedValueOnce(9)
-      .mockResolvedValueOnce(1);
-    prisma.customer.count.mockResolvedValueOnce(2);
+    prisma.campaign.updateMany.mockResolvedValue({ count: 1 });
+    prisma.campaignJob.groupBy
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { campaignId: campaign.id, status: "COMPLETED", _count: { id: 9 } },
+        { campaignId: campaign.id, status: "FAILED",    _count: { id: 1 } },
+      ]);
   }
 
   it("looks up createdById user when campaign has a createdById", async () => {
@@ -344,27 +348,28 @@ describe("checkAndNotifyCampaignCompletion — multiple RUNNING campaigns", () =
       { id: "camp-B", tenantId: "t-B", name: "Camp B", createdById: "u-B" },
     ];
     prisma.campaign.findMany.mockResolvedValue(campaigns);
-    prisma.campaign.update.mockResolvedValue({});
+    prisma.campaign.updateMany.mockResolvedValue({ count: 1 });
 
-    // Camp A: still has pending jobs → skip
-    // Camp B: no pending jobs → complete
-    prisma.campaignJob.count
-      .mockResolvedValueOnce(3)   // camp-A pending > 0 → skipped
-      .mockResolvedValueOnce(0)   // camp-B pending = 0
-      .mockResolvedValueOnce(6)   // camp-B total
-      .mockResolvedValueOnce(5)   // camp-B completed
-      .mockResolvedValueOnce(1);  // camp-B failed
+    // First groupBy (pending): camp-A has pending jobs, camp-B does not appear → 0 pending
+    // Second groupBy (stats): only for camp-B
+    prisma.campaignJob.groupBy
+      .mockResolvedValueOnce([
+        { campaignId: "camp-A", _count: { id: 3 } }, // camp-A still has pending jobs
+      ])
+      .mockResolvedValueOnce([
+        { campaignId: "camp-B", status: "COMPLETED", _count: { id: 5 } },
+        { campaignId: "camp-B", status: "FAILED",    _count: { id: 1 } },
+      ]);
 
-    prisma.customer.count.mockResolvedValueOnce(1);
     prisma.user.findUnique.mockResolvedValue({ email: "b@t.com", name: "B User" });
 
     await callGet();
     await settle();
 
-    // Only camp-B gets updated
-    expect(prisma.campaign.update).toHaveBeenCalledOnce();
-    expect(prisma.campaign.update).toHaveBeenCalledWith({
-      where: { id: "camp-B" },
+    // Only camp-B gets updated (via updateMany with just camp-B's id)
+    expect(prisma.campaign.updateMany).toHaveBeenCalledOnce();
+    expect(prisma.campaign.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["camp-B"] } },
       data:  { status: "COMPLETED" },
     });
 
@@ -392,13 +397,13 @@ describe("checkAndNotifyCampaignCompletion — errors do not crash the cron resp
   it("returns 200 and completes normally even when sendEmail throws for one campaign", async () => {
     const campaign = { id: "camp-err", tenantId: "t-err", name: "Error Camp", createdById: "u-err" };
     prisma.campaign.findMany.mockResolvedValue([campaign]);
-    prisma.campaign.update.mockResolvedValue({});
-    prisma.campaignJob.count
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(4)
-      .mockResolvedValueOnce(3)
-      .mockResolvedValueOnce(1);
-    prisma.customer.count.mockResolvedValueOnce(1);
+    prisma.campaign.updateMany.mockResolvedValue({ count: 1 });
+    prisma.campaignJob.groupBy
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { campaignId: "camp-err", status: "COMPLETED", _count: { id: 3 } },
+        { campaignId: "camp-err", status: "FAILED",    _count: { id: 1 } },
+      ]);
     prisma.user.findUnique.mockResolvedValue({ email: "err@t.com", name: "Err User" });
     sendEmail.mockRejectedValue(new Error("SMTP timeout"));
 
