@@ -30,6 +30,18 @@ function getCorsHeaders(origin) {
   };
 }
 
+function isAllowedOrigin(origin) {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS === "*") return true;
+  if (ALLOWED_ORIGINS instanceof Set && ALLOWED_ORIGINS.has(origin)) return true;
+  // Allow any subdomain of APP_DOMAIN (tenant white-label subdomains)
+  try {
+    const { hostname } = new URL(origin);
+    if (hostname === APP_DOMAIN || hostname.endsWith(`.${APP_DOMAIN}`)) return true;
+  } catch {}
+  return false;
+}
+
 // ─── In-process tenant cache (60s TTL) ───────────────────────────────────────
 const _cache = new Map();
 function getCached(key) {
@@ -205,30 +217,18 @@ export async function middleware(request) {
     if (request.method === "OPTIONS") {
       // Preflight: respond immediately
       if (!origin) return withCsp(new Response(null, { status: 204 }));
-      let matched = null;
-      if (ALLOWED_ORIGINS === "*") {
-        matched = origin;
-      } else if (ALLOWED_ORIGINS instanceof Set && ALLOWED_ORIGINS.has(origin)) {
-        matched = origin;
-      }
-      if (!matched) {
+      if (!isAllowedOrigin(origin)) {
         return withCsp(Response.json({ error: "Forbidden" }, { status: 403 }));
       }
-      return withCsp(new Response(null, { status: 204, headers: getCorsHeaders(matched) }));
+      return withCsp(new Response(null, { status: 204, headers: getCorsHeaders(origin) }));
     }
 
     // Non-OPTIONS cross-origin: enforce origin and stash headers for later
     if (origin) {
-      let matched = null;
-      if (ALLOWED_ORIGINS === "*") {
-        matched = origin;
-      } else if (ALLOWED_ORIGINS instanceof Set && ALLOWED_ORIGINS.has(origin)) {
-        matched = origin;
-      }
-      if (!matched) {
+      if (!isAllowedOrigin(origin)) {
         return withCsp(Response.json({ error: "Forbidden" }, { status: 403 }));
       }
-      corsResponseHeaders = getCorsHeaders(matched);
+      corsResponseHeaders = getCorsHeaders(origin);
     }
   }
 
