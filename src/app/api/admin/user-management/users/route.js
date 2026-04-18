@@ -18,7 +18,7 @@ export async function GET(request) {
     const tenant = getTenantContext(auth.session, request);
     // SUPER_ADMIN: honour explicit tenantId query param (from tenant switcher)
     const qTenantId = tenant.isSuperAdmin
-      ? (new URL(request.url).searchParams.get("tenantId") || tenant.tenantId || undefined)
+      ? (request.nextUrl?.searchParams?.get("tenantId") || tenant.tenantId || undefined)
       : tenant.tenantId;
     const users = await listUsers(qTenantId);
     return Response.json({ users });
