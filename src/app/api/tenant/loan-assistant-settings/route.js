@@ -196,14 +196,16 @@ export async function GET(request) {
       return Response.json({ error: 'Unauthorized', success: false }, { status: 401 });
     }
 
-    const tenantId = request.headers.get('X-Tenant-ID');
-
-    if (!tenantId) {
-      return Response.json(
-        { error: 'X-Tenant-ID header is required', success: false },
-        { status: 400 }
-      );
+    const sessionTenantId = session.user.tenantId;
+    const requestedTenantId = request.headers.get('X-Tenant-ID');
+    if (!requestedTenantId) {
+      return Response.json({ error: 'X-Tenant-ID header is required', success: false }, { status: 400 });
     }
+    // Non-SUPER_ADMIN can only access their own tenant
+    if (session.user.role !== 'SUPER_ADMIN' && sessionTenantId !== requestedTenantId) {
+      return Response.json({ error: 'Forbidden', success: false }, { status: 403 });
+    }
+    const tenantId = requestedTenantId;
 
     if (inDatabaseUnavailableCooldown()) {
       return databaseUnavailableResponse({
@@ -307,14 +309,16 @@ export async function PUT(request) {
       return Response.json({ error: 'Unauthorized', success: false }, { status: 401 });
     }
 
-    const tenantId = request.headers.get('X-Tenant-ID');
-
-    if (!tenantId) {
-      return Response.json(
-        { error: 'X-Tenant-ID header is required', success: false },
-        { status: 400 }
-      );
+    const sessionTenantId = session.user.tenantId;
+    const requestedTenantId = request.headers.get('X-Tenant-ID');
+    if (!requestedTenantId) {
+      return Response.json({ error: 'X-Tenant-ID header is required', success: false }, { status: 400 });
     }
+    // Non-SUPER_ADMIN can only access their own tenant
+    if (session.user.role !== 'SUPER_ADMIN' && sessionTenantId !== requestedTenantId) {
+      return Response.json({ error: 'Forbidden', success: false }, { status: 403 });
+    }
+    const tenantId = requestedTenantId;
 
     if (inDatabaseUnavailableCooldown()) {
       return databaseUnavailableResponse({

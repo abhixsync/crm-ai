@@ -2,10 +2,13 @@ import bcrypt from "bcryptjs";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 
+const TOKEN_RECHECK_INTERVAL = 5 * 60; // 5 minutes in seconds
+
 export const authOptions = {
   trustHost: true,
   session: {
     strategy: "jwt",
+    maxAge: 8 * 60 * 60, // 8 hours
   },
   pages: {
     signIn: "/login",
@@ -39,17 +42,13 @@ export const authOptions = {
           },
         });
 
-        if (!user) {
-          return null;
-        }
+        // Constant-time: always run bcrypt even if user not found
+        const DUMMY_HASH = "$2a$12$dummy.hash.for.timing.equality.only.placeholder.xx";
+        const hashToCheck = user ? user.passwordHash : DUMMY_HASH;
+        const isValid = await bcrypt.compare(rawPassword, hashToCheck);
+        if (!user || !isValid) return null;
 
         if (user.isActive === false) {
-          return null;
-        }
-
-        const isValid = await bcrypt.compare(rawPassword, user.passwordHash);
-
-        if (!isValid) {
           return null;
         }
 
@@ -81,12 +80,38 @@ export const authOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // Initial sign-in: populate token from authorize() result
         token.userId = user.id;
         token.role = user.role;
         token.tenantId = user.tenantId || null;
         token.isPrimaryOwner = user.isPrimaryOwner ?? false;
         token.isSuspended = user.isSuspended ?? false;
         token.emailVerified = user.emailVerified || null;
+        token.tokenCheckedAt = Math.floor(Date.now() / 1000);
+        return token;
+      }
+
+      // Subsequent requests: re-check DB at most once every 5 minutes
+      const now = Math.floor(Date.now() / 1000);
+      const lastCheck = token.tokenCheckedAt ?? 0;
+
+      if (now - lastCheck >= TOKEN_RECHECK_INTERVAL) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.userId },
+          select: { isSuspended: true, role: true, emailVerified: true },
+        });
+
+        // User deleted or suspended — invalidate session immediately
+        if (!dbUser || dbUser.isSuspended) {
+          return null;
+        }
+
+        token.role = dbUser.role;
+        token.emailVerified = dbUser.emailVerified
+          ? dbUser.emailVerified.toISOString()
+          : null;
+        token.isSuspended = false;
+        token.tokenCheckedAt = now;
       }
 
       return token;

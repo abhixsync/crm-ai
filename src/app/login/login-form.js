@@ -10,6 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import "@/components/shells/modern/modern-shell.css";
 
+function safeBgUrl(url) {
+  if (!url) return undefined;
+  const s = String(url).trim();
+  // Only allow relative paths, /uploads/, or https:// URLs without special chars
+  if (/^(\/[^);\n]*|https:\/\/[^);\n"']+)$/.test(s)) {
+    return `url(${s})`;
+  }
+  return undefined;
+}
+
 export default function LoginForm({ theme, tenantId, tenantSlug }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -51,9 +61,11 @@ export default function LoginForm({ theme, tenantId, tenantSlug }) {
     });
 
     if (result?.error) {
-      const msg = result.error === "ACCESS_DENIED_TENANT"
+      const msg = result.error === "AccessDenied" || result.error === "ACCESS_DENIED_TENANT"
         ? "You don't have access to this workspace."
-        : "Invalid username/email or password";
+        : result.error === "SUSPENDED"
+        ? "Your account has been suspended. Please contact your administrator."
+        : "Invalid credentials. Please try again.";
       toast.error(msg);
       setLoading(false);
       return;
@@ -66,7 +78,7 @@ export default function LoginForm({ theme, tenantId, tenantSlug }) {
   // Modern login
   if (theme.uiLayout === "modern") {
     const loginBgStyle = theme.loginBackgroundUrl
-      ? { backgroundImage: `url(${theme.loginBackgroundUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+      ? { backgroundImage: safeBgUrl(theme.loginBackgroundUrl), backgroundSize: "cover", backgroundPosition: "center" }
       : undefined;
 
     return (
@@ -80,7 +92,7 @@ export default function LoginForm({ theme, tenantId, tenantSlug }) {
           <div className="ms-login-title">
             Sign in to {process.env.NEXT_PUBLIC_APP_NAME || "CRM AI"}
           </div>
-          <div className="ms-login-subtitle">Enter your credentials to continue</div>
+          <div className="ms-login-subtitle">{process.env.NEXT_PUBLIC_APP_TAGLINE || "Enter your credentials to continue"}</div>
           <form className="ms-login-form" onSubmit={onSubmit}>
             <input
               className="ms-login-input"
@@ -108,7 +120,7 @@ export default function LoginForm({ theme, tenantId, tenantSlug }) {
             </Link>
           </div>
           {!tenantId && (
-            <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--text-muted, #706C78)" }}>
+            <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--ms-text2)" }}>
               Don&apos;t have an account?{" "}
               <Link href="/register" style={{ color: "var(--ms-accent)", textDecoration: "none" }}>
                 Start free trial
@@ -124,14 +136,14 @@ export default function LoginForm({ theme, tenantId, tenantSlug }) {
   return (
     <main
       className="flex min-h-screen items-center justify-center p-4 sm:p-6"
-      style={theme.loginBackgroundUrl ? { backgroundImage: `url(${theme.loginBackgroundUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+      style={theme.loginBackgroundUrl ? { backgroundImage: safeBgUrl(theme.loginBackgroundUrl), backgroundSize: "cover", backgroundPosition: "center" } : undefined}
     >
       <Card className="w-full max-w-md">
         <CardHeader className="pb-4">
           <CardTitle style={{ color: "var(--accent)" }}>
-            Sign in to {process.env.APP_NAME || "Loan CRM"}
+            Sign in to {process.env.NEXT_PUBLIC_APP_NAME || "CRM AI"}
           </CardTitle>
-          <CardDescription>Use super admin/admin credentials from seed data or your own user.</CardDescription>
+          <CardDescription>Enter your credentials to sign in.</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
           <form className="space-y-4" onSubmit={onSubmit}>

@@ -71,6 +71,7 @@ export async function POST(request) {
   const tenant = getTenantContext(auth.session, request);
 
   try {
+    // Verify customer exists first so we can return 404 before attempting lock
     customer = await prisma.customer.findFirst({
       where: {
         id: customerId,
@@ -80,6 +81,20 @@ export async function POST(request) {
 
     if (!customer) {
       return Response.json({ error: "Customer not found" }, { status: 404 });
+    }
+
+    // Atomic lock: only succeeds if inActiveCall is currently false
+    const lockResult = await prisma.customer.updateMany({
+      where: {
+        id: customerId,
+        tenantId: customer.tenantId,
+        inActiveCall: false,
+      },
+      data: { inActiveCall: true },
+    });
+
+    if (lockResult.count === 0) {
+      return Response.json({ error: "Customer is already in an active call" }, { status: 409 });
     }
 
     callLog = await prisma.callLog.create({
@@ -125,6 +140,11 @@ export async function POST(request) {
     await prisma.callLog.update({
       where: { id: callLog.id },
       data: { status: "FAILED", errorReason: err.code ?? "INSUFFICIENT_CREDITS" },
+    }).catch(() => {});
+    // Release the active-call lock so the customer can be retried
+    await prisma.customer.updateMany({
+      where: { id: customer.id, tenantId: customer.tenantId },
+      data: { inActiveCall: false },
     }).catch(() => {});
     return Response.json(
       { error: err.message, code: err.code, available: err.available, required: err.required },

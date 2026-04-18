@@ -6,6 +6,16 @@ import { toast } from "sonner";
 import Link from "next/link";
 import "@/components/shells/modern/modern-shell.css";
 
+function safeBgUrl(url) {
+  if (!url) return undefined;
+  const s = String(url).trim();
+  // Only allow relative paths, /uploads/, or https:// URLs without special chars
+  if (/^(\/[^);\n]*|https:\/\/[^);\n"']+)$/.test(s)) {
+    return `url(${s})`;
+  }
+  return undefined;
+}
+
 export default function RegisterForm({ theme = {}, trialDays = 30 }) {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", password: "", company: "", phone: "" });
@@ -73,6 +83,7 @@ export default function RegisterForm({ theme = {}, trialDays = 30 }) {
       }
 
       setDoneEmail(form.email);
+      setLoading(false);
       setDone(true);
     } catch {
       toast.error("Network error. Please try again.");
@@ -81,7 +92,7 @@ export default function RegisterForm({ theme = {}, trialDays = 30 }) {
   }
 
   const bgStyle = theme.loginBackgroundUrl
-    ? { backgroundImage: `url(${theme.loginBackgroundUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+    ? { backgroundImage: safeBgUrl(theme.loginBackgroundUrl), backgroundSize: "cover", backgroundPosition: "center" }
     : undefined;
 
   if (done) {
@@ -147,7 +158,7 @@ export default function RegisterForm({ theme = {}, trialDays = 30 }) {
             className="ms-login-input"
             type="password"
             name="password"
-            placeholder="Password (min 12 chars, upper, lower, number, symbol)"
+            placeholder="Password"
             value={form.password}
             onChange={onChange}
             required
@@ -155,6 +166,9 @@ export default function RegisterForm({ theme = {}, trialDays = 30 }) {
             maxLength={128}
             autoComplete="new-password"
           />
+          <div style={{ fontSize: 11, color: "var(--ms-text3)", marginTop: -4 }}>
+            Min 12 characters · uppercase · lowercase · number · symbol
+          </div>
           <input
             className="ms-login-input"
             type="text"
@@ -168,7 +182,7 @@ export default function RegisterForm({ theme = {}, trialDays = 30 }) {
             className="ms-login-input"
             type="tel"
             name="phone"
-            placeholder="Phone Number (optional, e.g. +91 555-123-4567)"
+            placeholder="Phone Number (optional)"
             value={form.phone}
             onChange={onChange}
             minLength={7}
@@ -181,7 +195,7 @@ export default function RegisterForm({ theme = {}, trialDays = 30 }) {
           </button>
         </form>
 
-        <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--text-muted, #706C78)" }}>
+        <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--ms-text2)" }}>
           Already have an account?{" "}
           <Link href="/login" style={{ color: "var(--ms-accent)", textDecoration: "none" }}>
             Sign in

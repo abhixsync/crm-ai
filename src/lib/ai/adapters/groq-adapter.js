@@ -10,10 +10,10 @@ import { buildUnifiedCallTurnPrompt } from "@/lib/ai/system-prompt";
 
 
 
-const DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant";
+const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
 const GROQ_MODEL_FALLBACK_ORDER = [
   DEFAULT_GROQ_MODEL,
-  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",  // fast fallback if 70b is rate-limited
 ];
 
 function fallbackScript(customer) {

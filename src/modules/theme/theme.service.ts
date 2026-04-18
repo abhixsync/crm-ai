@@ -415,16 +415,45 @@ function sanitizeFileName(fileName: string) {
 }
 
 export async function uploadThemeAsset(tenantId: string | null, file: File) {
-  const targetTenantId = tenantId || "global"; // Use "global" for base theme assets
+  // 1. Validate file type — SVG excluded (XSS risk when served directly)
+  const ALLOWED_MIME = new Set([
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/x-icon",
+    "image/gif",
+  ]);
+  if (!ALLOWED_MIME.has(file.type)) {
+    throw new Error("File type not allowed. Use PNG, JPEG, WebP, GIF, or ICO.");
+  }
+
+  // 2. Size limit: 5MB
+  const MAX_SIZE = 5 * 1024 * 1024;
+  if (file.size > MAX_SIZE) {
+    throw new Error("File too large. Maximum size is 5MB.");
+  }
+
+  // 3. Sanitize tenantId for use as directory name — prevent path traversal
+  const rawId = (tenantId || "global").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const safeTenantId = rawId || "global";
+
   const buffer = Buffer.from(await file.arrayBuffer());
-  const assetDir = path.join(process.cwd(), "public", "uploads", "themes", targetTenantId);
+  const assetDir = path.join(process.cwd(), "public", "uploads", "themes", safeTenantId);
+
+  // 4. Verify resolved path stays within the allowed base directory
+  const allowedBase = path.resolve(path.join(process.cwd(), "public", "uploads", "themes"));
+  const resolvedDir = path.resolve(assetDir);
+  if (!resolvedDir.startsWith(allowedBase + path.sep) && resolvedDir !== allowedBase) {
+    throw new Error("Invalid upload path.");
+  }
+
   await fs.mkdir(assetDir, { recursive: true });
 
   const safeName = sanitizeFileName(file.name || "asset.bin");
   const absolutePath = path.join(assetDir, safeName);
   await fs.writeFile(absolutePath, buffer);
 
-  return `/uploads/themes/${targetTenantId}/${safeName}`;
+  return `/uploads/themes/${safeTenantId}/${safeName}`;
 }
 
 // 🏷️ GET DEFAULT THEME (LEGACY)

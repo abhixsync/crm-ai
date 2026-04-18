@@ -116,9 +116,6 @@ export async function POST(request) {
   }
 
   try {
-    const guard = await getPlanGuard(tenantId);
-    guard.assertCanAddCustomer();
-
     const existing = await prisma.customer.findFirst({ where: { tenantId, phone: String(body.phone) } });
 
     if (existing && !existing.archivedAt) {
@@ -126,6 +123,9 @@ export async function POST(request) {
     }
 
     if (existing && existing.archivedAt) {
+      const guard = await getPlanGuard(tenantId);
+      guard.assertCanAddCustomer();
+
       const customer = await prisma.customer.update({
         where: { id: existing.id },
         data: {
@@ -157,22 +157,41 @@ export async function POST(request) {
       return Response.json({ customer });
     }
 
-    const customer = await prisma.customer.create({
-      data: {
-        tenantId,
-        firstName: body.firstName,
-        lastName: body.lastName || null,
-        phone: String(body.phone),
-        email: body.email || null,
-        city: body.city || null,
-        state: body.state || null,
-        source: body.source || "Manual Entry",
-        loanType: body.loanType || null,
-        loanAmount: body.loanAmount ? Number(body.loanAmount) : null,
-        monthlyIncome: body.monthlyIncome ? Number(body.monthlyIncome) : null,
-        status: body.status || "NEW",
-        notes: body.notes || null,
-      },
+    // ─── New customer: atomically check plan limit and create ─────────
+    const customer = await prisma.$transaction(async (tx) => {
+      const guard = await getPlanGuard(tenantId);
+      const limit = guard.limits.maxCustomers;
+
+      if (limit !== -1) {
+        const currentCount = await tx.customer.count({
+          where: { tenantId, archivedAt: null },
+        });
+        if (currentCount >= limit) {
+          const err = new Error(`customers limit reached (${currentCount}/${limit}). Upgrade your plan to add more.`);
+          err.name = "PlanLimitError";
+          err.feature = "customers";
+          err.status = 402;
+          throw err;
+        }
+      }
+
+      return tx.customer.create({
+        data: {
+          tenantId,
+          firstName: body.firstName,
+          lastName: body.lastName || null,
+          phone: String(body.phone),
+          email: body.email || null,
+          city: body.city || null,
+          state: body.state || null,
+          source: body.source || "Manual Entry",
+          loanType: body.loanType || null,
+          loanAmount: body.loanAmount ? Number(body.loanAmount) : null,
+          monthlyIncome: body.monthlyIncome ? Number(body.monthlyIncome) : null,
+          status: body.status || "NEW",
+          notes: body.notes || null,
+        },
+      });
     });
 
     try {
@@ -188,6 +207,13 @@ export async function POST(request) {
     if (isDatabaseUnavailable(error)) {
       console.warn("[api/customers] Database unavailable during create/update.");
       return databaseUnavailableResponse();
+    }
+
+    if (error.name === "PlanLimitError") {
+      return Response.json(
+        { error: error.message, code: "PLAN_LIMIT", feature: error.feature, upgrade: true },
+        { status: 402 }
+      );
     }
 
     if (isPlanLimitError(error)) return planLimitResponse(error);

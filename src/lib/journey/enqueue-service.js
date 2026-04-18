@@ -37,7 +37,6 @@ export async function enqueueCustomerIfEligible(customerId, reason = "new_custom
       customerId,
       reason,
       status: CampaignJobStatus.QUEUED,
-      enqueuedAt: new Date(),
       errorMessage: null,
       result: null,
       failedAt: null,
@@ -53,7 +52,6 @@ export async function enqueueCustomerIfEligible(customerId, reason = "new_custom
       customerId,
       reason,
       status: CampaignJobStatus.QUEUED,
-      enqueuedAt: new Date(),
       metadata: {
         source: "enqueue-service",
         executionRuntime: "WORKER",

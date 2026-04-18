@@ -1,15 +1,8 @@
 import { Queue } from "bullmq";
 import net from "node:net";
+import { getRedisOptions } from "@/lib/redis/options";
 
-const redisHost = process.env.REDIS_HOST || "127.0.0.1";
-const redisPort = Number(process.env.REDIS_PORT || 6379);
-const redisPassword = process.env.REDIS_PASSWORD || undefined;
-
-export const queueConnection = {
-  host: redisHost,
-  port: redisPort,
-  password: redisPassword,
-};
+export const queueConnection = getRedisOptions();
 
 export const AI_CAMPAIGN_QUEUE = "ai-campaign";
 
@@ -46,6 +39,10 @@ async function canReachRedis() {
 
       resolve(reachable);
     };
+
+    const opts = getRedisOptions();
+    const redisHost = opts.host || "127.0.0.1";
+    const redisPort = opts.port || 6379;
 
     socket.setTimeout(REDIS_CONNECT_TIMEOUT_MS);
     socket.once("connect", () => finish(true));

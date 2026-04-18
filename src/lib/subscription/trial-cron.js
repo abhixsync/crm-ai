@@ -99,9 +99,14 @@ async function expirePastDue() {
   });
 
   for (const sub of pastDue) {
+    const graceDays = 7; // default grace period
+    const gracePeriodEndsAt = new Date(Date.now() + graceDays * 24 * 60 * 60 * 1000);
     await prisma.tenantSubscription.update({
       where: { id: sub.id },
-      data: { status: "PAST_DUE" },
+      data: {
+        status: "PAST_DUE",
+        gracePeriodEndsAt,
+      },
     });
   }
 

@@ -211,19 +211,46 @@ export function getThemeFingerprint(theme: ThemeTokens) {
   ]);
 }
 
-export function sanitizeThemeCustomCss(customCss: string | null | undefined) {
-  const source = String(customCss || "");
-  if (!source.trim()) {
-    return "";
+export function sanitizeThemeCustomCss(customCss: string | null | undefined): string {
+  if (!customCss) return "";
+
+  // Normalize: collapse all whitespace sequences (including \n, \r, \t) to single space
+  // This prevents bypass via whitespace injection (e.g., @\nimport)
+  let css = String(customCss)
+    .replace(/[\r\n\t\f\v]+/g, " ")   // normalize all whitespace chars to space
+    .replace(/\s{2,}/g, " ")           // collapse multiple spaces
+    .trim();
+
+  // Block dangerous at-rules (case-insensitive, space-normalized)
+  css = css.replace(/@\s*import\b[^;]*;?/gi, "");
+  css = css.replace(/@\s*charset\b[^;]*;?/gi, "");
+  css = css.replace(/@\s*namespace\b[^;]*;?/gi, "");
+
+  // Block script injection
+  css = css.replace(/<\s*script[^>]*>.*?<\s*\/\s*script\s*>/gi, "");
+  css = css.replace(/<[^>]*>/g, "");
+
+  // Block expression() in all forms (IE CSS expressions)
+  css = css.replace(/\bexpression\s*\(/gi, "");
+
+  // Block javascript: and vbscript: protocols
+  css = css.replace(/\bjavascript\s*:/gi, "");
+  css = css.replace(/\bvbscript\s*:/gi, "");
+
+  // Block behavior: and -moz-binding: (legacy XSS vectors)
+  css = css.replace(/\bbehavior\s*:/gi, "");
+  css = css.replace(/-moz-binding\s*:/gi, "");
+
+  // Block url() with external domains — only allow relative URLs, data:image, and /uploads/
+  // Replace url("http://...") and url('http://...') with empty string
+  css = css.replace(/url\s*\(\s*(['"]?)(?!\/|data:image\/)(?:https?:|ftp:|\/\/)[^)]*\1\s*\)/gi, "url()");
+
+  // Limit length to prevent DoS
+  if (css.length > 50_000) {
+    css = css.slice(0, 50_000);
   }
 
-  const strippedScripts = source.replace(/<\/?script[^>]*>/gi, "");
-  const strippedImports = strippedScripts.replace(/@import\s+[^;]+;/gi, "");
-  const strippedExpressions = strippedImports
-    .replace(/expression\s*\(/gi, "")
-    .replace(/url\s*\(\s*['\"]?\s*javascript:/gi, "url(");
-
-  return strippedExpressions;
+  return css;
 }
 
 export function getContrastHint(foreground: string, background: string) {

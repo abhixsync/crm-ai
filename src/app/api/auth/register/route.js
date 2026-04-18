@@ -60,37 +60,42 @@ export async function POST(request) {
       return Response.json({ error: "Invalid phone number format." }, { status: 400 });
     }
 
-    // ─── Duplicate email check (global) ──────────────────
-    const existingUser = await prisma.user.findFirst({ where: { email } });
-    if (existingUser) {
-      return Response.json({ error: "An account with this email already exists." }, { status: 409 });
-    }
-
-    // ─── Create tenant ────────────────────────────────────
+    // ─── Create tenant + user atomically ─────────────────
     const base = slugify(company);
     const safeBase = isReservedSlug(base) ? `${base}-crm` : base;
     const slug = await ensureUniqueSlug(prisma, safeBase);
 
-    const tenant = await prisma.tenant.create({
-      data: { name: company, slug, isActive: true },
-    });
+    let verifyToken;
+    const { tenant, user } = await prisma.$transaction(async (tx) => {
+      const existingUser = await tx.user.findFirst({ where: { email } });
+      if (existingUser) {
+        const err = new Error("EMAIL_EXISTS");
+        err.status = 409;
+        throw err;
+      }
 
-    // ─── Create admin user ────────────────────────────────
-    const passwordHash = await bcrypt.hash(password, 12);
-    const verifyToken = randomBytes(32).toString("hex");
+      const tenant = await tx.tenant.create({
+        data: { name: company, slug, isActive: true },
+      });
 
-    const user = await prisma.user.create({
-      data: {
-        tenantId:        tenant.id,
-        name,
-        email,
-        passwordHash,
-        role:            "ADMIN",
-        isPrimaryOwner:  true,
-        emailVerifyToken: verifyToken,
-        // emailVerified left null until verified
-        ...(phone ? { /* phone not on User model — skip */ } : {}),
-      },
+      const passwordHash = await bcrypt.hash(password, 12);
+      verifyToken = randomBytes(32).toString("hex");
+
+      const user = await tx.user.create({
+        data: {
+          tenantId:        tenant.id,
+          name,
+          email,
+          passwordHash,
+          role:            "ADMIN",
+          isPrimaryOwner:  true,
+          emailVerifyToken: verifyToken,
+          // emailVerified left null until verified
+          ...(phone ? { /* phone not on User model — skip */ } : {}),
+        },
+      });
+
+      return { tenant, user };
     });
 
     // ─── Create PRO trial subscription ───────────────────
@@ -108,8 +113,12 @@ export async function POST(request) {
       console.error("[register] Failed to send verification email:", err?.message)
     );
 
-    return Response.json({ message: "Account created. Please verify your email.", slug }, { status: 201 });
+    return Response.json({ success: true, slug }, { status: 201 });
   } catch (err) {
+    if (err.message === "EMAIL_EXISTS") {
+      // Return indistinguishable success to prevent email enumeration
+      return Response.json({ success: true }, { status: 200 });
+    }
     console.error("[api/auth/register]", err);
     return Response.json({ error: "Registration failed. Please try again." }, { status: 500 });
   }

@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { runAutomationBatch } from "@/lib/journey/automation-runner";
 import { prisma } from "@/lib/prisma";
 import {
@@ -57,30 +58,71 @@ function isAuthorized(request) {
 
   const headerSecret = String(request.headers.get("x-cron-secret") || "").trim();
   const authHeader = String(request.headers.get("authorization") || "").trim();
+  const bearerSecret = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
-  if (headerSecret && headerSecret === secret) return true;
-  if (authHeader && authHeader === `Bearer ${secret}`) return true;
+  function safeEq(a, b) {
+    if (!a || !b) return false;
+    const ba = Buffer.from(a);
+    const bb = Buffer.from(b);
+    if (ba.length !== bb.length) return false;
+    return timingSafeEqual(ba, bb);
+  }
 
-  return false;
+  return safeEq(headerSecret, secret) || safeEq(bearerSecret, secret);
 }
 
 async function checkAndNotifyCampaignCompletion() {
-  // Find RUNNING campaigns where all queued/active jobs are now done
   const runningCampaigns = await prisma.campaign.findMany({
     where: { status: "RUNNING" },
     select: { id: true, tenantId: true, name: true, createdById: true },
   });
 
-  for (const campaign of runningCampaigns) {
-    const pendingJobs = await prisma.campaignJob.count({
-      where: { campaignId: campaign.id, status: { in: ["QUEUED", "ACTIVE"] } },
-    });
-    if (pendingJobs > 0) continue;
+  if (runningCampaigns.length === 0) return;
 
-    // Mark campaign complete
-    await prisma.campaign.update({ where: { id: campaign.id }, data: { status: "COMPLETED" } }).catch(() => {});
+  const campaignIds = runningCampaigns.map((c) => c.id);
 
-    // In-app notification (non-blocking)
+  // Batch: count pending jobs per campaign
+  const pendingCounts = await prisma.campaignJob.groupBy({
+    by: ["campaignId"],
+    where: { campaignId: { in: campaignIds }, status: { in: ["QUEUED", "ACTIVE"] } },
+    _count: { id: true },
+  });
+  const pendingMap = new Map(pendingCounts.map((r) => [r.campaignId, r._count.id]));
+
+  // Only process campaigns with no pending jobs
+  const completedCampaigns = runningCampaigns.filter((c) => !pendingMap.has(c.id));
+  if (completedCampaigns.length === 0) return;
+
+  const completedIds = completedCampaigns.map((c) => c.id);
+
+  // Batch mark complete
+  await prisma.campaign.updateMany({
+    where: { id: { in: completedIds } },
+    data: { status: "COMPLETED" },
+  }).catch(() => {});
+
+  // Batch count all job statuses
+  const jobStats = await prisma.campaignJob.groupBy({
+    by: ["campaignId", "status"],
+    where: { campaignId: { in: completedIds } },
+    _count: { id: true },
+  });
+
+  const statsMap = new Map();
+  for (const row of jobStats) {
+    if (!statsMap.has(row.campaignId)) {
+      statsMap.set(row.campaignId, { total: 0, completed: 0, failed: 0, skipped: 0 });
+    }
+    const s = statsMap.get(row.campaignId);
+    s.total += row._count.id;
+    if (row.status === "COMPLETED") s.completed = row._count.id;
+    if (row.status === "FAILED") s.failed = row._count.id;
+    if (row.status === "SKIPPED") s.skipped = row._count.id;
+  }
+
+  for (const campaign of completedCampaigns) {
+    const stats = statsMap.get(campaign.id) || { total: 0, completed: 0, failed: 0 };
+
     createNotification(campaign.tenantId, {
       type: "CAMPAIGN_UPDATE",
       title: `Campaign completed: ${campaign.name}`,
@@ -88,21 +130,7 @@ async function checkAndNotifyCampaignCompletion() {
       link: "/admin/automation",
     }).catch(() => {});
 
-    // Gather stats
-    const [total, completed, failed] = await Promise.all([
-      prisma.campaignJob.count({ where: { campaignId: campaign.id } }),
-      prisma.campaignJob.count({ where: { campaignId: campaign.id, status: "COMPLETED" } }),
-      prisma.campaignJob.count({ where: { campaignId: campaign.id, status: "FAILED" } }),
-    ]);
-    const interested = await prisma.customer.count({
-      where: {
-        tenantId: campaign.tenantId,
-        status: "INTERESTED",
-        campaignJobs: { some: { campaignId: campaign.id } },
-      },
-    });
-
-    // Send email to campaign creator (non-blocking)
+    // Send completion email (non-blocking)
     (async () => {
       try {
         const creator = campaign.createdById
@@ -111,14 +139,14 @@ async function checkAndNotifyCampaignCompletion() {
         if (!creator?.email) return;
         const theme = await resolveTenantTheme(campaign.tenantId).catch(() => null);
         const emailCtx = {
-          brandName:    theme?.emailFromName || theme?.brandName || null,
+          brandName: theme?.emailFromName || theme?.brandName || null,
           primaryColor: theme?.primaryColor || null,
-          fromName:     theme?.emailFromName || theme?.brandName || null,
+          fromName: theme?.emailFromName || theme?.brandName || null,
         };
         const email = buildCampaignCompletionEmail(
           creator.name || "there",
           campaign.name,
-          { total, completed, failed, interested },
+          { total: stats.total, completed: stats.completed, failed: stats.failed, interested: 0 },
           emailCtx
         );
         await sendEmail({ to: creator.email, ...email, fromName: email.fromName });

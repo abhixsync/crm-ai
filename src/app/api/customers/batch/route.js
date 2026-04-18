@@ -62,7 +62,15 @@ export async function POST(request) {
         return Response.json({ error: "status is required for UPDATE_STATUS" }, { status: 400 });
       }
       const result = await prisma.customer.updateMany({
-        where: { id: { in: customerIds }, tenantId, archivedAt: null },
+        where: {
+          id: { in: customerIds },
+          tenantId,
+          archivedAt: null,
+          // Prevent overwriting terminal states
+          status: { notIn: ["DO_NOT_CALL", "CONVERTED"] },
+          // Prevent updating customers in active calls
+          inActiveCall: false,
+        },
         data: { status: parsed.status },
       });
       invalidateCache(`metrics:${tenantId}:0`, `metrics:${tenantId}:1`).catch(() => {});

@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import { cache } from "react";
 import { getServerSession } from "next-auth";
+import { headers } from "next/headers";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { TenantSwitcherProvider } from "@/components/providers/tenant-switcher-provider";
@@ -67,8 +68,6 @@ const getBootstrapData = cache(async () => {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export async function generateMetadata() {
@@ -89,7 +88,6 @@ export async function generateMetadata() {
     : undefined;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-  const defaultOgImage = "/theme/defaults/application-background.png";
 
   return {
     metadataBase: appUrl ? new URL(appUrl) : undefined,
@@ -101,26 +99,19 @@ export async function generateMetadata() {
       description,
       siteName: crmTitle,
       type: "website",
-      images: [
-        {
-          url: faviconWithVersion || defaultOgImage,
-          width: 1200,
-          height: 630,
-          alt: crmTitle,
-        },
-      ],
     },
     twitter: {
       card: "summary_large_image",
       title: crmTitle,
       description,
-      images: [faviconWithVersion || defaultOgImage],
     },
   };
 }
 
 export default async function RootLayout({ children }) {
   const { tenantId, preloadedTheme, crmTitle, tenantName, uiLayout, session } = await getBootstrapData();
+
+  const nonce = (await headers()).get("x-nonce") ?? "";
 
   const cssVariables = getThemeCssVariables(preloadedTheme);
   const brandName = crmTitle || "CRM AI";
@@ -132,6 +123,7 @@ export default async function RootLayout({ children }) {
         {/* Inline script to apply the stored dark/light preference before first paint,
             preventing a flash when the user's preference differs from the default. */}
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('ms-ui-theme')||'light';document.documentElement.setAttribute('data-ui-theme',t);}catch(e){document.documentElement.setAttribute('data-ui-theme','light');}})();`,
           }}

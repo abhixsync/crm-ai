@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { runSubscriptionExpiryCron } from "@/lib/subscription/trial-cron";
 import { verifyDomainCname } from "@/lib/tenant/domain";
 import { prisma } from "@/lib/prisma";
 import { releaseStaleReserves, expirePurchasedCredits, grantMonthlyCredits } from "@/lib/credits/credit-service";
+
+function cronSecretValid(provided) {
+  const expected = process.env.CRON_SECRET;
+  if (!provided || !expected) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 /**
  * POST /api/cron/subscription-expiry
@@ -12,7 +22,7 @@ import { releaseStaleReserves, expirePurchasedCredits, grantMonthlyCredits } fro
  */
 export async function POST(req) {
   const secret = req.headers.get("x-cron-secret");
-  if (!secret || secret !== process.env.CRON_SECRET) {
+  if (!cronSecretValid(secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

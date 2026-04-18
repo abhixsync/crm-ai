@@ -97,7 +97,7 @@ export async function PATCH(request: Request) {
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        passwordHash: await bcrypt.hash(newPassword, 10),
+        passwordHash: await bcrypt.hash(newPassword, 12),
       },
       select: {
         id: true,

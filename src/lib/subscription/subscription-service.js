@@ -127,6 +127,7 @@ export async function upgradePlan(tenantId, {
     update: {
       plan,
       status: "ACTIVE",
+      trialEndsAt: null,
       billingCycle,
       billingProvider: billingProvider ?? null,
       planDefinitionId: planDef?.id ?? null,
@@ -234,16 +235,16 @@ export async function downgradeToFree(tenantId) {
       where: { tenantId, status: "RUNNING" },
       data: { status: "PAUSED" },
     });
-  });
 
-  // Downgrade plan credits — purchased credits are preserved
-  const freePlan = await prisma.planDefinition.findFirst({ where: { plan: "FREE" } });
-  await prisma.tenantCreditBalance.updateMany({
-    where: { tenantId },
-    data: {
-      planCredits: freePlan?.creditsPerMonth ?? 0,
-      planCreditsAllocated: freePlan?.creditsPerMonth ?? 0,
-    },
+    // 4. Downgrade plan credits — purchased credits are preserved
+    const freePlan = await tx.planDefinition.findFirst({ where: { plan: "FREE" } });
+    await tx.tenantCreditBalance.updateMany({
+      where: { tenantId },
+      data: {
+        planCredits: freePlan?.creditsPerMonth ?? 0,
+        planCreditsAllocated: freePlan?.creditsPerMonth ?? 0,
+      },
+    });
   });
 
   // Send downgrade notification to primary owner (non-blocking)

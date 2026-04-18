@@ -86,16 +86,15 @@ function isPlainObject(value) {
 async function appendTranscript(callLogId, speaker, message) {
   if (!callLogId || !message) return;
 
-  const callLog = await prisma.callLog.findFirst({ where: { id: callLogId } });
-  if (!callLog) return;
-
-  const prefix = callLog.transcript ? `${callLog.transcript}\n` : "";
-  const nextTranscript = `${prefix}${speaker}: ${message}`;
-
-  await prisma.callLog.updateMany({
-    where: { id: callLogId, tenantId: callLog.tenantId },
-    data: { transcript: nextTranscript },
-  });
+  const line = `${speaker}: ${String(message || "").replace(/\n/g, " ")}`;
+  await prisma.$executeRaw`
+    UPDATE "CallLog"
+    SET transcript = CASE
+      WHEN transcript IS NULL OR transcript = '' THEN ${line}
+      ELSE transcript || E'\n' || ${line}
+    END
+    WHERE id = ${callLogId}
+  `;
 }
 
 async function finishCall(callLogId, customerId, tenantId) {
@@ -218,10 +217,22 @@ async function finishCall(callLogId, customerId, tenantId) {
 export async function POST(request) {
   try {
     const url = new URL(request.url);
+    const BASE_URL = process.env.APP_BASE_URL || process.env.NEXTAUTH_URL || url.origin;
     const customerId = url.searchParams.get("customerId");
     const callLogId = url.searchParams.get("callLogId");
     const turn = Number(url.searchParams.get("turn") || "0");
     const failedAttempts = Number(url.searchParams.get("failedAttempts") || "0");
+
+    // Verify callLogId exists in DB to prevent forged webhook requests
+    if (callLogId) {
+      const exists = await prisma.callLog.findFirst({
+        where: { id: callLogId },
+        select: { id: true },
+      });
+      if (!exists) {
+        return new Response("Not Found", { status: 404 });
+      }
+    }
 
     const formData = await request.formData();
     const callSid = String(formData.get("CallSid") || "");
@@ -292,7 +303,7 @@ export async function POST(request) {
       await appendTranscript(callLogId, "Agent", retryPrompt);
 
       const nextAttempt = failedAttempts + 1;
-      const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn}&failedAttempts=${nextAttempt}`;
+      const actionUrl = `${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn}&failedAttempts=${nextAttempt}`;
 
       const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(retryPrompt)}</Say></Gather><Hangup/>`;
       console.log(`[Webhook] Sending TwiML for retry: ${twiml.substring(0, 100)}...`);
@@ -309,7 +320,7 @@ export async function POST(request) {
       console.log(`[Webhook] Initial greeting on turn 0: ${opening.substring(0, 50)}...`);
       await appendTranscript(callLogId, "Agent", opening);
 
-      const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=1`;
+      const actionUrl = `${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=1`;
 
       const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(opening)}</Say></Gather><Hangup/>`;
       console.log(`[Webhook] Sending initial TwiML with Gather`);
@@ -397,7 +408,7 @@ export async function POST(request) {
 
     // Continue conversation: Play AI response and listen for customer reply
     const nextTurn = turn + 1;
-    const actionUrl = `${url.origin}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}&failedAttempts=0`;
+    const actionUrl = `${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}&failedAttempts=0`;
 
     const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(aiTurn.reply)}</Say></Gather><Hangup/>`;
     console.log(`[Webhook] Sending AI response with Gather for next turn`);

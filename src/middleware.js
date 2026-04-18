@@ -2,6 +2,34 @@ import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { neon } from "@neondatabase/serverless";
 
+// ─── CORS ────────────────────────────────────────────────────────────────────
+const CORS_ALLOWED_METHODS = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+const CORS_ALLOWED_HEADERS = "Content-Type, Authorization, x-tenant-id, x-cron-secret";
+const CORS_MAX_AGE = "86400";
+
+function buildAllowedOrigins() {
+  const raw = process.env.ALLOWED_ORIGINS || "";
+  if (raw.trim() === "*") return "*";
+  const fallback = process.env.NEXTAUTH_URL || "";
+  const list = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (list.length === 0 && fallback) list.push(fallback);
+  return new Set(list);
+}
+
+const ALLOWED_ORIGINS = buildAllowedOrigins();
+
+function getCorsHeaders(origin) {
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": CORS_ALLOWED_METHODS,
+    "Access-Control-Allow-Headers": CORS_ALLOWED_HEADERS,
+    "Access-Control-Max-Age": CORS_MAX_AGE,
+  };
+}
+
 // ─── In-process tenant cache (60s TTL) ───────────────────────────────────────
 const _cache = new Map();
 function getCached(key) {
@@ -10,8 +38,36 @@ function getCached(key) {
   if (Date.now() > e.exp) { _cache.delete(key); return null; }
   return e.data;
 }
+const CACHE_MAX_SIZE = 5000;
+
 function setCache(key, data) {
+  if (_cache.size >= CACHE_MAX_SIZE) {
+    // Evict oldest 20% of entries
+    const evictCount = Math.floor(CACHE_MAX_SIZE * 0.2);
+    let i = 0;
+    for (const k of _cache.keys()) {
+      if (i++ >= evictCount) break;
+      _cache.delete(k);
+    }
+  }
   _cache.set(key, { data, exp: Date.now() + 60_000 });
+}
+
+// ─── Rate limiting for auth endpoints ─────────────────────────────────────
+const authRateMap = new Map(); // ip → { count, resetAt }
+const AUTH_RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const AUTH_RATE_MAX = 20; // 20 attempts per window
+
+function checkAuthRateLimit(ip) {
+  const now = Date.now();
+  const entry = authRateMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    authRateMap.set(ip, { count: 1, resetAt: now + AUTH_RATE_WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  if (entry.count > AUTH_RATE_MAX) return false;
+  return true;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -95,18 +151,106 @@ async function applyRoleGuards(request, extraHeaders) {
   return NextResponse.next({ request: { headers: extraHeaders } });
 }
 
+// ─── CSP nonce builder ────────────────────────────────────────────────────────
+function buildCspHeader(nonce) {
+  return [
+    "default-src 'self'",
+    `script-src 'nonce-${nonce}' 'strict-dynamic' https: 'unsafe-inline'`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' blob:",
+    "connect-src 'self' https:",
+    "frame-ancestors 'self'",
+  ].join("; ");
+}
+
 // ─── Main middleware ──────────────────────────────────────────────────────────
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get("host") || "";
 
-  // 1. Bypass static/external routes
+  // Generate a unique nonce per request (Web Crypto API — Edge Runtime compatible)
+  const nonce = crypto.randomUUID();
+
+  // Helper: apply CSP response header carrying the per-request nonce
+  function withCsp(res) {
+    res.headers.set("Content-Security-Policy", buildCspHeader(nonce));
+    return res;
+  }
+
+  // 1a. Rate limit auth endpoints (must run before bypass)
+  if (pathname.startsWith("/api/auth/") && request.method === "POST") {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || request.headers.get("x-real-ip")
+      || "unknown";
+    if (!checkAuthRateLimit(ip)) {
+      return withCsp(
+        new NextResponse("Too Many Requests", {
+          status: 429,
+          headers: { "Retry-After": "900" },
+        }),
+      );
+    }
+  }
+
+  // 1b. CORS — applies to all /api/ paths (OPTIONS preflight + header injection)
+  // Resolved CORS headers are stored here and merged into every NextResponse
+  // that passes through the rest of this middleware.
+  let corsResponseHeaders = null;
+
+  if (pathname.startsWith("/api/")) {
+    const origin = request.headers.get("origin");
+
+    if (request.method === "OPTIONS") {
+      // Preflight: respond immediately
+      if (!origin) return withCsp(new Response(null, { status: 204 }));
+      let matched = null;
+      if (ALLOWED_ORIGINS === "*") {
+        matched = origin;
+      } else if (ALLOWED_ORIGINS instanceof Set && ALLOWED_ORIGINS.has(origin)) {
+        matched = origin;
+      }
+      if (!matched) {
+        return withCsp(Response.json({ error: "Forbidden" }, { status: 403 }));
+      }
+      return withCsp(new Response(null, { status: 204, headers: getCorsHeaders(matched) }));
+    }
+
+    // Non-OPTIONS cross-origin: enforce origin and stash headers for later
+    if (origin) {
+      let matched = null;
+      if (ALLOWED_ORIGINS === "*") {
+        matched = origin;
+      } else if (ALLOWED_ORIGINS instanceof Set && ALLOWED_ORIGINS.has(origin)) {
+        matched = origin;
+      }
+      if (!matched) {
+        return withCsp(Response.json({ error: "Forbidden" }, { status: 403 }));
+      }
+      corsResponseHeaders = getCorsHeaders(matched);
+    }
+  }
+
+  // Helper: wrap a NextResponse with any pending CORS response headers + CSP
+  function withCors(res) {
+    if (corsResponseHeaders) {
+      for (const [k, v] of Object.entries(corsResponseHeaders)) {
+        res.headers.set(k, v);
+      }
+    }
+    return withCsp(res);
+  }
+
+  // 1c. Bypass static/external routes (skips tenant resolution)
   if (BYPASS_PREFIXES.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
+    return withCors(NextResponse.next());
   }
 
   // 2. Build mutable header copy to pass resolved tenant context downstream
   const requestHeaders = new Headers(request.headers);
+  // Forward nonce to server components so they can apply it to inline scripts
+  requestHeaders.set("x-nonce", nonce);
 
   // 3. Platform host (app.wrenforge.com / localhost) — no tenant injection
   const isPlatformHost =
@@ -115,7 +259,7 @@ export async function middleware(request) {
     /^127\.0\.0\.1(:\d+)?$/.test(host);
 
   if (isPlatformHost) {
-    return applyRoleGuards(request, requestHeaders);
+    return withCors(await applyRoleGuards(request, requestHeaders));
   }
 
   // 4. www redirect
@@ -126,13 +270,13 @@ export async function middleware(request) {
   // 5. Resolve tenant from hostname
   const tenant = await resolveTenant(host);
   if (!tenant) {
-    return new NextResponse("Workspace not found", { status: 404 });
+    return withCors(new NextResponse("Workspace not found", { status: 404 }));
   }
 
   requestHeaders.set("x-resolved-tenant-id", tenant.id);
   requestHeaders.set("x-resolved-tenant-slug", tenant.slug);
 
-  return applyRoleGuards(request, requestHeaders);
+  return withCors(await applyRoleGuards(request, requestHeaders));
 }
 
 // Run on all routes except static assets

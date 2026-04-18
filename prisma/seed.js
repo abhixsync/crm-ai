@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const { randomBytes } = require("crypto");
 const {
   PrismaClient,
   UserRole,
@@ -193,12 +194,11 @@ async function seedPlanDefinitions() {
 // ─── SUPER ADMIN USER (no tenant) ────────────────────────
 
 async function seedSuperAdmin() {
-  const passwordHash = await bcrypt.hash("123456", 10);
-
   // Check if user already exists (may have old tenantId from previous seed)
   const existing = await prisma.user.findFirst({ where: { email: "lucifer.shukla@crm.local" } });
 
   if (!existing) {
+    const passwordHash = await bcrypt.hash(randomBytes(16).toString("hex"), 12);
     await prisma.user.create({
       data: {
         tenantId: null,
@@ -210,12 +210,13 @@ async function seedSuperAdmin() {
         emailVerified: new Date(),
       },
     });
+    console.warn("[seed] Super admin created. Set a secure password before production use.");
   } else if (existing.tenantId) {
     // Detach from any tenant — super admin should be platform-level
     await prisma.user.update({ where: { id: existing.id }, data: { tenantId: null } });
   }
 
-  console.log("✓ Super admin seeded  (lucifer.shukla@crm.local / 123456) — no tenant");
+  console.log("✓ Super admin seeded  (lucifer.shukla@crm.local) — no tenant");
 }
 
 // ─── DEMO TENANT + ADMIN + PRO SUBSCRIPTION ─────────────
@@ -223,7 +224,7 @@ async function seedSuperAdmin() {
 async function seedDemoTenant() {
   const tenant = await upsertTenant({ name: "Demo CRM", slug: "demo" });
 
-  const passwordHash = await bcrypt.hash("Admin@123", 10);
+  const passwordHash = await bcrypt.hash("Admin@123", 12);
   await upsertUser({
     tenantId: tenant.id,
     email: "admin@crm.local",
@@ -278,6 +279,22 @@ async function seedDemoTenant() {
     });
   }
 
+  // Initialize credit balance — required for AI calls to work
+  const existingBalance = await prisma.tenantCreditBalance.findUnique({ where: { tenantId: tenant.id } });
+  if (!existingBalance) {
+    const creditsPerMonth = proPlan?.creditsPerMonth ?? 500;
+    const nextReset = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await prisma.tenantCreditBalance.create({
+      data: {
+        tenantId: tenant.id,
+        planCredits: creditsPerMonth,
+        planCreditsAllocated: creditsPerMonth,
+        planResetNextAt: nextReset,
+      },
+    });
+    console.log(`✓ Credit balance initialized  (${creditsPerMonth} plan credits)`);
+  }
+
   console.log("✓ Demo tenant seeded  (admin@crm.local / Admin@123)  — PRO plan");
 }
 
@@ -286,23 +303,26 @@ async function seedDemoTenant() {
 async function seedAiProviders() {
   const providers = [
     {
+      // Primary: free, fast, excellent Hinglish quality
+      name: "Groq AI", type: AiProviderType.GROQ,
+      model: "llama-3.3-70b-versatile", apiKey: process.env.GROQ_API_KEY || null,
+      priority: 1, status: AiProviderStatus.ACTIVE,
+    },
+    {
+      // Fallback 1: very cheap ($0.10/1M), great multilingual Hindi support
+      name: "Gemini AI", type: AiProviderType.GEMINI,
+      model: "gemini-2.0-flash", apiKey: process.env.GOOGLE_AI_API_KEY || null,
+      priority: 2, status: AiProviderStatus.STANDBY,
+    },
+    {
+      // Fallback 2: ultra-fast Groq 8b for high-load periods
       name: "OpenAI", type: AiProviderType.OPENAI,
       model: "gpt-4.1-mini", apiKey: process.env.OPENAI_API_KEY || null,
-      priority: 1, status: AiProviderStatus.ACTIVE,
+      priority: 3, status: AiProviderStatus.STANDBY,
     },
     {
       name: "Claude AI", type: AiProviderType.CLAUDE,
       model: "claude-sonnet-4-6", apiKey: process.env.ANTHROPIC_API_KEY || null,
-      priority: 2, status: AiProviderStatus.STANDBY,
-    },
-    {
-      name: "Groq AI", type: AiProviderType.GROQ,
-      model: "llama-3.1-8b-instant", apiKey: process.env.GROQ_API_KEY || null,
-      priority: 3, status: AiProviderStatus.STANDBY,
-    },
-    {
-      name: "Gemini AI", type: AiProviderType.GEMINI,
-      model: "gemini-2.0-flash", apiKey: process.env.GOOGLE_AI_API_KEY || null,
       priority: 4, status: AiProviderStatus.STANDBY,
     },
     {

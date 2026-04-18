@@ -11,7 +11,6 @@ function getOrCreate(): EventSource {
 
   // Stale closed instance — reset before creating fresh one
   es = null;
-  listeners.clear();
 
   const instance = new EventSource("/api/events");
 

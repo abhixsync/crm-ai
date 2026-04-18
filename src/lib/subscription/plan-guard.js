@@ -25,7 +25,17 @@ function getCached(tenantId) {
   return null;
 }
 
+const GUARD_CACHE_MAX_SIZE = 5000;
+
 function setCache(tenantId, guard) {
+  if (guardCache.size >= GUARD_CACHE_MAX_SIZE) {
+    const evictCount = Math.floor(GUARD_CACHE_MAX_SIZE * 0.2);
+    let i = 0;
+    for (const k of guardCache.keys()) {
+      if (i++ >= evictCount) break;
+      guardCache.delete(k);
+    }
+  }
   guardCache.set(tenantId, { guard, expiresAt: Date.now() + CACHE_TTL_MS });
 }
 
