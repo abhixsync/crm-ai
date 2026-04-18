@@ -17,6 +17,8 @@ vi.mock("@/lib/prisma", () => ({
           tenantSubscription:  { update: vi.fn() },
           user:                { updateMany: vi.fn() },
           campaign:            { updateMany: vi.fn() },
+          planDefinition:      { findFirst: vi.fn().mockResolvedValue({ creditsPerMonth: 0 }) },
+          tenantCreditBalance: { updateMany: vi.fn() },
         };
         return opsOrFn(tx);
       }
@@ -110,6 +112,8 @@ beforeEach(() => {
         tenantSubscription:  { update: vi.fn() },
         user:                { updateMany: vi.fn() },
         campaign:            { updateMany: vi.fn() },
+        planDefinition:      { findFirst: vi.fn().mockResolvedValue({ creditsPerMonth: 0 }) },
+        tenantCreditBalance: { updateMany: vi.fn() },
       };
       return opsOrFn(tx);
     }
