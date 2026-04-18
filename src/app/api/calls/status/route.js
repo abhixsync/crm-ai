@@ -109,7 +109,13 @@ export async function POST(request) {
       const normalizedProviderStatus = String(callStatus || "").toLowerCase();
       const failureStatus = new Set(["failed", "busy", "no-answer", "no_answer", "canceled", "cancelled"]);
 
-      if (callLog.mode === "AI" && failureStatus.has(normalizedProviderStatus)) {
+      // Only transition to CALL_FAILED if finishCall() hasn't already finalized this call
+      const latestCallLog = failureStatus.has(normalizedProviderStatus) && callLog.mode === "AI"
+        ? await prisma.callLog.findFirst({ where: { id: callLog.id }, select: { status: true } })
+        : null;
+      const alreadyFinalized = latestCallLog?.status === "COMPLETED";
+
+      if (callLog.mode === "AI" && failureStatus.has(normalizedProviderStatus) && !alreadyFinalized) {
         await applyCustomerTransition({
           customerId: callLog.customerId,
           toStatus: CustomerStatus.CALL_FAILED,

@@ -28,6 +28,12 @@ export async function getCreditBalance(tenantId) {
 // ─── RESERVE ────────────────────────────────────────────
 
 export async function reserveCredits(tenantId, callLogId) {
+  // Idempotency — silent no-op if already reserved (handles trigger retries)
+  const alreadyReserved = await prisma.creditTransaction.findUnique({
+    where: { idempotencyKey: `reserve-${callLogId}` },
+  });
+  if (alreadyReserved) return;
+
   const reserveAmount = Number(await getSubscriptionConfig("credit_reserve_amount", 20));
 
   // Pre-flight check — fast fail before touching DB
@@ -122,11 +128,14 @@ export async function settleCredits(tenantId, callLogId, durationSecs) {
     (balance.purchasedCredits - deductFromPurchased) -
     (balance.reservedCredits - reserveAmount);
 
+  // Floor reservedCredits at 0 — guards against stale-reserve edge cases
+  const safeReservedDecrement = Math.min(reserveAmount, balance.reservedCredits);
+
   await prisma.$transaction([
     prisma.tenantCreditBalance.update({
       where: { tenantId },
       data: {
-        reservedCredits:          { decrement: reserveAmount },
+        reservedCredits:          { decrement: safeReservedDecrement },
         planCredits:              { decrement: deductFromPlan },
         purchasedCredits:         { decrement: deductFromPurchased },
         planCreditsUsedThisMonth: { increment: deductFromPlan },
@@ -172,13 +181,14 @@ export async function refundReserve(tenantId, callLogId) {
   const balance = await prisma.tenantCreditBalance.findUnique({ where: { tenantId } });
   if (!balance) return;
 
+  const safeRefundDecrement = Math.min(reserveAmount, balance.reservedCredits);
   const balanceAfter =
-    balance.planCredits + balance.purchasedCredits - balance.reservedCredits + reserveAmount;
+    balance.planCredits + balance.purchasedCredits - balance.reservedCredits + safeRefundDecrement;
 
   await prisma.$transaction([
     prisma.tenantCreditBalance.update({
       where: { tenantId },
-      data: { reservedCredits: { decrement: reserveAmount } },
+      data: { reservedCredits: { decrement: safeRefundDecrement } },
     }),
     prisma.callLog.update({
       where: { id: callLogId },
