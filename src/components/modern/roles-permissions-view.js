@@ -97,9 +97,10 @@ export function ModernRolesPermissionsView({ user }) {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
+    const tq = selectedTenantId ? `?tenantId=${selectedTenantId}` : "";
     try {
       const [uRes, rRes, lRes] = await Promise.all([
-        fetch("/api/admin/user-management/users"),
+        fetch(`/api/admin/user-management/users${tq}`),
         fetch("/api/admin/user-management/roles"),
         fetch("/api/admin/user-management/audit-logs?limit=30"),
       ]);

@@ -16,7 +16,11 @@ export async function GET(request) {
 
   try {
     const tenant = getTenantContext(auth.session, request);
-    const users = await listUsers(tenant.tenantId || undefined);
+    // SUPER_ADMIN: honour explicit tenantId query param (from tenant switcher)
+    const qTenantId = tenant.isSuperAdmin
+      ? (new URL(request.url).searchParams.get("tenantId") || tenant.tenantId || undefined)
+      : tenant.tenantId;
+    const users = await listUsers(qTenantId);
     return Response.json({ users });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {
