@@ -72,6 +72,7 @@ export async function applyCustomerTransition({
     const transition = await tx.customerTransition.create({
       data: {
         customerId,
+        tenantId: tenantId || customer.tenantId,
         fromStatus: customer.status,
         toStatus,
         reason: reason || null,
