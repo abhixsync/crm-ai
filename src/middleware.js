@@ -110,9 +110,9 @@ async function resolveTenant(host) {
 
   if (host.endsWith(`.${APP_DOMAIN}`)) {
     const slug = host.slice(0, host.length - APP_DOMAIN.length - 1);
-    rows = await sql`SELECT id, slug, name FROM "Tenant" WHERE slug = ${slug} LIMIT 1`;
+    rows = await sql`SELECT id, slug, name FROM "Tenant" WHERE slug = ${slug} AND "isActive" = true LIMIT 1`;
   } else {
-    rows = await sql`SELECT id, slug, name FROM "Tenant" WHERE "customDomain" = ${host} AND "customDomainVerified" = true LIMIT 1`;
+    rows = await sql`SELECT id, slug, name FROM "Tenant" WHERE "customDomain" = ${host} AND "customDomainVerified" = true AND "isActive" = true LIMIT 1`;
   }
 
   const tenant = rows[0] || null;

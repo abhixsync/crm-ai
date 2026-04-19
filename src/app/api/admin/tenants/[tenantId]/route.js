@@ -188,3 +188,97 @@ export async function PATCH(request, { params }) {
     return Response.json({ error: error?.message || "Unable to update tenant." }, { status: 400 });
   }
 }
+
+export async function DELETE(request, { params }) {
+  const auth = await requireSession();
+  if (auth.error) return auth.error;
+
+  if (!hasRole(auth.session, ["SUPER_ADMIN"])) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    const routeParams = await params;
+    const tenantId = String(routeParams?.tenantId || "").trim();
+    if (!tenantId) {
+      return Response.json({ error: "Tenant ID is required." }, { status: 400 });
+    }
+
+    const existing = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!existing) {
+      return Response.json({ error: "Tenant not found." }, { status: 404 });
+    }
+
+    // Delete all tenant data in FK-safe dependency order
+    await prisma.$transaction(async (tx) => {
+      // 1. Deepest leaf records (depend on CallLog, CreditPackPurchase, Campaign)
+      await tx.creditTransaction.deleteMany({ where: { tenantId } });
+      await tx.creditPackPurchase.deleteMany({ where: { tenantId } });
+      await tx.campaignJob.deleteMany({ where: { tenantId } });
+
+      // 2. Records depending on Customer + CallLog
+      await tx.manualReview.deleteMany({ where: { tenantId } });
+      await tx.followUpTask.deleteMany({ where: { tenantId } });
+      await tx.aiScoringHistory.deleteMany({ where: { tenantId } });
+      await tx.customerActivity.deleteMany({ where: { tenantId } });
+      await tx.customerTransition.deleteMany({ where: { tenantId } });
+      await tx.conversationSession.deleteMany({ where: { tenantId } });
+
+      // 3. CallLog (after all its dependents)
+      await tx.callLog.deleteMany({ where: { tenantId } });
+
+      // 4. Records depending on Customer / Deal / Campaign (SetNull refs — safe either way)
+      await tx.messageLog.deleteMany({ where: { tenantId } });
+      await tx.document.deleteMany({ where: { tenantId } });
+      await tx.deal.deleteMany({ where: { tenantId } });
+
+      // 5. Customer (cascades CustomerTag, CustomFieldValue, etc.)
+      await tx.customer.deleteMany({ where: { tenantId } });
+
+      // 6. Campaign (CampaignJob already deleted)
+      await tx.campaign.deleteMany({ where: { tenantId } });
+
+      // 7. Org / config records
+      await tx.tag.deleteMany({ where: { tenantId } });
+      await tx.team.deleteMany({ where: { tenantId } }); // cascades TeamMember
+      await tx.customFieldDefinition.deleteMany({ where: { tenantId } });
+      await tx.webhookLog.deleteMany({ where: { tenantId } });
+      await tx.webhookConfig.deleteMany({ where: { tenantId } });
+      await tx.dncRegistry.deleteMany({ where: { tenantId } });
+      await tx.intentTrainingPhrase.deleteMany({ where: { tenantId } });
+      await tx.inAppNotification.deleteMany({ where: { tenantId } });
+      await tx.analyticsSnapshot.deleteMany({ where: { tenantId } });
+      await tx.userManagementAuditLog.deleteMany({ where: { tenantId } });
+      await tx.leadUpload.deleteMany({ where: { tenantId } });
+      await tx.aiSystemPrompt.deleteMany({ where: { tenantId } });
+      await tx.aiProviderConfig.deleteMany({ where: { tenantId } });
+      await tx.telephonyProviderConfig.deleteMany({ where: { tenantId } });
+      await tx.automationSetting.deleteMany({ where: { tenantId } });
+      await tx.callScheduleConfig.deleteMany({ where: { tenantId } });
+
+      // 8. Subscription & billing
+      await tx.subscriptionInvoice.deleteMany({ where: { tenantId } });
+      await tx.tenantSubscription.deleteMany({ where: { tenantId } });
+      await tx.tenantCreditBalance.deleteMany({ where: { tenantId } });
+
+      // 9. Theme + invites
+      await tx.tenantTheme.deleteMany({ where: { tenantId } });
+      await tx.pendingInvite.deleteMany({ where: { tenantId } });
+
+      // 10. Users (PasswordResetToken cascades from User automatically)
+      await tx.user.deleteMany({ where: { tenantId } });
+
+      // 11. Tenant itself
+      await tx.tenant.delete({ where: { id: tenantId } });
+    }, { timeout: 60_000 });
+
+    return Response.json({ ok: true });
+  } catch (error) {
+    if (isDatabaseUnavailable(error)) {
+      console.warn("[api/admin/tenants/:tenantId] Database unavailable on delete.");
+      return databaseUnavailableResponse();
+    }
+
+    return Response.json({ error: error?.message || "Unable to delete tenant." }, { status: 500 });
+  }
+}

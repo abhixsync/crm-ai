@@ -52,6 +52,10 @@ export function TenantsAdminClient() {
   const [slugConfirmOpen, setSlugConfirmOpen] = useState(false);
   const [slugConfirmInput, setSlugConfirmInput] = useState("");
   const [slugConfirmTarget, setSlugConfirmTarget] = useState(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [deletingTenant, setDeletingTenant] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const editingTenant = editingTenantId
     ? tenants.find((t) => t.id === editingTenantId)
@@ -204,6 +208,40 @@ export function TenantsAdminClient() {
     }
   }
 
+  function openDeleteConfirm(tenant) {
+    setDeletingTenant(tenant);
+    setDeleteConfirmInput("");
+    setDeleteConfirmOpen(true);
+  }
+
+  function closeDeleteConfirm() {
+    if (deleting) return;
+    setDeleteConfirmOpen(false);
+    setDeleteConfirmInput("");
+    setDeletingTenant(null);
+  }
+
+  async function confirmDelete() {
+    if (!deletingTenant) return;
+    if (deleteConfirmInput !== deletingTenant.name) {
+      toast.error("Tenant name did not match. Deletion cancelled.");
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/tenants/${deletingTenant.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unable to delete tenant.");
+      toast.success(`Tenant "${deletingTenant.name}" deleted permanently.`);
+      closeDeleteConfirm();
+      await loadTenants();
+    } catch (err) {
+      toast.error(err?.message || "Unable to delete tenant.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const showCreateAdminFields = form.existingAdminUserId === CREATE_NEW_ADMIN_OPTION;
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "wrenforge.com";
 
@@ -296,6 +334,14 @@ export function TenantsAdminClient() {
                           disabled={saving}
                         >
                           {tenant.isActive ? "Deactivate" : "Activate"}
+                        </button>
+                        <button
+                          className="ms-btn"
+                          style={{ fontSize: 12, padding: "4px 12px", color: "#fca5a5", borderColor: "rgba(242,88,88,.3)" }}
+                          onClick={() => openDeleteConfirm(tenant)}
+                          disabled={saving}
+                        >
+                          Delete
                         </button>
                       </div>
                     </td>
@@ -424,6 +470,44 @@ export function TenantsAdminClient() {
             <button className="ms-btn" onClick={closeDialog} disabled={saving}>Cancel</button>
             <button className="ms-btn ms-btn-primary" onClick={() => saveTenantFromDialog()} disabled={saving}>
               {saving ? "Saving..." : (editingTenantId ? "Save Changes" : "Create Tenant")}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete confirmation modal */}
+      <Modal
+        open={deleteConfirmOpen}
+        onClose={closeDeleteConfirm}
+        title="Delete Tenant Permanently"
+        description="This will delete the tenant and ALL its data — users, customers, calls, campaigns, billing. This cannot be undone."
+        maxWidthClass="max-w-md"
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ padding: "10px 14px", background: "rgba(242,88,88,.08)", border: "1px solid rgba(242,88,88,.25)", borderRadius: 8, fontSize: 13, color: "#fca5a5" }}>
+            You are about to permanently delete <strong style={{ color: "#fca5a5" }}>{deletingTenant?.name}</strong> and all its data.
+          </div>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span className="ms-field-label">
+              Type <strong>{deletingTenant?.name}</strong> to confirm
+            </span>
+            <input
+              className="ms-input"
+              value={deleteConfirmInput}
+              onChange={(e) => setDeleteConfirmInput(e.target.value)}
+              placeholder={deletingTenant?.name || ""}
+              disabled={deleting}
+            />
+          </label>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button className="ms-btn" onClick={closeDeleteConfirm} disabled={deleting}>Cancel</button>
+            <button
+              className="ms-btn"
+              style={{ color: "#fca5a5", borderColor: "rgba(242,88,88,.4)", background: "rgba(242,88,88,.1)" }}
+              onClick={confirmDelete}
+              disabled={deleting || deleteConfirmInput !== deletingTenant?.name}
+            >
+              {deleting ? "Deleting..." : "Delete Permanently"}
             </button>
           </div>
         </div>
