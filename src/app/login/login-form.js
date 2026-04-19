@@ -81,15 +81,21 @@ export default function LoginForm({ theme, tenantId, tenantSlug, googleEnabled =
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
     try {
-      // If on a tenant subdomain, set pre-auth cookie so signIn callback knows the tenant
       if (tenantSlug) {
+        // Set pre-auth cookie (Domain=.wrenforge.com so app subdomain receives it)
         await fetch("/api/auth/pre-google", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tenantSlug }),
         });
+        // Always initiate OAuth from the platform host (app.wrenforge.com) so Google
+        // sends the callback to the registered URI, not this tenant subdomain.
+        const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "wrenforge.com";
+        const cbUrl = encodeURIComponent(`https://${tenantSlug}.${appDomain}/dashboard`);
+        window.location.href = `https://app.${appDomain}/auth/google-redirect?callbackUrl=${cbUrl}`;
+      } else {
+        await signIn("google", { callbackUrl: "/auth/post-login" });
       }
-      await signIn("google", { callbackUrl: tenantSlug ? "/dashboard" : "/auth/post-login" });
     } catch {
       toast.error("Google sign-in failed. Please try again.");
       setGoogleLoading(false);
