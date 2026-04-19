@@ -144,11 +144,13 @@ const DEFAULT_SYSTEM_PROMPT = `${CORE_PROMPT_TEMPLATE}\n\n${LANGUAGE_RULES.hingl
  * AI follows the same constraints as CALL_TURN — banned phrases, name
  * personalization, empathy, slot-gating, etc.
  */
-export function buildCallScriptPrompt(customer, language, humanAdvisorName) {
+export function buildCallScriptPrompt(customer, language, humanAdvisorName, companyName) {
   const lang = String(language || "hinglish").trim().toLowerCase();
   const langRules = getLanguageRulesBlock(lang);
   const advisorName = String(humanAdvisorName || DEFAULT_HUMAN_ADVISOR_NAME).trim() || DEFAULT_HUMAN_ADVISOR_NAME;
-  const fullSystemPrompt = injectAdvisorName(`${CORE_PROMPT_TEMPLATE}\n\n${langRules}`, advisorName);
+  const resolvedCompany = String(companyName || "Our Company").trim();
+  const fullSystemPrompt = injectAdvisorName(`${CORE_PROMPT_TEMPLATE}\n\n${langRules}`, advisorName)
+    .replace(/\{COMPANY_NAME\}/g, resolvedCompany);
 
   return `${fullSystemPrompt}
 
@@ -197,18 +199,19 @@ export async function getTenantSettings(tenantId) {
     if (normalizedTenantId) {
       tenant = await prisma.tenant.findUnique({
         where: { id: normalizedTenantId },
-        select: { loanAssistantLanguage: true, loanAssistantHumanAdvisorName: true },
+        select: { loanAssistantLanguage: true, loanAssistantHumanAdvisorName: true, loanAssistantCompanyName: true, name: true },
       });
     } else {
       // If tenant context is missing, prefer the configured super-admin tenant defaults.
       tenant = await prisma.tenant.findFirst({
         where: { slug: "super-admin" },
-        select: { loanAssistantLanguage: true, loanAssistantHumanAdvisorName: true },
+        select: { loanAssistantLanguage: true, loanAssistantHumanAdvisorName: true, loanAssistantCompanyName: true, name: true },
       });
     }
 
     const lang = normalizeLanguage(tenant?.loanAssistantLanguage);
     const advisorName = String(tenant?.loanAssistantHumanAdvisorName || "").trim() || DEFAULT_HUMAN_ADVISOR_NAME;
+    const companyName = String(tenant?.loanAssistantCompanyName || tenant?.name || "").trim() || null;
     const source = normalizedTenantId ? "explicit_tenant_id" : "super_admin_fallback";
 
     console.log(
@@ -218,15 +221,17 @@ export async function getTenantSettings(tenantId) {
         normalizedTenantId: normalizedTenantId || null,
         source,
         resolvedLanguage: lang,
+        companyName: companyName ?? null,
       })
     );
 
     return {
       language: lang,
       humanAdvisorName: advisorName,
+      companyName,
     };
   } catch {
-    return { language: "hinglish", humanAdvisorName: DEFAULT_HUMAN_ADVISOR_NAME };
+    return { language: "hinglish", humanAdvisorName: DEFAULT_HUMAN_ADVISOR_NAME, companyName: null };
   }
 }
 

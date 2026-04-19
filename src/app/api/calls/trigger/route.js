@@ -10,6 +10,7 @@ import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { signWebhookUrl } from "@/lib/telephony/webhook-auth";
+import { getTenantSettings } from "@/lib/ai/system-prompt";
 
 const CALLBACK_BLOCKING_MESSAGE =
   "Local APP_BASE_URL is not a public HTTPS URL, so conversational/status webhooks are disabled and advisor notifications will not trigger for AI outbound calls.";
@@ -181,9 +182,12 @@ export async function POST(request) {
       status: customer.status,
       retryCount: customer.retryCount,
     };
+    const { language: tenantLanguage, humanAdvisorName, companyName } =
+      await getTenantSettings(tenantId).catch(() => ({ language: "hinglish", humanAdvisorName: null, companyName: null }));
+
     const aiOutput = await runAIWithFailover({
       task: "CALL_SCRIPT",
-      payload: { customer: customerForAI },
+      payload: { customer: customerForAI, language: tenantLanguage, humanAdvisorName, companyName },
     });
     const script = aiOutput.result.script;
 

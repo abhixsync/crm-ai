@@ -182,8 +182,8 @@ export async function POST(request) {
     }
 
     // Resolve tenant language + advisor name once — used for all spoken messages and AI prompt
-    const { language: tenantLanguage, humanAdvisorName: advisorName } =
-      await getTenantSettings(tenantId).catch(() => ({ language: "hinglish", humanAdvisorName: "our loan advisor" }));
+    const { language: tenantLanguage, humanAdvisorName: advisorName, companyName } =
+      await getTenantSettings(tenantId).catch(() => ({ language: "hinglish", humanAdvisorName: "our loan advisor", companyName: null }));
     const phrases = getLocalizedPhrases(tenantLanguage, advisorName);
 
     if (callLogId && callSid) {
@@ -254,7 +254,7 @@ export async function POST(request) {
       try {
         const greetOutput = await runAIWithFailover({
           task: "CALL_SCRIPT",
-          payload: { customer: customerForAI, language: tenantLanguage, humanAdvisorName: advisorName },
+          payload: { customer: customerForAI, language: tenantLanguage, humanAdvisorName: advisorName, companyName },
         });
         opening = greetOutput.result?.script || fallbackGreeting(customer, tenantLanguage);
       } catch {
@@ -303,6 +303,8 @@ export async function POST(request) {
           transcript,
           turn,
           latestCustomerMessage: speechResult,
+          agentName: advisorName,
+          companyName,
           context: {
             conversationStage: sessionCtx.lastStage || undefined,
             extractedData: sessionCtx.extractedData || undefined,
