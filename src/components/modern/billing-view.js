@@ -394,7 +394,7 @@ export function ModernBillingView({ user }) {
                     </div>
 
                     <div style={{ fontSize: 12, color: "var(--ms-text3)", marginBottom: 16 }}>
-                      {fmt(plan.maxCustomers)} customers · {fmt(plan.maxUsers)} users · {fmt(plan.maxAiCallsPerMonth)} AI calls
+                      {fmt(plan.maxCustomers)} customers · {fmt(plan.maxUsers)} users · {fmt(plan.creditsPerMonth)} AI credits
                     </div>
 
                     <button
