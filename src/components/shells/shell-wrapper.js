@@ -15,7 +15,8 @@ export function ShellWrapper({ uiLayout, brandName, brandSub, logoUrl, tenantNam
     pathname === "/verify-email" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
-    pathname === "/accept-invite"
+    pathname === "/accept-invite" ||
+    pathname.startsWith("/auth/")
   ) {
     return <ShellContextProvider layout="none">{children}</ShellContextProvider>;
   }
