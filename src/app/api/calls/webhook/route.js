@@ -12,7 +12,7 @@ import { createNotification } from "@/lib/notifications/notification-service";
 import { publishEvent } from "@/lib/events/event-publisher";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getOrCreateSession, updateSessionAfterCall, getSessionContext } from "@/lib/conversation/session-manager";
-import { verifyWebhookSig } from "@/lib/telephony/webhook-auth";
+import { verifyWebhookSig, signWebhookUrl } from "@/lib/telephony/webhook-auth";
 import { getTenantSettings } from "@/lib/ai/system-prompt";
 
 // TTS voice config — Amazon Polly Hindi voice (works on all Twilio accounts).
@@ -382,7 +382,7 @@ export async function POST(request) {
       await appendTranscript(callLogId, "Agent", retryPrompt);
 
       const nextAttempt = failedAttempts + 1;
-      const actionUrl = `${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn}&failedAttempts=${nextAttempt}`;
+      const actionUrl = signWebhookUrl(`${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn}&failedAttempts=${nextAttempt}`, callLogId);
 
       const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(retryPrompt)}</Say></Gather><Hangup/>`;
       console.log(`[Webhook] Sending TwiML for retry: ${twiml.substring(0, 100)}...`);
@@ -427,7 +427,7 @@ export async function POST(request) {
       console.log(`[Webhook] Initial greeting on turn 0: ${opening.substring(0, 50)}...`);
       await appendTranscript(callLogId, "Agent", opening);
 
-      const actionUrl = `${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=1`;
+      const actionUrl = signWebhookUrl(`${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=1`, callLogId);
 
       const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(opening)}</Say></Gather><Hangup/>`;
       console.log(`[Webhook] Sending initial TwiML with Gather`);
@@ -519,7 +519,7 @@ export async function POST(request) {
 
     // Continue conversation: Play AI response and listen for customer reply
     const nextTurn = turn + 1;
-    const actionUrl = `${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}&failedAttempts=0`;
+    const actionUrl = signWebhookUrl(`${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}&failedAttempts=0`, callLogId);
 
     const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(aiTurn.reply)}</Say></Gather><Hangup/>`;
     console.log(`[Webhook] Sending AI response with Gather for next turn`);
