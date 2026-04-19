@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import "@/components/shells/modern/modern-shell.css";
 
 export default function CompleteSignupForm({ user }) {
-  const router = useRouter();
+  const { update } = useSession();
   const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,15 +30,14 @@ export default function CompleteSignupForm({ user }) {
         setLoading(false);
         return;
       }
-      // Redirect to new tenant subdomain
       if (data.slug) {
-        const { protocol, host } = window.location;
-        const parts = host.split(".");
-        const rootDomain = parts.length > 2 ? parts.slice(-2).join(".") : host;
-        window.location.href = `${protocol}//${data.slug}.${rootDomain}/login?welcome=1`;
+        // Force JWT refresh so middleware sees pendingGoogleSignup=false and tenantId before subdomain redirect
+        await update();
+        const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "wrenforge.com";
+        window.location.href = `https://${data.slug}.${appDomain}/dashboard`;
       } else {
-        router.push("/dashboard");
-        router.refresh();
+        await update();
+        window.location.href = "/dashboard";
       }
     } catch {
       toast.error("Network error. Please try again.");
