@@ -5,6 +5,7 @@ import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscri
 import { reserveCredits, refundReserve } from "@/lib/credits/credit-service";
 import { runAIWithFailover } from "@/lib/ai/provider-router";
 import { initiateTelephonyCallWithFailover } from "@/lib/telephony/provider-router";
+import { signWebhookUrl } from "@/lib/telephony/webhook-auth";
 import { logTelephony, redactedPhone } from "@/lib/telephony/logger";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
@@ -120,10 +121,10 @@ export async function POST(request) {
 
     // Twilio conversational + status webhook URLs
     const callbackUrl = isPublicHttps
-      ? `${baseUrl}/api/calls/webhook?customerId=${demoCustomer.id}&callLogId=${callLog.id}&turn=0`
+      ? signWebhookUrl(`${baseUrl}/api/calls/webhook?customerId=${demoCustomer.id}&callLogId=${callLog.id}&turn=0`, callLog.id)
       : undefined;
     const statusCallbackUrl = isPublicHttps
-      ? `${baseUrl}/api/calls/status?tenantId=${tenantId}&callLogId=${callLog.id}`
+      ? signWebhookUrl(`${baseUrl}/api/calls/status?tenantId=${tenantId}&callLogId=${callLog.id}`, callLog.id)
       : undefined;
 
     // Vonage webhook URLs
