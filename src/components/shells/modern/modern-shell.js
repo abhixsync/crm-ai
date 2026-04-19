@@ -153,6 +153,14 @@ const icons = {
       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
     </svg>
   ),
+  tenants: (
+    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <rect x="3" y="3" width="9" height="18" rx="1" />
+      <rect x="12" y="9" width="9" height="12" rx="1" />
+      <line x1="6" y1="7" x2="9" y2="7" /><line x1="6" y1="11" x2="9" y2="11" /><line x1="6" y1="15" x2="9" y2="15" />
+      <line x1="15" y1="13" x2="18" y2="13" /><line x1="15" y1="17" x2="18" y2="17" />
+    </svg>
+  ),
   settings: (
     <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="3" />
@@ -306,6 +314,7 @@ function buildNavItems(role) {
       { key: "roles",             href: "/admin/user-management",      label: "Roles & Permissions", icon: icons.roles,             section: "Superadmin" },
       { key: "subscriptionAdmin", href: "/admin/subscription-config",  label: "Subscription Config", icon: icons.subscriptionAdmin, section: "Superadmin" },
       { key: "planManagement",    href: "/admin/plan-management",      label: "Plan Management",     icon: icons.billing,           section: "Superadmin" },
+      { key: "tenants",           href: "/admin/tenants",              label: "Tenants",             icon: icons.tenants,           section: "Superadmin" },
     );
   }
 
@@ -340,6 +349,7 @@ function getActiveKey(pathname) {
   if (pathname.startsWith("/admin/subscription-config")) return "subscriptionAdmin";
   if (pathname.startsWith("/admin/plan-management")) return "planManagement";
   if (pathname.startsWith("/admin/user-management")) return "roles";
+  if (pathname.startsWith("/admin/tenants")) return "tenants";
   return "dashboard";
 }
 
@@ -372,6 +382,7 @@ function getPageTitle(activeKey) {
     globaltheme:  "Global Theme",
     subscriptionAdmin: "Subscription Config",
     planManagement: "Plan Management",
+    tenants:        "Tenants",
   };
   return titles[activeKey] || "Dashboard";
 }
