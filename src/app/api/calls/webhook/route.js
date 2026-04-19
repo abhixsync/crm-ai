@@ -1,19 +1,11 @@
-import { CallStatus, CustomerStatus } from "@prisma/client";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { runAIWithFailover } from "@/lib/ai/provider-router";
-import { settleCredits } from "@/lib/credits/credit-service";
-import { applyCustomerTransition } from "@/lib/journey/transition-service";
-import { scheduleRetryForFailure } from "@/lib/journey/retry-policy";
-import { toIntentLabel } from "@/lib/journey/constants";
-import { canonicalizeIntent } from "@/lib/journey/intent-normalization";
-import { evaluateCrmEventDecision } from "@/lib/crm/event-triggers";
-import { notifyAdvisorForCallLog } from "@/lib/notifications/advisor-notifier";
-import { createNotification } from "@/lib/notifications/notification-service";
-import { publishEvent } from "@/lib/events/event-publisher";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
-import { getOrCreateSession, updateSessionAfterCall, getSessionContext } from "@/lib/conversation/session-manager";
+import { getOrCreateSession, getSessionContext } from "@/lib/conversation/session-manager";
 import { verifyWebhookSig, signWebhookUrl } from "@/lib/telephony/webhook-auth";
 import { getTenantSettings } from "@/lib/ai/system-prompt";
+import { finalizeCall } from "@/lib/calls/call-finalizer";
 
 // TTS voice config — Amazon Polly Hindi voice (works on all Twilio accounts).
 // Fallback from Google.hi-IN-Wavenet-A which requires Google TTS integration.
@@ -64,26 +56,6 @@ function twimlResponse(xmlBody) {
   });
 }
 
-function mapIntentToCustomerStatus(intent) {
-  const normalized = String(intent || "").trim().toLowerCase();
-
-  if (normalized === "interested") return CustomerStatus.INTERESTED;
-  if (normalized === "not_interested") {
-    return CustomerStatus.NOT_INTERESTED;
-  }
-  if (normalized === "do_not_call") {
-    return CustomerStatus.DO_NOT_CALL;
-  }
-  if (normalized === "converted") return CustomerStatus.CONVERTED;
-  if (normalized === "follow_up" || normalized === "call_back_later") return CustomerStatus.FOLLOW_UP;
-  if (normalized === "failed") return CustomerStatus.CALL_FAILED;
-
-  return CustomerStatus.CALL_FAILED;
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 async function appendTranscript(callLogId, speaker, message) {
   if (!callLogId || !message) return;
@@ -150,142 +122,6 @@ function getLocalizedPhrases(language, advisorName) {
   };
 }
 
-async function finishCall(callLogId, customerId, tenantId, sessionCtx, mergedExtracted, turn) {
-  if (!callLogId) {
-    return;
-  }
-
-  const callLog = await prisma.callLog.findFirst({
-    where: {
-      id: callLogId,
-      ...(tenantId ? { tenantId } : {}),
-    },
-  });
-  if (!callLog) {
-    return;
-  }
-
-  const alreadyFinalized =
-    callLog.status === CallStatus.COMPLETED &&
-    callLog.endedAt &&
-    String(callLog.summary || "").trim() &&
-    String(callLog.intentClassification || "").trim();
-
-  if (alreadyFinalized) {
-    return;
-  }
-
-  // Fix 1: Settle credits — non-blocking, idempotent
-  if (tenantId) {
-    const durationSecs =
-      callLog.durationSecs != null
-        ? callLog.durationSecs
-        : callLog.startedAt
-          ? Math.floor((Date.now() - new Date(callLog.startedAt).getTime()) / 1000)
-          : 0;
-    settleCredits(tenantId, callLogId, durationSecs).catch(() => {});
-  }
-
-  const transcript = callLog?.transcript || "";
-  const aiOutput = await runAIWithFailover({
-    task: "CALL_SUMMARY",
-    payload: { transcript },
-  });
-  const analysis = aiOutput.result;
-  const aiIntent = canonicalizeIntent(analysis.intent || "failed") || "failed";
-  const crmDecision = evaluateCrmEventDecision({
-    transcript,
-    intent: aiIntent,
-    summary: analysis.summary,
-    metadata: callLog.metadata,
-  });
-  const normalizedIntent = canonicalizeIntent(crmDecision.normalizedIntent || aiIntent) || "failed";
-  const mappedStatus = mapIntentToCustomerStatus(normalizedIntent);
-
-  const metadata = isPlainObject(callLog.metadata) ? { ...callLog.metadata } : {};
-  metadata.crmEventDecision = {
-    ...crmDecision,
-    source: "calls_webhook_finish",
-    evaluatedAt: new Date().toISOString(),
-  };
-
-  await prisma.callLog.updateMany({
-    where: { id: callLogId, tenantId: callLog.tenantId },
-    data: {
-      summary: analysis.summary,
-      intent: toIntentLabel(normalizedIntent),
-      intentClassification: normalizedIntent,
-      nextAction: crmDecision.recommendedNextAction || analysis.nextAction,
-      aiProviderUsed: aiOutput.provider.name,
-      status: "COMPLETED",
-      endedAt: new Date(),
-      metadata,
-    },
-  });
-
-  if (customerId) {
-    await applyCustomerTransition({
-      customerId,
-      toStatus: mappedStatus,
-      reason: `Webhook final outcome: ${normalizedIntent}`,
-      source: "AI_AUTOMATION",
-      metadata: {
-        inActiveCall: false,
-        lastContactedAt: new Date(),
-        aiSummary: analysis.summary,
-        aiIntent: normalizedIntent,
-        crmEventAction: crmDecision.action,
-        interestScore: crmDecision.interestScore,
-      },
-      idempotencyScope: {
-        callLogId,
-        intent: normalizedIntent,
-        end: true,
-      },
-      tenantId: callLog.tenantId,
-    });
-
-    if (mappedStatus === CustomerStatus.CALL_FAILED) {
-      await scheduleRetryForFailure({
-        customerId,
-        tenantId: callLog.tenantId,
-        failureCode: normalizedIntent,
-        errorMessage: analysis.nextAction || "Call failed",
-      });
-    }
-  }
-
-  const advisorNotification = await notifyAdvisorForCallLog(callLog.id);
-  if (!advisorNotification.ok && !advisorNotification.skipped) {
-    console.warn("[api/calls/webhook] Advisor notification failed:", advisorNotification.reason);
-  } else if (advisorNotification.skipped) {
-    console.info("[api/calls/webhook] Advisor notification skipped:", advisorNotification.reason);
-  } else {
-    console.info("[api/calls/webhook] Advisor notification result:", advisorNotification.channels);
-  }
-
-  // In-app notification — fire-and-forget
-  createNotification(callLog.tenantId, {
-    type: "CALL_COMPLETED",
-    title: "Call completed",
-    body: analysis?.summary || "A call has ended.",
-    link: "/admin/calls",
-  }).catch(() => {});
-
-  // SSE events — fire-and-forget; never block call completion
-  publishEvent(callLog.tenantId, { type: "metrics:update" }).catch(() => {});
-  publishEvent(callLog.tenantId, { type: "notification:new" }).catch(() => {});
-  publishEvent(callLog.tenantId, { type: "call:status", payload: { status: mappedStatus } }).catch(() => {});
-
-  // Fix 5: Persist session on ALL exit paths (session may be null on error paths)
-  if (sessionCtx?.sessionId) {
-    await updateSessionAfterCall(sessionCtx.sessionId, {
-      callLogId,
-      turnCount: turn ?? 0,
-      extractedData: mergedExtracted ?? {},
-    }).catch(() => {});
-  }
-}
 
 export async function POST(request) {
   try {
@@ -371,7 +207,7 @@ export async function POST(request) {
       if (failedAttempts >= maxRetries) {
         // After max retries, end the call gracefully
         console.log(`[Webhook] Max retries reached, ending call`);
-        await finishCall(callLogId, customer.id, tenantId, null, {}, turn);
+        after(() => finalizeCall(callLogId, customer.id, tenantId, null, {}, turn));
         return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(phrases.cantHear)}</Say><Hangup/>`);
       }
 
@@ -476,7 +312,7 @@ export async function POST(request) {
       });
     } catch (aiError) {
       console.error("[Webhook] AI provider failed:", aiError.message);
-      await finishCall(callLogId, customer.id, tenantId, sessionCtx, {}, turn);
+      after(() => finalizeCall(callLogId, customer.id, tenantId, sessionCtx, {}, turn));
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(phrases.aiError)}</Say><Hangup/>`);
     }
     const aiTurn = aiOutput.result;
@@ -512,7 +348,7 @@ export async function POST(request) {
     if (endCall) {
       console.log(`[Webhook] Call should end. Finishing call.`);
       const closing = `${aiTurn.reply} ${phrases.closingSuffix}`;
-      await finishCall(callLogId, customer.id, tenantId, sessionCtx, mergedExtracted, turn);
+      after(() => finalizeCall(callLogId, customer.id, tenantId, sessionCtx, mergedExtracted, turn));
 
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(closing)}</Say><Hangup/>`);
     }

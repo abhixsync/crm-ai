@@ -7,6 +7,7 @@ import { CustomerStatus } from "@prisma/client";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { settleCredits } from "@/lib/credits/credit-service";
 import { verifyWebhookSig } from "@/lib/telephony/webhook-auth";
+import { finalizeCall } from "@/lib/calls/call-finalizer";
 
 export async function POST(request) {
   let callSid = "";
@@ -93,13 +94,19 @@ export async function POST(request) {
 
       if (shouldDeferAIFinalization) {
         // The telephony call is physically over — release the lock so the
-        // customer is not stuck if finishCall() in the webhook never runs.
+        // customer is not stuck if finalizeCall() in the webhook never runs.
         if (callLog.customerId) {
           await prisma.customer.updateMany({
             where: { id: callLog.customerId, tenantId: callLog.tenantId },
             data: { inActiveCall: false },
           }).catch(() => {});
         }
+        // Trigger AI finalization non-blocking — handles the case where the
+        // customer hung up before the webhook could call finalizeCall().
+        // The idempotency guard inside finalizeCall prevents double-finalization.
+        finalizeCall(callLog.id, callLog.customerId, callLog.tenantId, null, {}, 0).catch((err) => {
+          logTelephony("warn", "api.calls.status.finalize_error", { callLogId: callLog.id, error: err.message });
+        });
         logTelephony("info", "api.calls.status.defer_ai_completion", {
           providerCallId: String(callSid),
           callLogId: callLog.id,
