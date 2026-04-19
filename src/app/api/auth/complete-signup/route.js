@@ -26,24 +26,34 @@ export async function POST(request) {
 
     const userId = session.user.id;
 
-    // Generate unique slug
+    // Generate base slug
     let baseSlug = normalizeSlug(companyName);
     if (!baseSlug) baseSlug = "workspace";
-    let slug = baseSlug;
-    let attempt = 0;
-    while (await prisma.tenant.findUnique({ where: { slug } })) {
-      attempt++;
-      slug = `${baseSlug}-${attempt}`;
-    }
 
-    // Create tenant + activate user in a transaction
     const result = await prisma.$transaction(async (tx) => {
+      // DB-level idempotency: re-check pendingGoogleSignup inside transaction
+      const freshUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: { metadata: true, tenantId: true },
+      });
+      const meta = freshUser?.metadata;
+      if (!meta || typeof meta !== "object" || meta.pendingGoogleSignup !== true) {
+        throw new Error("ALREADY_SETUP");
+      }
+      if (freshUser?.tenantId) {
+        throw new Error("ALREADY_SETUP");
+      }
+
+      // Find a unique slug (inside transaction for safety)
+      let slug = baseSlug;
+      let attempt = 0;
+      while (await tx.tenant.findUnique({ where: { slug } })) {
+        attempt++;
+        slug = `${baseSlug}-${attempt}`;
+      }
+
       const tenant = await tx.tenant.create({
-        data: {
-          name: companyName,
-          slug,
-          isActive: true,
-        },
+        data: { name: companyName, slug, isActive: true },
       });
 
       // Create trial subscription (30 days PRO)
@@ -71,7 +81,7 @@ export async function POST(request) {
           isPrimaryOwner: true,
           isActive: true,
           emailVerified: new Date(),
-          ...(phone ? { metadata: { pendingGoogleSignup: false, phone } } : { metadata: { pendingGoogleSignup: false } }),
+          metadata: { pendingGoogleSignup: false, ...(phone ? { phone } : {}) },
         },
       });
 
@@ -80,7 +90,11 @@ export async function POST(request) {
 
     return Response.json({ ok: true, slug: result.tenant.slug });
   } catch (error) {
-    console.error("[complete-signup]", error);
-    return Response.json({ error: error?.message || "Failed to complete sign-up." }, { status: 500 });
+    if (error?.message === "ALREADY_SETUP") {
+      return Response.json({ error: "Account already set up." }, { status: 400 });
+    }
+    console.error("[complete-signup]", error?.message);
+    // Don't leak internal error messages to client
+    return Response.json({ error: "Failed to complete sign-up. Please try again." }, { status: 500 });
   }
 }

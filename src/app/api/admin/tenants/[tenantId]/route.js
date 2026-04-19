@@ -257,6 +257,7 @@ export async function DELETE(request, { params }) {
       await tx.callScheduleConfig.deleteMany({ where: { tenantId } });
 
       // 8. Subscription & billing
+      await tx.usageRecord.deleteMany({ where: { tenantId } });
       await tx.subscriptionInvoice.deleteMany({ where: { tenantId } });
       await tx.tenantSubscription.deleteMany({ where: { tenantId } });
       await tx.tenantCreditBalance.deleteMany({ where: { tenantId } });
@@ -267,6 +268,9 @@ export async function DELETE(request, { params }) {
 
       // 10. Users (PasswordResetToken cascades from User automatically)
       await tx.user.deleteMany({ where: { tenantId } });
+
+      // 10a. Role definitions scoped to this tenant
+      await tx.roleDefinition.deleteMany({ where: { tenantId } });
 
       // 11. Tenant itself
       await tx.tenant.delete({ where: { id: tenantId } });
