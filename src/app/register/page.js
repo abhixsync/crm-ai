@@ -36,5 +36,7 @@ export default async function RegisterPage() {
     trialDays = proPlan?.trialDays ?? 30;
   } catch {}
 
-  return <RegisterForm theme={theme} trialDays={trialDays} />;
+  const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+
+  return <RegisterForm theme={theme} trialDays={trialDays} googleEnabled={googleEnabled} />;
 }

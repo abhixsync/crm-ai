@@ -44,9 +44,11 @@ export default async function LoginPage() {
     };
   } catch {}
 
+  const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+
   return (
     <Suspense>
-      <LoginForm theme={theme} tenantId={tenantId} tenantSlug={tenantSlug} />
+      <LoginForm theme={theme} tenantId={tenantId} tenantSlug={tenantSlug} googleEnabled={googleEnabled} />
     </Suspense>
   );
 }
