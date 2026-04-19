@@ -13,6 +13,7 @@ import { publishEvent } from "@/lib/events/event-publisher";
 import { isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getOrCreateSession, updateSessionAfterCall, getSessionContext } from "@/lib/conversation/session-manager";
 import { verifyWebhookSig } from "@/lib/telephony/webhook-auth";
+import { getTenantSettings } from "@/lib/ai/system-prompt";
 
 // TTS voice config — Amazon Polly Hindi voice (works on all Twilio accounts).
 // Fallback from Google.hi-IN-Wavenet-A which requires Google TTS integration.
@@ -98,9 +99,55 @@ async function appendTranscript(callLogId, speaker, message) {
   `;
 }
 
-function fallbackGreeting(customer) {
-  const firstName = String(customer?.name || "").split(" ")[0] || "ji";
-  return `Namaste ${firstName} ji! Main aapko loan ke baare mein baat karna chahta hoon. Kya aap abhi baat kar sakte hain?`;
+function fallbackGreeting(customer, language) {
+  const firstName = String(customer?.firstName || customer?.name || "").split(" ")[0] || "";
+  const name = firstName ? `${firstName} ji` : "ji";
+  const nameEn = firstName || "there";
+
+  if (language === "hindi") {
+    return `Namaste ${name}! Main loan ke baare mein baat karna chahti hoon. Kya aap abhi baat kar sakte hain?`;
+  }
+  if (language === "english") {
+    return `Hello ${nameEn}! I'm calling about a loan offer for you. Do you have a moment to speak?`;
+  }
+  // hinglish (default)
+  return `Namaste ${name}! Main aapko loan ke baare mein baat karna chahti hoon. Kya aap abhi baat kar sakte hain?`;
+}
+
+function getLocalizedPhrases(language, advisorName) {
+  const adv = String(advisorName || "our loan advisor").trim();
+
+  if (language === "hindi") {
+    return {
+      cantHear: `Maafi chahiye, aapki awaaz clearly nahi aayi. ${adv} jald hi aapse sampark karenge. Shukriya.`,
+      retry1: "Kshama karein, aapki baat sun nahi paayi. Kya aap phir se bol sakte hain?",
+      retry2: "Sunne mein thodi takleef ho rahi hai. Ek baar aur koshish karti hoon.",
+      thankYou: `Aapke samay ke liye shukriya. ${adv} jald hi aapse sampark karenge.`,
+      aiError: `Kshama karein, koi taknik samasya aayi. ${adv} jald hi aapse sampark karenge. Shukriya.`,
+      closingSuffix: `Aapke samay ke liye shukriya. ${adv} jald hi aapse sampark karenge.`,
+    };
+  }
+
+  if (language === "english") {
+    return {
+      cantHear: `I apologize, I couldn't hear your response clearly. Thank you for your time. ${adv} will contact you shortly.`,
+      retry1: "I apologize, I didn't catch that. Could you please repeat?",
+      retry2: "I'm still having trouble hearing you. Let me try once more.",
+      thankYou: `Thank you for your time. ${adv} will contact you shortly.`,
+      aiError: `I apologize for the interruption. ${adv} will contact you shortly. Thank you for your time.`,
+      closingSuffix: `Thank you for your time. ${adv} will contact you shortly.`,
+    };
+  }
+
+  // hinglish (default)
+  return {
+    cantHear: `Sorry, aapki awaaz clearly nahi aayi. ${adv} jald hi aapse contact karenge. Shukriya.`,
+    retry1: "Sorry, sun nahi paayi. Kya aap phir se bol sakte hain?",
+    retry2: "Sunne mein thodi problem ho rahi hai. Ek baar aur try karti hoon.",
+    thankYou: `Aapke time ke liye shukriya. ${adv} jald hi aapse contact karenge.`,
+    aiError: `Sorry, koi issue aa gaya. ${adv} jald hi aapse contact karenge. Shukriya.`,
+    closingSuffix: `Aapke time ke liye shukriya. ${adv} jald hi aapse contact karenge.`,
+  };
 }
 
 async function finishCall(callLogId, customerId, tenantId, sessionCtx, mergedExtracted, turn) {
@@ -298,6 +345,11 @@ export async function POST(request) {
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">Customer record not found. Please call again later.</Say><Hangup/>`);
     }
 
+    // Resolve tenant language + advisor name once — used for all spoken messages and AI prompt
+    const { language: tenantLanguage, humanAdvisorName: advisorName } =
+      await getTenantSettings(tenantId).catch(() => ({ language: "hinglish", humanAdvisorName: "our loan advisor" }));
+    const phrases = getLocalizedPhrases(tenantLanguage, advisorName);
+
     if (callLogId && callSid) {
       await prisma.callLog.updateMany({
         where: {
@@ -320,13 +372,11 @@ export async function POST(request) {
         // After max retries, end the call gracefully
         console.log(`[Webhook] Max retries reached, ending call`);
         await finishCall(callLogId, customer.id, tenantId, null, {}, turn);
-        return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">I apologize, I couldn't hear your response clearly. Thank you for your time. Our loan advisor will contact you shortly.</Say><Hangup/>`);
+        return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(phrases.cantHear)}</Say><Hangup/>`);
       }
 
       // Retry listening with a helpful prompt
-      const retryPrompt = failedAttempts === 0 
-        ? "I apologize, I didn't catch that. Could you please repeat?"
-        : "I'm still having trouble hearing you. Let me try once more.";
+      const retryPrompt = failedAttempts === 0 ? phrases.retry1 : phrases.retry2;
       
       console.log(`[Webhook] No speech detected, retrying. Attempts: ${failedAttempts}`);
       await appendTranscript(callLogId, "Agent", retryPrompt);
@@ -368,9 +418,9 @@ export async function POST(request) {
       try {
         const greetOutput = await runAIWithFailover({
           task: "CALL_SCRIPT",
-          payload: { customer: customerForAI },
+          payload: { customer: customerForAI, language: tenantLanguage, humanAdvisorName: advisorName },
         });
-        opening = greetOutput.result?.script || fallbackGreeting(customer);
+        opening = greetOutput.result?.script || fallbackGreeting(customer, tenantLanguage);
       } catch {
         opening = fallbackGreeting(customer);
       }
@@ -388,7 +438,7 @@ export async function POST(request) {
     if (!speechResult) {
       console.log(`[Webhook] No speech result and not initial turn, ending call`);
       await finishCall(callLogId, customer.id, tenantId, null, {}, turn);
-      return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">Thank you for your time. Our loan advisor will contact you shortly.</Say><Hangup/>`);
+      return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(phrases.thankYou)}</Say><Hangup/>`);
     }
 
     // Get cross-call memory session
@@ -427,7 +477,7 @@ export async function POST(request) {
     } catch (aiError) {
       console.error("[Webhook] AI provider failed:", aiError.message);
       await finishCall(callLogId, customer.id, tenantId, sessionCtx, {}, turn);
-      return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">I apologize for the interruption. Our loan advisor will contact you shortly. Thank you for your time.</Say><Hangup/>`);
+      return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(phrases.aiError)}</Say><Hangup/>`);
     }
     const aiTurn = aiOutput.result;
 
@@ -461,7 +511,7 @@ export async function POST(request) {
 
     if (endCall) {
       console.log(`[Webhook] Call should end. Finishing call.`);
-      const closing = `${aiTurn.reply} Thank you for your time. Our loan advisor will contact you shortly.`;
+      const closing = `${aiTurn.reply} ${phrases.closingSuffix}`;
       await finishCall(callLogId, customer.id, tenantId, sessionCtx, mergedExtracted, turn);
 
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(closing)}</Say><Hangup/>`);

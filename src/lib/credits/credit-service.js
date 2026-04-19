@@ -438,8 +438,12 @@ export async function expirePurchasedCredits(tenantId = null) {
 // ─── ADMIN ADJUSTMENT ────────────────────────────────────
 
 export async function adjustCredits(tenantId, amount, reason) {
-  const balance = await prisma.tenantCreditBalance.findUnique({ where: { tenantId } });
-  if (!balance) throw new Error("No credit balance found");
+  let balance = await prisma.tenantCreditBalance.findUnique({ where: { tenantId } });
+  if (!balance) {
+    balance = await prisma.tenantCreditBalance.create({
+      data: { tenantId, planCredits: 0, planCreditsAllocated: 0 },
+    });
+  }
 
   const idempotencyKey = `adjust-${tenantId}-${Date.now()}`;
   const isGrant = amount > 0;

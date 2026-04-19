@@ -258,6 +258,7 @@ function buildDialogflowInputText(task, input) {
 
   if (task === AI_TASKS.CALL_SCRIPT) {
     const customer = input.customer || {};
+    const lang = String(input.language || "hinglish").trim().toLowerCase();
     const compactProfile = {
       firstName: customer.firstName || "",
       loanType: customer.loanType || "",
@@ -267,7 +268,7 @@ function buildDialogflowInputText(task, input) {
     };
 
     return truncate(
-      `Generate concise loan call script (max 120 words). Profile: ${JSON.stringify(compactProfile)}`,
+      `Generate concise loan call script (max 120 words) in ${lang}. Profile: ${JSON.stringify(compactProfile)}`,
       240
     );
   }

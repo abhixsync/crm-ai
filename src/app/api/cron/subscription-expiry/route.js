@@ -5,13 +5,23 @@ import { verifyDomainCname } from "@/lib/tenant/domain";
 import { prisma } from "@/lib/prisma";
 import { releaseStaleReserves, expirePurchasedCredits, grantMonthlyCredits } from "@/lib/credits/credit-service";
 
-function cronSecretValid(provided) {
+function cronSecretValid(req) {
   const expected = process.env.CRON_SECRET;
-  if (!provided || !expected) return false;
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  if (!expected) return false;
+
+  function safeEq(a, b) {
+    if (!a || !b) return false;
+    const ba = Buffer.from(a);
+    const bb = Buffer.from(b);
+    if (ba.length !== bb.length) return false;
+    return timingSafeEqual(ba, bb);
+  }
+
+  const headerSecret = String(req.headers.get("x-cron-secret") || "").trim();
+  const authHeader = String(req.headers.get("authorization") || "").trim();
+  const bearerSecret = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
+  return safeEq(headerSecret, expected) || safeEq(bearerSecret, expected);
 }
 
 /**
@@ -21,8 +31,7 @@ function cronSecretValid(provided) {
  * Secured with CRON_SECRET header.
  */
 export async function POST(req) {
-  const secret = req.headers.get("x-cron-secret");
-  if (!cronSecretValid(secret)) {
+  if (!cronSecretValid(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // 5 minutes — matches SSE safety valve
 
 import { requireSession, getTenantContext } from "@/lib/server/auth-guard";
 import { createRedisSubscriber } from "@/lib/events/event-publisher";

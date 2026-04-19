@@ -138,6 +138,27 @@ function buildDefaultSystemPrompt(language) {
 
 const DEFAULT_SYSTEM_PROMPT = `${CORE_PROMPT_TEMPLATE}\n\n${LANGUAGE_RULES.hinglish}`;
 
+/**
+ * Build a language-aware opening call script prompt for CALL_SCRIPT task.
+ * Uses the full system prompt (all behavior rules + language rules) so the
+ * AI follows the same constraints as CALL_TURN — banned phrases, name
+ * personalization, empathy, slot-gating, etc.
+ */
+export function buildCallScriptPrompt(customer, language, humanAdvisorName) {
+  const lang = String(language || "hinglish").trim().toLowerCase();
+  const langRules = getLanguageRulesBlock(lang);
+  const advisorName = String(humanAdvisorName || DEFAULT_HUMAN_ADVISOR_NAME).trim() || DEFAULT_HUMAN_ADVISOR_NAME;
+  const fullSystemPrompt = injectAdvisorName(`${CORE_PROMPT_TEMPLATE}\n\n${langRules}`, advisorName);
+
+  return `${fullSystemPrompt}
+
+---
+
+Now produce the opening line — the very first thing you say when the customer picks up. Keep it to 2-3 sentences: greet the customer by first name (with "ji" for Hindi/Hinglish), briefly introduce that you are calling about a loan, and ask one opening qualification question. Do not include stage directions, labels, or markdown.
+
+Customer profile: ${JSON.stringify(customer)}`;
+}
+
 export function getSystemPromptKeyForTenant(tenantId) {
   const normalizedTenantId = String(tenantId || "").trim();
   if (!normalizedTenantId) {

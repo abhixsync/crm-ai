@@ -193,10 +193,19 @@ export async function GET(request) {
       });
     }
 
-    const result = await runAutomationBatch();
+    // Run per-tenant so each tenant's enabled/settings are respected independently
+    const allTenants = await prisma.tenant.findMany({ select: { id: true } });
+    const tenantResults = [];
+    let totalQueued = 0;
+    let totalAttempted = 0;
 
-    if (!result.ok) {
-      return Response.json({ error: result.error }, { status: result.status });
+    for (const tenant of allTenants) {
+      const result = await runAutomationBatch(tenant.id);
+      if (result.ok) {
+        totalQueued += result.data.queued;
+        totalAttempted += result.data.attempted;
+      }
+      tenantResults.push({ tenantId: tenant.id, ok: result.ok, ...(result.ok ? result.data : { reason: result.error }) });
     }
 
     checkAndNotifyCampaignCompletion().catch(() => {});
@@ -204,7 +213,9 @@ export async function GET(request) {
     await recordCronRun();
 
     return Response.json({
-      ...result.data,
+      queued: totalQueued,
+      attempted: totalAttempted,
+      tenants: tenantResults,
       executionMode,
     });
   } catch (error) {

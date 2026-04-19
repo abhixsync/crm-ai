@@ -6,7 +6,7 @@ import {
   LANGUAGE_STYLES,
   normalizeLanguageSignal,
 } from "@/lib/ai/language-style";
-import { buildUnifiedCallTurnPrompt } from "@/lib/ai/system-prompt";
+import { buildUnifiedCallTurnPrompt, buildCallScriptPrompt } from "@/lib/ai/system-prompt";
 
 
 
@@ -293,9 +293,7 @@ async function invokeGroqAI({ task, input, config }) {
       throw new Error("Groq API key is missing for CALL_SCRIPT.");
     }
 
-    const prompt = `You are a loan CRM voice assistant. Produce a concise call script (max 120 words) for this customer profile in conversational English. Include qualification questions and next-step ask. Customer: ${JSON.stringify(
-      customer
-    )}`;
+    const prompt = buildCallScriptPrompt(customer, input.language, input.humanAdvisorName);
 
     try {
       const { response, resolvedModel } = await createGroqCompletionWithFallback({
