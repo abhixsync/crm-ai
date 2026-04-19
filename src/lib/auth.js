@@ -176,28 +176,32 @@ export const authOptions = {
     async jwt({ token, user, account, profile, trigger }) {
       // Handle explicit session update (called after workspace creation to refresh stale JWT)
       if (trigger === "update" && token.userId && !user && !account) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.userId },
-          select: { isSuspended: true, role: true, emailVerified: true, metadata: true, tenantId: true },
-        });
-        if (!dbUser || dbUser.isSuspended) return null;
-        token.role = dbUser.role;
-        token.emailVerified = dbUser.emailVerified ? dbUser.emailVerified.toISOString() : null;
-        token.isSuspended = false;
-        const meta = dbUser.metadata;
-        token.pendingGoogleSignup = meta && typeof meta === "object" && meta.pendingGoogleSignup === true;
-        const prevTenantId = token.tenantId;
-        token.tenantId = dbUser.tenantId || null;
-        if (dbUser.tenantId && dbUser.tenantId !== prevTenantId) {
-          const tenant = await prisma.tenant.findUnique({
-            where: { id: dbUser.tenantId },
-            select: { slug: true },
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.userId },
+            select: { isSuspended: true, role: true, emailVerified: true, metadata: true, tenantId: true },
           });
-          token.tenantSlug = tenant?.slug || null;
-        } else if (!dbUser.tenantId) {
-          token.tenantSlug = null;
+          if (!dbUser || dbUser.isSuspended) return null;
+          token.role = dbUser.role;
+          token.emailVerified = dbUser.emailVerified ? dbUser.emailVerified.toISOString() : null;
+          token.isSuspended = false;
+          const meta = dbUser.metadata;
+          token.pendingGoogleSignup = meta && typeof meta === "object" && meta.pendingGoogleSignup === true;
+          const prevTenantId = token.tenantId;
+          token.tenantId = dbUser.tenantId || null;
+          if (dbUser.tenantId && dbUser.tenantId !== prevTenantId) {
+            const tenant = await prisma.tenant.findUnique({
+              where: { id: dbUser.tenantId },
+              select: { slug: true },
+            });
+            token.tenantSlug = tenant?.slug || null;
+          } else if (!dbUser.tenantId) {
+            token.tenantSlug = null;
+          }
+          token.tokenCheckedAt = Math.floor(Date.now() / 1000);
+        } catch {
+          // Transient DB error — return token as-is rather than invalidating the session
         }
-        token.tokenCheckedAt = Math.floor(Date.now() / 1000);
         return token;
       }
 
@@ -256,6 +260,11 @@ export const authOptions = {
       const lastCheck = token.tokenCheckedAt ?? 0;
 
       if (now - lastCheck >= TOKEN_RECHECK_INTERVAL) {
+        // Guard: skip recheck if no userId (e.g. mid-signup Google flow)
+        if (!token.userId) {
+          token.tokenCheckedAt = now;
+          return token;
+        }
         const dbUser = await prisma.user.findUnique({
           where: { id: token.userId },
           select: { isSuspended: true, role: true, emailVerified: true, metadata: true, tenantId: true },
