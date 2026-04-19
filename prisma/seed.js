@@ -95,7 +95,7 @@ async function seedPlanDefinitions() {
       monthlyPriceInr: 0,   annualPriceInr: 0,
       annualDiscountPct: 0,
       maxUsers: 1,          maxCustomers: 100,
-      creditsPerMonth: 0,
+      creditsPerMonth: 100,
       maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: 0,
       maxWebhooks: 0,        maxCustomFields: 0,
       maxTeams: 0,           maxStorageMb: 0,
@@ -118,7 +118,7 @@ async function seedPlanDefinitions() {
       monthlyPriceInr: 299, annualPriceInr: 2999,       // ₹249.92/mo
       annualDiscountPct: 20,
       maxUsers: 3,           maxCustomers: 1000,
-      creditsPerMonth: 100,
+      creditsPerMonth: 200,
       maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: 5,
       maxWebhooks: 1,        maxCustomFields: 5,
       maxTeams: 0,           maxStorageMb: 512,        // 500 MB
@@ -164,7 +164,7 @@ async function seedPlanDefinitions() {
       monthlyPriceInr: 799,  annualPriceInr: 5999,       // ₹499.92/mo
       annualDiscountPct: 20,
       maxUsers: -1,          maxCustomers: -1,
-      creditsPerMonth: 2000,
+      creditsPerMonth: 1000,
       maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: -1,
       maxWebhooks: -1,       maxCustomFields: -1,
       maxTeams: -1,          maxStorageMb: -1,
