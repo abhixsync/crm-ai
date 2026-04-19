@@ -9,7 +9,6 @@ const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || "wrenforge.com";
 const IS_PROD = process.env.NODE_ENV === "production";
 
 export const authOptions = {
-  trustHost: true,
   session: {
     strategy: "jwt",
     maxAge: 8 * 60 * 60,
@@ -133,7 +132,7 @@ export const authOptions = {
         });
         if (!existingUser || !existingUser.isActive || existingUser.isSuspended) return false;
 
-        if (!existingUser.googleId) {
+        if (!existingUser.googleId && profile.email_verified !== false) {
           await prisma.user.update({
             where: { id: existingUser.id },
             data: { googleId: account.providerAccountId },
@@ -150,7 +149,7 @@ export const authOptions = {
 
       if (existingUser) {
         if (!existingUser.isActive || existingUser.isSuspended) return false;
-        if (!existingUser.googleId) {
+        if (!existingUser.googleId && profile.email_verified !== false) {
           await prisma.user.update({
             where: { id: existingUser.id },
             data: { googleId: account.providerAccountId },
@@ -159,9 +158,11 @@ export const authOptions = {
         return true;
       }
 
-      // New user: create pending record
-      await prisma.user.create({
-        data: {
+      // New user: upsert pending record (idempotent for concurrent/retry requests)
+      await prisma.user.upsert({
+        where: { googleId: account.providerAccountId },
+        update: {}, // no-op if already exists
+        create: {
           name: profile.name || email,
           email,
           googleId: account.providerAccountId,
@@ -230,7 +231,7 @@ export const authOptions = {
       if (now - lastCheck >= TOKEN_RECHECK_INTERVAL) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.userId },
-          select: { isSuspended: true, role: true, emailVerified: true, metadata: true },
+          select: { isSuspended: true, role: true, emailVerified: true, metadata: true, tenantId: true },
         });
 
         if (!dbUser || dbUser.isSuspended) return null;
@@ -240,6 +241,21 @@ export const authOptions = {
         token.isSuspended = false;
         const meta = dbUser.metadata;
         token.pendingGoogleSignup = meta && typeof meta === "object" && meta.pendingGoogleSignup === true;
+
+        // Refresh tenantId — it changes when Google signup completes
+        const prevTenantId = token.tenantId;
+        token.tenantId = dbUser.tenantId || null;
+        // Refresh tenantSlug if tenantId changed
+        if (dbUser.tenantId && dbUser.tenantId !== prevTenantId) {
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: dbUser.tenantId },
+            select: { slug: true },
+          });
+          token.tenantSlug = tenant?.slug || null;
+        } else if (!dbUser.tenantId) {
+          token.tenantSlug = null;
+        }
+
         token.tokenCheckedAt = now;
       }
 
