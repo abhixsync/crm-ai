@@ -1,19 +1,40 @@
 import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
 
-const TOKEN_RECHECK_INTERVAL = 5 * 60; // 5 minutes in seconds
+const TOKEN_RECHECK_INTERVAL = 5 * 60;
+const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || "wrenforge.com";
+const IS_PROD = process.env.NODE_ENV === "production";
 
 export const authOptions = {
   trustHost: true,
   session: {
     strategy: "jwt",
-    maxAge: 8 * 60 * 60, // 8 hours
+    maxAge: 8 * 60 * 60,
   },
   pages: {
     signIn: "/login",
   },
+  // Parent-domain cookie so session is shared across *.wrenforge.com subdomains
+  cookies: {
+    sessionToken: {
+      name: IS_PROD ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: IS_PROD,
+        domain: IS_PROD ? `.${APP_DOMAIN}` : undefined,
+      },
+    },
+  },
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -22,16 +43,12 @@ export const authOptions = {
         tenantId: { label: "Tenant", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
+        if (!credentials?.email || !credentials?.password) return null;
 
         const identifier = String(credentials.email || "").trim().toLowerCase();
         const rawPassword = String(credentials.password || "");
 
-        if (identifier.length < 3 || rawPassword.length < 6) {
-          return null;
-        }
+        if (identifier.length < 3 || rawPassword.length < 6) return null;
 
         const user = await prisma.user.findFirst({
           where: {
@@ -42,21 +59,17 @@ export const authOptions = {
           },
         });
 
-        // Constant-time: always run bcrypt even if user not found
+        // Block OAuth-only users from password login
+        if (user && !user.passwordHash) return null;
+
         const DUMMY_HASH = "$2a$12$dummy.hash.for.timing.equality.only.placeholder.xx";
-        const hashToCheck = user ? user.passwordHash : DUMMY_HASH;
+        const hashToCheck = user?.passwordHash ?? DUMMY_HASH;
         const isValid = await bcrypt.compare(rawPassword, hashToCheck);
         if (!user || !isValid) return null;
 
-        if (user.isActive === false) {
-          return null;
-        }
+        if (user.isActive === false) return null;
+        if (user.isSuspended) throw new Error("SUSPENDED");
 
-        if (user.isSuspended) {
-          throw new Error("SUSPENDED");
-        }
-
-        // ─── Tenant lock ───────────────────────────────────────────────────────
         if (user.role !== "SUPER_ADMIN") {
           const tenantId = credentials.tenantId || null;
           if (!tenantId || user.tenantId !== tenantId) {
@@ -78,44 +91,137 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ account, profile }) {
+      if (account?.provider !== "google") return true;
+
+      const email = profile?.email?.toLowerCase();
+      if (!email) return false;
+
+      // Read pre-auth tenant cookie (set by tenant subdomain before redirect to Google)
+      let tenantSlug = null;
+      try {
+        const cookieStore = await cookies();
+        tenantSlug = cookieStore.get("_goa_tenant")?.value || null;
+      } catch {
+        // cookies() may throw outside request context — safe to ignore
+      }
+
+      if (tenantSlug) {
+        // Tenant subdomain flow: user must already exist in this tenant
+        const tenant = await prisma.tenant.findFirst({
+          where: { slug: tenantSlug, isActive: true },
+          select: { id: true },
+        });
+        if (!tenant) return false;
+
+        const existingUser = await prisma.user.findFirst({
+          where: { email, tenantId: tenant.id },
+          select: { id: true, isActive: true, isSuspended: true, googleId: true },
+        });
+        if (!existingUser || !existingUser.isActive || existingUser.isSuspended) return false;
+
+        if (!existingUser.googleId) {
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { googleId: account.providerAccountId },
+          });
+        }
+        return true;
+      }
+
+      // Platform host flow
+      const existingUser = await prisma.user.findFirst({
+        where: { email },
+        select: { id: true, isActive: true, isSuspended: true, googleId: true, metadata: true },
+      });
+
+      if (existingUser) {
+        if (!existingUser.isActive || existingUser.isSuspended) return false;
+        if (!existingUser.googleId) {
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { googleId: account.providerAccountId },
+          });
+        }
+        return true;
+      }
+
+      // New user: create pending record
+      await prisma.user.create({
+        data: {
+          name: profile.name || email,
+          email,
+          googleId: account.providerAccountId,
+          isActive: false,
+          metadata: { pendingGoogleSignup: true },
+        },
+      });
+      return true;
+    },
+
+    async jwt({ token, user, account, profile }) {
       if (user) {
-        // Initial sign-in: populate token from authorize() result
-        token.userId = user.id;
-        token.role = user.role;
-        token.tenantId = user.tenantId || null;
-        token.isPrimaryOwner = user.isPrimaryOwner ?? false;
-        token.isSuspended = user.isSuspended ?? false;
-        token.emailVerified = user.emailVerified || null;
-        token.tokenCheckedAt = Math.floor(Date.now() / 1000);
+        // Credentials sign-in: user object comes from authorize()
+        if (!account || account.provider === "credentials") {
+          token.userId = user.id;
+          token.role = user.role;
+          token.tenantId = user.tenantId || null;
+          token.isPrimaryOwner = user.isPrimaryOwner ?? false;
+          token.isSuspended = user.isSuspended ?? false;
+          token.emailVerified = user.emailVerified || null;
+          token.pendingGoogleSignup = false;
+          token.tokenCheckedAt = Math.floor(Date.now() / 1000);
+          return token;
+        }
+      }
+
+      if (account?.provider === "google") {
+        // Google OAuth first sign-in
+        const email = (profile?.email || token.email || "").toLowerCase();
+        const dbUser = await prisma.user.findFirst({
+          where: { email },
+          select: {
+            id: true, role: true, tenantId: true, isPrimaryOwner: true,
+            isSuspended: true, emailVerified: true, metadata: true,
+          },
+        });
+        if (dbUser) {
+          token.userId = dbUser.id;
+          token.role = dbUser.role;
+          token.tenantId = dbUser.tenantId || null;
+          token.isPrimaryOwner = dbUser.isPrimaryOwner ?? false;
+          token.isSuspended = dbUser.isSuspended ?? false;
+          token.emailVerified = dbUser.emailVerified ? dbUser.emailVerified.toISOString() : null;
+          const meta = dbUser.metadata;
+          token.pendingGoogleSignup = meta && typeof meta === "object" && meta.pendingGoogleSignup === true;
+          token.tokenCheckedAt = Math.floor(Date.now() / 1000);
+        }
         return token;
       }
 
-      // Subsequent requests: re-check DB at most once every 5 minutes
+      // Subsequent requests: periodic DB re-check
       const now = Math.floor(Date.now() / 1000);
       const lastCheck = token.tokenCheckedAt ?? 0;
 
       if (now - lastCheck >= TOKEN_RECHECK_INTERVAL) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.userId },
-          select: { isSuspended: true, role: true, emailVerified: true },
+          select: { isSuspended: true, role: true, emailVerified: true, metadata: true },
         });
 
-        // User deleted or suspended — invalidate session immediately
-        if (!dbUser || dbUser.isSuspended) {
-          return null;
-        }
+        if (!dbUser || dbUser.isSuspended) return null;
 
         token.role = dbUser.role;
-        token.emailVerified = dbUser.emailVerified
-          ? dbUser.emailVerified.toISOString()
-          : null;
+        token.emailVerified = dbUser.emailVerified ? dbUser.emailVerified.toISOString() : null;
         token.isSuspended = false;
+        const meta = dbUser.metadata;
+        token.pendingGoogleSignup = meta && typeof meta === "object" && meta.pendingGoogleSignup === true;
         token.tokenCheckedAt = now;
       }
 
       return token;
     },
+
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.userId;
@@ -124,9 +230,21 @@ export const authOptions = {
         session.user.isPrimaryOwner = token.isPrimaryOwner ?? false;
         session.user.isSuspended = token.isSuspended ?? false;
         session.user.emailVerified = token.emailVerified || null;
+        session.user.pendingGoogleSignup = token.pendingGoogleSignup ?? false;
       }
-
       return session;
+    },
+
+    async redirect({ url, baseUrl }) {
+      // Allow redirects to *.wrenforge.com and relative URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      if (url.startsWith(baseUrl)) return url;
+      try {
+        const { hostname } = new URL(url);
+        const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "wrenforge.com";
+        if (hostname === appDomain || hostname.endsWith(`.${appDomain}`)) return url;
+      } catch {}
+      return baseUrl;
     },
   },
 };

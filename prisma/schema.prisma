@@ -387,7 +387,8 @@ model User {
   tenantId         String?
   name             String
   email            String
-  passwordHash     String
+  passwordHash     String?
+  googleId         String?         @unique
   role             UserRole        @default(SALES)
   customRoleId     String?
   isActive         Boolean         @default(true)
