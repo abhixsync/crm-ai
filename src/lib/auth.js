@@ -225,10 +225,9 @@ export const authOptions = {
       }
 
       if (account?.provider === "google") {
-        // Google OAuth first sign-in
-        const email = (profile?.email || token.email || "").toLowerCase();
+        // Google OAuth first sign-in: look up by googleId (scoped) not email (unscoped cross-tenant risk)
         const dbUser = await prisma.user.findFirst({
-          where: { email },
+          where: { googleId: account.providerAccountId },
           select: {
             id: true, role: true, tenantId: true, isPrimaryOwner: true,
             isSuspended: true, emailVerified: true, metadata: true,

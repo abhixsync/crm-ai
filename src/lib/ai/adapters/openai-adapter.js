@@ -127,7 +127,7 @@ async function invokeOpenAI({ task, input, config }) {
       throw new Error("OpenAI API key not configured");
     }
 
-    const prompt = buildCallScriptPrompt(customer, input.language, input.humanAdvisorName);
+    const prompt = buildCallScriptPrompt(customer, input.language, input.humanAdvisorName, input.companyName);
 
     const completion = await client.responses.create({ model, input: prompt });
     return { script: completion.output_text || fallbackScript(customer) };

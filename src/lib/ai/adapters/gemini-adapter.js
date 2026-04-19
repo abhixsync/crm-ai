@@ -153,7 +153,7 @@ async function invokeGeminiAI({ task, input, config }) {
       throw new Error("Gemini API key not configured");
     }
 
-    const prompt = buildCallScriptPrompt(customer, input.language, input.humanAdvisorName);
+    const prompt = buildCallScriptPrompt(customer, input.language, input.humanAdvisorName, input.companyName);
 
     try {
       const model = genAI.getGenerativeModel({ model: modelName });

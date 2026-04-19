@@ -293,7 +293,7 @@ async function invokeGroqAI({ task, input, config }) {
       throw new Error("Groq API key is missing for CALL_SCRIPT.");
     }
 
-    const prompt = buildCallScriptPrompt(customer, input.language, input.humanAdvisorName);
+    const prompt = buildCallScriptPrompt(customer, input.language, input.humanAdvisorName, input.companyName);
 
     try {
       const { response, resolvedModel } = await createGroqCompletionWithFallback({

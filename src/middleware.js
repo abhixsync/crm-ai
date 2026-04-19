@@ -124,17 +124,19 @@ async function resolveTenant(host) {
 async function applyRoleGuards(request, extraHeaders) {
   const { pathname } = request.nextUrl;
 
-  // Block pending Google signup users from navigating anywhere except auth pages
-  if (
-    !pathname.startsWith("/auth/") &&
-    !pathname.startsWith("/api/auth/") &&
-    !pathname.startsWith("/api/") &&
-    pathname !== "/login" &&
-    pathname !== "/register"
-  ) {
+  // Block pending Google signup users from navigating anywhere except auth pages.
+  // API routes (except /api/auth/) get a 403 JSON response; page routes get a redirect.
+  const isPotentiallyBlocked = pathname.startsWith("/api/")
+    ? !pathname.startsWith("/api/auth/")
+    : !pathname.startsWith("/auth/") && pathname !== "/login" && pathname !== "/register";
+
+  if (isPotentiallyBlocked) {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     if (token?.pendingGoogleSignup === true) {
-      return NextResponse.redirect(new URL("/auth/complete-signup", request.url));
+      if (pathname.startsWith("/api/")) {
+        return withCors(Response.json({ error: "Account setup required", code: "PENDING_SIGNUP" }, { status: 403 }));
+      }
+      return withCors(NextResponse.redirect(new URL("/auth/complete-signup", request.url)));
     }
   }
 

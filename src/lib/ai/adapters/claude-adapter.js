@@ -127,7 +127,7 @@ async function invokeClaudeAI({ task, input, config }) {
       throw new Error("Claude API key not configured");
     }
 
-    const prompt = buildCallScriptPrompt(customer, input.language, input.humanAdvisorName);
+    const prompt = buildCallScriptPrompt(customer, input.language, input.humanAdvisorName, input.companyName);
 
     try {
       const message = await client.messages.create({
