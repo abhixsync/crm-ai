@@ -44,6 +44,7 @@ async function buildPlanSnapshot(plan) {
   return {
     maxUsers:              planDef.maxUsers,
     maxCustomers:          planDef.maxCustomers,
+    creditsPerMonth:       planDef.creditsPerMonth,
     maxAiCallsPerMonth:    planDef.maxAiCallsPerMonth,
     maxLeadUploadsPerMonth: planDef.maxLeadUploadsPerMonth,
     maxWebhooks:           planDef.maxWebhooks,

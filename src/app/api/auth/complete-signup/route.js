@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createTrialSubscription } from "@/lib/subscription/subscription-service";
 
 function normalizeSlug(value) {
   return String(value || "")
@@ -56,22 +57,6 @@ export async function POST(request) {
         data: { name: companyName, slug, isActive: true },
       });
 
-      // Create trial subscription (30 days PRO)
-      const planDef = await tx.planDefinition.findFirst({ where: { plan: "PRO" } });
-      const trialEnds = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      if (planDef) {
-        await tx.tenantSubscription.create({
-          data: {
-            tenantId: tenant.id,
-            plan: "PRO",
-            status: "TRIALING",
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: trialEnds,
-            trialEndsAt: trialEnds,
-          },
-        });
-      }
-
       // Activate user as tenant ADMIN
       const updatedUser = await tx.user.update({
         where: { id: userId },
@@ -87,6 +72,9 @@ export async function POST(request) {
 
       return { tenant, user: updatedUser };
     });
+
+    // Create PRO trial subscription + initialize credit balance (outside tx — correct planSnapshot + credits)
+    await createTrialSubscription(result.tenant.id);
 
     return Response.json({ ok: true, slug: result.tenant.slug });
   } catch (error) {

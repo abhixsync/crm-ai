@@ -118,6 +118,7 @@ async function buildGuard(tenantId) {
     limits = {
       maxUsers:              snap.maxUsers              ?? 1,
       maxCustomers:          snap.maxCustomers          ?? 100,
+      creditsPerMonth:       snap.creditsPerMonth       ?? 0,
       maxAiCallsPerMonth:    snap.maxAiCallsPerMonth    ?? 0,
       maxLeadUploadsPerMonth: snap.maxLeadUploadsPerMonth ?? 0,
       maxWebhooks:           snap.maxWebhooks           ?? 0,

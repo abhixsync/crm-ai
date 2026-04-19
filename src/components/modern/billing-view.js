@@ -301,7 +301,7 @@ export function ModernBillingView({ user }) {
               </div>
               <UsageBar label="Customers"    used={summary?.usage?.customers      || 0} max={summary?.limits?.maxCustomers} />
               <UsageBar label="Team Members"  used={summary?.usage?.users          || 0} max={summary?.limits?.maxUsers} />
-              <UsageBar label="AI Calls"      used={summary?.usage?.aiCallsUsed    || 0} max={summary?.limits?.maxAiCallsPerMonth} />
+              <UsageBar label="AI Credits"    used={summary?.usage?.aiCallsUsed    || 0} max={summary?.limits?.creditsPerMonth ?? summary?.limits?.maxAiCallsPerMonth} />
               <UsageBar label="Lead Uploads"  used={summary?.usage?.leadsUploaded  || 0} max={summary?.limits?.maxLeadUploadsPerMonth} />
             </div>
           </div>
