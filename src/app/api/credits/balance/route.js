@@ -9,6 +9,10 @@ export async function GET(req) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // tenantId can be null in the JWT staleness window after Google OAuth signup
+  if (!auth.session.user.tenantId) {
+    return NextResponse.json({ available: 0, planCredits: 0, purchasedCredits: 0, reservedCredits: 0, planCreditsAllocated: 0 });
+  }
   const { tenantId } = getTenantContext(auth.session, req);
   const balance = await getCreditBalance(tenantId);
 
