@@ -72,9 +72,21 @@ export const authOptions = {
 
         if (user.role !== "SUPER_ADMIN") {
           const tenantId = credentials.tenantId || null;
-          if (!tenantId || user.tenantId !== tenantId) {
-            throw new Error("ACCESS_DENIED_TENANT");
+          if (tenantId) {
+            // Tenant subdomain: strict match required
+            if (user.tenantId !== tenantId) throw new Error("ACCESS_DENIED_TENANT");
           }
+          // Platform host (no tenantId provided): allow — post-login page redirects to tenant
+        }
+
+        // Resolve tenant slug so post-login page can redirect cross-domain
+        let tenantSlug = null;
+        if (user.tenantId) {
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: user.tenantId },
+            select: { slug: true },
+          });
+          tenantSlug = tenant?.slug || null;
         }
 
         return {
@@ -83,6 +95,7 @@ export const authOptions = {
           email: user.email,
           role: user.role,
           tenantId: user.tenantId || null,
+          tenantSlug,
           isPrimaryOwner: user.isPrimaryOwner ?? false,
           isSuspended: user.isSuspended ?? false,
           emailVerified: user.emailVerified ? user.emailVerified.toISOString() : null,
@@ -166,6 +179,7 @@ export const authOptions = {
           token.userId = user.id;
           token.role = user.role;
           token.tenantId = user.tenantId || null;
+          token.tenantSlug = user.tenantSlug || null;
           token.isPrimaryOwner = user.isPrimaryOwner ?? false;
           token.isSuspended = user.isSuspended ?? false;
           token.emailVerified = user.emailVerified || null;
@@ -195,6 +209,16 @@ export const authOptions = {
           const meta = dbUser.metadata;
           token.pendingGoogleSignup = meta && typeof meta === "object" && meta.pendingGoogleSignup === true;
           token.tokenCheckedAt = Math.floor(Date.now() / 1000);
+          // Resolve tenant slug for post-login redirect
+          if (dbUser.tenantId) {
+            const tenant = await prisma.tenant.findUnique({
+              where: { id: dbUser.tenantId },
+              select: { slug: true },
+            });
+            token.tenantSlug = tenant?.slug || null;
+          } else {
+            token.tenantSlug = null;
+          }
         }
         return token;
       }
@@ -227,6 +251,7 @@ export const authOptions = {
         session.user.id = token.userId;
         session.user.role = token.role;
         session.user.tenantId = token.tenantId || null;
+        session.user.tenantSlug = token.tenantSlug || null;
         session.user.isPrimaryOwner = token.isPrimaryOwner ?? false;
         session.user.isSuspended = token.isSuspended ?? false;
         session.user.emailVerified = token.emailVerified || null;

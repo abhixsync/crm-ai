@@ -72,7 +72,9 @@ export default function LoginForm({ theme, tenantId, tenantSlug }) {
       return;
     }
 
-    router.push("/dashboard");
+    // Platform host: smart redirect (tenant users go to their subdomain)
+    // Tenant subdomain: go straight to dashboard
+    router.push(tenantId ? "/dashboard" : "/auth/post-login");
     router.refresh();
   }
 
@@ -87,7 +89,7 @@ export default function LoginForm({ theme, tenantId, tenantSlug }) {
           body: JSON.stringify({ tenantSlug }),
         });
       }
-      await signIn("google", { callbackUrl: "/dashboard" });
+      await signIn("google", { callbackUrl: tenantSlug ? "/dashboard" : "/auth/post-login" });
     } catch {
       toast.error("Google sign-in failed. Please try again.");
       setGoogleLoading(false);
