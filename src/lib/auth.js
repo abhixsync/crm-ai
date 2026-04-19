@@ -144,12 +144,15 @@ export const authOptions = {
       // Platform host flow
       const existingUser = await prisma.user.findFirst({
         where: { email },
-        select: { id: true, isActive: true, isSuspended: true, googleId: true, metadata: true },
+        select: { id: true, isActive: true, isSuspended: true, googleId: true, metadata: true, tenantId: true },
       });
 
       if (existingUser) {
         if (!existingUser.isActive || existingUser.isSuspended) return false;
-        if (!existingUser.googleId && profile.email_verified !== false) {
+        // Only auto-link googleId for platform-level users (tenantId = null: SUPER_ADMIN / pending signup).
+        // Tenant users must link Google via their subdomain — prevents cross-tenant account hijacking
+        // when the same email address exists under different tenants.
+        if (!existingUser.googleId && !existingUser.tenantId && profile.email_verified !== false) {
           await prisma.user.update({
             where: { id: existingUser.id },
             data: { googleId: account.providerAccountId },

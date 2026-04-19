@@ -96,7 +96,7 @@ async function seedPlanDefinitions() {
       annualDiscountPct: 0,
       maxUsers: 1,          maxCustomers: 100,
       creditsPerMonth: 100,
-      maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: 0,
+      maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: 10,
       maxWebhooks: 0,        maxCustomFields: 0,
       maxTeams: 0,           maxStorageMb: 0,
       hasAiCalling: false,   hasAdvancedAnalytics: false,
@@ -119,7 +119,7 @@ async function seedPlanDefinitions() {
       annualDiscountPct: 20,
       maxUsers: 3,           maxCustomers: 1000,
       creditsPerMonth: 200,
-      maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: 5,
+      maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: 50,
       maxWebhooks: 1,        maxCustomFields: 5,
       maxTeams: 0,           maxStorageMb: 512,        // 500 MB
       hasAiCalling: true,    hasAdvancedAnalytics: false,
@@ -142,7 +142,7 @@ async function seedPlanDefinitions() {
       annualDiscountPct: 20,
       maxUsers: 10,          maxCustomers: 10000,
       creditsPerMonth: 500,
-      maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: -1, // unlimited
+      maxAiCallsPerMonth: -1, maxLeadUploadsPerMonth: 100,
       maxWebhooks: 5,        maxCustomFields: 20,
       maxTeams: 5,           maxStorageMb: 10240,         // 10 GB
       hasAiCalling: true,    hasAdvancedAnalytics: true,

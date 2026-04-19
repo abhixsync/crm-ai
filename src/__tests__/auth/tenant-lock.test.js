@@ -21,7 +21,10 @@ const mockUser = (overrides = {}) => ({
 });
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { user: { findFirst: vi.fn() } },
+  prisma: {
+    user:   { findFirst: vi.fn() },
+    tenant: { findUnique: vi.fn(async () => ({ slug: "test-tenant" })) },
+  },
 }));
 
 vi.mock("bcryptjs", () => ({
@@ -34,7 +37,7 @@ describe("authorize() tenant lock", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(bcrypt.compare).mockResolvedValue(true);
-    authorize = authOptions.providers[0].options.authorize;
+    authorize = authOptions.providers[1].options.authorize;
   });
 
   it("allows login when tenantId matches", async () => {
@@ -51,11 +54,12 @@ describe("authorize() tenant lock", () => {
     ).rejects.toThrow("ACCESS_DENIED_TENANT");
   });
 
-  it("rejects login when no tenantId provided for non-SUPER_ADMIN", async () => {
+  it("allows platform-host login when no tenantId provided (post-login redirect handles routing)", async () => {
     vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser());
-    await expect(
-      authorize({ email: "user@test.com", password: "passw0rd", tenantId: "" })
-    ).rejects.toThrow("ACCESS_DENIED_TENANT");
+    // Blank tenantId = login from app.wrenforge.com; allowed so the page can redirect to the correct subdomain
+    const result = await authorize({ email: "user@test.com", password: "passw0rd", tenantId: "" });
+    expect(result).not.toBeNull();
+    expect(result.tenantId).toBe(TENANT_A);
   });
 
   it("allows SUPER_ADMIN login without tenantId check", async () => {

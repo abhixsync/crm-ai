@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createTrialSubscription } from "@/lib/subscription/subscription-service";
+import { createFreeSubscription } from "@/lib/subscription/subscription-service";
 
 function normalizeSlug(value) {
   return String(value || "")
@@ -73,8 +73,8 @@ export async function POST(request) {
       return { tenant, user: updatedUser };
     });
 
-    // Create PRO trial subscription + initialize credit balance (outside tx — correct planSnapshot + credits)
-    await createTrialSubscription(result.tenant.id);
+    // Create FREE subscription + initialize credit balance (outside tx — correct planSnapshot + credits)
+    await createFreeSubscription(result.tenant.id);
 
     return Response.json({ ok: true, slug: result.tenant.slug });
   } catch (error) {

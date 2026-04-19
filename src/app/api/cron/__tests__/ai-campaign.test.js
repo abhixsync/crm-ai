@@ -9,7 +9,7 @@ vi.mock("@/lib/prisma", () => ({
     customer:           { count: vi.fn() },
     user:               { findUnique: vi.fn(), findFirst: vi.fn() },
     subscriptionConfig: { findUnique: vi.fn(async () => null) },
-    tenant:             { findFirst: vi.fn(async () => null) },
+    tenant:             { findFirst: vi.fn(async () => null), findMany: vi.fn(async () => []) },
     automationSetting:  {
       findFirst:  vi.fn(async () => null),
       findUnique: vi.fn(async () => null),
@@ -455,6 +455,8 @@ describe("GET /api/cron/ai-campaign — skipped cases", () => {
       tenantId: "t-x",
       value:    { lastRunAt: oldRunAt.toISOString() },
     });
+    // Provide one tenant so the per-tenant loop fires runAutomationBatch
+    prisma.tenant.findMany.mockResolvedValue([{ id: "t-x" }]);
     const { res, body } = await callGet();
     expect(res.status).toBe(200);
     expect(runAutomationBatch).toHaveBeenCalledOnce();
@@ -465,22 +467,25 @@ describe("GET /api/cron/ai-campaign — skipped cases", () => {
 // ─── GET handler: runAutomationBatch failure ──────────────────────────────────
 
 describe("GET /api/cron/ai-campaign — runAutomationBatch failure", () => {
-  it("propagates the error status when runAutomationBatch returns ok=false", async () => {
+  it("propagates the error reason in tenants array when runAutomationBatch returns ok=false", async () => {
+    prisma.tenant.findMany.mockResolvedValue([{ id: "t-fail" }]);
     runAutomationBatch.mockResolvedValue({
       ok:     false,
       status: 500,
       error:  "batch exploded",
     });
     const { res, body } = await callGet();
-    expect(res.status).toBe(500);
-    expect(body.error).toBe("batch exploded");
+    // Route returns 200 — cron jobs must succeed for scheduler health; error is in tenants[]
+    expect(res.status).toBe(200);
+    expect(body.tenants).toEqual([{ tenantId: "t-fail", ok: false, reason: "batch exploded" }]);
   });
 
-  it("does not call checkAndNotifyCampaignCompletion when batch fails", async () => {
+  it("still calls checkAndNotifyCampaignCompletion even when batch fails", async () => {
+    prisma.tenant.findMany.mockResolvedValue([{ id: "t-fail" }]);
     runAutomationBatch.mockResolvedValue({ ok: false, status: 500, error: "fail" });
     await callGet();
     await settle();
-    // findMany is the first thing checkAndNotifyCampaignCompletion calls
-    expect(prisma.campaign.findMany).not.toHaveBeenCalled();
+    // checkAndNotifyCampaignCompletion fires unconditionally after the tenant loop
+    expect(prisma.campaign.findMany).toHaveBeenCalled();
   });
 });

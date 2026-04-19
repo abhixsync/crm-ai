@@ -107,6 +107,32 @@ export async function createTrialSubscription(tenantId) {
   return subscription;
 }
 
+// ─── CREATE FREE ─────────────────────────────────────────
+
+/**
+ * Called during Google OAuth tenant registration.
+ * Creates an ACTIVE FREE subscription (no trial period).
+ */
+export async function createFreeSubscription(tenantId) {
+  const freePlan = await prisma.planDefinition.findUnique({ where: { plan: "FREE" } });
+  const planSnapshot = await buildPlanSnapshot("FREE");
+
+  const subscription = await prisma.tenantSubscription.create({
+    data: {
+      tenantId,
+      plan: "FREE",
+      status: "ACTIVE",
+      billingCycle: "MONTHLY",
+      planDefinitionId: freePlan?.id ?? null,
+      planSnapshot,
+    },
+  });
+
+  await initializeCreditBalance(tenantId, freePlan?.creditsPerMonth ?? 100, null).catch(() => {});
+
+  return subscription;
+}
+
 // ─── UPGRADE PLAN ────────────────────────────────────────
 
 export async function upgradePlan(tenantId, {
