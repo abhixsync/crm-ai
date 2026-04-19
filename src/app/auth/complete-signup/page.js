@@ -10,7 +10,7 @@ export default async function CompleteSignupPage() {
   if (!session?.user) redirect("/login");
 
   // Already fully signed up
-  if (!session.user.pendingGoogleSignup) redirect("/dashboard");
+  if (!session.user.pendingGoogleSignup) redirect("/auth/post-login");
 
   return <CompleteSignupForm user={session.user} />;
 }

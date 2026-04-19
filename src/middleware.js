@@ -124,6 +124,14 @@ async function resolveTenant(host) {
 async function applyRoleGuards(request, extraHeaders) {
   const { pathname } = request.nextUrl;
 
+  // Block pending Google signup users from navigating anywhere except /auth/
+  if (!pathname.startsWith("/auth/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/")) {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    if (token?.pendingGoogleSignup === true) {
+      return NextResponse.redirect(new URL("/auth/complete-signup", request.url));
+    }
+  }
+
   const isUserManagementPage = pathname.startsWith("/admin/user-management");
   const isUserManagementApi  = pathname.startsWith("/api/admin/user-management");
   const isTenantsPage        = pathname.startsWith("/admin/tenants");
