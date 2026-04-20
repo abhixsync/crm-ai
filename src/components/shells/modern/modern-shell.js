@@ -258,8 +258,20 @@ function getInitials(name) {
 }
 
 function buildNavItems(role) {
-  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
   const isSuperAdmin = role === "SUPER_ADMIN";
+
+  if (isSuperAdmin) {
+    return [
+      { key: "aiconfig",          href: "/admin/ai-system-prompt",    label: "AI Assistance",       icon: icons.aiconfig,          section: "Superadmin" },
+      { key: "globaltheme",       href: "/admin/global-appearance",   label: "Global Theme",        icon: icons.globalTheme,       section: "Superadmin" },
+      { key: "roles",             href: "/admin/user-management",     label: "Roles & Permissions", icon: icons.roles,             section: "Superadmin" },
+      { key: "subscriptionAdmin", href: "/admin/subscription-config", label: "Subscription Config", icon: icons.subscriptionAdmin, section: "Superadmin" },
+      { key: "planManagement",    href: "/admin/plan-management",     label: "Plan Management",     icon: icons.billing,           section: "Superadmin" },
+      { key: "tenants",           href: "/admin/tenants",             label: "Tenants",             icon: icons.tenants,           section: "Superadmin" },
+    ];
+  }
+
+  const isAdmin = role === "ADMIN";
 
   const items = [
     // ─── Main ───
@@ -284,7 +296,7 @@ function buildNavItems(role) {
 
   if (isAdmin) {
     items.push(
-      // ─── New Features ───
+      // ─── Pipeline ───
       { key: "deals",      href: "/admin/deals",         label: "Deals",           icon: icons.deals,      section: "Pipeline" },
       { key: "messages",   href: "/messages",            label: "Messages",        icon: icons.messages,   section: "Pipeline" },
 
@@ -304,17 +316,6 @@ function buildNavItems(role) {
 
       // ─── Theme ───
       { key: "theme",      href: "/admin/modular-theme", label: "Modular Theme", icon: icons.theme, section: "Theme" },
-    );
-  }
-
-  if (isSuperAdmin) {
-    items.push(
-      { key: "aiconfig",   href: "/admin/ai-system-prompt", label: "AI Assistance", icon: icons.aiconfig,  section: "Superadmin" },
-      { key: "globaltheme",       href: "/admin/global-appearance",    label: "Global Theme",        icon: icons.globalTheme,       section: "Superadmin" },
-      { key: "roles",             href: "/admin/user-management",      label: "Roles & Permissions", icon: icons.roles,             section: "Superadmin" },
-      { key: "subscriptionAdmin", href: "/admin/subscription-config",  label: "Subscription Config", icon: icons.subscriptionAdmin, section: "Superadmin" },
-      { key: "planManagement",    href: "/admin/plan-management",      label: "Plan Management",     icon: icons.billing,           section: "Superadmin" },
-      { key: "tenants",           href: "/admin/tenants",              label: "Tenants",             icon: icons.tenants,           section: "Superadmin" },
     );
   }
 

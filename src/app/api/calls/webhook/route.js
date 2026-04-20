@@ -6,6 +6,7 @@ import { getOrCreateSession, getSessionContext } from "@/lib/conversation/sessio
 import { verifyWebhookSig, signWebhookUrl } from "@/lib/telephony/webhook-auth";
 import { getTenantSettings } from "@/lib/ai/system-prompt";
 import { finalizeCall } from "@/lib/calls/call-finalizer";
+import { publishEvent } from "@/lib/events/event-publisher";
 
 // TTS voice config — Amazon Polly Hindi voice (works on all Twilio accounts).
 // Fallback from Google.hi-IN-Wavenet-A which requires Google TTS integration.
@@ -211,6 +212,7 @@ export async function POST(request) {
         // After max retries, end the call gracefully
         console.log(`[Webhook] Max retries reached, ending call`);
         after(() => finalizeCall(callLogId, customer.id, tenantId, null, {}, turn));
+        if (tenantId && callLogId) publishEvent(tenantId, { type: "call:status", payload: { callLogId } }).catch(() => {});
         return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(phrases.cantHear)}</Say><Hangup/>`);
       }
 
@@ -277,6 +279,7 @@ export async function POST(request) {
     if (!speechResult) {
       console.log(`[Webhook] No speech result and not initial turn, ending call`);
       after(() => finalizeCall(callLogId, customer.id, tenantId, null, {}, turn));
+      if (tenantId && callLogId) publishEvent(tenantId, { type: "call:status", payload: { callLogId } }).catch(() => {});
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(phrases.thankYou)}</Say><Hangup/>`);
     }
 
@@ -318,6 +321,7 @@ export async function POST(request) {
     } catch (aiError) {
       console.error("[Webhook] AI provider failed:", aiError.message);
       after(() => finalizeCall(callLogId, customer.id, tenantId, sessionCtx, {}, turn));
+      if (tenantId && callLogId) publishEvent(tenantId, { type: "call:status", payload: { callLogId } }).catch(() => {});
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(phrases.aiError)}</Say><Hangup/>`);
     }
     const aiTurn = aiOutput.result;
@@ -354,6 +358,7 @@ export async function POST(request) {
       console.log(`[Webhook] Call should end. Finishing call.`);
       const closing = `${aiTurn.reply} ${phrases.closingSuffix}`;
       after(() => finalizeCall(callLogId, customer.id, tenantId, sessionCtx, mergedExtracted, turn));
+      if (tenantId && callLogId) publishEvent(tenantId, { type: "call:status", payload: { callLogId } }).catch(() => {});
 
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(closing)}</Say><Hangup/>`);
     }

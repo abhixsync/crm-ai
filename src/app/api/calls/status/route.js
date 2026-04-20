@@ -8,6 +8,7 @@ import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server
 import { settleCredits } from "@/lib/credits/credit-service";
 import { verifyWebhookSig } from "@/lib/telephony/webhook-auth";
 import { finalizeCall } from "@/lib/calls/call-finalizer";
+import { publishEvent } from "@/lib/events/event-publisher";
 
 export async function POST(request) {
   let callSid = "";
@@ -93,6 +94,10 @@ export async function POST(request) {
               : undefined,
         },
       });
+
+      if (callLog.tenantId && callLog.id) {
+        publishEvent(callLog.tenantId, { type: "call:status", payload: { callLogId: callLog.id, status: mappedStatus } }).catch(() => {});
+      }
 
       if (shouldDeferAIFinalization) {
         // The telephony call is physically over — release the lock so the

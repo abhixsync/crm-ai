@@ -78,8 +78,23 @@ export async function finalizeCall(callLogId, customerId, tenantId, sessionCtx, 
     summary: analysis.summary,
     metadata: callLog.metadata,
   });
-  const normalizedIntent = canonicalizeIntent(crmDecision.normalizedIntent || aiIntent) || "failed";
+  const normalizedCrmIntent = canonicalizeIntent(crmDecision.normalizedIntent || aiIntent) || "failed";
+  // When AI detected "interested", preserve it unless the CRM decision is a hard stop.
+  // CRM scoring can downgrade "interested" to "call_back_later" (score 40-59, busy signal, etc.)
+  // but that should not strip a confirmed interested status — only upgrades (converted) or
+  // hard stops (not_interested, do_not_call) should override the AI's classification.
+  const isHardStop = normalizedCrmIntent === "not_interested" || normalizedCrmIntent === "do_not_call";
+  const finalIntent =
+    aiIntent === "interested" && !isHardStop
+      ? normalizedCrmIntent === "converted"
+        ? "converted"
+        : "interested"
+      : normalizedCrmIntent;
+  const normalizedIntent = finalIntent;
   const mappedStatus = mapIntentToCustomerStatus(normalizedIntent);
+  if (mappedStatus === CustomerStatus.INTERESTED) {
+    console.info("[call-finalizer] Customer marked INTERESTED — advisor notification will fire.");
+  }
 
   const metadata = isPlainObject(callLog.metadata) ? { ...callLog.metadata } : {};
   metadata.crmEventDecision = {
