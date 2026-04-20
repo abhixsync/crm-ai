@@ -220,7 +220,7 @@ export async function POST(request) {
       const nextAttempt = failedAttempts + 1;
       const actionUrl = signWebhookUrl(`${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn}&failedAttempts=${nextAttempt}`, callLogId);
 
-      const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(retryPrompt)}</Say></Gather><Hangup/>`;
+      const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="1" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(retryPrompt)}</Say></Gather><Hangup/>`;
       console.log(`[Webhook] Sending TwiML for retry: ${twiml.substring(0, 100)}...`);
       return twimlResponse(twiml);
     }
@@ -265,7 +265,7 @@ export async function POST(request) {
 
       const actionUrl = signWebhookUrl(`${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=1`, callLogId);
 
-      const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(opening)}</Say></Gather><Hangup/>`;
+      const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="1" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(opening)}</Say></Gather><Hangup/>`;
       console.log(`[Webhook] Sending initial TwiML with Gather`);
       return twimlResponse(twiml);
     }
@@ -359,7 +359,7 @@ export async function POST(request) {
     const nextTurn = turn + 1;
     const actionUrl = signWebhookUrl(`${BASE_URL}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLogId}&turn=${nextTurn}&failedAttempts=0`, callLogId);
 
-    const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="3" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(aiTurn.reply)}</Say></Gather><Hangup/>`;
+    const twiml = `<Gather input="speech" language="hi-IN" speechTimeout="1" actionOnEmptyResult="true" action="${xmlEscape(actionUrl)}" method="POST"><Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}" rate="0.9">${xmlEscape(aiTurn.reply)}</Say></Gather><Hangup/>`;
     console.log(`[Webhook] Sending AI response with Gather for next turn`);
     return twimlResponse(twiml);
   } catch (error) {

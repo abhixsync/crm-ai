@@ -19,7 +19,8 @@ function mapIntentToCustomerStatus(intent) {
   if (normalized === "do_not_call") return CustomerStatus.DO_NOT_CALL;
   if (normalized === "converted") return CustomerStatus.CONVERTED;
   if (normalized === "follow_up" || normalized === "call_back_later") return CustomerStatus.FOLLOW_UP;
-  return CustomerStatus.CALL_FAILED;
+  // "failed" / unknown intent = customer dropped or call couldn't be analyzed — schedule retry rather than hard-fail
+  return CustomerStatus.RETRY_SCHEDULED;
 }
 
 function isPlainObject(value) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSSEEvent } from "@/hooks/useSSE";
 
 const STATUS_COLORS = {
   COMPLETED: "#22c993",
@@ -44,8 +45,22 @@ function formatCustomerName(customer) {
   return `${customer.firstName || ""} ${customer.lastName || ""}`.trim() || "Unknown";
 }
 
-export function ModernCallLogsView({ callLogs }) {
+export function ModernCallLogsView({ callLogs: initialCallLogs }) {
+  const [callLogs, setCallLogs] = useState(initialCallLogs || []);
   const [filter, setFilter] = useState("");
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/calls/history");
+      if (!res.ok) return;
+      const data = await res.json();
+      setCallLogs(data.callLogs || []);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+
+  useSSEEvent("call:status", fetchLogs);
 
   const filteredLogs = useMemo(() => {
     if (!filter) return callLogs;

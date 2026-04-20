@@ -140,7 +140,21 @@ async function invokeOpenAI({ task, input, config }) {
       throw new Error("OpenAI API key not configured");
     }
 
-    const prompt = `Analyze this loan sales call transcript and return JSON with keys summary, intent, nextAction. Transcript: ${transcript}`;
+    const prompt = `You are analyzing a loan sales call transcript. Return a JSON object with exactly these keys:
+- "summary": 1-2 sentence summary of what happened
+- "intent": one of: "interested", "follow_up", "not_interested", "do_not_call", "converted", "failed"
+- "nextAction": what the sales team should do next
+
+Intent definitions (be precise):
+- "interested": customer actively expressed interest, asked about loan details, mentioned a specific loan amount or requirement, OR asked about the process/documents/EMI — even if they didn't commit
+- "follow_up": customer said they want to be called back at a specific later time (busy now, call tomorrow, etc.)
+- "not_interested": customer explicitly said they don't need a loan or are not interested
+- "do_not_call": customer said don't call again or to remove them
+- "converted": customer agreed to proceed, fill application, or submit documents
+- "failed": call ended with no meaningful conversation (no speech, technical failure, or completely unclear)
+
+Return ONLY valid JSON, no markdown. Transcript:
+${transcript}`;
     const completion = await client.responses.create({ model, input: prompt });
 
     try {

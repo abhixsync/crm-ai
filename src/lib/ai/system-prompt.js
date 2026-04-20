@@ -199,18 +199,19 @@ export async function getTenantSettings(tenantId) {
     if (normalizedTenantId) {
       tenant = await prisma.tenant.findUnique({
         where: { id: normalizedTenantId },
-        select: { loanAssistantLanguage: true, loanAssistantHumanAdvisorName: true, loanAssistantCompanyName: true, name: true },
+        select: { loanAssistantLanguage: true, aiAgentName: true, loanAssistantHumanAdvisorName: true, loanAssistantCompanyName: true, name: true },
       });
     } else {
       // If tenant context is missing, prefer the configured super-admin tenant defaults.
       tenant = await prisma.tenant.findFirst({
         where: { slug: "super-admin" },
-        select: { loanAssistantLanguage: true, loanAssistantHumanAdvisorName: true, loanAssistantCompanyName: true, name: true },
+        select: { loanAssistantLanguage: true, aiAgentName: true, loanAssistantHumanAdvisorName: true, loanAssistantCompanyName: true, name: true },
       });
     }
 
     const lang = normalizeLanguage(tenant?.loanAssistantLanguage);
-    const advisorName = String(tenant?.loanAssistantHumanAdvisorName || "").trim() || DEFAULT_HUMAN_ADVISOR_NAME;
+    // aiAgentName is the name the AI agent introduces itself as; fall back to humanAdvisorName then default
+    const advisorName = String(tenant?.aiAgentName || tenant?.loanAssistantHumanAdvisorName || "").trim() || DEFAULT_HUMAN_ADVISOR_NAME;
     const companyName = String(tenant?.loanAssistantCompanyName || tenant?.name || "").trim() || null;
     const source = normalizedTenantId ? "explicit_tenant_id" : "super_admin_fallback";
 

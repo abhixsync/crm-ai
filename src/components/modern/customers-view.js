@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useSSEEvent } from "@/hooks/useSSE";
 
 /* ── Status config ── */
 const STATUS_OPTIONS = [
@@ -155,6 +156,11 @@ export function ModernCustomersView({
     const t = setTimeout(() => fetchCustomers(1), 250);
     return () => clearTimeout(t);
   }, [fetchCustomers]);
+
+  /* Live updates: refresh when a call completes */
+  useSSEEvent("call:status", useCallback(() => {
+    Promise.all([fetchMetrics(), fetchCustomers(pageRef.current, { showLoading: false })]).catch(() => {});
+  }, [fetchMetrics, fetchCustomers]));
 
   /* ── Status update ── */
   async function updateStatus(id, status) {
