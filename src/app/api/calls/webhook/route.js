@@ -72,19 +72,21 @@ async function appendTranscript(callLogId, speaker, message) {
   `;
 }
 
-function fallbackGreeting(customer, language) {
+function fallbackGreeting(customer, language, agentName, companyName) {
   const firstName = String(customer?.firstName || customer?.name || "").split(" ")[0] || "";
   const name = firstName ? `${firstName} ji` : "ji";
   const nameEn = firstName || "there";
+  const agent = String(agentName || "").trim() || "your loan advisor";
+  const company = String(companyName || "").trim() || "our company";
 
   if (language === "hindi") {
-    return `Namaste ${name}! Main loan ke baare mein baat karna chahti hoon. Kya aap abhi baat kar sakte hain?`;
+    return `Hello ${name}, main ${agent} bol rahi hoon ${company} se. Kya aapko kisi prakar ke loan ki zarurat hai?`;
   }
   if (language === "english") {
-    return `Hello ${nameEn}! I'm calling about a loan offer for you. Do you have a moment to speak?`;
+    return `Hello ${nameEn}, I'm ${agent} calling from ${company}. Do you have any loan requirements?`;
   }
   // hinglish (default)
-  return `Namaste ${name}! Main aapko loan ke baare mein baat karna chahti hoon. Kya aap abhi baat kar sakte hain?`;
+  return `Hello ${name}, main ${agent} bol rahi hoon ${company} se. Kya aapko kisi prakar ke loan ki zarurat hai?`;
 }
 
 function getLocalizedPhrases(language, advisorName) {
@@ -182,9 +184,9 @@ export async function POST(request) {
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">Customer record not found. Please call again later.</Say><Hangup/>`);
     }
 
-    // Resolve tenant language + advisor name once — used for all spoken messages and AI prompt
-    const { language: tenantLanguage, humanAdvisorName: advisorName, companyName } =
-      await getTenantSettings(tenantId).catch(() => ({ language: "hinglish", humanAdvisorName: "our loan advisor", companyName: null }));
+    // Resolve tenant language, agent name, human advisor name, company name
+    const { language: tenantLanguage, agentName, humanAdvisorName: advisorName, companyName } =
+      await getTenantSettings(tenantId).catch(() => ({ language: "hinglish", agentName: "our loan advisor", humanAdvisorName: "our loan advisor", companyName: null }));
     const phrases = getLocalizedPhrases(tenantLanguage, advisorName);
 
     if (callLogId && callSid) {
@@ -255,11 +257,11 @@ export async function POST(request) {
       try {
         const greetOutput = await runAIWithFailover({
           task: "CALL_SCRIPT",
-          payload: { customer: customerForAI, language: tenantLanguage, humanAdvisorName: advisorName, companyName },
+          payload: { customer: customerForAI, language: tenantLanguage, humanAdvisorName: advisorName, companyName, agentName },
         });
-        opening = greetOutput.result?.script || fallbackGreeting(customer, tenantLanguage);
+        opening = greetOutput.result?.script || fallbackGreeting(customer, tenantLanguage, agentName, companyName);
       } catch {
-        opening = fallbackGreeting(customer);
+        opening = fallbackGreeting(customer, tenantLanguage, agentName, companyName);
       }
       console.log(`[Webhook] Initial greeting on turn 0: ${opening.substring(0, 50)}...`);
       await appendTranscript(callLogId, "Agent", opening);
@@ -304,7 +306,7 @@ export async function POST(request) {
           transcript,
           turn,
           latestCustomerMessage: speechResult,
-          agentName: advisorName,
+          agentName: agentName,
           companyName,
           context: {
             conversationStage: sessionCtx.lastStage || undefined,

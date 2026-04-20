@@ -162,19 +162,34 @@ const DEFAULT_SYSTEM_PROMPT = `${CORE_PROMPT_TEMPLATE}\n\n${LANGUAGE_RULES.hingl
  * AI follows the same constraints as CALL_TURN — banned phrases, name
  * personalization, empathy, slot-gating, etc.
  */
-export function buildCallScriptPrompt(customer, language, humanAdvisorName, companyName) {
+export function buildCallScriptPrompt(customer, language, humanAdvisorName, companyName, agentName) {
   const lang = String(language || "hinglish").trim().toLowerCase();
   const langRules = getLanguageRulesBlock(lang);
-  const advisorName = String(humanAdvisorName || DEFAULT_HUMAN_ADVISOR_NAME).trim() || DEFAULT_HUMAN_ADVISOR_NAME;
+  const resolvedAdvisor = String(humanAdvisorName || DEFAULT_HUMAN_ADVISOR_NAME).trim() || DEFAULT_HUMAN_ADVISOR_NAME;
+  const resolvedAgent = String(agentName || resolvedAdvisor).trim();
   const resolvedCompany = String(companyName || "Our Company").trim();
-  const fullSystemPrompt = injectAdvisorName(`${CORE_PROMPT_TEMPLATE}\n\n${langRules}`, advisorName)
-    .replace(/\{COMPANY_NAME\}/g, resolvedCompany);
+  const fullSystemPrompt = injectAdvisorName(`${CORE_PROMPT_TEMPLATE}\n\n${langRules}`, resolvedAdvisor)
+    .replace(/\{COMPANY_NAME\}/g, resolvedCompany)
+    .replace(/\{AGENT_NAME\}/g, resolvedAgent);
+
+  const firstName = String(customer?.firstName || "").split(" ")[0] || "ji";
 
   return `${fullSystemPrompt}
 
 ---
 
-Now produce the opening line — the very first thing you say when the customer picks up. Keep it to 2-3 sentences: greet the customer by first name (with "ji" for Hindi/Hinglish), briefly introduce that you are calling about a loan, and ask one opening qualification question. Do not include stage directions, labels, or markdown.
+Now produce the opening line — the very first thing you say when the customer picks up.
+
+OPENING FORMAT (MANDATORY — do NOT deviate):
+For Hinglish/Hindi: "Hello ${firstName} ji, main ${resolvedAgent} bol rahi hoon ${resolvedCompany} se. Kya aapko kisi prakar ke loan ki zarurat hai?"
+For English: "Hello ${firstName}, I'm ${resolvedAgent} calling from ${resolvedCompany}. Do you have any loan requirements?"
+
+RULES:
+- Start with "Hello [name] ji" — NEVER start with "Haan", "Namaste", "Accha", "Uh", or any filler.
+- Say your name (${resolvedAgent}) and company (${resolvedCompany}) in the intro.
+- End with exactly one opening question about their loan need.
+- Keep it natural and warm — 2 sentences maximum.
+- Do not include stage directions, labels, or markdown.
 
 Customer profile: ${JSON.stringify(customer)}`;
 }
@@ -228,8 +243,10 @@ export async function getTenantSettings(tenantId) {
     }
 
     const lang = normalizeLanguage(tenant?.loanAssistantLanguage);
-    // aiAgentName is the name the AI agent introduces itself as; fall back to humanAdvisorName then default
-    const advisorName = String(tenant?.aiAgentName || tenant?.loanAssistantHumanAdvisorName || "").trim() || DEFAULT_HUMAN_ADVISOR_NAME;
+    // humanAdvisorName = the real human who calls back after qualification
+    const humanAdvisorName = String(tenant?.loanAssistantHumanAdvisorName || "").trim() || DEFAULT_HUMAN_ADVISOR_NAME;
+    // agentName = the AI agent's own name (what it introduces itself as on the call)
+    const agentName = String(tenant?.aiAgentName || "").trim() || humanAdvisorName;
     const companyName = String(tenant?.loanAssistantCompanyName || tenant?.name || "").trim() || null;
     const source = normalizedTenantId ? "explicit_tenant_id" : "super_admin_fallback";
 
@@ -240,17 +257,20 @@ export async function getTenantSettings(tenantId) {
         normalizedTenantId: normalizedTenantId || null,
         source,
         resolvedLanguage: lang,
+        agentName,
+        humanAdvisorName,
         companyName: companyName ?? null,
       })
     );
 
     return {
       language: lang,
-      humanAdvisorName: advisorName,
+      agentName,
+      humanAdvisorName,
       companyName,
     };
   } catch {
-    return { language: "hinglish", humanAdvisorName: DEFAULT_HUMAN_ADVISOR_NAME, companyName: null };
+    return { language: "hinglish", agentName: DEFAULT_HUMAN_ADVISOR_NAME, humanAdvisorName: DEFAULT_HUMAN_ADVISOR_NAME, companyName: null };
   }
 }
 
