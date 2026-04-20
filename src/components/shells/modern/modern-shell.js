@@ -262,12 +262,12 @@ function buildNavItems(role) {
 
   if (isSuperAdmin) {
     return [
-      { key: "aiconfig",          href: "/admin/ai-system-prompt",    label: "AI Assistance",       icon: icons.aiconfig,          section: "Superadmin" },
-      { key: "globaltheme",       href: "/admin/global-appearance",   label: "Global Theme",        icon: icons.globalTheme,       section: "Superadmin" },
+      { key: "tenants",           href: "/admin/tenants",             label: "Tenants",             icon: icons.tenants,           section: "Superadmin" },
       { key: "roles",             href: "/admin/user-management",     label: "Roles & Permissions", icon: icons.roles,             section: "Superadmin" },
       { key: "subscriptionAdmin", href: "/admin/subscription-config", label: "Subscription Config", icon: icons.subscriptionAdmin, section: "Superadmin" },
       { key: "planManagement",    href: "/admin/plan-management",     label: "Plan Management",     icon: icons.billing,           section: "Superadmin" },
-      { key: "tenants",           href: "/admin/tenants",             label: "Tenants",             icon: icons.tenants,           section: "Superadmin" },
+      { key: "globaltheme",       href: "/admin/global-appearance",   label: "Global Theme",        icon: icons.globalTheme,       section: "Superadmin" },
+      { key: "aiconfig",          href: "/admin/ai-system-prompt",    label: "AI Assistance",       icon: icons.aiconfig,          section: "Superadmin" },
     ];
   }
 
