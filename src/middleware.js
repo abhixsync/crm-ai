@@ -280,9 +280,9 @@ export async function middleware(request) {
     return withCors(await applyRoleGuards(request, requestHeaders));
   }
 
-  // 4. www — pass through; next.config.mjs rewrite serves public/landing.html
+  // 4. www — pass through without CSP nonce; landing page uses inline scripts
   if (host === `www.${APP_DOMAIN}`) {
-    return withCors(NextResponse.next());
+    return NextResponse.next();
   }
 
   // 5. Resolve tenant from hostname
