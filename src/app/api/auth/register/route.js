@@ -116,8 +116,8 @@ export async function POST(request) {
     return Response.json({ success: true, slug }, { status: 201 });
   } catch (err) {
     if (err.message === "EMAIL_EXISTS") {
-      // Return indistinguishable success to prevent email enumeration
-      return Response.json({ success: true }, { status: 201 });
+      // Return indistinguishable success to prevent email enumeration (dummy slug matches shape)
+      return Response.json({ success: true, slug: "setup" }, { status: 201 });
     }
     console.error("[api/auth/register]", err);
     return Response.json({ error: "Registration failed. Please try again." }, { status: 500 });

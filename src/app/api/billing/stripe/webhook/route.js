@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { constructStripeEvent } from "@/lib/billing/stripe";
+import { constructStripeEvent, getStripe } from "@/lib/billing/stripe";
 import { upgradePlan, cancelSubscription } from "@/lib/subscription/subscription-service";
 import { invalidatePlanGuardCache } from "@/lib/subscription/plan-guard";
 import { prisma } from "@/lib/prisma";
@@ -200,6 +200,7 @@ export async function POST(req) {
               currentPeriodEnd:   new Date(stripeSub.current_period_end   * 1000),
             },
           });
+          invalidatePlanGuardCache(sub.tenantId);
         }
         break;
       }
@@ -215,15 +216,19 @@ export async function POST(req) {
 // ─── HELPERS ────────────────────────────────────────────
 
 async function resolvePlanFromStripeSubscription(stripeSubId) {
-  // Map from env vars: STRIPE_PLAN_<plan>_<cycle>=price_xxx
-  // For now default to PRO if we can't resolve
   const plans = ["MAX", "PRO", "PLUS"];
   const cycles = ["MONTHLY", "ANNUAL"];
-  for (const plan of plans) {
-    for (const cycle of cycles) {
-      const envKey = `STRIPE_PRICE_${plan}_${cycle}`;
-      if (process.env[envKey]) return plan;
+  try {
+    const stripe = getStripe();
+    const sub = await stripe.subscriptions.retrieve(stripeSubId);
+    const priceId = sub.items?.data?.[0]?.price?.id;
+    if (priceId) {
+      for (const plan of plans) {
+        for (const cycle of cycles) {
+          if (process.env[`STRIPE_PRICE_${plan}_${cycle}`] === priceId) return plan;
+        }
+      }
     }
-  }
+  } catch { /* fall through to default */ }
   return "PRO";
 }

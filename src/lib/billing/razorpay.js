@@ -8,7 +8,7 @@
  */
 
 import Razorpay from "razorpay";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
 let _razorpay;
 function getRazorpay() {
@@ -77,7 +77,10 @@ export function verifyRazorpayWebhook(rawBody, signature) {
   if (!secret) throw new Error("RAZORPAY_WEBHOOK_SECRET is not set");
 
   const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-  if (expected !== signature) throw new Error("Razorpay webhook signature mismatch");
+  const sig = String(signature || "");
+  if (sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    throw new Error("Razorpay webhook signature mismatch");
+  }
 }
 
 // ─── PLAN → RAZORPAY PLAN MAP ───────────────────────────
