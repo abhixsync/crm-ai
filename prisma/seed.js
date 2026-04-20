@@ -1,5 +1,3 @@
-const bcrypt = require("bcryptjs");
-const { randomBytes } = require("crypto");
 const {
   PrismaClient,
   UserRole,
@@ -7,31 +5,9 @@ const {
   AiProviderStatus,
   TelephonyProviderType,
   SubscriptionPlan,
-  SubscriptionStatus,
-  BillingCycle,
 } = require("@prisma/client");
 
 const prisma = new PrismaClient();
-
-// ─── HELPERS ────────────────────────────────────────────
-
-async function upsertUser({ tenantId, email, name, passwordHash, role, isPrimaryOwner = false }) {
-  const existing = await prisma.user.findFirst({ where: { tenantId, email } });
-  if (!existing) {
-    return prisma.user.create({
-      data: { tenantId, email, name, passwordHash, role, isPrimaryOwner, emailVerified: new Date() },
-    });
-  }
-  return existing;
-}
-
-async function upsertTenant({ name, slug }) {
-  return prisma.tenant.upsert({
-    where: { slug },
-    update: {},
-    create: { name, slug, isActive: true },
-  });
-}
 
 // ─── SUBSCRIPTION CONFIG (global settings) ──────────────
 
@@ -193,109 +169,42 @@ async function seedPlanDefinitions() {
 
 // ─── SUPER ADMIN USER (no tenant) ────────────────────────
 
+const SUPER_ADMIN_EMAIL = "shuklaji88as@gmail.com";
+
 async function seedSuperAdmin() {
-  // Check if user already exists (may have old tenantId from previous seed)
-  const existing = await prisma.user.findFirst({ where: { email: "lucifer.shukla@crm.local" } });
+  // Support migrating from old email — find by either address
+  const existing = await prisma.user.findFirst({
+    where: { OR: [{ email: SUPER_ADMIN_EMAIL }, { email: "lucifer.shukla@crm.local" }] },
+  });
 
   if (!existing) {
-    const passwordHash = await bcrypt.hash(randomBytes(16).toString("hex"), 12);
+    // passwordHash: null → credential login blocked, Google OAuth auto-link enabled
     await prisma.user.create({
       data: {
         tenantId: null,
-        email: "lucifer.shukla@crm.local",
-        name: "lucifer.shukla",
-        passwordHash,
+        email: SUPER_ADMIN_EMAIL,
+        name: "Super Admin",
+        passwordHash: null,
         role: UserRole.SUPER_ADMIN,
         isPrimaryOwner: true,
         emailVerified: new Date(),
       },
     });
-    console.warn("[seed] Super admin created. Set a secure password before production use.");
-  } else if (existing.tenantId) {
-    // Detach from any tenant — super admin should be platform-level
-    await prisma.user.update({ where: { id: existing.id }, data: { tenantId: null } });
-  }
-
-  console.log("✓ Super admin seeded  (lucifer.shukla@crm.local) — no tenant");
-}
-
-// ─── DEMO TENANT + ADMIN + PRO SUBSCRIPTION ─────────────
-
-async function seedDemoTenant() {
-  const tenant = await upsertTenant({ name: "Demo CRM", slug: "demo" });
-
-  const passwordHash = await bcrypt.hash("Admin@123", 12);
-  await upsertUser({
-    tenantId: tenant.id,
-    email: "admin@crm.local",
-    name: "CRM Admin",
-    passwordHash,
-    role: UserRole.ADMIN,
-    isPrimaryOwner: true,
-  });
-
-  // Seed a PRO subscription for the demo tenant so all features are accessible
-  const proPlan = await prisma.planDefinition.findUnique({ where: { plan: SubscriptionPlan.PRO } });
-  const existing = await prisma.tenantSubscription.findUnique({ where: { tenantId: tenant.id } });
-
-  if (!existing && proPlan) {
-    await prisma.tenantSubscription.create({
+  } else {
+    // Update email + clear passwordHash so Google OAuth auto-link works
+    await prisma.user.update({
+      where: { id: existing.id },
       data: {
-        tenantId:     tenant.id,
-        plan:         SubscriptionPlan.PRO,
-        status:       SubscriptionStatus.ACTIVE,
-        billingCycle: BillingCycle.MONTHLY,
-        planDefinitionId: proPlan.id,
-        currentPeriodStart: new Date(),
-        currentPeriodEnd:   new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // +30 days
-        planSnapshot: {
-          maxUsers:              proPlan.maxUsers,
-          maxCustomers:          proPlan.maxCustomers,
-          maxAiCallsPerMonth:    proPlan.maxAiCallsPerMonth,
-          maxLeadUploadsPerMonth: proPlan.maxLeadUploadsPerMonth,
-          maxWebhooks:           proPlan.maxWebhooks,
-          maxCustomFields:       proPlan.maxCustomFields,
-          maxTeams:              proPlan.maxTeams,
-          maxStorageMb:          proPlan.maxStorageMb,
-          hasCampaigns:          proPlan.hasCampaigns,
-          hasDealPipeline:       proPlan.hasDealPipeline,
-          hasTeams:              proPlan.hasTeams,
-          hasMultiChannel:       proPlan.hasMultiChannel,
-          hasAiCalling:          proPlan.hasAiCalling,
-          hasWebhooks:           proPlan.hasWebhooks,
-          hasDocuments:          proPlan.hasDocuments,
-          hasCustomFields:       proPlan.hasCustomFields,
-          hasConversationMemory: proPlan.hasConversationMemory,
-          hasCustomAiPrompts:    proPlan.hasCustomAiPrompts,
-          hasDncRegistry:        proPlan.hasDncRegistry,
-          hasManualReview:       proPlan.hasManualReview,
-          hasAdvancedAnalytics:  proPlan.hasAdvancedAnalytics,
-          hasWhiteLabel:         proPlan.hasWhiteLabel,
-          hasApiAccess:          proPlan.hasApiAccess,
-          hasIntentTraining:     proPlan.hasIntentTraining,
-          hasCustomProviders:    proPlan.hasCustomProviders,
-        },
+        email: SUPER_ADMIN_EMAIL,
+        name: "Super Admin",
+        passwordHash: null,
+        tenantId: null,
+        role: UserRole.SUPER_ADMIN,
       },
     });
   }
 
-  // Initialize credit balance — required for AI calls to work
-  const existingBalance = await prisma.tenantCreditBalance.findUnique({ where: { tenantId: tenant.id } });
-  if (!existingBalance) {
-    const creditsPerMonth = proPlan?.creditsPerMonth ?? 500;
-    const nextReset = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    await prisma.tenantCreditBalance.create({
-      data: {
-        tenantId: tenant.id,
-        planCredits: creditsPerMonth,
-        planCreditsAllocated: creditsPerMonth,
-        planResetNextAt: nextReset,
-      },
-    });
-    console.log(`✓ Credit balance initialized  (${creditsPerMonth} plan credits)`);
-  }
-
-  console.log("✓ Demo tenant seeded  (admin@crm.local / Admin@123)  — PRO plan");
+  console.log(`✓ Super admin seeded  (${SUPER_ADMIN_EMAIL}) — Google OAuth only, no tenant`);
 }
 
 // ─── AI PROVIDERS ────────────────────────────────────────
@@ -419,7 +328,6 @@ async function main() {
   await seedCreditPacks();
   await seedPlanDefinitions();
   await seedSuperAdmin();
-  await seedDemoTenant();
   await seedAiProviders();
   await seedTelephonyProviders();
 
