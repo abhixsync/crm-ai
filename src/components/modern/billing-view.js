@@ -446,31 +446,7 @@ export function ModernBillingView({ user }) {
                   </div>
                 )}
 
-                {/* Credit packs */}
-                {creditPacks.length > 0 && (
-                  <div style={{ marginBottom: "20px" }}>
-                    <div style={{ fontWeight: 600, fontSize: "13px", marginBottom: "10px" }}>Buy Credits</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "10px" }}>
-                      {creditPacks.map((pack) => (
-                        <div key={pack.id} className="ms-card" style={{ padding: "12px", cursor: "pointer" }}
-                          onClick={() => handleBuyPack(pack.id)}>
-                          <div style={{ fontWeight: 600, fontSize: "13px", marginBottom: "4px" }}>{pack.name}</div>
-                          <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--ms-accent)", marginBottom: "4px" }}>
-                            {pack.credits.toLocaleString()}
-                            {pack.bonusCredits > 0 && <span style={{ fontSize: "11px", color: "var(--ms-text2)" }}> +{pack.bonusCredits}</span>}
-                          </div>
-                          <div style={{ fontSize: "11px", color: "var(--ms-text2)", marginBottom: "8px" }}>
-                            credits{pack.isRecurring ? "/month" : ""}
-                          </div>
-                          <div style={{ fontSize: "13px", fontWeight: 600 }}>
-                            ${Number(pack.priceUsd).toFixed(2)}
-                            {pack.isRecurring && <span style={{ fontSize: "11px", fontWeight: 400, color: "var(--ms-text2)" }}>/mo</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Credit packs hidden */}
 
                 {/* Recent transactions */}
                 {creditTxns.transactions.length > 0 && (
