@@ -280,9 +280,9 @@ export async function middleware(request) {
     return withCors(await applyRoleGuards(request, requestHeaders));
   }
 
-  // 4. www redirect
+  // 4. www — serve landing page
   if (host === `www.${APP_DOMAIN}`) {
-    return NextResponse.redirect(new URL(`https://${PLATFORM_HOST}${pathname}`), 301);
+    return NextResponse.rewrite(new URL("/landing", request.url));
   }
 
   // 5. Resolve tenant from hostname
