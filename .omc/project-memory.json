@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1775575195638,
+  "lastScanned": 1776611840126,
   "projectRoot": "C:\\Work\\Learn\\crm-ai",
   "techStack": {
     "languages": [
@@ -36,6 +36,11 @@
         "category": "fullstack"
       },
       {
+        "name": "playwright",
+        "version": "1.59.1",
+        "category": "testing"
+      },
+      {
         "name": "react",
         "version": "19.2.3",
         "category": "frontend"
@@ -44,6 +49,11 @@
         "name": "react-dom",
         "version": "19.2.3",
         "category": "frontend"
+      },
+      {
+        "name": "@playwright/test",
+        "version": "1.59.1",
+        "category": "testing"
       },
       {
         "name": "vitest",
@@ -65,6 +75,8 @@
       "start": "next start",
       "worker:ai-campaign": "tsx --tsconfig tsconfig.json src/workers/ai-campaign-worker.js",
       "test": "vitest run",
+      "test:integration": "vitest run --config vitest.integration.config.ts",
+      "analyze": "cross-env ANALYZE=true next build",
       "lint": "eslint",
       "db:push": "prisma db push",
       "db:migrate": "prisma migrate deploy",
@@ -106,31 +118,45 @@
       "path": "app_legacy",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1775575195617,
+      "lastAccessed": 1776611840108,
       "keyFiles": []
     },
     "components": {
       "path": "components",
       "purpose": "UI components",
       "fileCount": 0,
-      "lastAccessed": 1775575195617,
+      "lastAccessed": 1776611840108,
       "keyFiles": []
     },
     "creds": {
       "path": "creds",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1775575195621,
+      "lastAccessed": 1776611840112,
       "keyFiles": [
         "crm-ai-488319-980bd95ed936.json",
         "vonage.key"
       ]
     },
+    "CWorkLearncrm-aidocssuperpowersplans": {
+      "path": "CWorkLearncrm-aidocssuperpowersplans",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1776611840113,
+      "keyFiles": []
+    },
+    "CWorkLearncrm-aidocssuperpowersspecs": {
+      "path": "CWorkLearncrm-aidocssuperpowersspecs",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1776611840113,
+      "keyFiles": []
+    },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 12,
-      "lastAccessed": 1775575195622,
+      "lastAccessed": 1776611840113,
       "keyFiles": [
         "abhishek-shukla-resume.md",
         "ai-campaign-worker-setup-and-alternatives.md",
@@ -139,18 +165,31 @@
         "dialogflow-intent-training-pack.json"
       ]
     },
+    "e2e": {
+      "path": "e2e",
+      "purpose": null,
+      "fileCount": 6,
+      "lastAccessed": 1776611840113,
+      "keyFiles": [
+        "analytics.spec.ts",
+        "auth.setup.ts",
+        "auth.spec.ts",
+        "customers.spec.ts",
+        "notifications.spec.ts"
+      ]
+    },
     "mobile-view": {
       "path": "mobile-view",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1775575195622,
+      "lastAccessed": 1776611840114,
       "keyFiles": []
     },
     "prisma": {
       "path": "prisma",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1775575195622,
+      "lastAccessed": 1776611840114,
       "keyFiles": [
         "schema.prisma",
         "seed.js"
@@ -159,21 +198,21 @@
     "public": {
       "path": "public",
       "purpose": "Public files",
-      "fileCount": 6,
-      "lastAccessed": 1775575195622,
+      "fileCount": 7,
+      "lastAccessed": 1776611840114,
       "keyFiles": [
         "file.svg",
         "globe.svg",
         "logo-preview.html",
         "next.svg",
-        "vercel.svg"
+        "robots.txt"
       ]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 8,
-      "lastAccessed": 1775575195622,
+      "lastAccessed": 1776611840114,
       "keyFiles": [
         "apply-default-theme-assets.cjs",
         "backfill-campaign-job-runtime.cjs",
@@ -186,7 +225,7 @@
       "path": "src",
       "purpose": "Source code",
       "fileCount": 1,
-      "lastAccessed": 1775575195623,
+      "lastAccessed": 1776611840115,
       "keyFiles": [
         "middleware.js"
       ]
@@ -195,7 +234,7 @@
       "path": "prisma\\migrations",
       "purpose": "Database migrations",
       "fileCount": 1,
-      "lastAccessed": 1775575195624,
+      "lastAccessed": 1776611840116,
       "keyFiles": [
         "migration_lock.toml"
       ]
@@ -204,7 +243,7 @@
       "path": "scripts\\tests",
       "purpose": "Test files",
       "fileCount": 7,
-      "lastAccessed": 1775575195625,
+      "lastAccessed": 1776611840116,
       "keyFiles": [
         "stress-intent-classification.cjs",
         "stress-timeline-signal.cjs",
@@ -214,26 +253,26 @@
     "src\\app": {
       "path": "src\\app",
       "purpose": "Application code",
-      "fileCount": 4,
-      "lastAccessed": 1775575195625,
+      "fileCount": 8,
+      "lastAccessed": 1776611840117,
       "keyFiles": [
+        "error.js",
         "favicon.ico",
-        "globals.css",
-        "layout.js"
+        "global-error.js"
       ]
     },
     "src\\components": {
       "path": "src\\components",
       "purpose": "UI components",
       "fileCount": 0,
-      "lastAccessed": 1775575195625,
+      "lastAccessed": 1776611840117,
       "keyFiles": []
     },
     "src\\lib": {
       "path": "src\\lib",
       "purpose": "Library code",
       "fileCount": 4,
-      "lastAccessed": 1775575195625,
+      "lastAccessed": 1776611840117,
       "keyFiles": [
         "auth.js",
         "env.js",
@@ -244,7 +283,7 @@
       "path": "src\\middleware",
       "purpose": "Middleware",
       "fileCount": 1,
-      "lastAccessed": 1775575195626,
+      "lastAccessed": 1776611840117,
       "keyFiles": [
         "tenant.middleware.ts"
       ]
@@ -253,318 +292,311 @@
       "path": "src\\types",
       "purpose": "Type definitions",
       "fileCount": 1,
-      "lastAccessed": 1775575195626,
+      "lastAccessed": 1776611840118,
       "keyFiles": [
         "next-auth.d.ts"
       ]
-    },
-    "src\\__tests__": {
-      "path": "src\\__tests__",
-      "purpose": "Test files",
-      "fileCount": 0,
-      "lastAccessed": 1775575195626,
-      "keyFiles": []
     }
   },
   "hotPaths": [
     {
-      "path": "prisma\\schema.prisma",
-      "accessCount": 143,
-      "lastAccessed": 1775596320492,
+      "path": "src\\app\\api\\calls\\webhook\\route.js",
+      "accessCount": 101,
+      "lastAccessed": 1776623780469,
       "type": "file"
-    },
-    {
-      "path": "",
-      "accessCount": 40,
-      "lastAccessed": 1775597255701,
-      "type": "directory"
-    },
-    {
-      "path": "src\\components\\shells\\modern\\modern-shell.css",
-      "accessCount": 38,
-      "lastAccessed": 1775587545146,
-      "type": "directory"
     },
     {
       "path": "src",
-      "accessCount": 34,
-      "lastAccessed": 1775597245787,
+      "accessCount": 75,
+      "lastAccessed": 1776678594133,
       "type": "directory"
     },
     {
-      "path": "prisma\\seed.js",
-      "accessCount": 26,
-      "lastAccessed": 1775572530372,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\modern\\billing-view.js",
-      "accessCount": 23,
-      "lastAccessed": 1775594422587,
-      "type": "file"
-    },
-    {
-      "path": "src\\modules\\theme\\theme.service.ts",
-      "accessCount": 22,
-      "lastAccessed": 1775596033257,
-      "type": "file"
-    },
-    {
-      "path": "src\\core\\theme\\system-defaults.ts",
-      "accessCount": 18,
-      "lastAccessed": 1775594396870,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\auth\\register\\route.js",
-      "accessCount": 17,
-      "lastAccessed": 1775587844742,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\login\\login-form.js",
-      "accessCount": 17,
-      "lastAccessed": 1775594523697,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\register\\page.js",
-      "accessCount": 14,
-      "lastAccessed": 1775594421878,
-      "type": "file"
-    },
-    {
-      "path": "src\\lib\\server\\auth-guard.js",
-      "accessCount": 11,
-      "lastAccessed": 1775595619037,
-      "type": "file"
-    },
-    {
-      "path": "docs\\superpowers\\specs\\2026-04-05-subdomain-multitenancy-design.md",
-      "accessCount": 10,
-      "lastAccessed": 1775401368922,
-      "type": "file"
-    },
-    {
       "path": "src\\lib\\auth.js",
-      "accessCount": 10,
-      "lastAccessed": 1775584675435,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\modern\\customers-view.js",
-      "accessCount": 7,
-      "lastAccessed": 1775596454681,
-      "type": "file"
-    },
-    {
-      "path": "docs\\superpowers\\specs\\2026-04-04-wrenforge-rebrand-design.md",
-      "accessCount": 6,
-      "lastAccessed": 1775321111198,
-      "type": "file"
-    },
-    {
-      "path": "src\\lib\\subscription\\plan-guard.js",
-      "accessCount": 6,
-      "lastAccessed": 1775584688155,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\login\\page.js",
-      "accessCount": 6,
-      "lastAccessed": 1775587654538,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\modern\\subscription-config-view.js",
-      "accessCount": 5,
-      "lastAccessed": 1775325282536,
+      "accessCount": 66,
+      "lastAccessed": 1776678502381,
       "type": "file"
     },
     {
       "path": "src\\middleware.js",
-      "accessCount": 5,
-      "lastAccessed": 1775335442139,
+      "accessCount": 53,
+      "lastAccessed": 1776681450431,
       "type": "file"
     },
     {
-      "path": "src\\app",
-      "accessCount": 5,
-      "lastAccessed": 1775587614993,
+      "path": "src\\app\\api\\calls\\trigger\\route.js",
+      "accessCount": 30,
+      "lastAccessed": 1776623728990,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 29,
+      "lastAccessed": 1776680544518,
       "type": "directory"
     },
     {
-      "path": "src\\components\\shells\\modern",
-      "accessCount": 4,
-      "lastAccessed": 1775489904690,
-      "type": "directory"
-    },
-    {
-      "path": "src\\app\\api\\calls\\webhook\\route.js",
-      "accessCount": 4,
-      "lastAccessed": 1775503863278,
+      "path": "src\\lib\\subscription\\subscription-service.js",
+      "accessCount": 27,
+      "lastAccessed": 1776665289251,
       "type": "file"
     },
     {
-      "path": "package.json",
-      "accessCount": 4,
-      "lastAccessed": 1775593310363,
+      "path": "src\\app\\login\\login-form.js",
+      "accessCount": 20,
+      "lastAccessed": 1776623717170,
       "type": "file"
     },
     {
-      "path": "public\\logo-preview.html",
-      "accessCount": 3,
-      "lastAccessed": 1775318714437,
+      "path": "src\\app\\api\\cron\\ai-campaign\\route.js",
+      "accessCount": 19,
+      "lastAccessed": 1776623765547,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\credits\\credit-service.js",
+      "accessCount": 16,
+      "lastAccessed": 1776623696716,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\auth\\register\\route.js",
+      "accessCount": 15,
+      "lastAccessed": 1776619340297,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\journey\\transition-service.js",
+      "accessCount": 14,
+      "lastAccessed": 1776534658168,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\register\\register-form.js",
+      "accessCount": 14,
+      "lastAccessed": 1776619309761,
       "type": "file"
     },
     {
       "path": "src\\app\\api\\cron\\subscription-expiry\\route.js",
+      "accessCount": 12,
+      "lastAccessed": 1776601362396,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\layout.js",
+      "accessCount": 11,
+      "lastAccessed": 1776623764683,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\subscription\\plan-guard.js",
+      "accessCount": 11,
+      "lastAccessed": 1776678541556,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\journey\\constants.js",
+      "accessCount": 10,
+      "lastAccessed": 1776535069313,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\server\\auth-guard.js",
+      "accessCount": 10,
+      "lastAccessed": 1776678501915,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\tenant\\loan-assistant-settings\\route.js",
+      "accessCount": 9,
+      "lastAccessed": 1776525883723,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api",
+      "accessCount": 9,
+      "lastAccessed": 1776604572758,
+      "type": "directory"
+    },
+    {
+      "path": ".env.example",
+      "accessCount": 8,
+      "lastAccessed": 1776529067074,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\customers\\route.js",
+      "accessCount": 8,
+      "lastAccessed": 1776667959449,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\queue\\ai-campaign-queue.js",
+      "accessCount": 7,
+      "lastAccessed": 1776525922818,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\journey\\enqueue-service.js",
+      "accessCount": 7,
+      "lastAccessed": 1776534660648,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\journey\\ai-campaign-service.js",
+      "accessCount": 7,
+      "lastAccessed": 1776535209585,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\user-management\\users\\route.js",
+      "accessCount": 7,
+      "lastAccessed": 1776610121136,
+      "type": "file"
+    },
+    {
+      "path": "src\\modules\\theme\\theme.service.ts",
+      "accessCount": 6,
+      "lastAccessed": 1776525926455,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\events\\route.ts",
+      "accessCount": 6,
+      "lastAccessed": 1776605889592,
+      "type": "file"
+    },
+    {
+      "path": "src\\hooks\\useSSE.ts",
+      "accessCount": 5,
+      "lastAccessed": 1776525923815,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\customers\\batch\\route.js",
+      "accessCount": 5,
+      "lastAccessed": 1776667697839,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\shells\\modern\\modern-shell.css",
+      "accessCount": 4,
+      "lastAccessed": 1776525025350,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\subscription\\trial-cron.js",
+      "accessCount": 4,
+      "lastAccessed": 1776525878819,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\journey\\automation-runner.js",
+      "accessCount": 4,
+      "lastAccessed": 1776602592369,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\theme\\assets\\route.ts",
       "accessCount": 3,
-      "lastAccessed": 1775506448722,
+      "lastAccessed": 1776525030416,
       "type": "file"
     },
     {
-      "path": "public\\theme\\defaults\\logo-concepts\\53-wren-forge-C.svg",
-      "accessCount": 2,
-      "lastAccessed": 1775318987424,
+      "path": "src\\lib\\redis\\options.ts",
+      "accessCount": 3,
+      "lastAccessed": 1776525876349,
       "type": "file"
     },
     {
-      "path": "public\\theme\\defaults\\favicon.svg",
-      "accessCount": 2,
-      "lastAccessed": 1775321452661,
+      "path": "src\\lib\\journey\\retry-policy.js",
+      "accessCount": 3,
+      "lastAccessed": 1776534659956,
       "type": "file"
     },
     {
-      "path": "public\\theme\\defaults\\logo.svg",
-      "accessCount": 2,
-      "lastAccessed": 1775321457640,
+      "path": "src\\lib\\journey\\campaign-eligibility.js",
+      "accessCount": 3,
+      "lastAccessed": 1776534660959,
       "type": "file"
     },
     {
-      "path": "public\\theme\\defaults\\application-background.svg",
+      "path": "src\\lib\\events\\event-publisher.ts",
       "accessCount": 2,
-      "lastAccessed": 1775321477119,
+      "lastAccessed": 1776524977653,
       "type": "file"
     },
     {
-      "path": "public\\theme\\defaults\\login-background.svg",
+      "path": "src\\lib\\cache\\api-cache.ts",
       "accessCount": 2,
-      "lastAccessed": 1775321509020,
+      "lastAccessed": 1776524978101,
       "type": "file"
     },
     {
-      "path": "next.config.mjs",
+      "path": "src\\app\\api\\customers\\[customerId]\\route.js",
       "accessCount": 2,
-      "lastAccessed": 1775334334384,
+      "lastAccessed": 1776534889341,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\analytics\\enhanced\\route.js",
+      "accessCount": 2,
+      "lastAccessed": 1776667664939,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\billing\\stripe\\webhook\\route.js",
+      "accessCount": 1,
+      "lastAccessed": 1776524956406,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\billing\\razorpay\\webhook\\route.js",
+      "accessCount": 1,
+      "lastAccessed": 1776524956769,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\admin\\user-management\\users\\[userId]\\route.js",
+      "accessCount": 1,
+      "lastAccessed": 1776524959111,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\customers\\[customerId]\\activity\\route.js",
+      "accessCount": 1,
+      "lastAccessed": 1776524974868,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\calls\\automation\\run\\route.js",
+      "accessCount": 1,
+      "lastAccessed": 1776524976265,
+      "type": "file"
+    },
+    {
+      "path": "src\\workers\\ai-campaign-worker.js",
+      "accessCount": 1,
+      "lastAccessed": 1776524979468,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\opengraph-image.js",
+      "accessCount": 1,
+      "lastAccessed": 1776524982505,
+      "type": "file"
+    },
+    {
+      "path": "src\\modules\\theme\\theme.controller.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776524985355,
       "type": "file"
     },
     {
       "path": "src\\app\\login",
-      "accessCount": 2,
-      "lastAccessed": 1775335465737,
-      "type": "directory"
-    },
-    {
-      "path": "src\\app\\api\\billing",
-      "accessCount": 2,
-      "lastAccessed": 1775393474324,
-      "type": "directory"
-    },
-    {
-      "path": "public\\theme\\defaults\\logo-concepts\\02-wren-on-anvil.svg",
       "accessCount": 1,
-      "lastAccessed": 1775318512662,
-      "type": "file"
-    },
-    {
-      "path": "public\\theme\\defaults\\logo-concepts\\21-flat-wren-anvil.svg",
-      "accessCount": 1,
-      "lastAccessed": 1775318513156,
-      "type": "file"
-    },
-    {
-      "path": "public\\theme\\defaults\\logo-concepts\\51-wren-forge-A.svg",
-      "accessCount": 1,
-      "lastAccessed": 1775318659926,
-      "type": "file"
-    },
-    {
-      "path": "public\\theme\\defaults\\logo-concepts\\52-wren-forge-B.svg",
-      "accessCount": 1,
-      "lastAccessed": 1775318670474,
-      "type": "file"
-    },
-    {
-      "path": ".superpowers\\brainstorm\\1722-1775320015\\logo-format.html",
-      "accessCount": 1,
-      "lastAccessed": 1775320073783,
-      "type": "file"
-    },
-    {
-      "path": ".superpowers\\brainstorm\\1722-1775320015\\waiting-1.html",
-      "accessCount": 1,
-      "lastAccessed": 1775320199020,
-      "type": "file"
-    },
-    {
-      "path": ".superpowers\\brainstorm\\1722-1775320015\\logo-format-v2.html",
-      "accessCount": 1,
-      "lastAccessed": 1775320406130,
-      "type": "file"
-    },
-    {
-      "path": ".superpowers\\brainstorm\\1722-1775320015\\login-bg.html",
-      "accessCount": 1,
-      "lastAccessed": 1775320502458,
-      "type": "file"
-    },
-    {
-      "path": ".superpowers\\brainstorm\\1722-1775320015\\accent-color.html",
-      "accessCount": 1,
-      "lastAccessed": 1775320592961,
-      "type": "file"
-    },
-    {
-      "path": ".superpowers\\brainstorm\\1722-1775320015\\design-summary.html",
-      "accessCount": 1,
-      "lastAccessed": 1775320794372,
-      "type": "file"
-    },
-    {
-      "path": ".superpowers\\brainstorm\\2363-1775323682\\light-theme-compare.html",
-      "accessCount": 1,
-      "lastAccessed": 1775323752150,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\modern\\settings-view.js",
-      "accessCount": 1,
-      "lastAccessed": 1775324850953,
-      "type": "file"
-    },
-    {
-      "path": "src\\components\\modern\\dashboard-view.js",
-      "accessCount": 1,
-      "lastAccessed": 1775324851097,
-      "type": "file"
-    },
-    {
-      "path": ".superpowers\\brainstorm\\2363-1775323682\\light-mode-fixes.html",
-      "accessCount": 1,
-      "lastAccessed": 1775325018281,
-      "type": "file"
-    },
-    {
-      "path": "vercel.json",
-      "accessCount": 1,
-      "lastAccessed": 1775333160501,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\cron",
-      "accessCount": 1,
-      "lastAccessed": 1775334627097,
+      "lastAccessed": 1776524994779,
       "type": "directory"
     }
   ],

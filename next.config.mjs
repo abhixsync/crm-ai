@@ -22,6 +22,18 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "xlsx"],
   },
+  // Landing page: www.wrenforge.com → public/landing.html (served as static asset)
+  // To migrate to Option B (separate Vercel project): remove this rewrites() block
+  // and move public/landing.html to the new static project as index.html.
+  async rewrites() {
+    return [
+      {
+        source: "/:path*",
+        destination: "/landing.html",
+        has: [{ type: "host", value: "www.wrenforge.com" }],
+      },
+    ];
+  },
   async headers() {
     return [
       {

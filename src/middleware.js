@@ -280,12 +280,7 @@ export async function middleware(request) {
     return withCors(await applyRoleGuards(request, requestHeaders));
   }
 
-  // 4. www — serve landing page
-  if (host === `www.${APP_DOMAIN}`) {
-    return NextResponse.rewrite(new URL("/landing", request.url));
-  }
-
-  // 5. Resolve tenant from hostname
+  // 4. Resolve tenant from hostname
   const tenant = await resolveTenant(host);
   if (!tenant) {
     return withCors(new NextResponse("Workspace not found", { status: 404 }));
