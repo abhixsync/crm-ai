@@ -102,8 +102,8 @@ async function buildGuard(tenantId) {
   let isGrace = false;
   let limits = {
     maxUsers: 1, maxCustomers: 100, maxAiCallsPerMonth: 0,
-    maxLeadUploadsPerMonth: 0, maxWebhooks: 0, maxCustomFields: 0,
-    maxTeams: 0, maxStorageMb: 0,
+    maxLeadUploadsPerMonth: 10, maxWebhooks: -1, maxCustomFields: 0,
+    maxTeams: 0, maxStorageMb: -1,
   };
   let features = {};
 
@@ -159,7 +159,7 @@ async function buildGuard(tenantId) {
     // Expired / suspended → downgrade to FREE limits for enforcement
     if (status === "EXPIRED" || status === "CANCELLED" || status === "SUSPENDED") {
       if (!isGrace) {
-        limits = { maxUsers: 1, maxCustomers: 100, maxAiCallsPerMonth: 0, maxLeadUploadsPerMonth: 0, maxWebhooks: 0, maxCustomFields: 0, maxTeams: 0, maxStorageMb: 0 };
+        limits = { maxUsers: 1, maxCustomers: 100, maxAiCallsPerMonth: 0, maxLeadUploadsPerMonth: 10, maxWebhooks: -1, maxCustomFields: 0, maxTeams: 0, maxStorageMb: -1 };
         features = {};
       }
     }
