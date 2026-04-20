@@ -17,6 +17,9 @@ export default async function PostLoginPage() {
     redirect(`${protocol}://${session.user.tenantSlug}.${APP_DOMAIN}/dashboard`);
   }
 
-  // SUPER_ADMIN or no tenant
+  // SUPER_ADMIN → admin hub
+  if (session.user.role === "SUPER_ADMIN") redirect("/admin/tenants");
+
+  // No tenant (shouldn't normally reach here)
   redirect("/dashboard");
 }
