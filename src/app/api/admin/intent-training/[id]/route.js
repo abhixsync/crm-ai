@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole, getTenantContext } from "@/lib/server/auth-guard";
 import { isDatabaseUnavailable, databaseUnavailableResponse } from "@/lib/server/database-error";
+import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 
 export async function DELETE(request, { params }) {
   const auth = await requireSession();
@@ -13,6 +14,14 @@ export async function DELETE(request, { params }) {
   const { tenantId } = getTenantContext(auth.session, request);
   if (!tenantId) {
     return Response.json({ error: "Tenant context required" }, { status: 400 });
+  }
+
+  try {
+    const guard = await getPlanGuard(tenantId);
+    guard.assertHasFeature("hasIntentTraining");
+  } catch (err) {
+    if (isPlanLimitError(err)) return planLimitResponse(err);
+    throw err;
   }
 
   const { id } = await params;

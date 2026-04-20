@@ -1,6 +1,7 @@
 import { hasRole, requireSession, getTenantContext } from "@/lib/server/auth-guard";
 import { runAutomationBatch } from "@/lib/journey/automation-runner";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 
 export async function POST(request) {
   const auth = await requireSession();
@@ -11,6 +12,14 @@ export async function POST(request) {
   }
 
   const tenant = getTenantContext(auth.session, request);
+
+  try {
+    const guard = await getPlanGuard(tenant.tenantId);
+    guard.assertHasFeature("hasCampaigns");
+  } catch (err) {
+    if (isPlanLimitError(err)) return planLimitResponse(err);
+    throw err;
+  }
 
   try {
     const result = await runAutomationBatch(tenant.isSuperAdmin ? undefined : tenant.tenantId);

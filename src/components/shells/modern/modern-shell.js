@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useTransition } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import "./modern-shell.css";
 import { LANGUAGES, LANG_STORAGE_KEY, t, getLangConfig } from "@/lib/i18n/languages";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -174,6 +175,12 @@ const icons = {
       <line x1="3" y1="18" x2="21" y2="18" />
     </svg>
   ),
+  lock: (
+    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ width: 12, height: 12, flexShrink: 0, opacity: 0.7 }}>
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0110 0v4" />
+    </svg>
+  ),
   sun: (
     <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="5" />
@@ -250,6 +257,36 @@ function CreditWidget() {
   );
 }
 
+// ─── Feature flag hook ───────────────────────────────────
+// Returns the features object for the current tenant's plan.
+// Returns null while loading, empty object on error.
+// Skipped entirely for SUPER_ADMIN (role === "SUPER_ADMIN").
+function usePlanFeatures(role) {
+  const [features, setFeatures] = useState(null);
+
+  useEffect(() => {
+    if (role === "SUPER_ADMIN") {
+      setFeatures({});
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/subscription/features");
+        if (!res.ok) { if (!cancelled) setFeatures({}); return; }
+        const data = await res.json();
+        if (!cancelled) setFeatures(data.features ?? {});
+      } catch {
+        if (!cancelled) setFeatures({});
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [role]);
+
+  return features;
+}
+
 function getInitials(name) {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
@@ -277,14 +314,14 @@ function buildNavItems(role) {
     // ─── Main ───
     { key: "dashboard",  href: "/dashboard",          label: "Dashboard",       icon: icons.dashboard,  section: "Main" },
     { key: "customers",  href: "/customers",           label: "Customers",       icon: icons.customers,  section: "Main" },
-    { key: "review",     href: "/admin/manual-review", label: "Manual Review",   icon: icons.review,     section: "Main" },
+    { key: "review",     href: "/admin/manual-review", label: "Manual Review",   icon: icons.review,     section: "Main",      featureKey: "hasManualReview" },
     { key: "calls",      href: "/calls",               label: "Call Logs",       icon: icons.calls,      section: "Main" },
-    { key: "analytics",  href: "/admin/analytics",     label: "Analytics",       icon: icons.analytics,  section: "Main" },
+    { key: "analytics",  href: "/admin/analytics",     label: "Analytics",       icon: icons.analytics,  section: "Main",      featureKey: "hasAdvancedAnalytics" },
   ];
 
   if (isAdmin) {
     items.push(
-      { key: "campaigns",  href: "/admin/automation",    label: "Campaigns",       icon: icons.campaigns,  section: "Main" },
+      { key: "campaigns",  href: "/admin/automation",    label: "Campaigns",       icon: icons.campaigns,  section: "Main",      featureKey: "hasCampaigns" },
       { key: "followups",  href: "/admin/follow-ups",    label: "Follow-up Tasks", icon: icons.followups,  section: "Main" },
       { key: "uploads",    href: "/admin/lead-uploads",  label: "Lead Uploads",    icon: icons.uploads,    section: "Main" },
     );
@@ -297,21 +334,21 @@ function buildNavItems(role) {
   if (isAdmin) {
     items.push(
       // ─── Pipeline ───
-      { key: "deals",      href: "/admin/deals",         label: "Deals",           icon: icons.deals,      section: "Pipeline" },
-      { key: "messages",   href: "/messages",            label: "Messages",        icon: icons.messages,   section: "Pipeline" },
+      { key: "deals",      href: "/admin/deals",         label: "Deals",           icon: icons.deals,      section: "Pipeline",  featureKey: "hasDealPipeline" },
+      { key: "messages",   href: "/messages",            label: "Messages",        icon: icons.messages,   section: "Pipeline",  featureKey: "hasMultiChannel" },
 
       // ─── AI Engine ───
       { key: "health",     href: "/admin/automation-health", label: "Automation Health", icon: icons.health, section: "AI Engine" },
-      { key: "demo",       href: "/admin/ai-call-demo",  label: "AI Call Demo",    icon: icons.demo,       section: "AI Engine" },
-      { key: "simulator", href: "/admin/ai-simulator",   label: "AI Simulator",   icon: icons.demo,       section: "AI Engine" },
-      { key: "intents",    href: "/admin/intent-training", label: "Intent Training", icon: icons.intents,  section: "AI Engine" },
-      { key: "dnc",        href: "/admin/dnc",           label: "DNC Registry",    icon: icons.dnc,        section: "AI Engine" },
+      { key: "demo",       href: "/admin/ai-call-demo",  label: "AI Call Demo",    icon: icons.demo,       section: "AI Engine", featureKey: "hasAiCallDemo" },
+      { key: "simulator",  href: "/admin/ai-simulator",  label: "AI Simulator",    icon: icons.demo,       section: "AI Engine", featureKey: "hasAiCallDemo" },
+      { key: "intents",    href: "/admin/intent-training", label: "Intent Training", icon: icons.intents,  section: "AI Engine", featureKey: "hasIntentTraining" },
+      { key: "dnc",        href: "/admin/dnc",           label: "DNC Registry",    icon: icons.dnc,        section: "AI Engine", featureKey: "hasDncRegistry" },
       { key: "loanAssistant", href: "/admin/loan-assistant-settings", label: "Loan Assistant", icon: icons.loanAssistant, section: "AI Engine" },
 
       // ─── Config ───
-      { key: "teams",      href: "/admin/teams",         label: "Teams",           icon: icons.teams,      section: "Config" },
+      { key: "teams",      href: "/admin/teams",         label: "Teams",           icon: icons.teams,      section: "Config",    featureKey: "hasTeams" },
       { key: "tenantSettings", href: "/admin/settings",  label: "Tenant Settings", icon: icons.tenantSettings, section: "Config" },
-      { key: "webhooks",   href: "/admin/webhooks",      label: "Webhooks",        icon: icons.webhooks,   section: "Config" },
+      { key: "webhooks",   href: "/admin/webhooks",      label: "Webhooks",        icon: icons.webhooks,   section: "Config",    featureKey: "hasWebhooks" },
       { key: "billing",    href: "/admin/billing",       label: "Billing",         icon: icons.billing,    section: "Config" },
 
       // ─── Theme ───
@@ -443,6 +480,7 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
   const user = session?.user;
   const role = user?.role || initialRole || "SALES";
   const navItems = buildNavItems(role);
+  const planFeatures = usePlanFeatures(role);
 
   const activeKey = getActiveKey(pathname);
   const pageTitle = getPageTitle(activeKey);
@@ -497,27 +535,57 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
           {navItems.map((item) => {
             const showSection = item.section !== currentSection;
             if (showSection) currentSection = item.section;
+
+            // An item is locked when: features are loaded (non-null), the item
+            // has a featureKey, and that flag is explicitly false.
+            const isLocked =
+              planFeatures !== null &&
+              item.featureKey != null &&
+              planFeatures[item.featureKey] === false;
+
+            const navLabel =
+              t(`nav.${item.key}`, uiLang) !== `nav.${item.key}`
+                ? t(`nav.${item.key}`, uiLang)
+                : item.label;
+
             return (
               <div key={item.key}>
                 {showSection && (
                   <div className="ms-nav-sec">{t(`section.${item.section}`, uiLang)}</div>
                 )}
-                <Link
-                  href={item.href}
-                  className={`ms-nav-btn ${activeKey === item.key ? "active" : ""}${pendingHref === item.href ? " pending" : ""}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setDrawerOpen(false);
-                    if (pathname !== item.href) {
-                      setPendingHref(item.href);
-                      startTransition(() => router.push(item.href));
-                    }
-                  }}
-                >
-                  {item.icon}
-                  {t(`nav.${item.key}`, uiLang) !== `nav.${item.key}` ? t(`nav.${item.key}`, uiLang) : item.label}
-                  {pendingHref === item.href && <span className="ms-nav-spinner" />}
-                </Link>
+                {isLocked ? (
+                  <button
+                    type="button"
+                    className="ms-nav-btn"
+                    style={{ opacity: 0.45, cursor: "not-allowed", width: "100%", textAlign: "left" }}
+                    title={`Upgrade your plan to unlock ${item.label}`}
+                    onClick={() => {
+                      toast.info(`Upgrade your plan to unlock ${item.label}`);
+                      router.push("/admin/billing");
+                    }}
+                  >
+                    {item.icon}
+                    {navLabel}
+                    <span style={{ marginLeft: "auto" }}>{icons.lock}</span>
+                  </button>
+                ) : (
+                  <Link
+                    href={item.href}
+                    className={`ms-nav-btn ${activeKey === item.key ? "active" : ""}${pendingHref === item.href ? " pending" : ""}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setDrawerOpen(false);
+                      if (pathname !== item.href) {
+                        setPendingHref(item.href);
+                        startTransition(() => router.push(item.href));
+                      }
+                    }}
+                  >
+                    {item.icon}
+                    {navLabel}
+                    {pendingHref === item.href && <span className="ms-nav-spinner" />}
+                  </Link>
+                )}
               </div>
             );
           })}

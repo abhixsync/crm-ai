@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole, getTenantContext } from "@/lib/server/auth-guard";
+import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 
 export async function GET(request) {
   const auth = await requireSession();
@@ -37,6 +38,14 @@ export async function POST(request) {
   const tenant = getTenantContext(auth.session, request);
   const tenantId = tenant.tenantId;
   if (!tenantId) return Response.json({ error: "Tenant context required." }, { status: 400 });
+
+  try {
+    const guard = await getPlanGuard(tenantId);
+    guard.assertHasFeature("hasWebhooks");
+  } catch (err) {
+    if (isPlanLimitError(err)) return planLimitResponse(err);
+    throw err;
+  }
 
   const body = await request.json();
   const { name, url, events, secret } = body;

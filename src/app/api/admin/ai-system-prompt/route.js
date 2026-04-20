@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole, getTenantContext } from "@/lib/server/auth-guard";
 import { isDatabaseUnavailable, databaseUnavailableResponse } from "@/lib/server/database-error";
+import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
 import {
   applyLanguageRulesToPrompt,
   DEFAULT_SYSTEM_PROMPT,
@@ -114,6 +115,16 @@ export async function PUT(request) {
   const auth = await requirePromptManager();
   if (auth.error) return auth.error;
 
+  if (!auth.scope.isSuperAdmin) {
+    try {
+      const guard = await getPlanGuard(auth.scope.tenantId);
+      guard.assertHasFeature("hasCustomAiPrompts");
+    } catch (err) {
+      if (isPlanLimitError(err)) return planLimitResponse(err);
+      throw err;
+    }
+  }
+
   const body = await request.json();
   const promptText = String(body.prompt || "").trim();
   const label = String(body.label || "Default System Prompt").trim();
@@ -174,6 +185,16 @@ export async function PUT(request) {
 export async function POST(request) {
   const auth = await requirePromptManager();
   if (auth.error) return auth.error;
+
+  if (!auth.scope.isSuperAdmin) {
+    try {
+      const guard = await getPlanGuard(auth.scope.tenantId);
+      guard.assertHasFeature("hasCustomAiPrompts");
+    } catch (err) {
+      if (isPlanLimitError(err)) return planLimitResponse(err);
+      throw err;
+    }
+  }
 
   const body = await request.json().catch(() => ({}));
 

@@ -39,10 +39,11 @@ export async function POST(request) {
     return Response.json({ error: "Demo calls require a tenant context. Log in as a tenant admin to use this feature." }, { status: 400 });
   }
 
-  // Plan guard — demo calls still require the feature
+  // Plan guard — demo calls require both AI calling and the demo feature
   try {
     const guard = await getPlanGuard(tenantId);
     guard.assertHasFeature("hasAiCalling");
+    guard.assertHasFeature("hasAiCallDemo");
   } catch (err) {
     if (isPlanLimitError(err)) return planLimitResponse(err);
     throw err;

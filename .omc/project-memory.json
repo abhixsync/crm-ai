@@ -301,56 +301,80 @@
   "hotPaths": [
     {
       "path": "src\\app\\api\\calls\\webhook\\route.js",
-      "accessCount": 101,
-      "lastAccessed": 1776623780469,
+      "accessCount": 132,
+      "lastAccessed": 1776696908663,
       "type": "file"
     },
     {
       "path": "src",
-      "accessCount": 75,
-      "lastAccessed": 1776678594133,
+      "accessCount": 95,
+      "lastAccessed": 1776702814037,
       "type": "directory"
     },
     {
       "path": "src\\lib\\auth.js",
-      "accessCount": 66,
-      "lastAccessed": 1776678502381,
+      "accessCount": 67,
+      "lastAccessed": 1776697653265,
       "type": "file"
     },
     {
       "path": "src\\middleware.js",
-      "accessCount": 53,
-      "lastAccessed": 1776681450431,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\calls\\trigger\\route.js",
-      "accessCount": 30,
-      "lastAccessed": 1776623728990,
+      "accessCount": 63,
+      "lastAccessed": 1776696859531,
       "type": "file"
     },
     {
       "path": "",
-      "accessCount": 29,
-      "lastAccessed": 1776680544518,
+      "accessCount": 37,
+      "lastAccessed": 1776705385595,
       "type": "directory"
     },
     {
+      "path": "src\\app\\api\\calls\\trigger\\route.js",
+      "accessCount": 32,
+      "lastAccessed": 1776688022955,
+      "type": "file"
+    },
+    {
       "path": "src\\lib\\subscription\\subscription-service.js",
-      "accessCount": 27,
-      "lastAccessed": 1776665289251,
+      "accessCount": 29,
+      "lastAccessed": 1776688032122,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\customers\\route.js",
+      "accessCount": 26,
+      "lastAccessed": 1776688900028,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\auth\\register\\route.js",
+      "accessCount": 24,
+      "lastAccessed": 1776689161121,
       "type": "file"
     },
     {
       "path": "src\\app\\login\\login-form.js",
-      "accessCount": 20,
-      "lastAccessed": 1776623717170,
+      "accessCount": 22,
+      "lastAccessed": 1776705400741,
       "type": "file"
     },
     {
       "path": "src\\app\\api\\cron\\ai-campaign\\route.js",
-      "accessCount": 19,
-      "lastAccessed": 1776623765547,
+      "accessCount": 21,
+      "lastAccessed": 1776688046656,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\billing\\stripe\\webhook\\route.js",
+      "accessCount": 21,
+      "lastAccessed": 1776689179224,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\subscription\\plan-guard.js",
+      "accessCount": 20,
+      "lastAccessed": 1776705394041,
       "type": "file"
     },
     {
@@ -360,15 +384,9 @@
       "type": "file"
     },
     {
-      "path": "src\\app\\api\\auth\\register\\route.js",
-      "accessCount": 15,
-      "lastAccessed": 1776619340297,
-      "type": "file"
-    },
-    {
       "path": "src\\lib\\journey\\transition-service.js",
-      "accessCount": 14,
-      "lastAccessed": 1776534658168,
+      "accessCount": 15,
+      "lastAccessed": 1776696754427,
       "type": "file"
     },
     {
@@ -379,9 +397,15 @@
     },
     {
       "path": "src\\app\\api\\cron\\subscription-expiry\\route.js",
-      "accessCount": 12,
-      "lastAccessed": 1776601362396,
+      "accessCount": 14,
+      "lastAccessed": 1776688046280,
       "type": "file"
+    },
+    {
+      "path": "src\\app\\api",
+      "accessCount": 12,
+      "lastAccessed": 1776688083919,
+      "type": "directory"
     },
     {
       "path": "src\\app\\layout.js",
@@ -390,9 +414,15 @@
       "type": "file"
     },
     {
-      "path": "src\\lib\\subscription\\plan-guard.js",
+      "path": "src\\lib\\server\\auth-guard.js",
       "accessCount": 11,
-      "lastAccessed": 1776678541556,
+      "lastAccessed": 1776687146128,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\tenant\\loan-assistant-settings\\route.js",
+      "accessCount": 11,
+      "lastAccessed": 1776687246349,
       "type": "file"
     },
     {
@@ -402,33 +432,27 @@
       "type": "file"
     },
     {
-      "path": "src\\lib\\server\\auth-guard.js",
-      "accessCount": 10,
-      "lastAccessed": 1776678501915,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\tenant\\loan-assistant-settings\\route.js",
-      "accessCount": 9,
-      "lastAccessed": 1776525883723,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api",
-      "accessCount": 9,
-      "lastAccessed": 1776604572758,
-      "type": "directory"
-    },
-    {
       "path": ".env.example",
-      "accessCount": 8,
-      "lastAccessed": 1776529067074,
+      "accessCount": 10,
+      "lastAccessed": 1776684307492,
       "type": "file"
     },
     {
-      "path": "src\\app\\api\\customers\\route.js",
+      "path": "src\\lib\\journey\\ai-campaign-service.js",
+      "accessCount": 10,
+      "lastAccessed": 1776688023171,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\customers\\[customerId]\\route.js",
+      "accessCount": 10,
+      "lastAccessed": 1776688900549,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\billing\\razorpay\\webhook\\route.js",
       "accessCount": 8,
-      "lastAccessed": 1776667959449,
+      "lastAccessed": 1776688899709,
       "type": "file"
     },
     {
@@ -444,15 +468,21 @@
       "type": "file"
     },
     {
-      "path": "src\\lib\\journey\\ai-campaign-service.js",
-      "accessCount": 7,
-      "lastAccessed": 1776535209585,
-      "type": "file"
-    },
-    {
       "path": "src\\app\\api\\admin\\user-management\\users\\route.js",
       "accessCount": 7,
       "lastAccessed": 1776610121136,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\events\\route.ts",
+      "accessCount": 7,
+      "lastAccessed": 1776687180319,
+      "type": "file"
+    },
+    {
+      "path": "src\\hooks\\useSSE.ts",
+      "accessCount": 7,
+      "lastAccessed": 1776696787025,
       "type": "file"
     },
     {
@@ -462,15 +492,9 @@
       "type": "file"
     },
     {
-      "path": "src\\app\\api\\events\\route.ts",
+      "path": "src\\components\\shells\\modern\\modern-shell.css",
       "accessCount": 6,
-      "lastAccessed": 1776605889592,
-      "type": "file"
-    },
-    {
-      "path": "src\\hooks\\useSSE.ts",
-      "accessCount": 5,
-      "lastAccessed": 1776525923815,
+      "lastAccessed": 1776705407435,
       "type": "file"
     },
     {
@@ -480,9 +504,9 @@
       "type": "file"
     },
     {
-      "path": "src\\components\\shells\\modern\\modern-shell.css",
-      "accessCount": 4,
-      "lastAccessed": 1776525025350,
+      "path": "src\\lib\\journey\\automation-runner.js",
+      "accessCount": 5,
+      "lastAccessed": 1776684511782,
       "type": "file"
     },
     {
@@ -492,9 +516,15 @@
       "type": "file"
     },
     {
-      "path": "src\\lib\\journey\\automation-runner.js",
+      "path": "src\\app\\api\\analytics\\enhanced\\route.js",
       "accessCount": 4,
-      "lastAccessed": 1776602592369,
+      "lastAccessed": 1776705372900,
+      "type": "file"
+    },
+    {
+      "path": "src\\app\\api\\calls\\automation\\run\\route.js",
+      "accessCount": 4,
+      "lastAccessed": 1776705461244,
       "type": "file"
     },
     {
@@ -523,38 +553,14 @@
     },
     {
       "path": "src\\lib\\events\\event-publisher.ts",
-      "accessCount": 2,
-      "lastAccessed": 1776524977653,
+      "accessCount": 3,
+      "lastAccessed": 1776687165443,
       "type": "file"
     },
     {
       "path": "src\\lib\\cache\\api-cache.ts",
       "accessCount": 2,
       "lastAccessed": 1776524978101,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\customers\\[customerId]\\route.js",
-      "accessCount": 2,
-      "lastAccessed": 1776534889341,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\analytics\\enhanced\\route.js",
-      "accessCount": 2,
-      "lastAccessed": 1776667664939,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\billing\\stripe\\webhook\\route.js",
-      "accessCount": 1,
-      "lastAccessed": 1776524956406,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\billing\\razorpay\\webhook\\route.js",
-      "accessCount": 1,
-      "lastAccessed": 1776524956769,
       "type": "file"
     },
     {
@@ -567,12 +573,6 @@
       "path": "src\\app\\api\\customers\\[customerId]\\activity\\route.js",
       "accessCount": 1,
       "lastAccessed": 1776524974868,
-      "type": "file"
-    },
-    {
-      "path": "src\\app\\api\\calls\\automation\\run\\route.js",
-      "accessCount": 1,
-      "lastAccessed": 1776524976265,
       "type": "file"
     },
     {
