@@ -88,8 +88,8 @@ export async function finalizeCall(callLogId, customerId, tenantId, sessionCtx, 
     evaluatedAt: new Date().toISOString(),
   };
 
-  await prisma.callLog.updateMany({
-    where: { id: callLogId, tenantId: callLog.tenantId },
+  const { count } = await prisma.callLog.updateMany({
+    where: { id: callLogId, tenantId: callLog.tenantId, status: { not: "COMPLETED" } },
     data: {
       summary: analysis.summary,
       intent: toIntentLabel(normalizedIntent),
@@ -101,6 +101,9 @@ export async function finalizeCall(callLogId, customerId, tenantId, sessionCtx, 
       metadata,
     },
   });
+
+  // A concurrent finalizeCall already wrote COMPLETED — skip downstream effects
+  if (count === 0) return;
 
   if (customerId) {
     await applyCustomerTransition({

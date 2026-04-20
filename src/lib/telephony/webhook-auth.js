@@ -11,7 +11,7 @@ function sign(callLogId) {
   return createHmac("sha256", secret)
     .update(`webhook:${callLogId}`)
     .digest("hex")
-    .slice(0, 16);
+    .slice(0, 32); // 128-bit — NIST minimum for authentication codes
 }
 
 /** Append ?_sig=<token> (or &_sig=<token>) to a webhook URL. */

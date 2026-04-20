@@ -6,6 +6,7 @@ import { sendEmail, buildPaymentConfirmationEmail, buildPaymentFailureEmail, bui
 import { grantPurchaseCredits } from "@/lib/credits/credit-service";
 import { resolveTenantTheme } from "@/modules/theme/theme.service";
 import { createNotification } from "@/lib/notifications/notification-service";
+import { invalidatePlanGuardCache } from "@/lib/subscription/plan-guard";
 
 /**
  * POST /api/billing/razorpay/webhook
@@ -159,7 +160,10 @@ export async function POST(req) {
       }
 
       case "subscription.cancelled":
-        if (tenantId) await cancelSubscription(tenantId, "razorpay_subscription_cancelled");
+        if (tenantId) {
+          await cancelSubscription(tenantId, "razorpay_subscription_cancelled");
+          invalidatePlanGuardCache(tenantId);
+        }
         break;
 
       case "subscription.halted":
@@ -168,6 +172,7 @@ export async function POST(req) {
             where: { id: sub.id },
             data: { status: "PAST_DUE" },
           });
+          invalidatePlanGuardCache(sub.tenantId);
           createNotification(sub.tenantId, {
             type: "SYSTEM",
             title: "Payment failed",

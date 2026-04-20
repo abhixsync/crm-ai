@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { CustomerStatus } from "@prisma/client";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
+
+const VALID_CUSTOMER_STATUSES = new Set(Object.values(CustomerStatus));
+function validateStatus(s) {
+  const v = String(s || "NEW").trim().toUpperCase();
+  return VALID_CUSTOMER_STATUSES.has(v) ? v : "NEW";
+}
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
@@ -140,7 +147,7 @@ export async function POST(request) {
           loanType: body.loanType || null,
           loanAmount: body.loanAmount ? Number(body.loanAmount) : null,
           monthlyIncome: body.monthlyIncome ? Number(body.monthlyIncome) : null,
-          status: body.status || "NEW",
+          status: validateStatus(body.status),
           notes: body.notes || null,
           archivedAt: null,
         },
@@ -188,7 +195,7 @@ export async function POST(request) {
           loanType: body.loanType || null,
           loanAmount: body.loanAmount ? Number(body.loanAmount) : null,
           monthlyIncome: body.monthlyIncome ? Number(body.monthlyIncome) : null,
-          status: body.status || "NEW",
+          status: validateStatus(body.status),
           notes: body.notes || null,
         },
       });

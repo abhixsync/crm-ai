@@ -69,11 +69,21 @@ function setCache(key, data) {
 const authRateMap = new Map(); // ip → { count, resetAt }
 const AUTH_RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const AUTH_RATE_MAX = 20; // 20 attempts per window
+const AUTH_RATE_MAP_MAX = 10_000; // evict oldest 20% when this is hit
 
 function checkAuthRateLimit(ip) {
   const now = Date.now();
   const entry = authRateMap.get(ip);
   if (!entry || now > entry.resetAt) {
+    // Evict oldest 20% when map is at capacity
+    if (!entry && authRateMap.size >= AUTH_RATE_MAP_MAX) {
+      const evict = Math.floor(AUTH_RATE_MAP_MAX * 0.2);
+      let i = 0;
+      for (const k of authRateMap.keys()) {
+        if (i++ >= evict) break;
+        authRateMap.delete(k);
+      }
+    }
     authRateMap.set(ip, { count: 1, resetAt: now + AUTH_RATE_WINDOW_MS });
     return true;
   }

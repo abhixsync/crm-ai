@@ -274,7 +274,7 @@ export async function POST(request) {
     // Ensure we only process AI if we have speech from customer
     if (!speechResult) {
       console.log(`[Webhook] No speech result and not initial turn, ending call`);
-      await finishCall(callLogId, customer.id, tenantId, null, {}, turn);
+      after(() => finalizeCall(callLogId, customer.id, tenantId, null, {}, turn));
       return twimlResponse(`<Say voice="${TTS_VOICE}" language="${TTS_LANGUAGE}">${xmlEscape(phrases.thankYou)}</Say><Hangup/>`);
     }
 

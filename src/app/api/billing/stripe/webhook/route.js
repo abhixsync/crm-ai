@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { constructStripeEvent } from "@/lib/billing/stripe";
 import { upgradePlan, cancelSubscription } from "@/lib/subscription/subscription-service";
+import { invalidatePlanGuardCache } from "@/lib/subscription/plan-guard";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, buildPaymentConfirmationEmail, buildPaymentFailureEmail, buildCreditPurchaseEmail, buildPlanUpgradeEmail } from "@/lib/email/mailer";
 import { grantPurchaseCredits } from "@/lib/credits/credit-service";
@@ -153,6 +154,7 @@ export async function POST(req) {
             where: { id: sub.id },
             data: { status: "PAST_DUE" },
           });
+          invalidatePlanGuardCache(sub.tenantId);
           createNotification(sub.tenantId, {
             type: "SYSTEM",
             title: "Payment failed",
@@ -179,6 +181,7 @@ export async function POST(req) {
         });
         if (sub) {
           await cancelSubscription(sub.tenantId, "stripe_subscription_deleted");
+          invalidatePlanGuardCache(sub.tenantId);
         }
         break;
       }

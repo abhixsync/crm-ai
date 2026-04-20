@@ -59,9 +59,12 @@ export async function POST(request) {
     const qTenantId = url.searchParams.get("tenantId") || null;
     const qCallLogId = url.searchParams.get("callLogId") || null;
 
-    // Verify webhook signature if present
-    if (qCallLogId && !verifyWebhookSig(url.searchParams, qCallLogId)) {
-      return Response.json({ error: "Forbidden" }, { status: 403 });
+    // Require webhook signature when NEXTAUTH_SECRET is configured.
+    // callLogId must be present (it's embedded in all status callback URLs we generate).
+    if (process.env.NEXTAUTH_SECRET) {
+      if (!qCallLogId || !verifyWebhookSig(url.searchParams, qCallLogId)) {
+        return Response.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     const callLog = await prisma.callLog.findFirst({
