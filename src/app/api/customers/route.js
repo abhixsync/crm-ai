@@ -7,6 +7,11 @@ function validateStatus(s) {
   const v = String(s || "NEW").trim().toUpperCase();
   return VALID_CUSTOMER_STATUSES.has(v) ? v : "NEW";
 }
+function parseFinancial(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
@@ -145,8 +150,8 @@ export async function POST(request) {
           state: body.state || null,
           source: body.source || "Manual Entry",
           loanType: body.loanType || null,
-          loanAmount: body.loanAmount ? Number(body.loanAmount) : null,
-          monthlyIncome: body.monthlyIncome ? Number(body.monthlyIncome) : null,
+          loanAmount: parseFinancial(body.loanAmount),
+          monthlyIncome: parseFinancial(body.monthlyIncome),
           status: validateStatus(body.status),
           notes: body.notes || null,
           archivedAt: null,
@@ -193,8 +198,8 @@ export async function POST(request) {
           state: body.state || null,
           source: body.source || "Manual Entry",
           loanType: body.loanType || null,
-          loanAmount: body.loanAmount ? Number(body.loanAmount) : null,
-          monthlyIncome: body.monthlyIncome ? Number(body.monthlyIncome) : null,
+          loanAmount: parseFinancial(body.loanAmount),
+          monthlyIncome: parseFinancial(body.monthlyIncome),
           status: validateStatus(body.status),
           notes: body.notes || null,
         },

@@ -1,4 +1,10 @@
 import { prisma } from "@/lib/prisma";
+
+function parseFinancial(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";
 import { isTerminalState } from "@/lib/journey/constants";
@@ -46,10 +52,8 @@ export async function PATCH(request, { params }) {
     if (body.state !== undefined) data.state = body.state || null;
     if (body.source !== undefined) data.source = body.source || null;
     if (body.loanType !== undefined) data.loanType = body.loanType || null;
-    if (body.loanAmount !== undefined) data.loanAmount = body.loanAmount ? Number(body.loanAmount) : null;
-    if (body.monthlyIncome !== undefined) {
-      data.monthlyIncome = body.monthlyIncome ? Number(body.monthlyIncome) : null;
-    }
+    if (body.loanAmount !== undefined) data.loanAmount = parseFinancial(body.loanAmount);
+    if (body.monthlyIncome !== undefined) data.monthlyIncome = parseFinancial(body.monthlyIncome);
     const requestedStatus = body.status !== undefined ? body.status : undefined;
     if (body.notes !== undefined) data.notes = body.notes || null;
 

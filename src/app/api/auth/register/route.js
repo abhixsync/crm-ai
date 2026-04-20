@@ -117,7 +117,7 @@ export async function POST(request) {
   } catch (err) {
     if (err.message === "EMAIL_EXISTS") {
       // Return indistinguishable success to prevent email enumeration
-      return Response.json({ success: true }, { status: 200 });
+      return Response.json({ success: true }, { status: 201 });
     }
     console.error("[api/auth/register]", err);
     return Response.json({ error: "Registration failed. Please try again." }, { status: 500 });
