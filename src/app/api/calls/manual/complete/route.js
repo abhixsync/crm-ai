@@ -6,6 +6,12 @@ import { notifyAdvisorForCallLog } from "@/lib/notifications/advisor-notifier";
 import { evaluateCrmEventDecision } from "@/lib/crm/event-triggers";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
 
+function parseFinancial(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
+
 const dispositionMap = {
   interested: CustomerStatus.INTERESTED,
   not_interested: CustomerStatus.NOT_INTERESTED,
@@ -100,7 +106,7 @@ export async function POST(request) {
           intentClassification: disposition,
           summary: body.summary || `Manual call disposition selected: ${disposition}`,
           nextAction: body.nextAction || crmDecision?.recommendedNextAction || null,
-          durationSecs: body.durationSecs ? Number(body.durationSecs) : null,
+          durationSecs: parseFinancial(body.durationSecs),
           recordingUrl: body.recordingUrl || null,
           transcript: body.transcript || null,
           metadata,
