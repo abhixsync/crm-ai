@@ -472,7 +472,13 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
 
       {/* Sidebar */}
       <aside className={`ms-sb ${drawerOpen ? "open" : ""}`}>
-        <div className="ms-brand">
+        <a
+          href={process.env.NEXT_PUBLIC_LANDING_URL || "https://www.wrenforge.com"}
+          className="ms-brand"
+          style={{ textDecoration: "none", color: "inherit" }}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <div className="ms-brand-mark">
             {logoUrl ? (
               <img src={logoUrl} alt={displayBrand} />
@@ -484,7 +490,7 @@ export function ModernShell({ children, brandName, brandSub, logoUrl, tenantName
             <div className="ms-brand-name">{displayBrand}</div>
             <div className="ms-brand-sub">{displaySub}</div>
           </div>
-        </div>
+        </a>
 
         <nav className="ms-nav">
           {navItems.map((item) => {
