@@ -37,64 +37,81 @@ function resolveLanguageSignal(input) {
 }
 
 function getFallbackTurnResponse(turn, languageSignal) {
+  // Fallback responses keep the conversation going — never end prematurely.
+  // shouldEnd=true is only set by the LLM when the customer explicitly ends.
+
+  if (turn >= 4) {
+    if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
+      return {
+        reply: "Ek minute ji, aapki details hamare advisor ko bheji ja rahi hain. Kya aap subah ya shaam call prefer karenge?",
+        shouldEnd: false,
+      };
+    }
+    if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
+      return {
+        reply: "Haan ji, almost done. Bas yeh batayein — subah call theek rahega ya shaam ko?",
+        shouldEnd: false,
+      };
+    }
+    return {
+      reply: "Almost there — would a morning or evening callback from our advisor work better for you?",
+      shouldEnd: false,
+    };
+  }
+
   if (turn >= 2) {
     if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
       return {
-        reply: "Dhanyavaad ji. Hamara loan advisor jaldi aapse sampark karega.",
-        shouldEnd: true,
+        reply: "Acha ji, aur roughly kitni loan amount ki zaroorat hai aapko?",
+        shouldEnd: false,
       };
     }
-
     if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
       return {
-        reply: "Thank you ji, details share karne ke liye. Hamara loan advisor jaldi call karega.",
-        shouldEnd: true,
+        reply: "Accha ji, aur roughly kitni amount chahiye — ballpark bhi chalega?",
+        shouldEnd: false,
       };
     }
-
     return {
-      reply: "Thank you for sharing. Our loan advisor will call you shortly with the next steps.",
-      shouldEnd: true,
+      reply: "Got it — and roughly what loan amount are you looking for?",
+      shouldEnd: false,
     };
   }
 
   if (turn === 1) {
     if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
       return {
-        reply: "Kripya aap monthly income aur preferred EMI range batayenge?",
+        reply: "Acha, toh kis type ka loan chahiye aapko — personal, home, ya business?",
         shouldEnd: false,
       };
     }
-
     if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
       return {
-        reply: "Please aap monthly income aur preferred EMI range confirm kar denge?",
+        reply: "Haan ji, toh kis type ka loan dekhna hai — personal, home, ya business loan?",
         shouldEnd: false,
       };
     }
-
     return {
-      reply: "Could you confirm your monthly income and preferred EMI range so we can check eligibility?",
+      reply: "Sure — what type of loan are you looking for? Personal, home, or business?",
       shouldEnd: false,
     };
   }
 
+  // turn === 0 (opening)
   if (languageSignal.style === LANGUAGE_STYLES.HINDI) {
     return {
-      reply: "Kya aap is hafte loan apply karne ka plan kar rahe hain, aur kitni amount chahiye?",
+      reply: "Namaste ji, main loan ke baare mein baat karna chahta tha. Kya abhi thoda time hai?",
       shouldEnd: false,
     };
   }
-
   if (languageSignal.style === LANGUAGE_STYLES.HINGLISH) {
     return {
-      reply: "Kya aap is week loan apply karne ka plan kar rahe hain, aur target amount kitni hai?",
+      reply: "Hello ji, loan ke regarding call kar raha tha. Kya abhi 2 minute ho sakte hain?",
       shouldEnd: false,
     };
   }
-
   return {
-    reply: "Are you planning to apply this week, and what loan amount are you targeting?",
+    reply: "Hi, calling regarding a loan inquiry. Do you have 2 minutes to talk?",
     shouldEnd: false,
   };
 }

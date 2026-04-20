@@ -29,11 +29,16 @@ function mapIntentToCustomerStatus(intent) {
 }
 
 function shouldEndCall(aiTurn, turn, extractedData) {
+  // AI explicitly says end — always respect (LLM only sets this on explicit goodbye/DNC)
   if (aiTurn.shouldEnd) return true;
+  // Absolute ceiling — prevent runaway conversations
   if (turn >= 12) return true;
+  // All mandatory slots filled — close only after a minimum of 5 turns
   const allSlots = extractedData?.loanType && extractedData?.amount && extractedData?.timeline;
-  if (allSlots && turn >= 3) return true;
-  if (extractedData?.loanType === "balance_transfer" && turn >= 3) return true;
+  if (allSlots && turn >= 5) return true;
+  // Balance transfer only requires loanType — same minimum of 5 turns
+  if (extractedData?.loanType === "balance_transfer" && turn >= 5) return true;
+  // No progress after several turns — end gracefully
   if (turn >= 8 && !extractedData?.loanType && !extractedData?.amount) return true;
   return false;
 }
