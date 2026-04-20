@@ -114,6 +114,7 @@ export const authOptions = {
       try {
         const cookieStore = await cookies();
         tenantSlug = cookieStore.get("_goa_tenant")?.value || null;
+        if (tenantSlug) cookieStore.delete("_goa_tenant");
       } catch {
         // cookies() may throw outside request context — safe to ignore
       }
@@ -128,11 +129,12 @@ export const authOptions = {
 
         const existingUser = await prisma.user.findFirst({
           where: { email, tenantId: tenant.id },
-          select: { id: true, isActive: true, isSuspended: true, googleId: true },
+          select: { id: true, isActive: true, isSuspended: true, googleId: true, passwordHash: true },
         });
         if (!existingUser || !existingUser.isActive || existingUser.isSuspended) return false;
 
-        if (!existingUser.googleId && profile.email_verified !== false) {
+        // Only auto-link Google if the user has no password (not a credential user) — prevents account hijacking
+        if (!existingUser.googleId && !existingUser.passwordHash && profile.email_verified !== false) {
           await prisma.user.update({
             where: { id: existingUser.id },
             data: { googleId: account.providerAccountId },
@@ -144,15 +146,15 @@ export const authOptions = {
       // Platform host flow
       const existingUser = await prisma.user.findFirst({
         where: { email },
-        select: { id: true, isActive: true, isSuspended: true, googleId: true, metadata: true, tenantId: true },
+        select: { id: true, isActive: true, isSuspended: true, googleId: true, passwordHash: true, metadata: true, tenantId: true },
       });
 
       if (existingUser) {
         if (!existingUser.isActive || existingUser.isSuspended) return false;
         // Only auto-link googleId for platform-level users (tenantId = null: SUPER_ADMIN / pending signup).
-        // Tenant users must link Google via their subdomain — prevents cross-tenant account hijacking
-        // when the same email address exists under different tenants.
-        if (!existingUser.googleId && !existingUser.tenantId && profile.email_verified !== false) {
+        // Tenant users must link Google via their subdomain — prevents cross-tenant account hijacking.
+        // Also require no passwordHash — prevents a Google account from silently taking over a credential user.
+        if (!existingUser.googleId && !existingUser.tenantId && !existingUser.passwordHash && profile.email_verified !== false) {
           await prisma.user.update({
             where: { id: existingUser.id },
             data: { googleId: account.providerAccountId },
@@ -202,8 +204,9 @@ export const authOptions = {
             token.tenantSlug = null;
           }
           token.tokenCheckedAt = Math.floor(Date.now() / 1000);
-        } catch {
+        } catch (err) {
           // Transient DB error — return token as-is rather than invalidating the session
+          console.warn("[auth] JWT update recheck failed", token.userId, err?.message);
         }
         return token;
       }
@@ -233,26 +236,25 @@ export const authOptions = {
             isSuspended: true, emailVerified: true, metadata: true,
           },
         });
-        if (dbUser) {
-          token.userId = dbUser.id;
-          token.role = dbUser.role;
-          token.tenantId = dbUser.tenantId || null;
-          token.isPrimaryOwner = dbUser.isPrimaryOwner ?? false;
-          token.isSuspended = dbUser.isSuspended ?? false;
-          token.emailVerified = dbUser.emailVerified ? dbUser.emailVerified.toISOString() : null;
-          const meta = dbUser.metadata;
-          token.pendingGoogleSignup = meta && typeof meta === "object" && meta.pendingGoogleSignup === true;
-          token.tokenCheckedAt = Math.floor(Date.now() / 1000);
-          // Resolve tenant slug for post-login redirect
-          if (dbUser.tenantId) {
-            const tenant = await prisma.tenant.findUnique({
-              where: { id: dbUser.tenantId },
-              select: { slug: true },
-            });
-            token.tenantSlug = tenant?.slug || null;
-          } else {
-            token.tenantSlug = null;
-          }
+        if (!dbUser) return null;
+        token.userId = dbUser.id;
+        token.role = dbUser.role;
+        token.tenantId = dbUser.tenantId || null;
+        token.isPrimaryOwner = dbUser.isPrimaryOwner ?? false;
+        token.isSuspended = dbUser.isSuspended ?? false;
+        token.emailVerified = dbUser.emailVerified ? dbUser.emailVerified.toISOString() : null;
+        const meta = dbUser.metadata;
+        token.pendingGoogleSignup = meta && typeof meta === "object" && meta.pendingGoogleSignup === true;
+        token.tokenCheckedAt = Math.floor(Date.now() / 1000);
+        // Resolve tenant slug for post-login redirect
+        if (dbUser.tenantId) {
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: dbUser.tenantId },
+            select: { slug: true },
+          });
+          token.tenantSlug = tenant?.slug || null;
+        } else {
+          token.tenantSlug = null;
         }
         return token;
       }

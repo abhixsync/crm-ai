@@ -102,7 +102,7 @@ export async function createTrialSubscription(tenantId) {
   });
 
   // Initialize credit balance with PRO credits for trial
-  await initializeCreditBalance(tenantId, proPlan?.creditsPerMonth ?? 500, trialEndsAt).catch(() => {});
+  await initializeCreditBalance(tenantId, proPlan?.creditsPerMonth ?? 500, trialEndsAt).catch((err) => console.warn("[subscription] credit init failed", tenantId, err?.message));
 
   return subscription;
 }
@@ -117,8 +117,10 @@ export async function createFreeSubscription(tenantId) {
   const freePlan = await prisma.planDefinition.findUnique({ where: { plan: "FREE" } });
   const planSnapshot = await buildPlanSnapshot("FREE");
 
-  const subscription = await prisma.tenantSubscription.create({
-    data: {
+  const subscription = await prisma.tenantSubscription.upsert({
+    where: { tenantId },
+    update: {},
+    create: {
       tenantId,
       plan: "FREE",
       status: "ACTIVE",
@@ -128,7 +130,8 @@ export async function createFreeSubscription(tenantId) {
     },
   });
 
-  await initializeCreditBalance(tenantId, freePlan?.creditsPerMonth ?? 100, null).catch(() => {});
+  await initializeCreditBalance(tenantId, freePlan?.creditsPerMonth ?? 100, null).catch((err) => console.warn("[subscription] credit init failed", tenantId, err?.message));
+  invalidatePlanGuardCache(tenantId);
 
   return subscription;
 }

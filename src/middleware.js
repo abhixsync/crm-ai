@@ -275,6 +275,8 @@ export async function middleware(request) {
     /^127\.0\.0\.1(:\d+)?$/.test(host);
 
   if (isPlatformHost) {
+    // Strip any injected tenant header — prevents crafted header from bypassing auth-guard
+    requestHeaders.delete("x-resolved-tenant-id");
     return withCors(await applyRoleGuards(request, requestHeaders));
   }
 

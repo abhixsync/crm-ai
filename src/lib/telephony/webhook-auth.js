@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
  * Signs a callLogId with NEXTAUTH_SECRET so webhook URLs carry a verifiable
@@ -38,5 +38,6 @@ export function verifyWebhookSig(urlOrSearchParams, callLogId) {
       : new URL(urlOrSearchParams).searchParams;
   const provided = params.get("_sig") || "";
   const expected = sign(callLogId);
-  return provided === expected;
+  if (!provided || provided.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
 }
