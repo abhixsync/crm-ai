@@ -91,7 +91,7 @@ async function seedPlanDefinitions() {
       name: "Plus",
       description: "For small teams getting serious about outreach.",
       monthlyPriceUsd: 9,   annualPriceUsd: 86.40,     // 20% off = $7.20/mo
-      monthlyPriceInr: 299, annualPriceInr: 2999,       // ₹249.92/mo
+      monthlyPriceInr: 699, annualPriceInr: 6710,       // 20% off = ₹559.20/mo
       annualDiscountPct: 20,
       maxUsers: 3,           maxCustomers: 1000,
       creditsPerMonth: 200,
@@ -114,7 +114,7 @@ async function seedPlanDefinitions() {
       name: "Pro",
       description: "Full AI CRM power for growing businesses.",
       monthlyPriceUsd: 29,   annualPriceUsd: 278.40,    // 20% off = $23.20/mo
-      monthlyPriceInr: 499,  annualPriceInr: 3999,       // ₹333.25/mo
+      monthlyPriceInr: 1999, annualPriceInr: 19190,      // 20% off = ₹1,599.20/mo
       annualDiscountPct: 20,
       maxUsers: 10,          maxCustomers: 10000,
       creditsPerMonth: 500,
@@ -137,7 +137,7 @@ async function seedPlanDefinitions() {
       name: "Max",
       description: "Unlimited scale + custom AI/telephony providers for enterprises.",
       monthlyPriceUsd: 79,   annualPriceUsd: 758.40,    // 20% off = $63.20/mo
-      monthlyPriceInr: 799,  annualPriceInr: 5999,       // ₹499.92/mo
+      monthlyPriceInr: 5999, annualPriceInr: 57590,      // 20% off = ₹4,799.20/mo
       annualDiscountPct: 20,
       maxUsers: -1,          maxCustomers: -1,
       creditsPerMonth: 1000,
