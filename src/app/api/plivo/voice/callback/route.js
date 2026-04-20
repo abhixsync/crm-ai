@@ -3,6 +3,7 @@ import { runAIWithFailover } from "@/lib/ai/provider-router";
 import { updateSessionAfterCall, getSessionContext } from "@/lib/conversation/session-manager";
 import { after } from "next/server";
 import { finalizeCall } from "@/lib/calls/call-finalizer";
+import { signWebhookUrl, verifyWebhookSig } from "@/lib/telephony/webhook-auth";
 
 function xmlEscape(value) {
   return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -48,6 +49,13 @@ export async function POST(request) {
   const turn = Number(url.searchParams.get("turn") || "0");
   const failedAttempts = Number(url.searchParams.get("failedAttempts") || "0");
 
+  // Verify signature before parsing body or touching the DB.
+  if (process.env.NEXTAUTH_SECRET) {
+    if (!callLogId || !verifyWebhookSig(url.searchParams, callLogId)) {
+      return plivoResponse("<Speak>Unauthorized.</Speak><Hangup/>");
+    }
+  }
+
   try {
     const formData = await request.formData();
     const speechResult = String(formData.get("Speech") || "").trim();
@@ -67,7 +75,7 @@ export async function POST(request) {
         after(() => finalizeCall(callLogId, customer.id, tenantId, null, {}, turn));
         return plivoResponse("<Speak>Thank you for your time. Our advisor will contact you shortly.</Speak><Hangup/>");
       }
-      const retryUrl = `${url.origin}/api/plivo/voice/callback?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn}&failedAttempts=${failedAttempts + 1}`;
+      const retryUrl = signWebhookUrl(`${url.origin}/api/plivo/voice/callback?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn}&failedAttempts=${failedAttempts + 1}`, callLogId);
       return plivoResponse(
         `<GetInput action="${xmlEscape(retryUrl)}" method="POST" inputType="speech" language="hi-IN" speechEndTimeout="1500">` +
         `<Speak>I didn't catch that. Could you please repeat?</Speak>` +
@@ -109,7 +117,7 @@ export async function POST(request) {
       return plivoResponse(`<Speak>${xmlEscape(closing)}</Speak><Hangup/>`);
     }
 
-    const nextUrl = `${url.origin}/api/plivo/voice/callback?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn + 1}&failedAttempts=0`;
+    const nextUrl = signWebhookUrl(`${url.origin}/api/plivo/voice/callback?customerId=${customer.id}&callLogId=${callLogId}&turn=${turn + 1}&failedAttempts=0`, callLogId);
     return plivoResponse(
       `<GetInput action="${xmlEscape(nextUrl)}" method="POST" inputType="speech" language="hi-IN" speechEndTimeout="1500">` +
       `<Speak>${xmlEscape(aiTurn.reply)}</Speak>` +

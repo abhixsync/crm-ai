@@ -15,6 +15,18 @@ export async function POST(request) {
   let duration = undefined;
   let recordingUrl = undefined;
 
+  // Signature check must happen before any DB query to prevent unauthenticated
+  // information disclosure via the providerCallId lookup below.
+  const url = new URL(request.url);
+  const qTenantId = url.searchParams.get("tenantId") || null;
+  const qCallLogId = url.searchParams.get("callLogId") || null;
+
+  if (process.env.NEXTAUTH_SECRET) {
+    if (!qCallLogId || !verifyWebhookSig(url.searchParams, qCallLogId)) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const contentType = request.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
@@ -53,19 +65,6 @@ export async function POST(request) {
       mappedStatus,
       telephonyProviderType: existingCall?.telephonyProviderType || "UNKNOWN",
     });
-
-    // Read tenantId + callLogId from query param (set by trigger/campaign when building statusCallbackUrl)
-    const url = new URL(request.url);
-    const qTenantId = url.searchParams.get("tenantId") || null;
-    const qCallLogId = url.searchParams.get("callLogId") || null;
-
-    // Require webhook signature when NEXTAUTH_SECRET is configured.
-    // callLogId must be present (it's embedded in all status callback URLs we generate).
-    if (process.env.NEXTAUTH_SECRET) {
-      if (!qCallLogId || !verifyWebhookSig(url.searchParams, qCallLogId)) {
-        return Response.json({ error: "Forbidden" }, { status: 403 });
-      }
-    }
 
     const callLog = await prisma.callLog.findFirst({
       where: {
