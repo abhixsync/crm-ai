@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WrenForge — AI Calling CRM for Lending Teams</title>
+<meta name="description" content="WrenForge is an AI-powered calling CRM for DSAs, NBFCs, and lending teams. Upload your leads and let the AI call, qualify, and convert — automatically.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/jpeg;base64,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">
+
+<style>
+:root{
+  --bg:#030510;
+  --bg-deep:#010309;
+  --surface:#0A0F1F;
+  --surface-2:#121832;
+  --surface-3:#1A2143;
+  --border:#1C2345;
+  --border-hi:#2D375F;
+  --blue:#4C8EFF;
+  --blue-bright:#7CB3FF;
+  --blue-soft:#A5C8FF;
+  --blue-deep:#1B3480;
+  --cyan:#67E8F9;
+  --magenta:#F472B6;
+  --text:#E8ECF8;
+  --text-dim:#8B95B4;
+  --text-muted:#5A6382;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;background:var(--bg)}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter Tight',-apple-system,BlinkMacSystemFont,sans-serif;
+  font-weight:400;
+  line-height:1.55;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  letter-spacing:-0.005em;
+  position:relative;
+  min-height:100vh;
+}
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/><feColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.4 0 0 0 0 0.7 0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity:.4;
+  pointer-events:none;
+  z-index:3;
+  mix-blend-mode:overlay;
+}
+
+/* Canvas neural net background */
+#neural{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  z-index:0;
+  opacity:.85;
+}
+
+/* Cursor spotlight */
+.spotlight{
+  position:fixed;
+  width:600px;
+  height:600px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(76,142,255,0.12) 0%, rgba(76,142,255,0) 60%);
+  pointer-events:none;
+  z-index:1;
+  transform:translate(-50%,-50%);
+  transition:opacity .5s;
+  will-change:left,top;
+  mix-blend-mode:screen;
+}
+
+/* Scanline overlay */
+.scanlines{
+  position:fixed;
+  inset:0;
+  background:repeating-linear-gradient(180deg, transparent 0, transparent 2px, rgba(76,142,255,0.012) 2px, rgba(76,142,255,0.012) 3px);
+  pointer-events:none;
+  z-index:2;
+}
+
+main, nav, footer, section{position:relative;z-index:4}
+
+.container{
+  max-width:1300px;
+  margin:0 auto;
+  padding:0 32px;
+}
+
+/* ============ NAV ============ */
+nav{
+  position:fixed;
+  top:16px;
+  left:50%;
+  transform:translateX(-50%);
+  width:calc(100% - 32px);
+  max-width:1260px;
+  z-index:100;
+  background:rgba(10, 15, 31, 0.7);
+  backdrop-filter:blur(24px) saturate(160%);
+  -webkit-backdrop-filter:blur(24px) saturate(160%);
+  border:1px solid var(--border);
+  border-radius:14px;
+  box-shadow:0 8px 32px -12px rgba(0,0,0,0.6);
+}
+.nav-inner{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px 16px 12px 20px;
+  gap:32px;
+}
+.logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  text-decoration:none;
+  color:inherit;
+  white-space:nowrap;
+}
+.logo img{
+  width:30px;
+  height:30px;
+  border-radius:7px;
+  display:block;
+  box-shadow:0 0 0 1px rgba(255,255,255,0.05), 0 6px 20px -6px rgba(76,142,255,0.4);
+}
+.logo-name{
+  font-family:'Inter Tight', sans-serif;
+  font-size:19px;
+  font-weight:700;
+  letter-spacing:-0.035em;
+  color:var(--text);
+}
+.logo-name i{font-style:normal;color:var(--blue-bright)}
+
+.nav-links{
+  display:flex;
+  gap:30px;
+  list-style:none;
+  margin:0 auto;
+}
+.nav-links a{
+  color:var(--text-dim);
+  text-decoration:none;
+  font-size:13.5px;
+  font-weight:450;
+  transition:color .2s;
+  position:relative;
+}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{display:flex;gap:14px;align-items:center}
+.nav-signin{
+  color:var(--text-dim);
+  text-decoration:none;
+  font-size:13.5px;
+  font-weight:500;
+  transition:color .2s;
+  padding:8px 2px;
+}
+.nav-signin:hover{color:var(--text)}
+
+/* ============ BUTTONS ============ */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:11px 18px;
+  border-radius:10px;
+  font-size:14px;
+  font-weight:550;
+  text-decoration:none;
+  cursor:pointer;
+  border:1px solid transparent;
+  transition:transform .2s, box-shadow .3s, background .3s, border-color .3s;
+  font-family:inherit;
+  letter-spacing:-0.005em;
+  position:relative;
+  overflow:hidden;
+  white-space:nowrap;
+}
+.btn-primary{
+  background:linear-gradient(180deg, #5B9AFF 0%, #3D7AF0 100%);
+  color:#fff;
+  box-shadow:
+    0 0 0 1px rgba(124,179,255,0.5),
+    0 1px 0 0 rgba(255,255,255,0.25) inset,
+    0 -8px 20px -8px rgba(0,0,0,0.3) inset,
+    0 10px 30px -6px rgba(76,142,255,0.55),
+    0 0 40px -10px rgba(76,142,255,0.6);
+}
+.btn-primary::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg, rgba(255,255,255,0.15), transparent 50%);
+  pointer-events:none;
+}
+.btn-primary:hover{
+  transform:translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(124,179,255,0.7),
+    0 1px 0 0 rgba(255,255,255,0.3) inset,
+    0 -8px 20px -8px rgba(0,0,0,0.3) inset,
+    0 18px 40px -8px rgba(76,142,255,0.7),
+    0 0 60px -10px rgba(76,142,255,0.8);
+}
+.btn-ghost{
+  background:rgba(26, 33, 67, 0.4);
+  color:var(--text);
+  border-color:var(--border-hi);
+  backdrop-filter:blur(10px);
+}
+.btn-ghost:hover{
+  background:rgba(45, 55, 95, 0.5);
+  border-color:var(--blue);
+  transform:translateY(-1px);
+}
+.btn-lg{padding:14px 22px;font-size:14.5px}
+.btn-arrow{transition:transform .25s}
+.btn:hover .btn-arrow{transform:translateX(3px)}
+
+/* ============ HERO ============ */
+.hero{
+  min-height:100vh;
+  padding:140px 0 100px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  position:relative;
+  overflow:hidden;
+}
+.hero-bg{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+}
+.hero-bg::before{
+  content:'';
+  position:absolute;
+  top:30%;left:50%;
+  transform:translate(-50%,-50%);
+  width:1400px;height:800px;
+  background:radial-gradient(ellipse at center, rgba(76,142,255,0.2) 0%, rgba(76,142,255,0.05) 30%, transparent 65%);
+  filter:blur(10px);
+}
+.hero-bg::after{
+  content:'';
+  position:absolute;
+  bottom:-200px;left:-200px;
+  width:800px;height:800px;
+  background:radial-gradient(circle, rgba(103,232,249,0.08) 0%, transparent 60%);
+}
+
+.hero-content{
+  text-align:center;
+  max-width:920px;
+  margin:0 auto;
+  position:relative;
+  z-index:5;
+}
+.eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:6px 16px 6px 10px;
+  border:1px solid var(--border-hi);
+  border-radius:100px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  color:var(--blue-soft);
+  letter-spacing:0.15em;
+  text-transform:uppercase;
+  background:rgba(10, 15, 31, 0.6);
+  backdrop-filter:blur(10px);
+  margin-bottom:32px;
+  box-shadow:0 0 30px -5px rgba(76,142,255,0.2);
+}
+.eyebrow .dot{
+  width:7px;height:7px;
+  background:var(--cyan);
+  border-radius:50%;
+  box-shadow:0 0 12px var(--cyan), 0 0 4px var(--cyan);
+  animation:pulse 2s infinite;
+}
+
+h1{
+  font-family:'Instrument Serif', serif;
+  font-size:clamp(56px, 9vw, 132px);
+  line-height:0.95;
+  font-weight:400;
+  letter-spacing:-0.035em;
+  margin-bottom:28px;
+}
+h1 .italic{
+  font-style:italic;
+  background:linear-gradient(180deg, #7CB3FF 0%, #4C8EFF 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  position:relative;
+  display:inline-block;
+}
+h1 .word{display:inline-block;opacity:0;transform:translateY(40px);animation:word-up 1s cubic-bezier(0.2,0.8,0.2,1) forwards}
+h1 .word:nth-child(1){animation-delay:.1s}
+h1 .word:nth-child(2){animation-delay:.2s}
+h1 .word:nth-child(3){animation-delay:.3s}
+h1 .word:nth-child(4){animation-delay:.45s}
+h1 .word:nth-child(5){animation-delay:.6s}
+
+.hero-sub{
+  font-size:19px;
+  color:var(--text-dim);
+  max-width:620px;
+  line-height:1.5;
+  margin:0 auto 40px;
+  font-weight:400;
+  opacity:0;
+  animation:fade-up 1s .9s forwards;
+}
+.hero-ctas{
+  display:flex;
+  gap:12px;
+  justify-content:center;
+  flex-wrap:wrap;
+  opacity:0;
+  animation:fade-up 1s 1.1s forwards;
+}
+.hero-meta{
+  margin-top:26px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  color:var(--text-muted);
+  letter-spacing:0.05em;
+  opacity:0;
+  animation:fade-up 1s 1.3s forwards;
+}
+.hero-meta span{margin:0 4px}
+
+/* Floating cards around hero */
+.float-card{
+  position:absolute;
+  background:linear-gradient(180deg, rgba(18, 24, 50, 0.9) 0%, rgba(10, 15, 31, 0.95) 100%);
+  border:1px solid var(--border-hi);
+  border-radius:14px;
+  padding:14px 16px;
+  box-shadow:
+    0 30px 60px -20px rgba(0,0,0,0.8),
+    0 0 0 1px rgba(76,142,255,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+  backdrop-filter:blur(20px);
+  font-size:12px;
+  z-index:4;
+  will-change:transform;
+  transition:transform .4s cubic-bezier(.2,.7,.3,1);
+}
+.float-card::before{
+  content:'';
+  position:absolute;
+  top:-1px;left:16px;right:16px;height:1px;
+  background:linear-gradient(90deg, transparent, var(--blue-bright), transparent);
+}
+.fc-top{
+  top:22%;
+  right:6%;
+  transform:translate(0,0) rotate(2deg);
+  width:230px;
+  opacity:0;
+  animation:float-in-r 1.4s 1.2s cubic-bezier(.2,.7,.3,1) forwards;
+}
+.fc-bottom{
+  bottom:15%;
+  left:5%;
+  transform:translate(0,0) rotate(-2deg);
+  width:240px;
+  opacity:0;
+  animation:float-in-l 1.4s 1.5s cubic-bezier(.2,.7,.3,1) forwards;
+}
+.fc-mid{
+  top:58%;
+  right:9%;
+  transform:translate(0,0) rotate(-1.5deg);
+  width:215px;
+  opacity:0;
+  animation:float-in-r 1.4s 1.8s cubic-bezier(.2,.7,.3,1) forwards;
+}
+@keyframes float-in-r{
+  from{opacity:0;transform:translateX(60px) rotate(4deg)}
+  to{opacity:.92;transform:translateX(0) rotate(2deg)}
+}
+@keyframes float-in-l{
+  from{opacity:0;transform:translateX(-60px) rotate(-4deg)}
+  to{opacity:.92;transform:translateX(0) rotate(-2deg)}
+}
+.fc-mid{animation-name:float-in-mid}
+@keyframes float-in-mid{
+  from{opacity:0;transform:translateX(60px) rotate(-4deg)}
+  to{opacity:.92;transform:translateX(0) rotate(-1.5deg)}
+}
+
+.fc-title{
+  font-family:'JetBrains Mono', monospace;
+  font-size:9.5px;
+  color:var(--text-muted);
+  text-transform:uppercase;
+  letter-spacing:0.15em;
+  margin-bottom:10px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.fc-dot{
+  width:6px;height:6px;
+  background:var(--cyan);
+  border-radius:50%;
+  box-shadow:0 0 8px var(--cyan);
+  animation:pulse 2s infinite;
+}
+
+.fc-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:6px 0;
+}
+.fc-avatar{
+  width:28px;height:28px;
+  border-radius:50%;
+  background:linear-gradient(135deg, var(--blue), var(--blue-deep));
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;color:#fff;
+  flex-shrink:0;
+}
+.fc-name{font-size:12.5px;font-weight:500;color:var(--text)}
+.fc-sub{font-size:10.5px;color:var(--text-dim);font-family:'JetBrains Mono', monospace}
+.fc-metric{
+  display:flex;justify-content:space-between;align-items:baseline;
+  padding:4px 0;
+  font-size:11px;
+}
+.fc-metric .k{color:var(--text-dim)}
+.fc-metric .v{font-family:'JetBrains Mono', monospace; font-weight:600; color:var(--text)}
+.fc-bar{
+  height:2px;
+  background:rgba(28, 35, 69, 0.6);
+  border-radius:2px;
+  overflow:hidden;
+  margin-top:3px;
+}
+.fc-bar span{
+  display:block;height:100%;
+  background:linear-gradient(90deg, var(--blue), var(--cyan));
+  border-radius:2px;
+}
+
+/* Engine status ticker */
+.hero-ticker{
+  position:absolute;
+  bottom:28px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:30px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:10.5px;
+  color:var(--text-muted);
+  letter-spacing:0.15em;
+  text-transform:uppercase;
+  z-index:6;
+  padding:8px 20px;
+  border:1px solid var(--border);
+  border-radius:100px;
+  background:rgba(10, 15, 31, 0.6);
+  backdrop-filter:blur(14px);
+  opacity:0;
+  animation:fade-up 1s 1.8s forwards;
+}
+.hero-ticker span strong{
+  color:var(--cyan);
+  font-weight:500;
+  margin-right:4px;
+}
+.tick-sep{color:var(--border-hi)}
+
+/* ============ MARQUEE ============ */
+.marquee{
+  overflow:hidden;
+  padding:48px 0;
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg, rgba(10,15,31,0.4), rgba(10,15,31,0));
+  position:relative;
+}
+.marquee::before, .marquee::after{
+  content:'';
+  position:absolute;
+  top:0;bottom:0;width:240px;
+  z-index:2;pointer-events:none;
+}
+.marquee::before{
+  left:0;
+  background:linear-gradient(90deg, var(--bg), transparent);
+}
+.marquee::after{
+  right:0;
+  background:linear-gradient(270deg, var(--bg), transparent);
+}
+.marquee-track{
+  display:flex;
+  gap:64px;
+  animation:marquee 40s linear infinite;
+  white-space:nowrap;
+  width:max-content;
+  align-items:center;
+}
+.marquee-item{
+  display:inline-flex;
+  align-items:center;
+  gap:22px;
+  font-family:'Instrument Serif', serif;
+  font-size:38px;
+  font-style:italic;
+  color:var(--text-dim);
+  letter-spacing:-0.01em;
+}
+.marquee-item .sep{
+  width:8px;height:8px;
+  background:var(--blue);
+  border-radius:50%;
+  box-shadow:0 0 14px var(--blue);
+}
+@keyframes marquee{
+  from{transform:translateX(0)}
+  to{transform:translateX(-50%)}
+}
+
+/* ============ SECTION BASE ============ */
+.section{padding:140px 0;position:relative}
+.section-head{max-width:780px;margin-bottom:72px}
+.section-head.center{margin:0 auto 72px;text-align:center}
+
+.section-label{
+  display:inline-flex;
+  align-items:center;
+  gap:14px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  color:var(--blue-bright);
+  letter-spacing:0.28em;
+  text-transform:uppercase;
+  margin-bottom:24px;
+}
+.section-label::before{
+  content:'';
+  width:32px;height:1px;
+  background:linear-gradient(90deg, transparent, var(--blue));
+}
+.section-label::after{
+  content:'';
+  width:32px;height:1px;
+  background:linear-gradient(90deg, var(--blue), transparent);
+}
+.section-label.left::before{
+  background:var(--blue);
+}
+.section-label.left::after{display:none}
+
+h2{
+  font-family:'Instrument Serif', serif;
+  font-size:clamp(42px, 5.5vw, 78px);
+  line-height:1.02;
+  font-weight:400;
+  letter-spacing:-0.025em;
+  margin-bottom:24px;
+}
+h2 .italic{
+  font-style:italic;
+  background:linear-gradient(180deg, #7CB3FF, #4C8EFF);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+.section-sub{
+  font-size:18px;
+  color:var(--text-dim);
+  max-width:620px;
+  line-height:1.55;
+}
+.section-head.center .section-sub{margin:0 auto}
+
+/* ============ THE ENGINE (3-stage showcase) ============ */
+.engine .section-head{text-align:center;margin-left:auto;margin-right:auto}
+
+.stages{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:28px;
+  margin-top:40px;
+  position:relative;
+}
+.stage{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:64px;
+  align-items:center;
+  padding:48px;
+  background:linear-gradient(180deg, rgba(18, 24, 50, 0.4) 0%, rgba(10, 15, 31, 0.5) 100%);
+  border:1px solid var(--border);
+  border-radius:24px;
+  position:relative;
+  overflow:hidden;
+}
+.stage::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:radial-gradient(ellipse at var(--gx, 80%) 0%, rgba(76,142,255,0.08), transparent 70%);
+  pointer-events:none;
+}
+.stage:nth-child(even){grid-template-columns:1fr 1fr}
+.stage:nth-child(even) .stage-text{order:2}
+.stage:nth-child(even) .stage-visual{order:1}
+.stage:nth-child(even)::before{--gx:20%}
+
+.stage-num{
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  color:var(--blue-bright);
+  letter-spacing:0.25em;
+  margin-bottom:18px;
+  text-transform:uppercase;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.stage-num::before{
+  content:'';
+  width:24px;height:1px;
+  background:var(--blue);
+}
+
+.stage-title{
+  font-family:'Instrument Serif', serif;
+  font-size:44px;
+  line-height:1.05;
+  font-weight:400;
+  letter-spacing:-0.02em;
+  margin-bottom:16px;
+}
+.stage-title .italic{font-style:italic;color:var(--blue-bright)}
+.stage-desc{
+  font-size:15.5px;
+  color:var(--text-dim);
+  line-height:1.6;
+  margin-bottom:20px;
+}
+.stage-bullets{list-style:none;padding:0}
+.stage-bullets li{
+  padding:6px 0;
+  font-size:14px;
+  color:var(--text);
+  display:flex;align-items:center;gap:10px;
+}
+.stage-bullets li::before{
+  content:'';
+  width:5px;height:5px;
+  border-radius:50%;
+  background:var(--cyan);
+  box-shadow:0 0 6px var(--cyan);
+  flex-shrink:0;
+}
+
+/* Stage visual — research */
+.stage-visual{
+  background:var(--surface);
+  border:1px solid var(--border-hi);
+  border-radius:16px;
+  padding:20px;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 20px 60px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.viz-head{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:'JetBrains Mono', monospace;
+  font-size:10.5px;
+  color:var(--text-muted);
+  text-transform:uppercase;
+  letter-spacing:0.15em;
+  padding-bottom:14px;
+  margin-bottom:14px;
+  border-bottom:1px solid var(--border);
+}
+
+.viz-head .status{color:var(--cyan);display:flex;align-items:center;gap:6px}
+.viz-head .status::before{
+  content:'';width:6px;height:6px;background:var(--cyan);border-radius:50%;
+  box-shadow:0 0 8px var(--cyan);animation:pulse 1.5s infinite;
+}
+
+/* Research visual */
+.research-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.research-lead{
+  background:var(--bg-deep);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:14px;
+  position:relative;
+}
+.research-lead.highlighted{
+  border-color:var(--blue);
+  box-shadow:0 0 0 1px var(--blue), 0 0 28px -6px rgba(76,142,255,0.35);
+}
+.rl-row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.rl-av{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg, var(--blue), var(--blue-deep));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:11.5px;font-weight:600;
+  flex-shrink:0;
+}
+.rl-name{font-size:12.5px;font-weight:600}
+.rl-role{font-size:10.5px;color:var(--text-dim);font-family:'JetBrains Mono', monospace}
+.rl-signals{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.rl-signals .sig{
+  font-size:10.5px;
+  color:var(--cyan);
+  background:rgba(103,232,249,0.08);
+  border:1px solid rgba(103,232,249,0.2);
+  border-radius:6px;
+  padding:4px 8px;
+  font-family:'JetBrains Mono', monospace;
+  letter-spacing:0.02em;
+}
+.rl-score{
+  position:absolute;
+  top:14px;right:14px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:10.5px;
+  color:var(--blue-bright);
+  font-weight:600;
+}
+
+/* Engage visual — email typewriter */
+.engage-panel{
+  background:var(--bg-deep);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:14px;
+}
+.engage-meta{
+  display:flex;flex-direction:column;gap:4px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  color:var(--text-muted);
+  margin-bottom:14px;
+}
+.engage-meta .row{display:flex;gap:12px}
+.engage-meta .row .k{color:var(--text-muted);min-width:44px}
+.engage-meta .row .v{color:var(--text-dim)}
+.engage-subject{
+  font-size:14px;
+  font-weight:600;
+  color:var(--text);
+  padding:10px 0;
+  border-top:1px dashed var(--border);
+  margin-bottom:10px;
+}
+.engage-body{
+  font-size:13px;
+  color:var(--text-dim);
+  line-height:1.6;
+  min-height:7em;
+}
+.engage-body::after{
+  content:'▎';
+  color:var(--blue-bright);
+  animation:blink 1s infinite;
+}
+.engage-toolbar{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:14px;padding-top:14px;
+  border-top:1px solid var(--border);
+  font-family:'JetBrains Mono', monospace;
+  font-size:10.5px;
+  color:var(--text-muted);
+  text-transform:uppercase;
+  letter-spacing:0.1em;
+}
+.engage-channels{display:flex;gap:6px}
+.engage-channels span{
+  padding:3px 8px;
+  border:1px solid var(--border);
+  border-radius:4px;
+  color:var(--text-dim);
+  background:var(--surface);
+}
+.engage-channels span.active{
+  border-color:var(--blue);
+  color:var(--blue-bright);
+  background:rgba(76,142,255,0.08);
+}
+
+/* Convert visual — calendar */
+.convert-cal{
+  background:var(--bg-deep);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:14px;
+}
+.cal-head{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:12px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  color:var(--text-dim);
+}
+.cal-grid{
+  display:grid;
+  grid-template-columns:52px repeat(5, 1fr);
+  gap:2px;
+}
+.cal-hour{
+  font-family:'JetBrains Mono', monospace;
+  font-size:9.5px;
+  color:var(--text-muted);
+  text-align:right;
+  padding-right:8px;
+  padding-top:2px;
+}
+.cal-slot{
+  height:26px;
+  background:var(--surface);
+  border-radius:3px;
+  position:relative;
+  border:1px solid transparent;
+}
+.cal-slot.booked{
+  background:linear-gradient(135deg, rgba(76,142,255,0.25), rgba(76,142,255,0.1));
+  border:1px solid var(--blue);
+  box-shadow:0 0 16px -2px rgba(76,142,255,0.5);
+}
+.cal-slot.booked::before{
+  content:'●';
+  color:var(--cyan);
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-size:8px;
+  text-shadow:0 0 6px var(--cyan);
+}
+.cal-slot.booked.new{animation:slot-pop .8s ease-out;border-color:var(--cyan)}
+@keyframes slot-pop{
+  0%{transform:scale(0.6);opacity:0}
+  60%{transform:scale(1.15);opacity:1}
+  100%{transform:scale(1)}
+}
+.cal-daylabel{
+  font-family:'JetBrains Mono', monospace;
+  font-size:9.5px;
+  color:var(--text-muted);
+  text-align:center;
+  margin-bottom:8px;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+}
+
+.convert-stats{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:10px;
+  margin-top:12px;
+}
+.convert-stats .ks{
+  background:var(--bg-deep);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:10px;
+  text-align:center;
+}
+.convert-stats .ks .n{
+  font-family:'JetBrains Mono', monospace;
+  font-size:17px;
+  font-weight:600;
+  color:var(--blue-bright);
+}
+.convert-stats .ks .l{
+  font-size:9.5px;
+  color:var(--text-muted);
+  text-transform:uppercase;
+  letter-spacing:0.12em;
+  margin-top:2px;
+  font-family:'JetBrains Mono', monospace;
+}
+
+/* ============ BENTO ============ */
+.bento{
+  display:grid;
+  grid-template-columns:repeat(6, 1fr);
+  grid-auto-rows:minmax(220px, auto);
+  gap:16px;
+  margin-top:40px;
+}
+.feat{
+  grid-column:span 2;
+  background:linear-gradient(180deg, rgba(18, 24, 50, 0.5) 0%, rgba(10, 15, 31, 0.6) 100%);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:28px;
+  transition:transform .4s cubic-bezier(.2,.7,.3,1), border-color .3s, box-shadow .3s;
+  position:relative;
+  overflow:hidden;
+  transform-style:preserve-3d;
+  perspective:1000px;
+}
+.feat::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(76,142,255,0.14), transparent 45%);
+  opacity:0;
+  transition:opacity .4s;
+  pointer-events:none;
+  border-radius:inherit;
+}
+.feat:hover{
+  border-color:var(--border-hi);
+  transform:translateY(-4px);
+  box-shadow:0 24px 48px -16px rgba(0,0,0,0.6), 0 0 0 1px rgba(76,142,255,0.15);
+}
+.feat:hover::before{opacity:1}
+.feat-wide{grid-column:span 3}
+.feat-tall{grid-row:span 2}
+.feat-content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column}
+
+.feat-icon{
+  width:44px;height:44px;
+  background:linear-gradient(135deg, rgba(76,142,255,0.18), rgba(76,142,255,0.06));
+  border:1px solid var(--border-hi);
+  border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--blue-bright);
+  margin-bottom:24px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.feat-title{
+  font-family:'Instrument Serif', serif;
+  font-size:28px;
+  font-weight:400;
+  line-height:1.1;
+  margin-bottom:10px;
+  letter-spacing:-0.015em;
+}
+.feat-desc{
+  font-size:14.5px;
+  color:var(--text-dim);
+  line-height:1.55;
+}
+
+/* Inline ICP preview */
+.icp-mini{
+  margin-top:22px;
+  padding:14px;
+  background:var(--bg-deep);
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:11.5px;
+}
+.icp-mini .ir{
+  display:flex;justify-content:space-between;
+  padding:5px 0;
+  color:var(--text-muted);
+  border-bottom:1px dashed rgba(28,35,69,0.8);
+}
+.icp-mini .ir:last-child{border-bottom:0}
+.icp-mini .ir strong{color:var(--text);font-weight:500}
+.icp-tag{
+  display:inline-block;padding:1px 8px;
+  border-radius:4px;
+  background:rgba(76,142,255,0.1);
+  border:1px solid rgba(76,142,255,0.25);
+  color:var(--blue-bright);
+  margin-left:4px;
+}
+
+/* Channels viz */
+.channels{
+  margin-top:20px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.channel{
+  display:flex;align-items:center;gap:10px;
+  font-size:12px;
+  color:var(--text-dim);
+  padding:8px 12px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--bg-deep);
+  font-family:'JetBrains Mono', monospace;
+}
+.channel .ci{
+  width:22px;height:22px;
+  background:rgba(76,142,255,0.12);
+  border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--blue-bright);
+  flex-shrink:0;
+}
+.channel .cstatus{margin-left:auto;color:var(--cyan);font-size:10.5px}
+
+/* Classification tags */
+.tags{
+  margin-top:20px;
+  display:flex;flex-wrap:wrap;gap:6px;
+}
+.tag{
+  padding:4px 10px;
+  font-size:11px;
+  font-family:'JetBrains Mono', monospace;
+  border-radius:100px;
+  border:1px solid var(--border-hi);
+  background:var(--bg-deep);
+  color:var(--text-dim);
+}
+.tag.on{border-color:var(--blue);color:var(--blue-bright);background:rgba(76,142,255,0.08)}
+
+/* CRM sync visual */
+.sync-flow{
+  margin-top:20px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+}
+.sync-node{
+  flex:1;
+  padding:8px;
+  text-align:center;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--bg-deep);
+  color:var(--text-dim);
+  font-size:10.5px;
+}
+.sync-arrow{
+  color:var(--blue);
+  font-size:14px;
+}
+
+/* ============ TEAM ============ */
+.team{
+  background:linear-gradient(180deg, transparent, rgba(18, 24, 50, 0.2), transparent);
+}
+.credentials{
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:0;
+  margin-top:40px;
+}
+.cred{
+  padding:32px 24px 32px 0;
+  border-left:1px solid var(--border);
+  padding-left:24px;
+  position:relative;
+}
+.cred:first-child{border-left:0;padding-left:0}
+.cred::before{
+  content:'';
+  position:absolute;
+  top:0;left:24px;
+  width:24px;height:1px;
+  background:var(--blue);
+}
+.cred:first-child::before{left:0}
+.cred-label{
+  font-family:'JetBrains Mono', monospace;
+  font-size:10.5px;
+  color:var(--blue-bright);
+  letter-spacing:0.22em;
+  text-transform:uppercase;
+  margin-bottom:18px;
+}
+.cred-value{
+  font-family:'Instrument Serif', serif;
+  font-size:26px;
+  line-height:1.15;
+  margin-bottom:12px;
+  letter-spacing:-0.01em;
+  font-weight:400;
+}
+.cred-desc{
+  font-size:13px;
+  color:var(--text-dim);
+  line-height:1.5;
+}
+
+/* ============ FINAL CTA ============ */
+.final-cta{
+  text-align:center;
+  padding:160px 0 140px;
+  position:relative;
+  overflow:hidden;
+}
+.final-cta::before{
+  content:'';
+  position:absolute;
+  top:0;left:50%;
+  transform:translateX(-50%);
+  width:80%;height:1px;
+  background:linear-gradient(90deg, transparent, var(--blue), transparent);
+}
+.final-cta::after{
+  content:'';
+  position:absolute;
+  top:-200px;left:50%;
+  transform:translateX(-50%);
+  width:1000px;height:700px;
+  background:radial-gradient(ellipse at top, rgba(76,142,255,0.2), transparent 55%);
+  pointer-events:none;
+  z-index:-1;
+}
+.final-cta h2{margin:0 auto 26px;max-width:900px}
+.final-cta .section-sub{margin:0 auto 44px}
+.terminal-line{
+  font-family:'JetBrains Mono', monospace;
+  font-size:12px;
+  color:var(--text-muted);
+  margin-top:40px;
+  letter-spacing:0.1em;
+}
+.terminal-line .blink{
+  color:var(--cyan);
+  animation:blink 1s infinite;
+}
+.terminal-line strong{color:var(--blue-bright)}
+
+/* ============ FOOTER ============ */
+footer{
+  border-top:1px solid var(--border);
+  padding:72px 0 40px;
+  background:var(--bg-deep);
+  position:relative;
+}
+.footer-grid{
+  display:grid;
+  grid-template-columns:2fr 1fr 1fr 1fr;
+  gap:48px;
+  margin-bottom:56px;
+}
+.footer-col h5{
+  font-family:'JetBrains Mono', monospace;
+  font-size:10.5px;
+  color:var(--text-dim);
+  letter-spacing:0.18em;
+  text-transform:uppercase;
+  margin-bottom:20px;
+  font-weight:500;
+}
+.footer-col ul{list-style:none}
+.footer-col li{margin-bottom:12px}
+.footer-col a{
+  color:var(--text-dim);
+  text-decoration:none;
+  font-size:14px;
+  transition:color .2s;
+}
+.footer-col a:hover{color:var(--text)}
+.footer-tagline{
+  font-family:'Instrument Serif', serif;
+  font-size:20px;
+  color:var(--text-dim);
+  margin-top:20px;
+  max-width:320px;
+  line-height:1.35;
+  font-style:italic;
+}
+.footer-bottom{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding-top:28px;
+  border-top:1px solid var(--border);
+  font-family:'JetBrains Mono', monospace;
+  font-size:11px;
+  color:var(--text-muted);
+  letter-spacing:0.05em;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.footer-bottom .status{display:inline-flex;align-items:center;gap:6px;color:var(--cyan)}
+.footer-bottom .status::before{
+  content:'';width:6px;height:6px;background:var(--cyan);border-radius:50%;
+  box-shadow:0 0 8px var(--cyan);animation:pulse 2s infinite;
+}
+
+/* ============ ANIMATIONS ============ */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+@keyframes word-up{to{opacity:1;transform:translateY(0)}}
+@keyframes fade-up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* Reveal on scroll */
+.reveal{opacity:0;transform:translateY(32px);transition:opacity 1s cubic-bezier(.2,.7,.3,1), transform 1s cubic-bezier(.2,.7,.3,1)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 1080px){
+  .bento{grid-template-columns:repeat(4,1fr)}
+  .feat{grid-column:span 2}
+  .feat-wide{grid-column:span 4}
+  .feat-tall{grid-row:span 1}
+  .credentials{grid-template-columns:repeat(2,1fr)}
+  .cred{border-left:0;padding-left:0}
+  .cred:nth-child(2n){border-left:1px solid var(--border);padding-left:24px}
+  .cred::before{left:0}
+  .cred:nth-child(2n)::before{left:24px}
+}
+@media (max-width: 820px){
+  .nav-links{display:none}
+  .nav-signin{display:none}
+  .hero{padding:120px 0 80px;min-height:auto}
+  .float-card{display:none}
+  .hero-ticker{display:none}
+  h1{font-size:clamp(44px, 11vw, 70px)}
+  h2{font-size:clamp(34px, 8vw, 50px)}
+  .section{padding:90px 0}
+  .stage{grid-template-columns:1fr;padding:28px;gap:32px}
+  .stage:nth-child(even) .stage-text{order:1}
+  .stage:nth-child(even) .stage-visual{order:2}
+  .bento{grid-template-columns:1fr}
+  .feat,.feat-wide{grid-column:span 1}
+  .credentials{grid-template-columns:1fr}
+  .cred{border-left:0 !important;padding-left:0 !important}
+  .cred::before{left:0 !important}
+  .footer-grid{grid-template-columns:1fr 1fr;gap:32px}
+  .marquee-item{font-size:26px}
+  .container{padding:0 20px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="neural"></canvas>
+<div class="spotlight" id="spotlight"></div>
+<div class="scanlines"></div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="logo">
+      <img src="data:image/jpeg;base64,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" alt="WrenForge">
+      <span class="logo-name">Wren<i>Forge</i></span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#engine">Engine</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#about">About</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a href="/auth/signin" class="nav-signin">Sign in</a>
+      <a href="/auth/register" class="btn btn-primary">Start free</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="hero-bg"></div>
+
+  <div class="float-card fc-top">
+    <div class="fc-title"><span>AI Call · live</span><span class="fc-dot"></span></div>
+    <div class="fc-row">
+      <div class="fc-avatar">RK</div>
+      <div>
+        <div class="fc-name">Ramesh Kumar</div>
+        <div class="fc-sub">Home Loan · ₹45L</div>
+      </div>
+    </div>
+    <div style="font-size:10.5px;color:var(--cyan);background:rgba(103,232,249,0.08);border:1px solid rgba(103,232,249,0.2);border-radius:6px;padding:4px 8px;margin-top:8px;font-family:'JetBrains Mono',monospace">intent: high · 2m 14s</div>
+  </div>
+
+  <div class="float-card fc-mid">
+    <div class="fc-title"><span>Campaign · today</span><span class="fc-dot"></span></div>
+    <div class="fc-metric"><span class="k">Called</span><span class="v">247</span></div>
+    <div class="fc-bar"><span style="width:100%"></span></div>
+    <div class="fc-metric"><span class="k">Qualified</span><span class="v">83</span></div>
+    <div class="fc-bar"><span style="width:56%"></span></div>
+    <div class="fc-metric"><span class="k">Converted</span><span class="v">31</span></div>
+    <div class="fc-bar"><span style="width:22%"></span></div>
+  </div>
+
+  <div class="float-card fc-bottom">
+    <div class="fc-title"><span>Just qualified</span><span class="fc-dot"></span></div>
+    <div class="fc-row">
+      <div class="fc-avatar" style="background:linear-gradient(135deg,#67E8F9,#1B3480)">PS</div>
+      <div>
+        <div class="fc-name">Priya Sharma</div>
+        <div class="fc-sub">Personal Loan · ₹3L</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container hero-content">
+    <div class="eyebrow">
+      <span class="dot"></span>
+      AI Calling Engine · v1.0 · Now Live
+    </div>
+    <h1>
+      <span class="word">The</span>
+      <span class="word">AI</span>
+      <span class="word">that</span><br>
+      <span class="word">calls</span>
+      <span class="word italic">your leads.</span>
+    </h1>
+    <p class="hero-sub">WrenForge is an AI-powered calling CRM built for DSAs, NBFCs, and lending teams. Upload your leads — the AI calls, qualifies, and converts. Your team just closes.</p>
+    <div class="hero-ctas">
+      <a href="/auth/register" class="btn btn-primary btn-lg">Start for free <span class="btn-arrow">→</span></a>
+      <a href="#engine" class="btn btn-ghost btn-lg">See how it works</a>
+    </div>
+    <div class="hero-meta">
+      Free plan available<span style="margin:0 10px;color:var(--border-hi)">·</span>No credit card<span style="margin:0 10px;color:var(--border-hi)">·</span>Cancel anytime
+    </div>
+  </div>
+
+  <div class="hero-ticker">
+    <span><strong>engine</strong>online</span>
+    <span class="tick-sep">·</span>
+    <span><strong>model</strong>claude-sonnet</span>
+    <span class="tick-sep">·</span>
+    <span><strong>latency</strong>&lt;800ms</span>
+    <span class="tick-sep">·</span>
+    <span><strong>uptime</strong>99.9%</span>
+  </div>
+</section>
+
+<!-- ============ MARQUEE ============ -->
+<div class="marquee">
+  <div class="marquee-track">
+    <div class="marquee-item">AI-powered <span class="sep"></span></div>
+    <div class="marquee-item">Always calling <span class="sep"></span></div>
+    <div class="marquee-item">Hindi &amp; English <span class="sep"></span></div>
+    <div class="marquee-item">DSA-ready <span class="sep"></span></div>
+    <div class="marquee-item">Fully automated <span class="sep"></span></div>
+    <div class="marquee-item">Conversion-first <span class="sep"></span></div>
+    <div class="marquee-item">AI-powered <span class="sep"></span></div>
+    <div class="marquee-item">Always calling <span class="sep"></span></div>
+    <div class="marquee-item">Hindi &amp; English <span class="sep"></span></div>
+    <div class="marquee-item">DSA-ready <span class="sep"></span></div>
+    <div class="marquee-item">Fully automated <span class="sep"></span></div>
+    <div class="marquee-item">Conversion-first <span class="sep"></span></div>
+  </div>
+</div>
+
+<!-- ============ THE ENGINE ============ -->
+<section class="section engine" id="engine">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="section-label">The Engine</span>
+      <h2>Three stages. <span class="italic">One running</span> loop.</h2>
+      <p class="section-sub">Upload leads, let the AI call and qualify, then close the deals your pipeline surfaces — running end-to-end, every hour, without your team dialing a single number.</p>
+    </div>
+
+    <div class="stages">
+
+      <!-- Stage 1: Upload & Score -->
+      <div class="stage reveal">
+        <div class="stage-text">
+          <div class="stage-num">Stage 01 / Upload &amp; Score</div>
+          <h3 class="stage-title">Fresh leads. Scored <span class="italic">before</span> the first call.</h3>
+          <p class="stage-desc">Upload your lead list and WrenForge instantly scores every prospect by loan type, income signals, and enquiry intent — so the AI calls the most convertible leads first, not just the newest ones.</p>
+          <ul class="stage-bullets">
+            <li>Loan type detection — home, personal, business, LAP</li>
+            <li>Income and eligibility pre-scoring per lead</li>
+            <li>DNC registry auto-excluded before any call goes out</li>
+          </ul>
+        </div>
+        <div class="stage-visual">
+          <div class="viz-head">
+            <span>engine / leads.score</span>
+            <span class="status">running</span>
+          </div>
+          <div class="research-grid">
+            <div class="research-lead highlighted">
+              <span class="rl-score">94</span>
+              <div class="rl-row">
+                <div class="rl-av">RK</div>
+                <div>
+                  <div class="rl-name">Ramesh Kumar</div>
+                  <div class="rl-role">Home Loan · ₹45L</div>
+                </div>
+              </div>
+              <div class="rl-signals">
+                <div class="sig">salaried · ₹1.2L/mo</div>
+                <div class="sig">property identified</div>
+                <div class="sig">high intent</div>
+              </div>
+            </div>
+            <div class="research-lead">
+              <span class="rl-score">81</span>
+              <div class="rl-row">
+                <div class="rl-av" style="background:linear-gradient(135deg,#67E8F9,#1B3480)">PS</div>
+                <div>
+                  <div class="rl-name">Priya Sharma</div>
+                  <div class="rl-role">Personal Loan · ₹3L</div>
+                </div>
+              </div>
+              <div class="rl-signals">
+                <div class="sig">self-employed</div>
+                <div class="sig">enquired twice</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 2: AI Calling -->
+      <div class="stage reveal">
+        <div class="stage-text">
+          <div class="stage-num">Stage 02 / AI Calling</div>
+          <h3 class="stage-title">Calls that sound human. <span class="italic">Convert like a closer.</span></h3>
+          <p class="stage-desc">WrenForge's voice AI calls each lead, holds a natural conversation in Hindi or English, handles objections and FAQs, and qualifies the prospect — all without a single agent dialing.</p>
+          <ul class="stage-bullets">
+            <li>Natural voice, zero lag — Hindi &amp; English</li>
+            <li>Handles objections, callbacks, and loan FAQs</li>
+            <li>Full transcript + recording saved automatically</li>
+          </ul>
+        </div>
+        <div class="stage-visual">
+          <div class="viz-head">
+            <span>engine / call.active</span>
+            <span class="status">live</span>
+          </div>
+          <div class="engage-panel">
+            <div class="engage-meta">
+              <div class="row"><span class="k">Lead</span><span class="v">+91 98765 43210</span></div>
+              <div class="row"><span class="k">Loan</span><span class="v">Home Loan · ₹45L</span></div>
+            </div>
+            <div class="engage-subject">Live transcript · 2m 14s</div>
+            <div class="engage-body" id="typewriter"></div>
+            <div class="engage-toolbar">
+              <span>next: follow-up if no docs in 24h</span>
+              <div class="engage-channels">
+                <span class="active">voice</span>
+                <span>sms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 3: Convert & Track -->
+      <div class="stage reveal">
+        <div class="stage-text">
+          <div class="stage-num">Stage 03 / Convert &amp; Track</div>
+          <h3 class="stage-title">Pipeline filled. <span class="italic">Team closes.</span></h3>
+          <p class="stage-desc">Every qualified call flows directly into your CRM pipeline. Follow-up tasks created, documents flagged, team alerted. The deal doesn't wait for a human to update a spreadsheet.</p>
+          <ul class="stage-bullets">
+            <li>Deal stages: Lead → Called → Qualified → Docs → Disbursed</li>
+            <li>Follow-up tasks auto-created after every call</li>
+            <li>Analytics per campaign, per agent, per loan type</li>
+          </ul>
+        </div>
+        <div class="stage-visual">
+          <div class="viz-head">
+            <span>engine / pipeline.sync</span>
+            <span class="status">31 converted</span>
+          </div>
+          <div class="convert-cal">
+            <div class="cal-head">
+              <span>PIPELINE · TODAY</span>
+              <span style="color:var(--cyan)">+8 qualified</span>
+            </div>
+            <div class="cal-grid">
+              <div></div>
+              <div class="cal-daylabel">New</div>
+              <div class="cal-daylabel">Called</div>
+              <div class="cal-daylabel">Qualif.</div>
+              <div class="cal-daylabel">Docs</div>
+              <div class="cal-daylabel">Done</div>
+
+              <div class="cal-hour">HL</div>
+              <div class="cal-slot booked"></div>
+              <div class="cal-slot booked"></div>
+              <div class="cal-slot booked"></div>
+              <div class="cal-slot booked"></div>
+              <div class="cal-slot booked new" id="new-slot"></div>
+
+              <div class="cal-hour">PL</div>
+              <div class="cal-slot booked"></div>
+              <div class="cal-slot booked"></div>
+              <div class="cal-slot booked"></div>
+              <div class="cal-slot"></div>
+              <div class="cal-slot"></div>
+
+              <div class="cal-hour">BL</div>
+              <div class="cal-slot booked"></div>
+              <div class="cal-slot booked"></div>
+              <div class="cal-slot"></div>
+              <div class="cal-slot"></div>
+              <div class="cal-slot"></div>
+
+              <div class="cal-hour">LAP</div>
+              <div class="cal-slot booked"></div>
+              <div class="cal-slot"></div>
+              <div class="cal-slot"></div>
+              <div class="cal-slot"></div>
+              <div class="cal-slot"></div>
+            </div>
+          </div>
+          <div class="convert-stats">
+            <div class="ks"><div class="n" data-count="31">0</div><div class="l">Converted</div></div>
+            <div class="ks"><div class="n" data-count="83">0</div><div class="l">Qualified</div></div>
+            <div class="ks"><div class="n" data-count="247">0</div><div class="l">Called</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES BENTO ============ -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-label left">Under the hood</span>
+      <h2>Built like a <span class="italic">lending team.</span><br>Priced for one person.</h2>
+      <p class="section-sub">Every piece of a five-person sales operation — lead scoring, AI calling, CRM, analytics, integrations — collapsed into a single running engine.</p>
+    </div>
+
+    <div class="bento">
+
+      <div class="feat feat-wide feat-tall reveal">
+        <div class="feat-content">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.68A2 2 0 012 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+          </div>
+          <div class="feat-title">AI voice calls, in your customer's language.</div>
+          <div class="feat-desc">WrenForge's voice AI calls leads in Hindi or English, holds a natural conversation, handles objections and loan FAQs, and qualifies — no human dialing needed.</div>
+          <div class="icp-mini">
+            <div class="ir"><span>language</span><strong>Hindi · English · auto-detect</strong></div>
+            <div class="ir"><span>loan types</span><span><span class="icp-tag">home</span><span class="icp-tag">personal</span><span class="icp-tag">business</span></span></div>
+            <div class="ir"><span>objection</span><strong>handled in real-time</strong></div>
+            <div class="ir"><span>outcome</span><strong>qualified · callback · DNC</strong></div>
+            <div class="ir"><span>record</span><strong style="color:var(--blue-bright)">transcript + audio saved</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feat feat-wide reveal">
+        <div class="feat-content">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><line x1="12" y1="2" x2="12" y2="12"/><line x1="12" y1="12" x2="19.5" y2="7"/></svg>
+          </div>
+          <div class="feat-title">Scored by intent, not by order.</div>
+          <div class="feat-desc">Every lead ranked by loan type fit, income signals, and enquiry recency before the first call. Your highest-value prospects get called first.</div>
+        </div>
+      </div>
+
+      <div class="feat feat-wide reveal">
+        <div class="feat-content">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M3 12h18"/></svg>
+          </div>
+          <div class="feat-title">Run parallel campaigns, one dashboard.</div>
+          <div class="feat-desc">Home loan, personal loan, business loan — separate AI scripts running simultaneously, each tracked independently.</div>
+          <div class="channels">
+            <div class="channel"><span class="ci">📞</span>Home Loan Campaign<span class="cstatus">· running</span></div>
+            <div class="channel"><span class="ci">📞</span>Personal Loan Campaign<span class="cstatus">· running</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feat reveal">
+        <div class="feat-content">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 4l4 4-4 4M21 8H10"/><path d="M7 20l-4-4 4-4M3 16h11"/></svg>
+          </div>
+          <div class="feat-title">Lead to disbursal, tracked.</div>
+          <div class="feat-desc">Visual pipeline from first call to final approval. No spreadsheet needed.</div>
+          <div class="sync-flow">
+            <div class="sync-node">leads</div>
+            <div class="sync-arrow">⇌</div>
+            <div class="sync-node">pipeline</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feat reveal">
+        <div class="feat-content">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H7l-3 3V4z"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="12" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+          </div>
+          <div class="feat-title">Analytics that explain the dip.</div>
+          <div class="feat-desc">Call stats, conversion rates, agent leaderboard, campaign performance — all live.</div>
+          <div class="tags">
+            <span class="tag on">conversion</span>
+            <span class="tag on">callbacks</span>
+            <span class="tag">DNC hits</span>
+            <span class="tag">deals won</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="feat feat-wide reveal">
+        <div class="feat-content">
+          <div class="feat-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/></svg>
+          </div>
+          <div class="feat-title">Webhooks, white-label, and API access.</div>
+          <div class="feat-desc">Push qualified leads to your LOS or DSA portal via webhooks. White-label the platform for your brand. Full API access on MAX plan.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ ABOUT ============ -->
+<section class="section team" id="about">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-label left">Why we built this</span>
+      <h2>Built from a <span class="italic">real problem.</span></h2>
+      <p class="section-sub">WrenForge wasn't born in a hackathon. It was built because a friend's lending business was drowning in leads no one could call fast enough.</p>
+    </div>
+    <div class="credentials">
+      <div class="cred reveal">
+        <div class="cred-label">The problem</div>
+        <div class="cred-value">200 leads. 2 agents. 80% never called.</div>
+        <div class="cred-desc">A close friend opened a DSA dealing in home, personal, and business loans. The leads were there — the bandwidth wasn't. Most enquiries expired before anyone picked up the phone.</div>
+      </div>
+      <div class="cred reveal">
+        <div class="cred-label">The builder</div>
+        <div class="cred-value">Abhishek Shukla · Solution Architect</div>
+        <div class="cred-desc">A decade building fintech infrastructure — payment rails, NBFC disbursals, bank integrations at scale. If it processed money, it had to be right the first time. No exceptions.</div>
+      </div>
+      <div class="cred reveal">
+        <div class="cred-label">The build</div>
+        <div class="cred-value">Zero to working product in one month.</div>
+        <div class="cred-desc">The first version was a single tool for one DSA. It worked — conversion rates went up, leads stopped expiring. So it became a platform: multi-tenant, white-label, production-grade.</div>
+      </div>
+      <div class="cred reveal">
+        <div class="cred-label">The principle</div>
+        <div class="cred-value">Transparent. Secure. No surprises.</div>
+        <div class="cred-desc">Every call logged. Every decision traceable. Built by someone who has operated fintech systems where a single error means real money lost — and accountability always mattered.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<style>
+.pricing-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:48px}
+@media(max-width:960px){.pricing-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:540px){.pricing-grid{grid-template-columns:1fr}}
+.plan-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:14px;transition:border-color .25s,transform .25s}
+.plan-card:hover{border-color:var(--border-hi);transform:translateY(-4px)}
+.plan-card.plan-featured{border-color:var(--blue);background:linear-gradient(135deg,rgba(76,142,255,0.07),var(--surface))}
+.plan-badge{display:inline-flex;align-items:center;padding:3px 10px;background:var(--blue);color:#fff;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.05em;width:fit-content}
+.plan-name{font-size:18px;font-weight:600;color:var(--text)}
+.plan-price{display:flex;align-items:baseline;gap:4px}
+.plan-amount{font-size:34px;font-weight:700;color:var(--text);font-family:'Instrument Serif',serif}
+.plan-period{font-size:13px;color:var(--text-dim)}
+.plan-desc{font-size:13px;color:var(--text-dim);line-height:1.6}
+.plan-divider{height:1px;background:var(--border)}
+.plan-features{list-style:none;display:flex;flex-direction:column;gap:9px;flex:1}
+.plan-features li{font-size:13px;color:var(--text-dim);display:flex;align-items:flex-start;gap:8px}
+.plan-features li::before{content:'✓';color:var(--blue-bright);font-size:11px;margin-top:2px;flex-shrink:0}
+.plan-features li.off{color:var(--text-muted)}
+.plan-features li.off::before{content:'–';color:var(--text-muted)}
+.plan-cta-btn{display:flex;align-items:center;justify-content:center;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;text-decoration:none;transition:all .2s;margin-top:auto}
+.plan-cta-btn.primary{background:var(--blue);color:#fff}
+.plan-cta-btn.primary:hover{background:var(--blue-bright)}
+.plan-cta-btn.ghost{background:transparent;border:1px solid var(--border-hi);color:var(--text)}
+.plan-cta-btn.ghost:hover{border-color:var(--blue);color:var(--blue)}
+.pricing-note{text-align:center;margin-top:20px;font-size:13px;color:var(--text-muted)}
+.pc-inr{display:none}.pc-usd{display:inline}
+.region-in .pc-inr{display:inline}.region-in .pc-usd{display:none}
+</style>
+
+<section class="section" id="pricing">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="section-label">Pricing</span>
+      <h2>Simple pricing. <span class="italic">Start free.</span></h2>
+      <p class="section-sub">Every plan includes the core AI calling engine. Upgrade as your team and lead volume grow.</p>
+    </div>
+    <div class="pricing-grid" id="pricing-grid">
+
+      <div class="plan-card reveal">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">
+          <span class="plan-amount"><span class="pc-usd">$0</span><span class="pc-inr">₹0</span></span>
+          <span class="plan-period">/ month</span>
+        </div>
+        <div class="plan-desc">Get started with no credit card. Perfect for testing WrenForge on your first leads.</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li>50 customers</li>
+          <li>10 AI calls / month</li>
+          <li>1 active campaign</li>
+          <li>Basic CRM &amp; deal pipeline</li>
+          <li class="off">Advanced analytics</li>
+          <li class="off">Webhooks</li>
+          <li class="off">White-label</li>
+        </ul>
+        <a href="/auth/register?plan=free" class="plan-cta-btn ghost">Get started free</a>
+      </div>
+
+      <div class="plan-card reveal">
+        <div class="plan-name">Plus</div>
+        <div class="plan-price">
+          <span class="plan-amount"><span class="pc-usd">$9</span><span class="pc-inr">₹699</span></span>
+          <span class="plan-period">/ month</span>
+        </div>
+        <div class="plan-desc">For solo DSAs ready to automate their daily calling and stop losing leads to slow follow-up.</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li>500 customers</li>
+          <li>100 AI calls / month</li>
+          <li>5 active campaigns</li>
+          <li>Deal pipeline &amp; follow-ups</li>
+          <li>Basic analytics</li>
+          <li class="off">Webhooks</li>
+          <li class="off">White-label</li>
+        </ul>
+        <a href="/auth/register?plan=plus" class="plan-cta-btn ghost">Start Plus</a>
+      </div>
+
+      <div class="plan-card plan-featured reveal">
+        <div class="plan-badge">Most popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">
+          <span class="plan-amount"><span class="pc-usd">$29</span><span class="pc-inr">₹1,999</span></span>
+          <span class="plan-period">/ month</span>
+        </div>
+        <div class="plan-desc">For growing DSAs and NBFCs. Includes a 30-day free trial — no card needed to start.</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li>2,000 customers</li>
+          <li>500 AI calls / month</li>
+          <li>Unlimited campaigns</li>
+          <li>Full analytics &amp; leaderboard</li>
+          <li>Webhooks &amp; integrations</li>
+          <li>Intent training</li>
+          <li class="off">White-label</li>
+        </ul>
+        <a href="/auth/register?plan=pro" class="plan-cta-btn primary">Start 30-day trial →</a>
+      </div>
+
+      <div class="plan-card reveal">
+        <div class="plan-name">Max</div>
+        <div class="plan-price">
+          <span class="plan-amount"><span class="pc-usd">$79</span><span class="pc-inr">₹5,999</span></span>
+          <span class="plan-period">/ month</span>
+        </div>
+        <div class="plan-desc">For agencies and lending platforms that need scale, white-label, and full API control.</div>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li>Unlimited customers</li>
+          <li>Unlimited AI calls</li>
+          <li>Unlimited campaigns</li>
+          <li>White-label &amp; custom branding</li>
+          <li>Full API access</li>
+          <li>Custom AI providers</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="/auth/register?plan=max" class="plan-cta-btn ghost">Start Max</a>
+      </div>
+
+    </div>
+    <p class="pricing-note" id="pricing-note">Billed monthly · Cancel anytime · <span id="region-label">Prices in USD</span></p>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="final-cta">
+  <div class="container">
+    <div class="reveal">
+      <h2>Your next disbursal<br>is already <span class="italic">in the list.</span></h2>
+      <p class="section-sub">Upload your leads. Let the AI call. Your team closes.</p>
+      <a href="/auth/register" class="btn btn-primary btn-lg">Start for free <span class="btn-arrow">→</span></a>
+      <div class="terminal-line">
+        <strong>$</strong> wrenforge call --campaign home_loan <span class="blink">▎</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a href="#" class="logo">
+          <img src="data:image/jpeg;base64,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" alt="WrenForge">
+          <span class="logo-name">Wren<i>Forge</i></span>
+        </a>
+        <p class="footer-tagline">The AI calling engine for lending teams.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Product</h5>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#engine">Engine</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#">Integrations</a></li>
+          <li><a href="#">Changelog</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Company</h5>
+        <ul>
+          <li><a href="#about">About</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Contact</a></li>
+          <li><a href="/auth/register">Sign up</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Resources</h5>
+        <ul>
+          <li><a href="#">Docs</a></li>
+          <li><a href="#">API</a></li>
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 WrenForge · wrenforge.com</span>
+      <span class="status">all systems nominal</span>
+      <span>forged in delhi ncr</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ============ NEURAL NETWORK CANVAS ============ */
+(function(){
+  const canvas = document.getElementById('neural');
+  const ctx = canvas.getContext('2d');
+  let W, H, nodes = [];
+  const NODE_COUNT = 70;
+  const MAX_DIST = 170;
+  const mouse = { x: -9999, y: -9999, active: false };
+
+  function resize(){
+    W = canvas.width = window.innerWidth * devicePixelRatio;
+    H = canvas.height = window.innerHeight * devicePixelRatio;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+  }
+
+  function init(){
+    nodes = [];
+    const vw = window.innerWidth, vh = window.innerHeight;
+    for (let i = 0; i < NODE_COUNT; i++){
+      nodes.push({
+        x: Math.random() * vw,
+        y: Math.random() * vh,
+        vx: (Math.random() - 0.5) * 0.25,
+        vy: (Math.random() - 0.5) * 0.25,
+        phase: Math.random() * Math.PI * 2,
+        radius: 0.8 + Math.random() * 1.2
+      });
+    }
+  }
+
+  function frame(){
+    const vw = window.innerWidth, vh = window.innerHeight;
+    ctx.clearRect(0, 0, W, H);
+    const t = Date.now() * 0.001;
+
+    for (let i = 0; i < nodes.length; i++){
+      const n = nodes[i];
+      n.x += n.vx;
+      n.y += n.vy;
+      if (n.x < 0) n.x = vw; else if (n.x > vw) n.x = 0;
+      if (n.y < 0) n.y = vh; else if (n.y > vh) n.y = 0;
+
+      for (let j = i + 1; j < nodes.length; j++){
+        const o = nodes[j];
+        const dx = n.x - o.x, dy = n.y - o.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < MAX_DIST){
+          const a = (1 - d / MAX_DIST) * 0.18;
+          ctx.strokeStyle = `rgba(96, 165, 250, ${a})`;
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(n.x, n.y);
+          ctx.lineTo(o.x, o.y);
+          ctx.stroke();
+        }
+      }
+
+      if (mouse.active){
+        const mdx = n.x - mouse.x, mdy = n.y - mouse.y;
+        const md = Math.sqrt(mdx*mdx + mdy*mdy);
+        if (md < 220){
+          const a = (1 - md / 220) * 0.4;
+          ctx.strokeStyle = `rgba(124, 179, 255, ${a})`;
+          ctx.lineWidth = 0.7;
+          ctx.beginPath();
+          ctx.moveTo(n.x, n.y);
+          ctx.lineTo(mouse.x, mouse.y);
+          ctx.stroke();
+        }
+      }
+
+      const pulse = Math.sin(n.phase + t * 1.2) * 0.5 + 0.5;
+      ctx.fillStyle = `rgba(124, 179, 255, ${0.25 + pulse * 0.5})`;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  init();
+  frame();
+  window.addEventListener('resize', () => { resize(); init(); });
+  window.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+    mouse.active = true;
+  });
+  window.addEventListener('mouseout', () => { mouse.active = false; });
+})();
+
+/* ============ CURSOR SPOTLIGHT ============ */
+(function(){
+  const spot = document.getElementById('spotlight');
+  let tx = window.innerWidth / 2, ty = window.innerHeight / 2;
+  let cx = tx, cy = ty;
+  window.addEventListener('mousemove', (e) => { tx = e.clientX; ty = e.clientY; });
+  function tick(){
+    cx += (tx - cx) * 0.08;
+    cy += (ty - cy) * 0.08;
+    spot.style.left = cx + 'px';
+    spot.style.top = cy + 'px';
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+/* ============ HERO PARALLAX ON MOUSE ============ */
+(function(){
+  const cards = document.querySelectorAll('.float-card');
+  if (!cards.length) return;
+  let tx = 0, ty = 0, cx = 0, cy = 0;
+  window.addEventListener('mousemove', (e) => {
+    tx = (e.clientX / window.innerWidth - 0.5) * 2;
+    ty = (e.clientY / window.innerHeight - 0.5) * 2;
+  });
+  function tick(){
+    cx += (tx - cx) * 0.05;
+    cy += (ty - cy) * 0.05;
+    cards.forEach((card, i) => {
+      const depth = [12, 18, 14][i] || 15;
+      const rot = [2, -1.5, -2][i] || 0;
+      card.style.transform = `translate(${cx * depth}px, ${cy * depth}px) rotate(${rot}deg)`;
+    });
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+/* ============ TYPEWRITER ============ */
+(function(){
+  const msg = "AI: Hi Ramesh, calling from WrenForge on your home loan enquiry. Do you have 2 minutes? ... Ramesh: Yes, go ahead. ... AI: Great — you're looking at ₹45 lakhs for a property in Noida. Is your salary slip and Aadhaar handy? We can get you a same-day eligibility check.";
+  const el = document.getElementById('typewriter');
+  if (!el) return;
+  let i = 0;
+  let started = false;
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !started){
+        started = true;
+        type();
+      }
+    });
+  }, { threshold: 0.4 });
+  io.observe(el);
+  function type(){
+    if (i < msg.length){
+      el.textContent = msg.slice(0, i + 1);
+      i++;
+      setTimeout(type, 18 + Math.random() * 28);
+    } else {
+      setTimeout(() => { i = 0; el.textContent = ''; type(); }, 6000);
+    }
+  }
+})();
+
+/* ============ 3D TILT ON FEATURE CARDS ============ */
+(function(){
+  document.querySelectorAll('.feat').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const r = card.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      const px = (x / r.width) * 100;
+      const py = (y / r.height) * 100;
+      card.style.setProperty('--mx', px + '%');
+      card.style.setProperty('--my', py + '%');
+      const rx = ((y - r.height/2) / r.height) * -6;
+      const ry = ((x - r.width/2) / r.width) * 6;
+      card.style.transform = `translateY(-4px) perspective(1000px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = '';
+    });
+  });
+})();
+
+/* ============ COUNTER ANIMATION ============ */
+(function(){
+  const counters = document.querySelectorAll('[data-count]');
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting){
+        const el = e.target;
+        const target = parseInt(el.dataset.count, 10);
+        const dur = 1600;
+        const start = performance.now();
+        function step(now){
+          const p = Math.min((now - start) / dur, 1);
+          const eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(target * eased);
+          if (p < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+        io.unobserve(el);
+      }
+    });
+  }, { threshold: 0.5 });
+  counters.forEach(c => io.observe(c));
+})();
+
+/* ============ REVEAL ON SCROLL ============ */
+(function(){
+  const io = new IntersectionObserver(entries => {
+    entries.forEach((e, idx) => {
+      if (e.isIntersecting){
+        setTimeout(() => e.target.classList.add('visible'), idx * 60);
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -50px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+})();
+
+/* ============ GEO PRICING ============ */
+(function(){
+  fetch('https://ipapi.co/country/')
+    .then(r => r.text())
+    .then(country => {
+      if (country.trim() === 'IN') {
+        document.getElementById('pricing-grid').classList.add('region-in');
+        const label = document.getElementById('region-label');
+        if (label) label.textContent = 'Prices in INR · India';
+      }
+    })
+    .catch(function(){});
+})();
+</script>
+</body>
+</html>
