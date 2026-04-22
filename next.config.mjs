@@ -33,7 +33,8 @@ const nextConfig = {
       // as index.html in a separate Vercel static project.
       beforeFiles: [
         {
-          source: "/:path*",
+          // Exclude /opengraph-image so the Next.js dynamic OG image route runs
+          source: "/((?!opengraph-image).*)",
           destination: "/landing.html",
           has: [{ type: "host", value: "www.wrenforge.com" }],
         },
