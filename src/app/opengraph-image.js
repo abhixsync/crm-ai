@@ -1,13 +1,11 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "CRM AI — AI-Powered Loan CRM";
+export const alt = "WrenForge - Forge Every Deal";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default function Image() {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || "CRM AI";
-
   return new ImageResponse(
     (
       <div
@@ -91,11 +89,11 @@ export default function Image() {
                 display: "flex",
               }}
             >
-              AI-Powered CRM Platform
+              AI Sales Engine
             </div>
           </div>
 
-          {/* App name */}
+          {/* Brand name */}
           <div
             style={{
               fontSize: "88px",
@@ -103,30 +101,44 @@ export default function Image() {
               color: "#FFFFFF",
               lineHeight: 1,
               letterSpacing: "-3px",
-              marginBottom: "24px",
+              marginBottom: "16px",
               display: "flex",
             }}
           >
-            {appName}
+            WrenForge
           </div>
 
           {/* Tagline */}
           <div
             style={{
-              fontSize: "26px",
+              fontSize: "40px",
+              fontWeight: 700,
+              color: "#1DE9A8",
+              lineHeight: 1.2,
+              marginBottom: "28px",
+              display: "flex",
+            }}
+          >
+            Forge Every Deal
+          </div>
+
+          {/* Description */}
+          <div
+            style={{
+              fontSize: "24px",
               color: "#A89EC0",
               lineHeight: 1.4,
-              maxWidth: "580px",
+              maxWidth: "620px",
               marginBottom: "52px",
               display: "flex",
             }}
           >
-            Automate customer calls, manage leads, and close more loans with AI.
+            AI-automated Sales Engine for Loan Management
           </div>
 
           {/* Feature pills */}
           <div style={{ display: "flex", gap: "14px" }}>
-            {["AI Calling", "Multi-Tenant", "Real-Time SSE", "White-Label"].map((tag) => (
+            {["AI Calling", "Lead Management", "Auto Follow-ups", "White-Label"].map((tag) => (
               <div
                 key={tag}
                 style={{
