@@ -57,7 +57,9 @@ async function initiateCall({ payload, config }) {
     throw new Error("Exotel requires an answer URL for call flow control.");
   }
 
-  const baseUrl = `https://${creds.subdomain}.exotel.com/v1/Accounts/${creds.sid}/Calls/connect.json`;
+  // subdomain can be "api" (short) or "api.exotel.com" (full host from Exotel dashboard)
+  const host = creds.subdomain.includes(".") ? creds.subdomain : `${creds.subdomain}.exotel.com`;
+  const baseUrl = `https://${host}/v1/Accounts/${creds.sid}/Calls/connect.json`;
 
   // Exotel uses form-encoded POST
   // For outbound: From = callerId (ExoPhone), To = customer number
