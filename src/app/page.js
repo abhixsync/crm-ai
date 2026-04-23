@@ -44,5 +44,5 @@ export default async function Home() {
     redirect("/dashboard");
   }
 
-  return <LandingPage />;
+  redirect("/register");
 }
