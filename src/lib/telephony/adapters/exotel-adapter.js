@@ -69,16 +69,33 @@ async function initiateCall({ payload, config }) {
     ...(statusUrl ? { StatusCallback: statusUrl, StatusCallbackEvents: "terminal" } : {}),
   });
 
-  const response = await fetch(baseUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: buildBasicAuth(creds.apiKey, creds.apiToken),
-    },
-    body: formBody.toString(),
+  console.log("[exotel/initiateCall] URL:", baseUrl);
+  console.log("[exotel/initiateCall] FormBody (no creds):", {
+    From: creds.callerId,
+    To: String(normalizedTo).replace("+", ""),
+    CallerId: creds.callerId,
+    hasUrl: !!answerUrl,
+    hasStatusUrl: !!statusUrl,
   });
 
+  let response;
+  try {
+    response = await fetch(baseUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: buildBasicAuth(creds.apiKey, creds.apiToken),
+      },
+      body: formBody.toString(),
+    });
+  } catch (fetchErr) {
+    console.error("[exotel/initiateCall] fetch() threw:", fetchErr?.message, "| cause:", fetchErr?.cause?.message || fetchErr?.cause?.code || fetchErr?.cause);
+    throw fetchErr;
+  }
+
+  console.log("[exotel/initiateCall] HTTP status:", response.status, response.statusText);
   const data = await response.json().catch(() => ({}));
+  console.log("[exotel/initiateCall] Response body:", JSON.stringify(data).substring(0, 300));
   if (!response.ok) {
     throw new Error(data?.RestException?.Message || data?.error || "Exotel call initiation failed.");
   }

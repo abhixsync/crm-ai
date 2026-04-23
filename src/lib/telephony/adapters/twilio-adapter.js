@@ -31,7 +31,15 @@ async function initiateCall({ payload, config }) {
   const { accountSid, authToken, fromNumber: resolvedFromNumber } = resolveCredentials(config);
   const fromNumber = String(payload?.fromNumber || resolvedFromNumber || "").trim();
 
+  console.log("[twilio/initiateCall] creds check →", {
+    hasAccountSid: !!accountSid,
+    hasAuthToken: !!authToken,
+    hasFromNumber: !!fromNumber,
+    fromSource: fromNumber ? "resolved" : "missing",
+  });
+
   if (!accountSid || !authToken || !fromNumber) {
+    console.warn("[twilio/initiateCall] Credentials missing — running in MOCK mode (no real call).");
     return {
       providerCallId: `mock-${Date.now()}`,
       status: "INITIATED",
@@ -43,6 +51,8 @@ async function initiateCall({ payload, config }) {
   const client = twilio(accountSid, authToken);
   const normalizedTo = normalizePhoneNumber(to);
   const normalizedFrom = normalizePhoneNumber(fromNumber);
+
+  console.log("[twilio/initiateCall] Calling:", { to: normalizedTo, from: normalizedFrom });
 
   if (!normalizedTo.startsWith("+") || !normalizedFrom.startsWith("+")) {
     throw new Error("Twilio requires E.164 phone format. Use +<countrycode><number>.");

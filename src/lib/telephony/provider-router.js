@@ -181,6 +181,7 @@ export async function initiateTelephonyCallWithFailover(payload) {
         message: error?.message || "Unknown telephony provider error",
       });
 
+      console.error(`[telephony/router] ❌ ${provider.name} (${provider.type}) failed:`, error?.message, "| cause:", error?.cause?.message || error?.cause?.code || error?.cause || "(none)");
       errors.push({
         providerId: provider.id,
         providerName: provider.name,
@@ -191,6 +192,7 @@ export async function initiateTelephonyCallWithFailover(payload) {
   }
 
   const message = errors[0]?.message || "No telephony providers are available.";
+  console.error("[telephony/router] All providers exhausted. Errors:", JSON.stringify(errors));
   logTelephony("error", "telephony.failover.exhausted", {
     message,
     errors,

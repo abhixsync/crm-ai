@@ -205,10 +205,12 @@ export async function POST(request) {
       task: "CALL_SCRIPT",
       payload: { customer: customerForAI, language: tenantLanguage, humanAdvisorName, companyName },
     });
+    console.log("[calls/trigger] AI output provider:", aiOutput?.provider?.name, "| hasScript:", !!aiOutput?.result?.script);
     const script = aiOutput.result.script;
 
     const baseUrl = process.env.APP_BASE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
     const callFlowDebug = buildCallFlowDebug(baseUrl);
+    console.log("[calls/trigger] baseUrl:", baseUrl, "| callbacksEnabled:", callFlowDebug.conversationalWebhookEnabled);
     const callbackUrl = callFlowDebug.conversationalWebhookEnabled
       ? signWebhookUrl(`${baseUrl}/api/calls/webhook?customerId=${customer.id}&callLogId=${callLog.id}&turn=0`, callLog.id)
       : undefined;
