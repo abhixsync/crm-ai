@@ -1,5 +1,6 @@
 import { AiProviderType, AiProviderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getCached, invalidateCache } from "@/lib/cache/api-cache";
 import { createOpenAIEngine } from "@/lib/ai/adapters/openai-adapter";
 import { createClaudeEngine } from "@/lib/ai/adapters/claude-adapter";
 import { createGroqEngine } from "@/lib/ai/adapters/groq-adapter";
@@ -17,6 +18,29 @@ registry.register(AiProviderType.DIALOGFLOW, createDialogflowEngine());
 registry.register(AiProviderType.RASA, createHttpEngine("rasa-engine"));
 registry.register(AiProviderType.GENERIC_HTTP, createHttpEngine("generic-http-engine"));
 registry.register(AiProviderType.GEMINI, createGeminiEngine());
+
+// ─── PROVIDER CACHE ─────────────────────────────────────
+const AI_PROVIDERS_KEY = "ai-providers:system";
+const AI_PROVIDERS_TTL = 300; // 5 min
+
+let _l1Providers = null;
+let _l1ExpiresAt = 0;
+
+function getL1() {
+  if (_l1Providers && _l1ExpiresAt > Date.now()) return _l1Providers;
+  _l1Providers = null;
+  return null;
+}
+
+function setL1(providers) {
+  _l1Providers = providers;
+  _l1ExpiresAt = Date.now() + AI_PROVIDERS_TTL * 1000;
+}
+
+export function invalidateAiProviderCache() {
+  _l1Providers = null;
+  invalidateCache(AI_PROVIDERS_KEY).catch(() => {});
+}
 
 function normalizeProvider(config) {
   return {
@@ -44,7 +68,7 @@ function sortProviders(providers) {
   });
 }
 
-async function resolveProviders() {
+async function fetchProvidersFromDb() {
   const configs = await prisma.aiProviderConfig.findMany({
     where: { status: { in: [AiProviderStatus.ACTIVE, AiProviderStatus.STANDBY] } },
   });
@@ -123,6 +147,15 @@ async function resolveProviders() {
   // If no env vars are set, return empty array.
   // runAIWithFailover handles this by throwing "No AI providers are available."
   return implicitProviders;
+}
+
+async function resolveProviders() {
+  const l1 = getL1();
+  if (l1) return l1;
+
+  const providers = await getCached(AI_PROVIDERS_KEY, AI_PROVIDERS_TTL, fetchProvidersFromDb);
+  setL1(providers);
+  return providers;
 }
 
 export async function getProviderFailoverOrder() {

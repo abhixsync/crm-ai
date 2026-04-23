@@ -1,8 +1,20 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { mapTelephonyStatus } from "@/lib/telephony/provider-router";
+import { finalizeCall } from "@/lib/calls/call-finalizer";
+import { publishEvent } from "@/lib/events/event-publisher";
+import { verifyWebhookSig } from "@/lib/telephony/webhook-auth";
 
 export async function POST(request) {
   try {
+    const url = new URL(request.url);
+    const callLogId = url.searchParams.get("callLogId");
+
+    // Verify HMAC sig if callLogId is in query params
+    if (callLogId && !verifyWebhookSig(url.searchParams, callLogId)) {
+      return new Response("Forbidden", { status: 403 });
+    }
+
     const formData = await request.formData();
     const callSid = String(formData.get("CallSid") || formData.get("Sid") || "").trim();
     const status = String(formData.get("Status") || formData.get("CallStatus") || "").trim();
@@ -38,6 +50,25 @@ export async function POST(request) {
         where: { id: callLog.id, tenantId: callLog.tenantId },
         data: updateData,
       });
+    }
+
+    const isTerminal = normalizedStatus === "COMPLETED" || normalizedStatus === "FAILED" || normalizedStatus === "NO_ANSWER";
+
+    if (isTerminal) {
+      // Publish event for real-time UI updates
+      if (callLog.tenantId) {
+        publishEvent(callLog.tenantId, {
+          type: "call:status",
+          payload: { callLogId: callLog.id, status: normalizedStatus },
+        }).catch(() => {});
+      }
+
+      // Trigger finalize on COMPLETED (non-blocking)
+      if (normalizedStatus === "COMPLETED") {
+        after(() =>
+          finalizeCall(callLog.id, callLog.customerId, callLog.tenantId, null, {}, 0)
+        );
+      }
     }
 
     return Response.json({ ok: true });

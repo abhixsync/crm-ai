@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getCached, invalidateCache } from "@/lib/cache/api-cache";
 
 const SESSION_TTL_DAYS = 7;
 
@@ -73,7 +74,7 @@ export async function updateSessionAfterCall(sessionId, { callLogId, turnCount, 
       }
     }
 
-    return await prisma.conversationSession.update({
+    const updated = await prisma.conversationSession.update({
       where: { id: sessionId },
       data: {
         lastCallId: callLogId || undefined,
@@ -87,6 +88,8 @@ export async function updateSessionAfterCall(sessionId, { callLogId, turnCount, 
         expiresAt,
       },
     });
+    await invalidateCache(`session-ctx:${session.tenantId || ""}:${session.customerId || ""}`).catch(() => {});
+    return updated;
   } catch (error) {
     console.warn("[session-manager] Failed to update session:", error.message);
     return null;
@@ -100,29 +103,31 @@ export async function updateSessionAfterCall(sessionId, { callLogId, turnCount, 
 export async function getSessionContext(tenantId, customerId) {
   if (!tenantId || !customerId) return {};
 
-  try {
-    const session = await prisma.conversationSession.findFirst({
-      where: {
-        tenantId,
-        customerId,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
+  return getCached(`session-ctx:${tenantId}:${customerId}`, 60, async () => {
+    try {
+      const session = await prisma.conversationSession.findFirst({
+        where: {
+          tenantId,
+          customerId,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { updatedAt: "desc" },
+      });
 
-    if (!session) return {};
+      if (!session) return {};
 
-    const context = (session.context && typeof session.context === "object") ? session.context : {};
+      const context = (session.context && typeof session.context === "object") ? session.context : {};
 
-    return {
-      sessionId: session.id,
-      previousCallSummary: session.summary || null,
-      extractedData: context.extractedData || {},
-      lastStage: context.lastStage || null,
-      turnCount: session.turnCount || 0,
-    };
-  } catch (error) {
-    console.warn("[session-manager] Failed to get session context:", error.message);
-    return {};
-  }
+      return {
+        sessionId: session.id,
+        previousCallSummary: session.summary || null,
+        extractedData: context.extractedData || {},
+        lastStage: context.lastStage || null,
+        turnCount: session.turnCount || 0,
+      };
+    } catch (error) {
+      console.warn("[session-manager] Failed to get session context:", error.message);
+      return {};
+    }
+  });
 }

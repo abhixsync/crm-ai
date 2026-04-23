@@ -1,5 +1,6 @@
 import { TelephonyProviderType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getCached, invalidateCache } from "@/lib/cache/api-cache";
 import { TELEPHONY_OPERATIONS } from "@/lib/telephony/telephony-contract";
 import { TelephonyRegistry } from "@/lib/telephony/telephony-registry";
 import { createTwilioAdapter } from "@/lib/telephony/adapters/twilio-adapter";
@@ -13,6 +14,29 @@ registry.register(TelephonyProviderType.TWILIO, createTwilioAdapter());
 registry.register(TelephonyProviderType.VONAGE, createVonageAdapter());
 registry.register(TelephonyProviderType.PLIVO, createPlivoAdapter());
 registry.register(TelephonyProviderType.EXOTEL, createExotelAdapter());
+
+// ─── PROVIDER CACHE ─────────────────────────────────────
+const TELE_PROVIDERS_KEY = "telephony-providers:system";
+const TELE_PROVIDERS_TTL = 300; // 5 min
+
+let _l1TelProviders = null;
+let _l1TelExpiresAt = 0;
+
+function getTelL1() {
+  if (_l1TelProviders && _l1TelExpiresAt > Date.now()) return _l1TelProviders;
+  _l1TelProviders = null;
+  return null;
+}
+
+function setTelL1(providers) {
+  _l1TelProviders = providers;
+  _l1TelExpiresAt = Date.now() + TELE_PROVIDERS_TTL * 1000;
+}
+
+export function invalidateTelephonyProviderCache() {
+  _l1TelProviders = null;
+  invalidateCache(TELE_PROVIDERS_KEY).catch(() => {});
+}
 
 function sortProviders(providers) {
   return [...providers].sort((left, right) => {
@@ -54,7 +78,7 @@ function normalizeProvider(config) {
   };
 }
 
-async function resolveProviders() {
+async function fetchTelephonyProvidersFromDb() {
   const configs = await prisma.telephonyProviderConfig.findMany({
     where: { enabled: true },
   });
@@ -83,6 +107,15 @@ async function resolveProviders() {
       },
     },
   ];
+}
+
+async function resolveProviders() {
+  const l1 = getTelL1();
+  if (l1) return l1;
+
+  const providers = await getCached(TELE_PROVIDERS_KEY, TELE_PROVIDERS_TTL, fetchTelephonyProvidersFromDb);
+  setTelL1(providers);
+  return providers;
 }
 
 async function callProvider(provider, payload) {

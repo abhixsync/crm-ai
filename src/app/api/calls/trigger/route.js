@@ -208,7 +208,7 @@ export async function POST(request) {
     const plivoCallbackUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/plivo/voice/callback?customerId=${customer.id}&callLogId=${callLog.id}&turn=1` : undefined;
 
     // Exotel webhook URLs
-    const exotelAnswerUrl = `${baseUrl}/api/exotel/voice/answer?customerId=${customer.id}&callLogId=${callLog.id}`;
+    const exotelAnswerUrl = signWebhookUrl(`${baseUrl}/api/exotel/voice/answer?customerId=${customer.id}&callLogId=${callLog.id}`, callLog.id);
     const exotelStatusUrl = callFlowDebug.statusCallbackEnabled ? `${baseUrl}/api/exotel/voice/events` : undefined;
 
     if (callFlowDebug.blockingReason) {
@@ -224,7 +224,7 @@ export async function POST(request) {
       to: customer.phone,
       script,
       fromNumber: process.env.TWILIO_CALLER_ID || process.env.TWILIO_FROM_NUMBER || undefined,
-      preferredProviderType: "TWILIO",
+      preferredProviderType: process.env.PREFERRED_TELEPHONY_PROVIDER || undefined,
       callbackUrl,
       statusCallbackUrl,
       vonageAnswerUrl,

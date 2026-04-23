@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getCached, invalidateCache } from "@/lib/cache/api-cache";
 import {
   AUTOMATION_DEFAULTS,
   AUTOMATION_EXECUTION_MODES,
@@ -64,10 +65,12 @@ function normalizeSettings(value = {}) {
 
 export async function getAutomationSettings(tenantId) {
   if (!tenantId) return normalizeSettings({});
-  const record = await prisma.automationSetting.findUnique({
-    where: { tenantId_key: { tenantId, key: SETTING_KEY } },
+  return getCached(`automation-settings:${tenantId}`, 60, async () => {
+    const record = await prisma.automationSetting.findUnique({
+      where: { tenantId_key: { tenantId, key: SETTING_KEY } },
+    });
+    return normalizeSettings(record?.value || {});
   });
-  return normalizeSettings(record?.value || {});
 }
 
 export async function upsertAutomationSettings(tenantId, partialSettings) {
@@ -81,6 +84,7 @@ export async function upsertAutomationSettings(tenantId, partialSettings) {
     update: { value: next },
   });
 
+  invalidateCache(`automation-settings:${tenantId}`).catch(() => {});
   return normalizeSettings(saved.value || {});
 }
 

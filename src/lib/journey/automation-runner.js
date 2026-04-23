@@ -74,11 +74,11 @@ export async function runAutomationBatch(tenantId = undefined) {
   const executionMode = resolveAutomationExecutionMode(settings);
 
   if (!settings.enabled) {
-    return { ok: false, status: 400, error: "AI automation is disabled." };
+    return { ok: true, data: { queued: 0, attempted: 0, skipped: true, reason: "automation_disabled" } };
   }
 
   if (!isWithinWorkingHours(settings)) {
-    return { ok: false, status: 400, error: "Outside configured working hours." };
+    return { ok: true, data: { queued: 0, attempted: 0, skipped: true, reason: "outside_working_hours" } };
   }
 
   const todayStart = new Date();
@@ -95,7 +95,7 @@ export async function runAutomationBatch(tenantId = undefined) {
   const remainingCap = Math.max(0, settings.dailyCap - todayAICalls);
 
   if (remainingCap <= 0) {
-    return { ok: false, status: 400, error: "Daily AI call cap reached." };
+    return { ok: true, data: { queued: 0, attempted: 0, skipped: true, reason: "daily_cap_reached", dailyCap: settings.dailyCap, usedToday: todayAICalls } };
   }
 
   const batchLimit = Math.min(settings.batchSize, remainingCap);

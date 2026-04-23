@@ -11,6 +11,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { getCached as getRedisCache, invalidateCache } from "@/lib/cache/api-cache";
 
 // ─── IN-PROCESS CACHE ────────────────────────────────────
 // 5-minute TTL per tenant. Keeps hot paths fast without Redis dep.
@@ -41,6 +42,7 @@ function setCache(tenantId, guard) {
 
 export function invalidatePlanGuardCache(tenantId) {
   guardCache.delete(tenantId);
+  invalidateCache(`plan-guard:${tenantId}`).catch(() => {});
 }
 
 // ─── LIMIT ERRORS ────────────────────────────────────────
@@ -231,7 +233,10 @@ export async function getPlanGuard(tenantId) {
   const cached = getCached(tenantId);
   if (cached) return cached;
 
-  const guard = await buildGuard(tenantId);
-  setCache(tenantId, guard);
+  // L2: Redis + DB
+  const guard = await getRedisCache(`plan-guard:${tenantId}`, 300, async () => {
+    return buildGuard(tenantId);
+  });
+  setCache(tenantId, guard); // also populate L1
   return guard;
 }

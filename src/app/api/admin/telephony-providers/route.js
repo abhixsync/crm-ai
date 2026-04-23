@@ -2,6 +2,7 @@ import { TelephonyProviderType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession, hasRole } from "@/lib/server/auth-guard";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";
+import { invalidateTelephonyProviderCache } from "@/lib/telephony/provider-router";
 
 function parseOptionalString(value) {
   const text = String(value || "").trim();
@@ -82,6 +83,7 @@ export async function POST(request) {
       });
     });
 
+    invalidateTelephonyProviderCache();
     return Response.json({ provider: created }, { status: 201 });
   } catch (error) {
     if (isDatabaseUnavailable(error)) {

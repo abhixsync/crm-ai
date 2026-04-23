@@ -8,6 +8,7 @@ import {
   GLOBAL_SYSTEM_PROMPT_KEY,
   getTenantSettings,
   getSystemPromptKeyForTenant,
+  invalidateSystemPromptCache,
 } from "@/lib/ai/system-prompt";
 
 function resolvePromptScope(session) {
@@ -159,6 +160,7 @@ export async function PUT(request) {
       });
     }
 
+    invalidateSystemPromptCache(auth.scope.tenantId);
     const editorPromptText = await buildEditorPromptText({ scope: auth.scope, row });
 
     return Response.json({
@@ -225,6 +227,7 @@ export async function POST(request) {
         });
       }
 
+      invalidateSystemPromptCache(auth.scope.tenantId);
       const editorPromptText = await buildEditorPromptText({ scope: auth.scope, row });
 
       return Response.json({
@@ -245,6 +248,7 @@ export async function POST(request) {
       where: { key: auth.scope.promptKey },
     });
 
+    invalidateSystemPromptCache(auth.scope.tenantId);
     const { row, inheritedFromGlobal } = await resolvePromptRowForScope(auth.scope);
     const editorPromptText = await buildEditorPromptText({ scope: auth.scope, row });
     const promptPayload = row

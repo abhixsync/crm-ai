@@ -265,8 +265,19 @@ async function seedAiProviders() {
 async function seedTelephonyProviders() {
   const providers = [
     {
-      name: "Twilio", type: TelephonyProviderType.TWILIO,
+      name: "Exotel", type: TelephonyProviderType.EXOTEL,
       priority: 1, enabled: true, isActive: true,
+      metadata: {
+        sid:      process.env.EXOTEL_SID        || null,
+        apiKey:   process.env.EXOTEL_API_KEY    || null,
+        apiToken: process.env.EXOTEL_API_TOKEN  || null,
+        callerId: process.env.EXOTEL_CALLER_ID  || null,
+        subdomain: process.env.EXOTEL_SUBDOMAIN || "api",
+      },
+    },
+    {
+      name: "Twilio", type: TelephonyProviderType.TWILIO,
+      priority: 2, enabled: true, isActive: false,
       metadata: {
         accountSid: process.env.TWILIO_ACCOUNT_SID || null,
         authToken:  process.env.TWILIO_AUTH_TOKEN  || null,
@@ -276,7 +287,7 @@ async function seedTelephonyProviders() {
     },
     {
       name: "Vonage", type: TelephonyProviderType.VONAGE,
-      priority: 2, enabled: true, isActive: false,
+      priority: 3, enabled: true, isActive: false,
       metadata: {
         applicationId: process.env.VONAGE_APPLICATION_ID || null,
         privateKey:    process.env.VONAGE_PRIVATE_KEY    || null,
@@ -285,21 +296,11 @@ async function seedTelephonyProviders() {
     },
     {
       name: "Plivo", type: TelephonyProviderType.PLIVO,
-      priority: 3, enabled: true, isActive: false,
+      priority: 4, enabled: true, isActive: false,
       metadata: {
         authId:    process.env.PLIVO_AUTH_ID    || null,
         authToken: process.env.PLIVO_AUTH_TOKEN || null,
         fromNumber: process.env.PLIVO_FROM_NUMBER || null,
-      },
-    },
-    {
-      name: "Exotel", type: TelephonyProviderType.EXOTEL,
-      priority: 4, enabled: true, isActive: false,
-      metadata: {
-        accountSid: null,
-        apiKey:     null,
-        apiToken:   null,
-        fromNumber: null,
       },
     },
   ];

@@ -32,7 +32,10 @@ function buildBasicAuth(apiKey, apiToken) {
 }
 
 async function initiateCall({ payload, config }) {
-  const { to, callbackUrl, statusCallbackUrl } = payload || {};
+  const { to, exotelAnswerUrl, exotelStatusUrl, callbackUrl, statusCallbackUrl } = payload || {};
+  // Prefer Exotel-specific URLs; fall back to generic ones
+  const answerUrl = exotelAnswerUrl || callbackUrl;
+  const statusUrl = exotelStatusUrl || statusCallbackUrl;
   const creds = resolveCredentials(config);
 
   if (!creds.sid || !creds.apiKey || !creds.apiToken || !creds.callerId) {
@@ -41,25 +44,21 @@ async function initiateCall({ payload, config }) {
 
   const normalizedTo = normalizePhoneNumber(to);
 
-  if (!callbackUrl) {
-    throw new Error("Exotel requires callbackUrl (Url) for call flow control.");
+  if (!answerUrl) {
+    throw new Error("Exotel requires an answer URL for call flow control.");
   }
 
   const baseUrl = `https://${creds.subdomain}.exotel.com/v1/Accounts/${creds.sid}/Calls/connect.json`;
 
   // Exotel uses form-encoded POST
+  // For outbound: From = callerId (ExoPhone), To = customer number
   const formBody = new URLSearchParams({
-    From: normalizedTo.replace("+", ""),
-    To: normalizedTo.replace("+", ""),
+    From: creds.callerId,
+    To: String(normalizedTo).replace("+", ""),
     CallerId: creds.callerId,
-    Url: callbackUrl,
-    ...(statusCallbackUrl ? { StatusCallback: statusCallbackUrl, StatusCallbackEvents: "terminal" } : {}),
+    Url: answerUrl,
+    ...(statusUrl ? { StatusCallback: statusUrl, StatusCallbackEvents: "terminal" } : {}),
   });
-
-  // Exotel: 'From' = customer number, 'To' = agent number or flow URL
-  // For outbound: From = callerId, To = customer
-  formBody.set("From", creds.callerId);
-  formBody.set("To", normalizedTo.replace("+", ""));
 
   const response = await fetch(baseUrl, {
     method: "POST",

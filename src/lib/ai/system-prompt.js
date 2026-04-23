@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getCached, invalidateCache } from "@/lib/cache/api-cache";
 
 const MAX_HISTORY_TURNS = 50;
 export const GLOBAL_SYSTEM_PROMPT_KEY = "default";
@@ -226,56 +227,65 @@ export async function getTenantSettings(tenantId) {
     return VALID_LANGUAGES.includes(key) ? key : "hinglish";
   }
 
-  try {
-    let tenant = null;
+  return getCached(`tenant-settings:${normalizedTenantId || "super-admin"}`, 300, async () => {
+    try {
+      let tenant = null;
 
-    if (normalizedTenantId) {
-      tenant = await prisma.tenant.findUnique({
-        where: { id: normalizedTenantId },
-        select: { loanAssistantLanguage: true, aiAgentName: true, loanAssistantHumanAdvisorName: true, loanAssistantCompanyName: true, name: true },
-      });
-    } else {
-      // If tenant context is missing, prefer the configured super-admin tenant defaults.
-      tenant = await prisma.tenant.findFirst({
-        where: { slug: "super-admin" },
-        select: { loanAssistantLanguage: true, aiAgentName: true, loanAssistantHumanAdvisorName: true, loanAssistantCompanyName: true, name: true },
-      });
-    }
+      if (normalizedTenantId) {
+        tenant = await prisma.tenant.findUnique({
+          where: { id: normalizedTenantId },
+          select: { loanAssistantLanguage: true, aiAgentName: true, loanAssistantHumanAdvisorName: true, loanAssistantCompanyName: true, name: true },
+        });
+      } else {
+        // If tenant context is missing, prefer the configured super-admin tenant defaults.
+        tenant = await prisma.tenant.findFirst({
+          where: { slug: "super-admin" },
+          select: { loanAssistantLanguage: true, aiAgentName: true, loanAssistantHumanAdvisorName: true, loanAssistantCompanyName: true, name: true },
+        });
+      }
 
-    const lang = normalizeLanguage(tenant?.loanAssistantLanguage);
-    // humanAdvisorName = the real human who calls back after qualification
-    const humanAdvisorName = String(tenant?.loanAssistantHumanAdvisorName || "").trim() || DEFAULT_HUMAN_ADVISOR_NAME;
-    // agentName = the AI agent's own name (what it introduces itself as on the call)
-    const agentName = String(tenant?.aiAgentName || "").trim() || humanAdvisorName;
-    const companyName = String(tenant?.loanAssistantCompanyName || tenant?.name || "").trim() || null;
-    const source = normalizedTenantId ? "explicit_tenant_id" : "super_admin_fallback";
+      const lang = normalizeLanguage(tenant?.loanAssistantLanguage);
+      // humanAdvisorName = the real human who calls back after qualification
+      const humanAdvisorName = String(tenant?.loanAssistantHumanAdvisorName || "").trim() || DEFAULT_HUMAN_ADVISOR_NAME;
+      // agentName = the AI agent's own name (what it introduces itself as on the call)
+      const agentName = String(tenant?.aiAgentName || "").trim() || humanAdvisorName;
+      const companyName = String(tenant?.loanAssistantCompanyName || tenant?.name || "").trim() || null;
+      const source = normalizedTenantId ? "explicit_tenant_id" : "super_admin_fallback";
 
-    console.log(
-      "[getTenantSettings]",
-      JSON.stringify({
-        requestedTenantId: tenantId ?? null,
-        normalizedTenantId: normalizedTenantId || null,
-        source,
-        resolvedLanguage: lang,
+      console.log(
+        "[getTenantSettings]",
+        JSON.stringify({
+          requestedTenantId: tenantId ?? null,
+          normalizedTenantId: normalizedTenantId || null,
+          source,
+          resolvedLanguage: lang,
+          agentName,
+          humanAdvisorName,
+          companyName: companyName ?? null,
+        })
+      );
+
+      return {
+        language: lang,
         agentName,
         humanAdvisorName,
-        companyName: companyName ?? null,
-      })
-    );
-
-    return {
-      language: lang,
-      agentName,
-      humanAdvisorName,
-      companyName,
-    };
-  } catch {
-    return { language: "hinglish", agentName: DEFAULT_HUMAN_ADVISOR_NAME, humanAdvisorName: DEFAULT_HUMAN_ADVISOR_NAME, companyName: null };
-  }
+        companyName,
+      };
+    } catch {
+      return { language: "hinglish", agentName: DEFAULT_HUMAN_ADVISOR_NAME, humanAdvisorName: DEFAULT_HUMAN_ADVISOR_NAME, companyName: null };
+    }
+  });
 }
 
 function injectAdvisorName(prompt, advisorName) {
   return prompt.replace(/\{HUMAN_ADVISOR_NAME\}/g, advisorName);
+}
+
+/** Bust the system-prompt cache for a tenant (or global) after a prompt update. */
+export function invalidateSystemPromptCache(tenantId) {
+  const keys = ["system-prompt:global"];
+  if (tenantId) keys.push(`system-prompt:${tenantId}`);
+  invalidateCache(...keys).catch(() => {});
 }
 
 /**
@@ -283,35 +293,39 @@ function injectAdvisorName(prompt, advisorName) {
  * Injects the correct LANGUAGE RULES block based on tenant language setting
  * and replaces {HUMAN_ADVISOR_NAME} with the tenant's configured advisor name.
  * Falls back to the hardcoded default if none exists.
+ * Cached 5 min per tenant — invalidated on prompt save/reset.
  */
 export async function getActiveSystemPrompt(tenantId) {
-  const { language, humanAdvisorName } = await getTenantSettings(tenantId);
-  console.log('[getActiveSystemPrompt] tenantId:', tenantId, 'language:', language, 'humanAdvisorName:', humanAdvisorName);
-  const [tenantKey, globalKey] = getSystemPromptLookupKeys(tenantId);
+  const cacheKey = `system-prompt:${tenantId || "global"}`;
+  return getCached(cacheKey, 300, async () => {
+    const { language, humanAdvisorName } = await getTenantSettings(tenantId);
+    console.log('[getActiveSystemPrompt] tenantId:', tenantId, 'language:', language, 'humanAdvisorName:', humanAdvisorName);
+    const [tenantKey, globalKey] = getSystemPromptLookupKeys(tenantId);
 
-  try {
-    const tenantScopedRow = await prisma.aiSystemPrompt.findFirst({
-      where: { key: tenantKey, isActive: true },
-      orderBy: { updatedAt: "desc" },
-    });
-    const row = tenantScopedRow || (
-      globalKey
-        ? await prisma.aiSystemPrompt.findFirst({
-            where: { key: globalKey, isActive: true },
-            orderBy: { updatedAt: "desc" },
-          })
-        : null
-    );
+    try {
+      const tenantScopedRow = await prisma.aiSystemPrompt.findFirst({
+        where: { key: tenantKey, isActive: true },
+        orderBy: { updatedAt: "desc" },
+      });
+      const row = tenantScopedRow || (
+        globalKey
+          ? await prisma.aiSystemPrompt.findFirst({
+              where: { key: globalKey, isActive: true },
+              orderBy: { updatedAt: "desc" },
+            })
+          : null
+      );
 
-    if (row?.prompt) {
-      const result = applyLanguageRulesToPrompt(row.prompt, language);
-      return injectAdvisorName(result, humanAdvisorName);
+      if (row?.prompt) {
+        const result = applyLanguageRulesToPrompt(row.prompt, language);
+        return injectAdvisorName(result, humanAdvisorName);
+      }
+
+      return injectAdvisorName(buildDefaultSystemPrompt(language), humanAdvisorName);
+    } catch {
+      return injectAdvisorName(buildDefaultSystemPrompt(language), humanAdvisorName);
     }
-
-    return injectAdvisorName(buildDefaultSystemPrompt(language), humanAdvisorName);
-  } catch {
-    return injectAdvisorName(buildDefaultSystemPrompt(language), humanAdvisorName);
-  }
+  });
 }
 
 /**
@@ -453,11 +467,13 @@ export async function buildUnifiedCallTurnPrompt({
   try {
     const trainingTenantId = resolvedTenantId;
     if (trainingTenantId) {
-      const trainingPhrases = await prisma.intentTrainingPhrase.findMany({
-        where: { tenantId: trainingTenantId, isActive: true },
-        take: 30,
-        orderBy: { createdAt: "desc" },
-      });
+      const trainingPhrases = await getCached(`intent-phrases:${trainingTenantId}`, 300, () =>
+        prisma.intentTrainingPhrase.findMany({
+          where: { tenantId: trainingTenantId, isActive: true },
+          take: 30,
+          orderBy: { createdAt: "desc" },
+        })
+      );
       if (trainingPhrases.length > 0) {
         parts.push("");
         parts.push("INTENT CLASSIFICATION EXAMPLES (from training data):");
