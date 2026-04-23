@@ -18,11 +18,11 @@ function resolveCredentials(config) {
   const apiKeyJson = parseJsonSafe(config?.apiKey) || {};
 
   const creds = {
-    sid: String(metadata.sid || apiKeyJson.sid || process.env.EXOTEL_SID || "").trim(),
-    apiKey: String(metadata.apiKey || apiKeyJson.apiKey || process.env.EXOTEL_API_KEY || "").trim(),
-    apiToken: String(metadata.apiToken || apiKeyJson.apiToken || process.env.EXOTEL_API_TOKEN || "").trim(),
-    callerId: String(metadata.callerId || metadata.fromNumber || apiKeyJson.callerId || process.env.EXOTEL_CALLER_ID || "").trim(),
-    subdomain: String(metadata.subdomain || apiKeyJson.subdomain || process.env.EXOTEL_SUBDOMAIN || "api").trim(),
+    sid:       String(process.env.EXOTEL_SID        || metadata.sid       || apiKeyJson.sid       || "").trim(),
+    apiKey:    String(process.env.EXOTEL_API_KEY    || metadata.apiKey    || apiKeyJson.apiKey    || "").trim(),
+    apiToken:  String(process.env.EXOTEL_API_TOKEN  || metadata.apiToken  || apiKeyJson.apiToken  || "").trim(),
+    callerId:  String(process.env.EXOTEL_CALLER_ID  || metadata.callerId  || metadata.fromNumber  || apiKeyJson.callerId || "").trim(),
+    subdomain: String(process.env.EXOTEL_SUBDOMAIN  || metadata.subdomain || apiKeyJson.subdomain || "api").trim(),
   };
   console.log("[exotel] resolveCredentials →", {
     hasSid: !!creds.sid,
