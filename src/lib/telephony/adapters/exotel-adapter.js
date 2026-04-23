@@ -68,7 +68,7 @@ async function initiateCall({ payload, config }) {
     To: String(normalizedTo).replace("+", ""),
     CallerId: creds.callerId,
     Url: answerUrl,
-    ...(statusUrl ? { StatusCallback: statusUrl, StatusCallbackEvents: "terminal" } : {}),
+    ...(statusUrl ? { StatusCallback: statusUrl } : {}),
   });
 
   console.log("[exotel/initiateCall] URL:", baseUrl);
