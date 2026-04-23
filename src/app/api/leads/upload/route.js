@@ -102,8 +102,23 @@ export async function POST(request) {
     return Response.json({ error: "File is required" }, { status: 400 });
   }
 
-  const bytes = await file.arrayBuffer();
-  const rows = parseCustomerExcel(Buffer.from(bytes));
+  const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+  if (file.size > MAX_FILE_BYTES) {
+    return Response.json({ error: "File too large. Maximum upload size is 5 MB." }, { status: 400 });
+  }
+
+  let rows;
+  try {
+    const bytes = await file.arrayBuffer();
+    rows = parseCustomerExcel(Buffer.from(bytes));
+  } catch {
+    return Response.json({ error: "Invalid file format. Please upload a valid Excel (.xlsx) or CSV file." }, { status: 400 });
+  }
+
+  const MAX_ROWS = 5000;
+  if (rows.length > MAX_ROWS) {
+    return Response.json({ error: `File contains too many rows (${rows.length}). Maximum allowed is ${MAX_ROWS}.` }, { status: 400 });
+  }
 
   let successRows = 0;
   let failedRows = 0;

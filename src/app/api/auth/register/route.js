@@ -65,7 +65,11 @@ export async function POST(request) {
     const safeBase = isReservedSlug(base) ? `${base}-crm` : base;
     const slug = await ensureUniqueSlug(prisma, safeBase);
 
-    let verifyToken;
+    // Hash password and generate token BEFORE opening the transaction so
+    // bcrypt's CPU work (~100 ms) does not hold the DB connection open.
+    const passwordHash = await bcrypt.hash(password, 12);
+    const verifyToken = randomBytes(32).toString("hex");
+
     const { tenant, user } = await prisma.$transaction(async (tx) => {
       const existingUser = await tx.user.findFirst({ where: { email } });
       if (existingUser) {
@@ -77,9 +81,6 @@ export async function POST(request) {
       const tenant = await tx.tenant.create({
         data: { name: company, slug, isActive: true },
       });
-
-      const passwordHash = await bcrypt.hash(password, 12);
-      verifyToken = randomBytes(32).toString("hex");
 
       const user = await tx.user.create({
         data: {

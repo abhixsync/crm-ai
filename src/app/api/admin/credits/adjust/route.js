@@ -14,6 +14,11 @@ export async function POST(req) {
     return NextResponse.json({ error: "tenantId, amount, and reason are required" }, { status: 400 });
   }
 
-  await adjustCredits(tenantId, Number(amount), reason);
+  const parsedAmount = Number(amount);
+  if (!isFinite(parsedAmount) || isNaN(parsedAmount)) {
+    return NextResponse.json({ error: "amount must be a finite number" }, { status: 400 });
+  }
+
+  await adjustCredits(tenantId, parsedAmount, reason);
   return NextResponse.json({ success: true });
 }
