@@ -19,6 +19,11 @@ export async function PATCH(request, { params }) {
     }
 
     const payload = await request.json();
+
+    if (!tenant.isSuperAdmin && String(payload?.baseRole || "").trim().toUpperCase() === "SUPER_ADMIN") {
+      return Response.json({ error: "Cannot assign SUPER_ADMIN base role." }, { status: 400 });
+    }
+
     const role = await updateRoleDefinition(roleId, payload, auth.session.user.id, tenant.tenantId);
     return Response.json({ role });
   } catch (error) {

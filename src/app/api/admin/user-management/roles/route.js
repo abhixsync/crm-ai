@@ -38,6 +38,11 @@ export async function POST(request) {
   try {
     const tenant = getTenantContext(auth.session, request);
     const payload = await request.json();
+
+    if (!tenant.isSuperAdmin && String(payload?.baseRole || "").trim().toUpperCase() === "SUPER_ADMIN") {
+      return Response.json({ error: "Cannot create a role with SUPER_ADMIN base role." }, { status: 400 });
+    }
+
     const role = await createRoleDefinition(payload, auth.session.user.id, tenant.tenantId);
     return Response.json({ role }, { status: 201 });
   } catch (error) {
