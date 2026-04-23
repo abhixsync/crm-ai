@@ -1,4 +1,4 @@
-import { CallStatus, CallMode } from "@prisma/client";
+import { CallStatus, CallMode, CustomerStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { getPlanGuard, isPlanLimitError, planLimitResponse } from "@/lib/subscription/plan-guard";
@@ -100,6 +100,21 @@ export async function POST(request) {
 
     if (!customer) {
       return Response.json({ error: "Customer not found" }, { status: 404 });
+    }
+
+    // DNC check — block calls to customers who opted out or are in the registry
+    if (customer.status === CustomerStatus.DO_NOT_CALL) {
+      return Response.json({ error: "Customer is on the Do Not Call list" }, { status: 422 });
+    }
+    const dncEntry = await prisma.dncRegistry.findFirst({
+      where: {
+        tenantId: customer.tenantId,
+        phone: customer.phone,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+    });
+    if (dncEntry) {
+      return Response.json({ error: "Customer phone is in the Do Not Call registry" }, { status: 422 });
     }
 
     // Atomic lock: only succeeds if inActiveCall is currently false
