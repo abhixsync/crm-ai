@@ -17,13 +17,22 @@ function resolveCredentials(config) {
   const metadata = config?.metadata || {};
   const apiKeyJson = parseJsonSafe(config?.apiKey) || {};
 
-  return {
+  const creds = {
     sid: String(metadata.sid || apiKeyJson.sid || process.env.EXOTEL_SID || "").trim(),
     apiKey: String(metadata.apiKey || apiKeyJson.apiKey || process.env.EXOTEL_API_KEY || "").trim(),
     apiToken: String(metadata.apiToken || apiKeyJson.apiToken || process.env.EXOTEL_API_TOKEN || "").trim(),
-    callerId: String(metadata.callerId || apiKeyJson.callerId || process.env.EXOTEL_CALLER_ID || "").trim(),
+    callerId: String(metadata.callerId || metadata.fromNumber || apiKeyJson.callerId || process.env.EXOTEL_CALLER_ID || "").trim(),
     subdomain: String(metadata.subdomain || apiKeyJson.subdomain || process.env.EXOTEL_SUBDOMAIN || "api").trim(),
   };
+  console.log("[exotel] resolveCredentials →", {
+    hasSid: !!creds.sid,
+    hasApiKey: !!creds.apiKey,
+    hasApiToken: !!creds.apiToken,
+    hasCallerId: !!creds.callerId,
+    subdomain: creds.subdomain,
+    source: metadata.sid ? "metadata" : apiKeyJson.sid ? "apiKeyJson" : process.env.EXOTEL_SID ? "env" : "MISSING",
+  });
+  return creds;
 }
 
 function buildBasicAuth(apiKey, apiToken) {

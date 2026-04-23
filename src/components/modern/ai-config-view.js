@@ -127,27 +127,49 @@ function ProviderEditModal({ provider, onClose, onSave }) {
 }
 
 function TelephonyEditModal({ provider, onClose, onSave }) {
+  const isExotel = String(provider?.type || "").toUpperCase() === "EXOTEL";
+
+  // Parse existing Exotel JSON credentials stored in apiKey field for pre-fill
+  const existingCreds = (() => {
+    try { return JSON.parse(provider?.apiKey || "{}"); } catch { return {}; }
+  })();
+
   const [form, setForm] = useState({
     name: provider?.name || "",
     isActive: provider?.isActive ?? false,
     enabled: provider?.enabled ?? true,
+    // Generic (Twilio / Vonage / Plivo)
     accountSid: "",
     authToken: "",
-    fromNumber: provider?.fromNumber || "",
+    fromNumber: provider?.metadata?.fromNumber || "",
+    // Exotel-specific — pre-fill from existing stored JSON
+    exotelSid: existingCreds.sid || "",
+    exotelApiKey: existingCreds.apiKey || "",
+    exotelApiToken: existingCreds.apiToken || "",
+    exotelCallerId: existingCreds.callerId || provider?.metadata?.callerId || "",
+    exotelSubdomain: existingCreds.subdomain || provider?.metadata?.subdomain || "api",
   });
   const [saving, setSaving] = useState(false);
 
   async function save() {
     setSaving(true);
     try {
-      const body = {
-        name: form.name,
-        isActive: form.isActive,
-        enabled: form.enabled,
-        fromNumber: form.fromNumber || undefined,
-      };
-      if (form.accountSid.trim()) body.accountSid = form.accountSid.trim(); // eslint-disable-line
-      if (form.authToken.trim()) body.authToken = form.authToken.trim();
+      const body = { name: form.name, isActive: form.isActive, enabled: form.enabled };
+
+      if (isExotel) {
+        // Merge new values on top of existing stored credentials (blank = keep existing)
+        const creds = { ...existingCreds };
+        if (form.exotelSid.trim()) creds.sid = form.exotelSid.trim();
+        if (form.exotelApiKey.trim()) creds.apiKey = form.exotelApiKey.trim();
+        if (form.exotelApiToken.trim()) creds.apiToken = form.exotelApiToken.trim();
+        if (form.exotelCallerId.trim()) creds.callerId = form.exotelCallerId.trim();
+        if (form.exotelSubdomain.trim()) creds.subdomain = form.exotelSubdomain.trim();
+        body.apiKey = JSON.stringify(creds);
+      } else {
+        if (form.fromNumber) body.metadata = { ...(provider?.metadata || {}), fromNumber: form.fromNumber };
+        // Twilio/Vonage/Plivo: adapter reads config.apiKey as the auth token
+        if (form.authToken.trim()) body.apiKey = form.authToken.trim();
+      }
 
       const url = provider?.id
         ? `/api/admin/telephony-providers/${provider.id}`
@@ -172,6 +194,20 @@ function TelephonyEditModal({ provider, onClose, onSave }) {
     }
   }
 
+  const exotelFields = [
+    ["exotelSid", "Account SID (blank = keep existing)", "password"],
+    ["exotelApiKey", "API Key (blank = keep existing)", "password"],
+    ["exotelApiToken", "API Token (blank = keep existing)", "password"],
+    ["exotelCallerId", "ExoPhone / Caller ID (e.g. 0XXXXXXXXXX)", "text"],
+    ["exotelSubdomain", "Subdomain (default: api)", "text"],
+  ];
+
+  const genericFields = [
+    ["fromNumber", "From Number (e.g. +91XXXXXXXXXX)", "text"],
+    ["accountSid", "Account SID / Key ID (leave blank to keep)", "password"],
+    ["authToken", "Auth Token / Secret (leave blank to keep)", "password"],
+  ];
+
   return (
     <div className="ms-modal-overlay"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -181,12 +217,11 @@ function TelephonyEditModal({ provider, onClose, onSave }) {
           <button className="ms-btn" style={{ padding: "2px 8px" }} onClick={onClose}>✕</button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {[
-            ["name", "Display Name", "text"],
-            ["fromNumber", "From Number (e.g. +91XXXXXXXXXX)", "text"],
-            ["accountSid", "Account SID / Key ID (leave blank to keep)", "password"],
-            ["authToken", "Auth Token / Secret (leave blank to keep)", "password"],
-          ].map(([key, label, type]) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: 12, color: "var(--ms-text2)" }}>Display Name</label>
+            <input className="ms-input" type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
+          {(isExotel ? exotelFields : genericFields).map(([key, label, type]) => (
             <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label style={{ fontSize: 12, color: "var(--ms-text2)" }}>{label}</label>
               <input className="ms-input" type={type} value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} />

@@ -45,6 +45,7 @@ function buildCallFlowDebug(baseUrl) {
 }
 
 export async function POST(request) {
+  console.log("[calls/trigger] POST received");
   const auth = await requireSession();
 
   if (auth.error) return auth.error;
@@ -53,18 +54,33 @@ export async function POST(request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { customerId } = await request.json();
+  let customerId;
+  try {
+    ({ customerId } = await request.json());
+  } catch (err) {
+    console.error("[calls/trigger] Failed to parse request body:", err?.message);
+    return Response.json({ error: "Invalid request body" }, { status: 400 });
+  }
 
   if (!customerId) {
     return Response.json({ error: "customerId is required" }, { status: 400 });
   }
 
-  const tenant = getTenantContext(auth.session, request);
+  let tenant;
+  try {
+    tenant = getTenantContext(auth.session, request);
+  } catch (err) {
+    console.error("[calls/trigger] getTenantContext failed:", err?.message);
+    return Response.json({ error: "Unable to resolve tenant" }, { status: 400 });
+  }
   const { tenantId } = tenant;
+  console.log("[calls/trigger] tenantId:", tenantId, "customerId:", customerId);
+
   try {
     const guard = await getPlanGuard(tenantId);
     guard.assertHasFeature("hasAiCalling");
   } catch (err) {
+    console.error("[calls/trigger] Plan guard error:", err?.message, "isPlanLimit:", isPlanLimitError(err));
     if (isPlanLimitError(err)) return planLimitResponse(err);
     throw err;
   }
