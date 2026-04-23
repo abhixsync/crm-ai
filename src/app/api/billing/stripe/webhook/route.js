@@ -111,8 +111,11 @@ export async function POST(req) {
           },
         });
 
-        // Record invoice
-        await prisma.subscriptionInvoice.create({
+        // Record invoice — skip on retry (externalInvoiceId dedup)
+        const existingInvoice = invoice.id
+          ? await prisma.subscriptionInvoice.findFirst({ where: { externalInvoiceId: invoice.id } })
+          : null;
+        if (!existingInvoice) await prisma.subscriptionInvoice.create({
           data: {
             subscriptionId:    sub.id,
             tenantId:          sub.tenantId,

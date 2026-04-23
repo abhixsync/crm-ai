@@ -36,7 +36,7 @@ vi.mock("@/modules/theme/theme.service", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     tenantSubscription: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn() },
-    subscriptionInvoice: { create: vi.fn() },
+    subscriptionInvoice: { create: vi.fn(), findFirst: vi.fn() },
     user: { findFirst: vi.fn() },
     creditPack: { findUnique: vi.fn() },
   },
@@ -98,6 +98,7 @@ beforeEach(() => {
   prisma.tenantSubscription.update.mockResolvedValue({});
   prisma.tenantSubscription.updateMany.mockResolvedValue({ count: 1 });
   prisma.tenantSubscription.findUnique.mockResolvedValue(makeDbSub());
+  prisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
   prisma.subscriptionInvoice.create.mockResolvedValue({});
   prisma.user.findFirst.mockResolvedValue({ email: "owner@example.com", name: "Alice" });
   prisma.creditPack.findUnique.mockResolvedValue({ id: PACK_ID, name: "Starter Pack", credits: 100, bonusCredits: 20 });

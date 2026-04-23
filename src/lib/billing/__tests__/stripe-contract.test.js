@@ -11,6 +11,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     subscriptionInvoice: {
       create: vi.fn(),
+      findFirst: vi.fn(),
     },
     user: {
       findFirst: vi.fn(),
@@ -224,6 +225,7 @@ beforeEach(() => {
   // Default: prisma finds the matching DB subscription
   prisma.tenantSubscription.findFirst.mockResolvedValue(makeDbSub());
   prisma.tenantSubscription.update.mockResolvedValue({});
+  prisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
   prisma.subscriptionInvoice.create.mockResolvedValue({});
   prisma.user.findFirst.mockResolvedValue(null); // email notifications skipped by default
 });

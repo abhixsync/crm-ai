@@ -24,6 +24,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     subscriptionInvoice: {
       create: vi.fn(),
+      findFirst: vi.fn(),
     },
     user: {
       findFirst: vi.fn(),
@@ -195,6 +196,7 @@ beforeEach(() => {
   prisma.tenantSubscription.findFirst.mockResolvedValue(null);
   prisma.tenantSubscription.update.mockResolvedValue({});
   prisma.tenantSubscription.updateMany.mockResolvedValue({ count: 1 });
+  prisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
   prisma.subscriptionInvoice.create.mockResolvedValue({});
   prisma.user.findFirst.mockResolvedValue(null);
   prisma.inAppNotification.create.mockResolvedValue({});
