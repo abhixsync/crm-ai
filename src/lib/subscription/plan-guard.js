@@ -233,10 +233,10 @@ export async function getPlanGuard(tenantId) {
   const cached = getCached(tenantId);
   if (cached) return cached;
 
-  // L2: Redis + DB
-  const guard = await getRedisCache(`plan-guard:${tenantId}`, 300, async () => {
-    return buildGuard(tenantId);
-  });
-  setCache(tenantId, guard); // also populate L1
+  // NOTE: do NOT use Redis here — the guard object contains non-serialisable
+  // methods that JSON.parse would strip, causing "assertHasFeature is not a
+  // function" on the next invocation that reads from Redis cache.
+  const guard = await buildGuard(tenantId);
+  setCache(tenantId, guard);
   return guard;
 }
