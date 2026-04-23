@@ -319,7 +319,7 @@ export async function releaseStaleReserves() {
       creditsCharged: null,
       reservedAt: { lt: cutoff },
     },
-    select: { id: true, tenantId: true },
+    select: { id: true, tenantId: true, customerId: true },
   });
 
   for (const log of staleLogs) {
@@ -327,6 +327,20 @@ export async function releaseStaleReserves() {
     await settleCredits(log.tenantId, log.id, 0).catch((err) => {
       console.error(`[releaseStaleReserves] failed for callLog ${log.id}:`, err);
     });
+
+    // Mark call log as FAILED so it doesn't stay in INITIATED forever
+    await prisma.callLog.updateMany({
+      where: { id: log.id, status: { not: "COMPLETED" } },
+      data: { status: "FAILED", errorReason: "stale_reserve_timeout", endedAt: new Date() },
+    }).catch(() => {});
+
+    // Release the inActiveCall lock for this customer
+    if (log.customerId) {
+      await prisma.customer.updateMany({
+        where: { id: log.customerId, tenantId: log.tenantId },
+        data: { inActiveCall: false },
+      }).catch(() => {});
+    }
   }
 }
 
