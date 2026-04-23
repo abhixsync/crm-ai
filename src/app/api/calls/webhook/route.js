@@ -136,18 +136,17 @@ export async function POST(request) {
     const turn = Number(url.searchParams.get("turn") || "0");
     const failedAttempts = Number(url.searchParams.get("failedAttempts") || "0");
 
-    // Verify webhook signature and callLogId existence
-    if (callLogId) {
-      if (!verifyWebhookSig(url.searchParams, callLogId)) {
-        return new Response("Forbidden", { status: 403 });
-      }
-      const exists = await prisma.callLog.findFirst({
-        where: { id: callLogId },
-        select: { id: true },
-      });
-      if (!exists) {
-        return new Response("Not Found", { status: 404 });
-      }
+    // Require callLogId — every legitimate Twilio callback includes it
+    if (!callLogId) return new Response("Forbidden", { status: 403 });
+    if (!verifyWebhookSig(url.searchParams, callLogId)) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    const exists = await prisma.callLog.findFirst({
+      where: { id: callLogId },
+      select: { id: true },
+    });
+    if (!exists) {
+      return new Response("Not Found", { status: 404 });
     }
 
     const formData = await request.formData();
