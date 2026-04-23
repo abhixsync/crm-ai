@@ -10,7 +10,8 @@ function validateStatus(s) {
 function parseFinancial(v) {
   if (v == null || v === "") return null;
   const n = Number(v);
-  return isNaN(n) ? null : n;
+  if (isNaN(n) || !isFinite(n) || n < 0) return null;
+  return n;
 }
 import { enqueueCustomerIfEligible } from "@/lib/journey/enqueue-service";
 import { databaseUnavailableResponse, isDatabaseUnavailable } from "@/lib/server/database-error";

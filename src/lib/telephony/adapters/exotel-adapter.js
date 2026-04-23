@@ -137,8 +137,9 @@ async function checkConnection({ config }) {
     throw new Error("Exotel sid/apiKey/apiToken missing.");
   }
 
+  const checkHost = creds.subdomain.includes(".") ? creds.subdomain : `${creds.subdomain}.exotel.com`;
   const response = await fetch(
-    `https://${creds.subdomain}.exotel.com/v1/Accounts/${creds.sid}.json`,
+    `https://${checkHost}/v1/Accounts/${creds.sid}.json`,
     {
       method: "GET",
       headers: {

@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 function parseFinancial(v) {
   if (v == null || v === "") return null;
   const n = Number(v);
-  return isNaN(n) ? null : n;
+  if (isNaN(n) || !isFinite(n) || n < 0) return null;
+  return n;
 }
 import { getTenantContext, requireSession, hasRole } from "@/lib/server/auth-guard";
 import { applyCustomerTransition } from "@/lib/journey/transition-service";

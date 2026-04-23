@@ -127,8 +127,13 @@ export async function POST(request) {
   const turn = Number(url.searchParams.get("turn") || "1");
   const failedAttempts = Number(url.searchParams.get("failedAttempts") || "0");
 
+  // Require callLogId — all legitimate Exotel callbacks carry it (injected by answer/callback routes)
+  if (!callLogId) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
   // Verify HMAC sig
-  if (callLogId && !verifyWebhookSig(url.searchParams, callLogId)) {
+  if (!verifyWebhookSig(url.searchParams, callLogId)) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -270,6 +275,6 @@ export async function POST(request) {
   }
 }
 
-export async function GET(request) {
-  return POST(request);
+export async function GET() {
+  return new Response("Method Not Allowed", { status: 405 });
 }

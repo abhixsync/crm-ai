@@ -42,6 +42,22 @@ vi.mock("@/lib/server/database-error", () => ({
   ),
 }));
 
+vi.mock("@/lib/subscription/plan-guard", () => ({
+  getPlanGuard: vi.fn(async () => ({
+    plan: "PRO",
+    status: "ACTIVE",
+    features: { hasWebhooks: true },
+    limits: {},
+    assertHasFeature: vi.fn(),
+    assertCanAddCustomer: vi.fn(),
+    assertCanAddUser: vi.fn(),
+    assertCanUploadLeads: vi.fn(),
+    toClientSummary: vi.fn(() => ({ plan: "PRO", status: "ACTIVE" })),
+  })),
+  isPlanLimitError: vi.fn(() => false),
+  planLimitResponse: vi.fn(() => Response.json({ error: "plan_limit" }, { status: 402 })),
+}));
+
 // ─── Imports ──────────────────────────────────────────────────────────────────
 
 import { prisma }          from "@/lib/prisma";
