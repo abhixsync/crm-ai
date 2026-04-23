@@ -82,7 +82,8 @@ export async function POST(request) {
   } catch (err) {
     console.error("[calls/trigger] Plan guard error:", err?.message, "isPlanLimit:", isPlanLimitError(err));
     if (isPlanLimitError(err)) return planLimitResponse(err);
-    throw err;
+    if (isDatabaseUnavailable(err)) return databaseUnavailableResponse();
+    return Response.json({ error: "Service temporarily unavailable. Please try again." }, { status: 503 });
   }
 
   let customer;

@@ -80,6 +80,8 @@ async function initiateCall({ payload, config }) {
 
   let response;
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
     response = await fetch(baseUrl, {
       method: "POST",
       headers: {
@@ -87,10 +89,13 @@ async function initiateCall({ payload, config }) {
         Authorization: buildBasicAuth(creds.apiKey, creds.apiToken),
       },
       body: formBody.toString(),
-    });
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
   } catch (fetchErr) {
-    console.error("[exotel/initiateCall] fetch() threw:", fetchErr?.message, "| cause:", fetchErr?.cause?.message || fetchErr?.cause?.code || fetchErr?.cause);
-    throw fetchErr;
+    const causeMsg = fetchErr?.cause?.message || fetchErr?.cause?.code || String(fetchErr?.cause || "");
+    const detail = fetchErr?.name === "AbortError" ? "timed out after 12s" : (causeMsg || fetchErr?.message);
+    console.error("[exotel/initiateCall] fetch() threw:", fetchErr?.message, "| cause:", causeMsg || "(none)");
+    throw new Error(`Exotel API unreachable: ${detail}. Check EXOTEL_* env vars and Exotel IP whitelist settings.`);
   }
 
   console.log("[exotel/initiateCall] HTTP status:", response.status, response.statusText);
